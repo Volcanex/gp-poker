@@ -1,32 +1,34 @@
 /* Deterministic, provably-fair shuffle. The deck for a hand is fully
    determined by its seed: same seed always yields the same 52-card order. */
 
-import { createHash, createHmac, randomBytes } from 'node:crypto';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { hmac } from '@noble/hashes/hmac.js';
+import { bytesToHex, hexToBytes, randomBytes } from '@noble/hashes/utils.js';
 import type { Card } from '@opentable/protocol';
 
 const RANKS = '23456789TJQKA';
 const SUITS = ['c', 'd', 'h', 's'] as const;
 
 export function newSeed(): string {
-  return randomBytes(32).toString('hex');
+  return bytesToHex(randomBytes(32));
 }
 
 export function seedHash(seed: string): string {
-  return createHash('sha256').update(Buffer.from(seed, 'hex')).digest('hex');
+  return bytesToHex(sha256(hexToBytes(seed)));
 }
 
 /* HMAC-SHA256 counter DRBG: block i = HMAC(seed, be32(i)). Bytes are consumed
    in order, refilling with the next block once exhausted. */
 function makeByteStream(seed: string): () => number {
-  const key = Buffer.from(seed, 'hex');
+  const key = hexToBytes(seed);
   let counter = 0;
-  let block = Buffer.alloc(0);
+  let block = new Uint8Array(0);
   let pos = 0;
   function refill(): void {
-    const ctr = Buffer.alloc(4);
-    ctr.writeUInt32BE(counter, 0);
+    const ctr = new Uint8Array(4);
+    new DataView(ctr.buffer).setUint32(0, counter, false);
     counter += 1;
-    block = createHmac('sha256', key).update(ctr).digest();
+    block = hmac(sha256, key, ctr);
     pos = 0;
   }
   return function nextByte(): number {
