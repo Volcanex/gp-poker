@@ -4,7 +4,7 @@ import { replay, seedHash, type HandConfig } from '@opentable/engine';
 import type { MatchFormat, TableView } from '@opentable/protocol';
 import { makeApp, mintGuestSession, deleteUser, listenForWs, connectWs, driveRandomPlay, testFormat } from './helpers.js';
 import { createMatchForPlayers } from '../src/matchmaking.js';
-import { getHandById, getHandsForMatch, getMatchById, getRatingHistoryForUser, sql } from '../src/db.js';
+import { getHandById, getHandsForMatch, getMatchById, getRating, getRatingHistoryForUser, sql } from '../src/db.js';
 
 // Short stacks relative to the blinds so the match tends to bust in a handful
 // of hands under random play, and a low hand cap as a backstop either way -
@@ -72,6 +72,18 @@ describe('a full match', () => {
       const historyB = await getRatingHistoryForUser(b.id);
       expect(historyA.length).toBe(1);
       expect(historyB.length).toBe(1);
+      expect(historyA[0].mode).toBe('heads-up');
+
+      // The other direction of the per-mode split: a heads-up match moves
+      // the heads-up row and leaves six-max at its untouched default.
+      for (const id of [a.id, b.id]) {
+        const headsUp = await getRating(id, 'heads-up');
+        expect(headsUp.matches).toBe(1);
+        expect(Math.round(headsUp.rating)).toBe(resultA.ratings[id].after);
+        const sixMax = await getRating(id, 'six-max');
+        expect(sixMax.rating).toBe(1500);
+        expect(sixMax.matches).toBe(0);
+      }
 
       const match = await getMatchById(matchId);
       expect(match).not.toBeNull();

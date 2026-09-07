@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import type { MatchFormat } from '@opentable/protocol';
 import { makeApp, mintGuestSession, deleteUser, listenForWs, connectWs, driveRandomPlay, testFormat } from './helpers.js';
 import { createMatchForPlayers } from '../src/matchmaking.js';
-import { getMatchById, getRatingHistoryForUser, getUserById, sql } from '../src/db.js';
+import { getMatchById, getRating, getRatingHistoryForUser, sql } from '../src/db.js';
 
 const CASUAL: MatchFormat = testFormat({ rated: false, hands: 3, stack: 20 });
 
@@ -31,7 +31,7 @@ describe('a casual match', () => {
       const b = await mintGuestSession(app);
       createdUserIds.push(a.id, b.id);
 
-      const before = await Promise.all([getUserById(a.id), getUserById(b.id)]);
+      const before = await Promise.all([getRating(a.id, 'heads-up'), getRating(b.id, 'heads-up')]);
 
       const connA = await connectWs(wsUrl, a.token);
       const connB = await connectWs(wsUrl, b.token);
@@ -52,13 +52,13 @@ describe('a casual match', () => {
       }
       expect(Object.keys(result.places).sort()).toEqual([a.id, b.id].sort());
 
-      const after = await Promise.all([getUserById(a.id), getUserById(b.id)]);
-      after.forEach((user, i) => {
-        expect(user!.rating).toBe(before[i]!.rating);
-        expect(user!.rd).toBe(before[i]!.rd);
-        expect(user!.ratingAt.getTime()).toBe(before[i]!.ratingAt.getTime());
+      const after = await Promise.all([getRating(a.id, 'heads-up'), getRating(b.id, 'heads-up')]);
+      after.forEach((standing, i) => {
+        expect(standing.rating).toBe(before[i].rating);
+        expect(standing.rd).toBe(before[i].rd);
+        expect(standing.volatility).toBe(before[i].volatility);
         // Counters still move: a casual match is played, just not rated.
-        expect(user!.matches).toBe(before[i]!.matches + 1);
+        expect(standing.matches).toBe(before[i].matches + 1);
       });
 
       const match = await getMatchById(matchId);

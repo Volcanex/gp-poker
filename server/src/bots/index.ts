@@ -1,6 +1,6 @@
-import type { ClientMsg } from '@opentable/protocol';
+import type { ClientMsg, Mode } from '@opentable/protocol';
 import { config } from '../config.js';
-import { ensureBotUser, getBotUsers, type UserRow } from '../db.js';
+import { ensureBotUser, getBotUsers, getRatingsForUsers, type UserRow } from '../db.js';
 import { hub } from '../ws/hub.js';
 import { roomForPlayer } from '../match/rooms.js';
 import { BotPlayer, type Dispatch } from './player.js';
@@ -53,12 +53,15 @@ export async function ensureBots(count = config.botCount): Promise<void> {
 // closest in rating to `targetRating` first. A finished room lingers for a
 // minute after the match ends, so availability asks the room whether it is
 // still active rather than whether it exists.
-export async function availableBots(targetRating: number, limit: number): Promise<UserRow[]> {
+export async function availableBots(targetRating: number, limit: number, mode: Mode): Promise<UserRow[]> {
   if (limit <= 0) return [];
-  const rows = await getBotUsers();
-  return rows
-    .filter((u) => players.has(u.id))
-    .filter((u) => !roomForPlayer(u.id)?.active)
-    .sort((a, b) => Math.abs(a.rating - targetRating) - Math.abs(b.rating - targetRating))
-    .slice(0, limit);
+  const rows = (await getBotUsers()).filter((u) => players.has(u.id) && !roomForPlayer(u.id)?.active);
+  // Closeness is judged on the mode being queued for, not a bot's heads-up
+  // record: a bot that has only ever played six-max is still 1500 heads-up.
+  const standings = await getRatingsForUsers(
+    rows.map((u) => u.id),
+    mode
+  );
+  const distance = (u: UserRow) => Math.abs((standings.get(u.id)?.rating ?? 1500) - targetRating);
+  return [...rows].sort((a, b) => distance(a) - distance(b)).slice(0, limit);
 }

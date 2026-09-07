@@ -23,7 +23,7 @@ import type {
   SeatView,
   TableView,
 } from '@opentable/protocol';
-import { getUserById, insertHand, updateHand, updateMatchHandsPlayed, type HandStudy, type MatchRow, type MatchSeat } from '../db.js';
+import { getRatingsForUsers, insertHand, updateHand, updateMatchHandsPlayed, type HandStudy, type MatchRow, type MatchSeat } from '../db.js';
 import { hub } from '../ws/hub.js';
 import { computeMatchRatings } from './rating.js';
 import type { HandRunner, MatchOutcome, RoomClock } from './types.js';
@@ -452,16 +452,14 @@ export class EngineHandRunner implements HandRunner {
 
   private async finishNaturally(reason: 'bust' | 'hands', winner: string | null): Promise<void> {
     const places = this.currentPlaces();
-    const users = await Promise.all(this.playerIds.map((id) => getUserById(id)));
-    const inputs = users.flatMap((u) =>
-      u ? [{ userId: u.id, rating: u.rating, rd: u.rd, volatility: u.volatility, ratingAt: u.ratingAt }] : []
-    );
-    const ratings =
-      inputs.length === this.playerIds.length
-        ? computeMatchRatings(inputs, places, this.match.rated)
-        : Object.fromEntries(
-            this.playerIds.map((id) => [id, { before: 0, after: 0, rdBefore: 0, rdAfter: 0, volatility: 0.06 }])
-          );
+    // Rating state for this match's mode only. A player with no row there
+    // yet reads as a fresh 1500/350.
+    const standings = await getRatingsForUsers(this.playerIds, this.match.format.mode);
+    const inputs = this.playerIds.map((id) => {
+      const r = standings.get(id)!;
+      return { userId: id, rating: r.rating, rd: r.rd, volatility: r.volatility, ratingAt: r.ratingAt };
+    });
+    const ratings = computeMatchRatings(inputs, places, this.match.rated);
 
     this.matchOutcome = {
       winner,

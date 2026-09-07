@@ -109,3 +109,34 @@ alter table match_players add column if not exists place int;
 -- action log, holes and result are stored in TABLE seats; this is what turns
 -- them back into an engine HandConfig for replay.
 alter table hands add column if not exists live_seats int[];
+
+-- Per-mode Glicko-2 state. Ratings are kept apart by mode the way a chess
+-- site keeps bullet and blitz apart: a six-max result never moves a heads-up
+-- rating. A missing row is a player who has not played that mode yet and
+-- reads as a fresh 1500/350/0.06.
+create table if not exists ratings (
+  user_id uuid not null references users(id) on delete cascade,
+  mode text not null,                          -- heads-up | six-max
+  rating double precision not null default 1500,
+  rd double precision not null default 350,
+  volatility double precision not null default 0.06,
+  rating_at timestamptz not null default now(), -- when rd was last settled; inactivity widens from here
+  peak_rating double precision not null default 1500,
+  peak_at timestamptz,
+  matches int not null default 0,
+  wins int not null default 0,
+  losses int not null default 0,
+  draws int not null default 0,
+  primary key (user_id, mode)
+);
+create index if not exists ratings_mode on ratings(mode, rating desc);
+
+alter table rating_history add column if not exists mode text not null default 'heads-up';
+
+-- One-shot backfill: everything on users before the split was heads-up. Runs
+-- on every boot and does nothing after the first, which keeps schema.sql the
+-- only migration path there is.
+insert into ratings (user_id, mode, rating, rd, volatility, rating_at, peak_rating, peak_at, matches, wins, losses, draws)
+select id, 'heads-up', rating, rd, volatility, rating_at, peak_rating, peak_at, matches, wins, losses, draws
+from users
+on conflict (user_id, mode) do nothing;

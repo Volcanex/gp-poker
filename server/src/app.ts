@@ -5,7 +5,7 @@ import cookie from '@fastify/cookie';
 import websocket from '@fastify/websocket';
 import fastifyStatic from '@fastify/static';
 import { config } from './config.js';
-import { abortStalePlayingMatches, applySchema } from './db.js';
+import { abortStalePlayingMatches, applySchema, getRatingsFor } from './db.js';
 import { registerRoutes } from './routes.js';
 import { resolveSessionUser } from './auth.js';
 import { attachConnection } from './ws/hub.js';
@@ -54,12 +54,14 @@ export async function buildApp(): Promise<FastifyInstance> {
           return;
         }
         request.sessionUser = user;
+        request.sessionRatings = await getRatingsFor(user.id);
       },
     },
     (socket, request) => {
       const user = request.sessionUser;
-      if (!user) return; // unreachable: preValidation already rejected this case
-      attachConnection(socket, request, user, routeClientMessage, routeDisconnect);
+      const ratings = request.sessionRatings;
+      if (!user || !ratings) return; // unreachable: preValidation already rejected this case
+      attachConnection(socket, request, user, ratings, routeClientMessage, routeDisconnect);
       routeConnect(user.id);
     }
   );

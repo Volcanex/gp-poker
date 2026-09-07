@@ -22,6 +22,20 @@ describe('auth flow', () => {
     expect(body.guest).toBe(true);
     expect(body.name).toMatch(/^guest-/);
     expect(body.rating).toBe(1500);
+    // Flat fields are the heads-up standing; the per-mode map is the real one
+    // and a player with no rows yet reads as a fresh 1500/350 in both.
+    expect(Object.keys(body.ratings).sort()).toEqual(['heads-up', 'six-max']);
+    expect(body.ratings['heads-up']).toEqual({
+      rating: 1500,
+      rd: 350,
+      provisional: true,
+      peak: 1500,
+      matches: 0,
+      wins: 0,
+      losses: 0,
+      draws: 0,
+    });
+    expect(body.ratings['six-max'].rating).toBe(1500);
     createdUserIds.push(body.id);
   });
 

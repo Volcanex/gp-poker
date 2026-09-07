@@ -8,8 +8,10 @@ import {
   insertGuestUser,
   insertSession,
   touchLastSeen,
+  type RatingRow,
   type UserRow,
 } from './db.js';
+import type { Mode } from '@opentable/protocol';
 import { isUniqueViolation } from './pgError.js';
 
 const scrypt = promisify(scryptCb);
@@ -17,6 +19,9 @@ const scrypt = promisify(scryptCb);
 declare module 'fastify' {
   interface FastifyRequest {
     sessionUser?: UserRow;
+    // Resolved alongside sessionUser in /ws's preValidation so the hub can
+    // build the `hi` summary synchronously and keep it the first frame out.
+    sessionRatings?: Record<Mode, RatingRow>;
   }
 }
 

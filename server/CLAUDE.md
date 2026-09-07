@@ -18,23 +18,37 @@ decisions; this file covers what's not obvious from the code.
   `sql.json()` needs a value typed with an index signature; the `jsonb()`
   helper is the one cast boundary for that mismatch, since named interfaces
   like `MatchFormat` don't have one even though they're plain JSON.
-  Protocol v2 added four columns, all additive and applied by the same
-  idempotent `schema.sql` (`alter table ... add column if not exists`):
-  `users.bot`, `matches.places`, `match_players.place` and `hands.live_seats`.
+  Protocol v2 added four columns and a table, all additive and applied by the
+  same idempotent `schema.sql`: `users.bot`, `matches.places`,
+  `match_players.place`, `hands.live_seats`, `rating_history.mode`, and the
+  `ratings` table (see "Ratings are per mode").
 - `src/auth.ts` — guest minting, scrypt password hashing, session cookies.
 - `src/userView.ts` — `UserRow` → wire `UserSummary`. `isProvisional`
   delegates to `@opentable/rating`'s own threshold rather than keeping a
   second constant that could drift from it (the leaderboard SQL's
   `rd <= 110` is the one unavoidable duplicate, since SQL can't call into
   the package — commented at the query).
-- `src/routes.ts` — all REST endpoints. `/api/matches/:id` adds `places` and
-  a per-hand `liveSeats`, and its per-hand `accuracy` is now one entry per
-  table seat (null throughout for six-max, which stores no study).
-  `/api/hands/:id` adds `liveSeats` and reports the hand's own `sb`/`bb` from
-  `blindsAt` rather than the format's level-1 blinds, which is what a replay
-  needs to rebuild the engine config. `/api/users/:name`'s `lastMatches`
-  entries carry `mode`, `players`, `place` and `rated` alongside the existing
-  fields, so a client can render "3rd of 6" without a second request.
+- `src/routes.ts` — all REST endpoints. Protocol v2 changes:
+  - `/api/me`, `/api/claim`, `/api/login` and `hi` all carry a `UserSummary`
+    whose `ratings` is a mode-keyed map of `{rating, rd, provisional, peak,
+    matches, wins, losses, draws}`. The flat `rating`/`rd`/`provisional` (and
+    `/api/me`'s flat `peak`/`matches`/`wins`/`losses`/`draws`) stay as the
+    heads-up values for compatibility.
+  - `/api/leaderboard?mode=heads-up|six-max`, defaulting to heads-up; an
+    unrecognised mode falls back rather than erroring. The response is still
+    a bare array.
+  - `/api/users/:name` returns the same map on `summary.ratings`, and its
+    `ratingHistory` is now mode-keyed (`{"heads-up": [...], "six-max":
+    [...]}`). Its top-level `peak`/`peakAt`/`provisional`/`matches`/`winRate`
+    are the heads-up ones. `lastMatches` entries carry `mode`, `players`,
+    `place` and `rated`, so a client can render "3rd of 6" without a second
+    request.
+  - `/api/matches/:id` adds `places` and a per-hand `liveSeats`, and its
+    per-hand `accuracy` is one entry per table seat (null throughout for
+    six-max, which stores no study).
+  - `/api/hands/:id` adds `liveSeats` and reports the hand's own `sb`/`bb`
+    from `blindsAt` rather than the format's level-1 blinds, which is what a
+    replay needs to rebuild the engine config.
 - `src/matchmaking.ts` — the in-memory queues and their tick.
 - `src/bots/` — the bot roster (`index.ts`), one bot's message loop
   (`player.ts`) and the pure decision function (`strategy.ts`).
@@ -81,6 +95,33 @@ history carry over. Password hashing is `crypto.scrypt`, stored as
 does **not** mint a guest; `/ws`'s `preValidation` hook rejects the upgrade
 with 401 if there's no valid session, since the client always calls
 `/api/me` first to get one.
+
+## Ratings are per mode
+A rating belongs to a (user, mode) pair, the way a chess site keeps bullet
+and blitz apart. The `ratings` table is the home of the Glicko-2 state now:
+`(user_id, mode)` primary key, the same columns `users` used to hold
+(`rating`, `rd`, `volatility`, `rating_at`, `peak_rating`, `peak_at`,
+`matches`, `wins`, `losses`, `draws`).
+
+Rows are created lazily, on the first *finished* match in that mode, so a
+guest who never plays leaves nothing behind. Every read goes through
+`getRating(userId, mode)` / `getRatingsFor(userId)` /
+`getRatingsForUsers(ids, mode)` in `db.ts`, which synthesise a fresh
+1500/350/0.06 for a missing row: "has not played this mode" and "is unrated
+in this mode" are the same thing, and no caller has to special-case it.
+
+**The matching columns on `users` are legacy.** Nothing in the server reads
+them. `db.finishMatch` mirrors the heads-up row into them after every
+heads-up match so anything outside this codebase still sees something sane,
+and `schema.sql` backfills `ratings` from them once (a plain
+`insert ... select ... on conflict do nothing`, which re-runs harmlessly on
+every boot). Delete the columns when nothing outside the server wants them.
+
+Everything downstream keys off the match's mode: the queue enters a player at
+their rating *for the mode they queued for*, `MatchSeat.rating` (and so
+`SeatView.rating`) is the mode's rating, bot picks compare on the mode's
+rating, `rating_history` rows carry a `mode`, and the provisional flag,
+peak and win/loss/draw counters are all per mode.
 
 ## Modes and formats
 Two modes, each rated or casual, so four independent queues. `formatFor(mode,
@@ -130,8 +171,8 @@ here is persisted, so a server restart drops the queue (acceptable: clients
 just re-send `queue`). Each entry carries its own `mode` and `rated`, and the
 tick buckets them by `(mode, rated)`, which is what makes the four queues
 independent without four maps. `enqueue` widens the user's RD for inactivity
-via `@opentable/rating`'s `widenRd` before adding them, and immediately
-replies `q searching` with the mode, the rated flag, the current `window()`
+via `@opentable/rating`'s `widenRd` before adding them (the rating row for the
+mode being queued for, not their heads-up one), and immediately replies `q searching` with the mode, the rated flag, the current `window()`
 range and, for a multiway table, `seated` (how many are gathered so far).
 
 A 1s `setInterval` (`tick`, exported so tests can call it directly instead of
@@ -219,7 +260,8 @@ disconnecting, say) does not queue the action twice.
   rather than reaching the room.
 
 Bots are excluded from the leaderboard (`getLeaderboard`'s `bot = false`) and
-`/api/users/:name` reports `bot: true` for them. **Bot matches are rated.**
+`/api/users/:name` reports `bot: true` for them. A bot's rating is per mode
+like anyone else's, so `availableBots` compares on the mode being filled. **Bot matches are rated.**
 That is a deliberate bootstrap choice while there is nobody else to play:
 casual bot matches would leave every early human provisional forever with
 nothing to calibrate against. Revisit once humans are pairing with humans.
@@ -348,7 +390,9 @@ late to act cleanly.
 ### One rating period per match
 `computeMatchRatings(players, places, rated)` in `src/match/rating.ts` is the
 one place a finished match becomes a rating change, shared by
-`finishNaturally` and `buildForfeitOutcome`. Every player gets exactly **one**
+`finishNaturally` and `buildForfeitOutcome`. Both feed it the rating rows for
+*this match's mode* and nothing else, so a six-max result can never move a
+heads-up rating. Every player gets exactly **one**
 Glicko-2 period holding a result against every other seat: 1 if their place is
 better, 0 if worse, 0.5 if equal. Heads-up that reduces to the old
 win/loss/draw update; six seats give each player five results in the one
@@ -362,8 +406,8 @@ new rating exceeds it (`db.finishMatch`'s SQL, `greatest(peak_rating,
 new_rating)`).
 
 A **casual** match (`rated: false`) returns an echo instead: after === before,
-rdAfter === rdBefore. `db.finishMatch` then skips the Glicko-2 columns,
-`rating_at` and the `rating_history` row entirely. The win/loss/draw and
+rdAfter === rdBefore. `db.finishMatch` then upserts counters only, leaving the
+Glicko-2 columns, `rating_at` and the `rating_history` row alone. The win/loss/draw and
 `matches` counters still move for every finished match either way: a casual
 game was played, it just wasn't rated. Multiway has no draw, so first place
 counts as a win and every other place as a loss.
@@ -477,6 +521,8 @@ Tests that need the *real* queue path against a fast format replace
   completion with random legal actions: one player ends with every chip,
   places are a permutation of 1..6, the winner's rating went up and the
   sixth's down, all six got a `rating_history` row and a `match_players.place`,
+  the six-max rating row moved while the heads-up one stayed at a fresh
+  1500/350/0 (and `match.test.ts` asserts the same in reverse),
   every hand rehashes and replays through its stored `live_seats` mapping,
   every hand's `stats`/`study` are null, and nobody ever saw another seat's
   hole cards in a live frame. Its second case proves the multiway timeout
@@ -484,8 +530,9 @@ Tests that need the *real* queue path against a fast format replace
   forfeiting, keeps being dealt in (more than three `to: true` actions) and
   the table still finishes on a bust.
 - `casual.test.ts` — a casual match leaves both players' rating, rd and
-  `rating_at` exactly where they were, writes no `rating_history`, echoes
-  before === after in the result, and still increments `matches`.
+  volatility in that mode's row exactly where they were, writes no
+  `rating_history`, echoes before === after in the result, and still
+  increments `matches`.
 - `bots.test.ts` — a lone human waits out `BOT_FILL_HEADS_UP_MS`, is paired
   with a bot and plays the match out, with no bot action ever carrying
   `to: true`; then queues six-max, waits out `BOT_FILL_SIX_MAX_MS` and gets a
@@ -497,6 +544,9 @@ Tests that need the *real* queue path against a fast format replace
   view's legal set with an in-range integer amount, plus the specific
   behaviours (raise the best hand, fold the worst to a three-bet, bet a
   monster, fold air to a big bet, call a token bet on the odds, jam short).
+- `leaderboard.test.ts` — the board reads the `ratings` table, hides
+  provisional players, and a six-max standing never shows on the heads-up
+  board.
 - `clock.test.ts` — uses `createMatchForPlayers` with a short `clockMs`
   (300ms) so waiting out a real timeout is fast, and (for the check-fold and
   reconnect cases) `hands: 1` so the match finishes the instant that one

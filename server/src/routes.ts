@@ -1,8 +1,14 @@
 import type { FastifyInstance } from 'fastify';
-import { blindsAt } from '@opentable/protocol';
+import { blindsAt, type Mode } from '@opentable/protocol';
+
+function modeParam(raw: unknown): Mode {
+  return MODES.includes(raw as Mode) ? (raw as Mode) : 'heads-up';
+}
 import {
   sql,
+  MODES,
   getLeaderboard,
+  getRatingsFor,
   getUserByNameLower,
   getUserHandStats,
   getUserPreflopAccuracy,
@@ -14,7 +20,7 @@ import {
   deleteSession,
 } from './db.js';
 import { claimGuest, login, requireUser, setSessionCookie, clearSessionCookie, createSessionForUser, SESSION_COOKIE } from './auth.js';
-import { isProvisional, roundRatings, toUserSummary } from './userView.js';
+import { isProvisional, roundRatings, toModeRating, toUserSummary } from './userView.js';
 
 function err(reply: { code: (n: number) => { send: (b: unknown) => unknown } }, status: number, message: string) {
   return reply.code(status).send({ error: message });
@@ -32,13 +38,17 @@ export function registerRoutes(app: FastifyInstance): void {
 
   app.get('/api/me', async (request, reply) => {
     const user = await requireUser(request, reply);
+    const summary = toUserSummary(user, await getRatingsFor(user.id));
+    const headsUp = summary.ratings['heads-up'];
+    // The flat peak/matches/wins/losses/draws are the heads-up ones, same
+    // compatibility bargain as the flat rating fields on UserSummary.
     return {
-      ...toUserSummary(user),
-      peak: Math.round(user.peakRating),
-      matches: user.matches,
-      wins: user.wins,
-      losses: user.losses,
-      draws: user.draws,
+      ...summary,
+      peak: headsUp.peak,
+      matches: headsUp.matches,
+      wins: headsUp.wins,
+      losses: headsUp.losses,
+      draws: headsUp.draws,
     };
   });
 
@@ -48,7 +58,7 @@ export function registerRoutes(app: FastifyInstance): void {
     const user = await requireUser(request, reply);
     const result = await claimGuest(user.id, name, password);
     if (!result.ok) return err(reply, 400, result.error);
-    return toUserSummary(result.user);
+    return toUserSummary(result.user, await getRatingsFor(result.user.id));
   });
 
   app.post<{ Body: { name?: string; password?: string } }>('/api/login', async (request, reply) => {
@@ -60,7 +70,7 @@ export function registerRoutes(app: FastifyInstance): void {
     if (existingToken) await deleteSession(existingToken);
     const { token } = await createSessionForUser(result.user.id);
     setSessionCookie(request, reply, token);
-    return toUserSummary(result.user);
+    return toUserSummary(result.user, await getRatingsFor(result.user.id));
   });
 
   app.post('/api/logout', async (request, reply) => {
@@ -70,8 +80,9 @@ export function registerRoutes(app: FastifyInstance): void {
     return { ok: true };
   });
 
-  app.get('/api/leaderboard', async () => {
-    const rows = await getLeaderboard(100);
+  app.get<{ Querystring: { mode?: string } }>('/api/leaderboard', async (request) => {
+    const mode = modeParam(request.query.mode);
+    const rows = await getLeaderboard(mode, 100);
     return rows.map((r) => ({
       name: r.name,
       rating: Math.round(r.rating),
@@ -85,13 +96,24 @@ export function registerRoutes(app: FastifyInstance): void {
     const user = await getUserByNameLower(request.params.name.toLowerCase());
     if (!user) return err(reply, 404, 'no such user');
 
+    const ratings = await getRatingsFor(user.id);
     const history = await getRatingHistoryForUser(user.id);
     const stats = await getUserHandStats(user.id);
     const accuracy = await getUserPreflopAccuracy(user.id);
     const lastMatches = await getMatchesForUser(user.id, 20);
 
-    const totalOutcomes = user.wins + user.losses + user.draws;
-    const winRate = totalOutcomes > 0 ? user.wins / totalOutcomes : 0;
+    const headsUp = ratings['heads-up'];
+    const totalOutcomes = headsUp.wins + headsUp.losses + headsUp.draws;
+    const winRate = totalOutcomes > 0 ? headsUp.wins / totalOutcomes : 0;
+
+    // Rating history is per mode too: one line per mode, not one line with a
+    // six-max result spliced into a heads-up curve.
+    const ratingHistory = {} as Record<Mode, { rating: number; rd: number; at: Date; matchId: string | null }[]>;
+    for (const mode of MODES) {
+      ratingHistory[mode] = history
+        .filter((h) => h.mode === mode)
+        .map((h) => ({ rating: Math.round(h.rating), rd: Math.round(h.rd), at: h.at, matchId: h.matchId }));
+    }
 
     const vpip = stats.totalHands > 0 ? (stats.vpipHands / stats.totalHands) * 100 : 0;
     const pfr = stats.totalHands > 0 ? (stats.pfrHands / stats.totalHands) * 100 : 0;
@@ -100,14 +122,16 @@ export function registerRoutes(app: FastifyInstance): void {
     const foldTo3bet = stats.faced3betHands > 0 ? (stats.foldTo3betHands / stats.faced3betHands) * 100 : 0;
 
     return {
-      summary: toUserSummary(user),
-      peak: Math.round(user.peakRating),
-      peakAt: user.peakAt,
-      provisional: isProvisional(user),
-      matches: user.matches,
+      summary: toUserSummary(user, ratings),
+      // Flat fields stay heads-up for compatibility; summary.ratings has the
+      // per-mode standings including peak and the counters.
+      peak: toModeRating(headsUp).peak,
+      peakAt: headsUp.peakAt,
+      provisional: isProvisional(headsUp),
+      matches: headsUp.matches,
       winRate,
       accuracy,
-      ratingHistory: history.map((h) => ({ rating: Math.round(h.rating), rd: Math.round(h.rd), at: h.at, matchId: h.matchId })),
+      ratingHistory,
       stats: {
         hands: stats.totalHands,
         vpip,

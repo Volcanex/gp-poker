@@ -2,7 +2,7 @@ import postgres from 'postgres';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import type { LoggedAction, MatchFormat, MatchResult } from '@opentable/protocol';
+import type { LoggedAction, MatchFormat, MatchResult, Mode } from '@opentable/protocol';
 import type { HandOutcome } from '@opentable/engine';
 import type { Decision, SeatStats, Summary } from '@opentable/preflop';
 import { config } from './config.js';
@@ -52,6 +52,70 @@ export interface UserRow {
   wins: number;
   losses: number;
   draws: number;
+}
+
+/* One row per (user, mode). This is where the Glicko-2 state lives now; the
+   matching columns on `users` are legacy, mirrored from the heads-up row on
+   write and never read. A missing row is a player who has not played that
+   mode: it reads as a fresh 1500/350/0.06 rather than being created eagerly,
+   so a guest who never plays leaves nothing behind. */
+export interface RatingRow {
+  userId: string;
+  mode: Mode;
+  rating: number;
+  rd: number;
+  volatility: number;
+  ratingAt: Date;
+  peakRating: number;
+  peakAt: Date | null;
+  matches: number;
+  wins: number;
+  losses: number;
+  draws: number;
+}
+
+export const MODES: Mode[] = ['heads-up', 'six-max'];
+
+export function defaultRating(userId: string, mode: Mode): RatingRow {
+  return {
+    userId,
+    mode,
+    rating: 1500,
+    rd: 350,
+    volatility: 0.06,
+    ratingAt: new Date(),
+    peakRating: 1500,
+    peakAt: null,
+    matches: 0,
+    wins: 0,
+    losses: 0,
+    draws: 0,
+  };
+}
+
+export async function getRating(userId: string, mode: Mode): Promise<RatingRow> {
+  const [row] = await sql<RatingRow[]>`
+    select * from ratings where user_id = ${userId} and mode = ${mode}
+  `;
+  return row ?? defaultRating(userId, mode);
+}
+
+// Every mode for one user, defaults filled in for the ones never played.
+export async function getRatingsFor(userId: string): Promise<Record<Mode, RatingRow>> {
+  const rows = await sql<RatingRow[]>`select * from ratings where user_id = ${userId}`;
+  const out = {} as Record<Mode, RatingRow>;
+  for (const mode of MODES) out[mode] = rows.find((r) => r.mode === mode) ?? defaultRating(userId, mode);
+  return out;
+}
+
+export async function getRatingsForUsers(userIds: string[], mode: Mode): Promise<Map<string, RatingRow>> {
+  if (userIds.length === 0) return new Map();
+  const rows = await sql<RatingRow[]>`
+    select * from ratings where mode = ${mode} and user_id in ${sql(userIds)}
+  `;
+  const out = new Map<string, RatingRow>();
+  for (const id of userIds) out.set(id, rows.find((r) => r.userId === id) ?? defaultRating(id, mode));
+  return out;
 }
 
 export interface SessionRow {
@@ -115,6 +179,7 @@ export interface RatingHistoryRow {
   id: number;
   userId: string;
   matchId: string | null;
+  mode: Mode;
   rating: number;
   rd: number;
   at: Date;
@@ -183,14 +248,15 @@ export interface LeaderboardRow {
   peakRating: number;
 }
 
-export async function getLeaderboard(limit = 100): Promise<LeaderboardRow[]> {
+export async function getLeaderboard(mode: Mode, limit = 100): Promise<LeaderboardRow[]> {
   // 110 mirrors @opentable/rating's isProvisional threshold (see userView.ts);
   // it's duplicated here only because SQL can't call into that package.
   return sql<LeaderboardRow[]>`
-    select name, rating, rd, matches, peak_rating
-    from users
-    where rd <= 110 and bot = false
-    order by rating desc
+    select u.name, r.rating, r.rd, r.matches, r.peak_rating
+    from ratings r
+    join users u on u.id = r.user_id
+    where r.mode = ${mode} and r.rd <= 110 and u.bot = false
+    order by r.rating desc
     limit ${limit}
   `;
 }
@@ -370,6 +436,7 @@ export async function getMatchesForUser(userId: string, limit = 20): Promise<Use
 
 export interface FinishMatchResult {
   status: 'finished' | 'aborted';
+  mode: Mode; // which rating row this match settles against
   winner: string | null;
   reason: string;
   finalStacks: Record<string, number>;
@@ -407,30 +474,62 @@ export async function finishMatch(matchId: string, result: FinishMatchResult): P
         update match_players set place = ${p.place}
         where match_id = ${matchId} and user_id = ${p.userId}
       `;
-      await tx`
-        update users set
-          matches = matches + 1,
-          wins = wins + ${winsInc},
-          losses = losses + ${lossesInc},
-          draws = draws + ${drawsInc}
-        where id = ${p.userId}
-      `;
-      if (!p.rating) continue;
-      const { rating, rd, volatility } = p.rating;
-      await tx`
-        update users set
-          rating = ${rating},
-          rd = ${rd},
-          volatility = ${volatility},
-          rating_at = now(),
-          peak_rating = greatest(peak_rating, ${rating}),
-          peak_at = case when ${rating} > peak_rating then now() else peak_at end
-        where id = ${p.userId}
-      `;
-      await tx`
-        insert into rating_history (user_id, match_id, rating, rd)
-        values (${p.userId}, ${matchId}, ${rating}, ${rd})
-      `;
+
+      // Upsert, because a rating row is only created the first time a player
+      // finishes a match in that mode.
+      if (p.rating) {
+        const { rating, rd, volatility } = p.rating;
+        await tx`
+          insert into ratings (user_id, mode, rating, rd, volatility, rating_at, peak_rating, peak_at, matches, wins, losses, draws)
+          values (${p.userId}, ${result.mode}, ${rating}, ${rd}, ${volatility}, now(), ${rating}, now(), 1, ${winsInc}, ${lossesInc}, ${drawsInc})
+          on conflict (user_id, mode) do update set
+            rating = excluded.rating,
+            rd = excluded.rd,
+            volatility = excluded.volatility,
+            rating_at = now(),
+            peak_rating = greatest(ratings.peak_rating, excluded.rating),
+            peak_at = case when excluded.rating > ratings.peak_rating then now() else ratings.peak_at end,
+            matches = ratings.matches + 1,
+            wins = ratings.wins + excluded.wins,
+            losses = ratings.losses + excluded.losses,
+            draws = ratings.draws + excluded.draws
+        `;
+        await tx`
+          insert into rating_history (user_id, match_id, mode, rating, rd)
+          values (${p.userId}, ${matchId}, ${result.mode}, ${rating}, ${rd})
+        `;
+      } else {
+        await tx`
+          insert into ratings (user_id, mode, matches, wins, losses, draws)
+          values (${p.userId}, ${result.mode}, 1, ${winsInc}, ${lossesInc}, ${drawsInc})
+          on conflict (user_id, mode) do update set
+            matches = ratings.matches + 1,
+            wins = ratings.wins + excluded.wins,
+            losses = ratings.losses + excluded.losses,
+            draws = ratings.draws + excluded.draws
+        `;
+      }
+
+      // Legacy mirror: the columns on `users` are nothing but a copy of the
+      // heads-up row now, kept so anything still reading them sees something
+      // sane. Nothing in the server reads them.
+      if (result.mode === 'heads-up') {
+        await tx`
+          update users set
+            rating = r.rating,
+            rd = r.rd,
+            volatility = r.volatility,
+            rating_at = r.rating_at,
+            peak_rating = r.peak_rating,
+            peak_at = r.peak_at,
+            matches = r.matches,
+            wins = r.wins,
+            losses = r.losses,
+            draws = r.draws
+          from ratings r
+          where r.user_id = users.id and r.mode = 'heads-up' and users.id = ${p.userId}
+        `;
+      }
     }
   });
 }

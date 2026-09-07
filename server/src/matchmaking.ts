@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { groupQueue, pairQueue, widenRd, window as ratingWindow, type QueueEntry } from '@opentable/rating';
 import { formatFor, type MatchFormat, type Mode } from '@opentable/protocol';
 import { hub } from './ws/hub.js';
-import { getUserById, insertMatch, insertMatchPlayers, type MatchSeat } from './db.js';
+import { getRating, getRatingsForUsers, getUserById, insertMatch, insertMatchPlayers, type MatchSeat } from './db.js';
 import { isUniqueViolation } from './pgError.js';
 import { MatchRoom } from './match/room.js';
 import { registerRoom } from './match/rooms.js';
@@ -61,9 +61,12 @@ export async function enqueue(userId: string, mode: Mode = 'heads-up', rated = t
   if (queue.has(userId)) return;
   const user = await getUserById(userId);
   if (!user) return;
-  const daysInactive = (Date.now() - user.ratingAt.getTime()) / (24 * 60 * 60 * 1000);
-  const widened = widenRd({ rating: user.rating, rd: user.rd, volatility: user.volatility }, daysInactive);
-  const entry: QueuedPlayer = { id: userId, rating: user.rating, rd: widened.rd, joinedAt: Date.now(), mode, rated };
+  // The queue matches on the rating for the mode being queued for, so a
+  // strong heads-up player enters the six-max queue at their six-max rating.
+  const standing = await getRating(userId, mode);
+  const daysInactive = (Date.now() - standing.ratingAt.getTime()) / (24 * 60 * 60 * 1000);
+  const widened = widenRd({ rating: standing.rating, rd: standing.rd, volatility: standing.volatility }, daysInactive);
+  const entry: QueuedPlayer = { id: userId, rating: standing.rating, rd: widened.rd, joinedAt: Date.now(), mode, rated };
   queue.set(userId, entry);
   sendSearching(entry, countIn(mode, rated));
 }
@@ -108,6 +111,9 @@ export async function createMatchForPlayers(
 ): Promise<string> {
   const users = await Promise.all(userIds.map((id) => getUserById(id)));
   if (users.some((u) => u === null)) throw new Error('every seat must exist to create a match');
+  // Seats carry the rating for this match's mode, which is what SeatView
+  // shows at the table.
+  const standings = await getRatingsForUsers(userIds, format.mode);
 
   for (let attempt = 0; attempt < 5; attempt++) {
     const id = randomMatchId();
@@ -115,7 +121,7 @@ export async function createMatchForPlayers(
       seat: i,
       userId: u!.id,
       name: u!.name,
-      rating: Math.round(u!.rating),
+      rating: Math.round(standings.get(u!.id)!.rating),
       bot: u!.bot,
     }));
     try {
@@ -158,7 +164,7 @@ async function tickHeadsUp(entries: QueuedPlayer[], format: MatchFormat, now: nu
   const waiting = entries.filter((e) => queue.has(e.id)).sort((a, b) => a.joinedAt - b.joinedAt);
   for (const entry of waiting) {
     if (now - entry.joinedAt < BOT_FILL_HEADS_UP_MS) continue;
-    const [bot] = await availableBots(entry.rating, 1);
+    const [bot] = await availableBots(entry.rating, 1, format.mode);
     if (!bot) return;
     await launch([entry], [bot.id], format);
   }
@@ -175,7 +181,7 @@ async function tickMultiway(entries: QueuedPlayer[], format: MatchFormat, now: n
   if (now - waiting[0].joinedAt < BOT_FILL_SIX_MAX_MS) return;
 
   const humans = waiting.slice(0, format.players);
-  const bots = await availableBots(meanRating(humans), format.players - humans.length);
+  const bots = await availableBots(meanRating(humans), format.players - humans.length, format.mode);
   // Bots never fill a table with no human, and a short roster waits rather
   // than seating a table that isn't full.
   if (humans.length === 0 || humans.length + bots.length < format.players) return;

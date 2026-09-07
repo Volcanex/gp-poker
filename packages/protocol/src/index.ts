@@ -96,14 +96,31 @@ export type ServerMsg =
   | { t: 'err'; c: 'illegal' | 'stale' | 'not_your_turn' | 'no_match' | 'bad_msg' | 'version'; msg: string }
   | { t: 'pong' };
 
+/* One mode's Glicko-2 standing. Ratings are per mode, the way a chess site
+   keeps bullet and blitz apart: a six-max result never moves a heads-up
+   rating. A player who has not played a mode reads as a fresh 1500/350. */
+export interface ModeRating {
+  rating: number;
+  rd: number;
+  provisional: boolean;
+  peak: number;
+  matches: number;
+  wins: number;
+  losses: number;
+  draws: number;
+}
+
 export interface UserSummary {
   id: string;
   name: string;
   guest: boolean;
   bot: boolean;
+  // Flat fields are the heads-up standing, kept so anything reading a single
+  // rating still works. `ratings` is the real answer.
   rating: number;
   rd: number;
   provisional: boolean;
+  ratings: Record<Mode, ModeRating>;
 }
 
 export interface LastEvent {

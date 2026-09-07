@@ -1,22 +1,42 @@
 import { isProvisional as ratingIsProvisional } from '@opentable/rating';
-import type { MatchResult, UserSummary } from '@opentable/protocol';
-import type { UserRow } from './db.js';
+import type { MatchResult, Mode, ModeRating, UserSummary } from '@opentable/protocol';
+import { MODES, type RatingRow, type UserRow } from './db.js';
 
 // Defers to @opentable/rating's own threshold rather than keeping a second
 // constant here that could drift from it.
-export function isProvisional(user: Pick<UserRow, 'rating' | 'rd' | 'volatility'>): boolean {
-  return ratingIsProvisional(user);
+export function isProvisional(rating: Pick<RatingRow, 'rating' | 'rd' | 'volatility'>): boolean {
+  return ratingIsProvisional(rating);
 }
 
-export function toUserSummary(user: UserRow): UserSummary {
+export function toModeRating(row: RatingRow): ModeRating {
+  return {
+    rating: Math.round(row.rating),
+    rd: Math.round(row.rd),
+    provisional: isProvisional(row),
+    peak: Math.round(row.peakRating),
+    matches: row.matches,
+    wins: row.wins,
+    losses: row.losses,
+    draws: row.draws,
+  };
+}
+
+// The flat rating/rd/provisional fields are the heads-up standing. They stay
+// on the wire so a caller that only wants "the" rating still has one; the
+// `ratings` map is the honest answer.
+export function toUserSummary(user: UserRow, ratings: Record<Mode, RatingRow>): UserSummary {
+  const map = {} as Record<Mode, ModeRating>;
+  for (const mode of MODES) map[mode] = toModeRating(ratings[mode]);
+  const headsUp = map['heads-up'];
   return {
     id: user.id,
     name: user.name,
     guest: user.guest,
     bot: user.bot,
-    rating: Math.round(user.rating),
-    rd: Math.round(user.rd),
-    provisional: isProvisional(user),
+    rating: headsUp.rating,
+    rd: headsUp.rd,
+    provisional: headsUp.provisional,
+    ratings: map,
   };
 }
 

@@ -1,6 +1,6 @@
 import type { ClientMsg, MatchResult } from '@opentable/protocol';
 import { hub } from '../ws/hub.js';
-import { finishMatch as persistFinishMatch, getUserById, type MatchRow } from '../db.js';
+import { finishMatch as persistFinishMatch, getRatingsForUsers, type MatchRow } from '../db.js';
 import { unregisterRoom } from './rooms.js';
 import { EngineHandRunner } from './handRunner.js';
 import { computeMatchRatings } from './rating.js';
@@ -261,21 +261,11 @@ export class MatchRoom {
     const places: Record<string, number> = {};
     for (const uid of this.playerIds) places[uid] = winnerId === null ? 1 : uid === winnerId ? 1 : 2;
 
-    const users = await Promise.all(this.playerIds.map((uid) => getUserById(uid)));
-    if (users.some((u) => u === null)) {
-      // Unreachable in practice, every seat must exist for the match to
-      // exist, but degrade to a no-op rating change rather than throwing.
-      const ratings: MatchOutcome['ratings'] = {};
-      for (const uid of this.playerIds) ratings[uid] = { before: 0, after: 0, rdBefore: 0, rdAfter: 0, volatility: 0.06 };
-      return { winner: winnerId, reason: 'forfeit', stacks, places, ratings };
-    }
-    const inputs = users.map((u) => ({
-      userId: u!.id,
-      rating: u!.rating,
-      rd: u!.rd,
-      volatility: u!.volatility,
-      ratingAt: u!.ratingAt,
-    }));
+    const standings = await getRatingsForUsers(this.playerIds, this.match.format.mode);
+    const inputs = this.playerIds.map((uid) => {
+      const r = standings.get(uid)!;
+      return { userId: uid, rating: r.rating, rd: r.rd, volatility: r.volatility, ratingAt: r.ratingAt };
+    });
     const ratings = computeMatchRatings(inputs, places, this.match.rated);
     return { winner: winnerId, reason: 'forfeit', stacks, places, ratings };
   }
@@ -312,6 +302,7 @@ export class MatchRoom {
     const rawRatings = toMatchResultRatings(outcome);
     await persistFinishMatch(this.id, {
       status: 'finished',
+      mode: this.match.format.mode,
       winner: outcome.winner,
       reason: outcome.reason,
       finalStacks: outcome.stacks,

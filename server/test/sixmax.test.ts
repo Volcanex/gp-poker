@@ -13,7 +13,7 @@ import {
   type WsMessages,
 } from './helpers.js';
 import { createMatchForPlayers } from '../src/matchmaking.js';
-import { getHandById, getHandsForMatch, getMatchById, getRatingHistoryForUser, sql } from '../src/db.js';
+import { getHandById, getHandsForMatch, getMatchById, getRating, getRatingHistoryForUser, sql } from '../src/db.js';
 
 // Six seats, six big blinds each and a fast clock: random play busts people
 // within a handful of hands, and the escalating blind schedule guarantees an
@@ -87,6 +87,17 @@ describe('a six-max match', () => {
       for (const s of sessions) {
         const history = await getRatingHistoryForUser(s.id);
         expect(history.length).toBe(1);
+        expect(history[0].mode).toBe('six-max');
+
+        // Ratings are per mode: this match moved the six-max row and left
+        // the heads-up one untouched.
+        const sixMax = await getRating(s.id, 'six-max');
+        expect(sixMax.matches).toBe(1);
+        expect(Math.round(sixMax.rating)).toBe(result.ratings[s.id].after);
+        const headsUp = await getRating(s.id, 'heads-up');
+        expect(headsUp.rating).toBe(1500);
+        expect(headsUp.rd).toBe(350);
+        expect(headsUp.matches).toBe(0);
       }
 
       const match = await getMatchById(matchId);

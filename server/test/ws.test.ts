@@ -32,6 +32,8 @@ describe('websocket connect', () => {
     expect(hi.v).toBe(PROTOCOL_VERSION);
     expect(hi.u.id).toBe(session.id);
     expect(hi.u.guest).toBe(true);
+    expect(hi.u.rating).toBe(hi.u.ratings['heads-up'].rating);
+    expect(hi.u.ratings['six-max'].rating).toBe(1500);
     ws.close();
   });
 

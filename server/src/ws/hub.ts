@@ -1,7 +1,8 @@
 import type { WebSocket } from 'ws';
 import type { FastifyRequest } from 'fastify';
 import { encode, decodeClient, PROTOCOL_VERSION, type ClientMsg, type ServerMsg } from '@opentable/protocol';
-import { insertAuditLog, type UserRow } from '../db.js';
+import type { Mode } from '@opentable/protocol';
+import { insertAuditLog, type RatingRow, type UserRow } from '../db.js';
 import { toUserSummary } from '../userView.js';
 
 // Connection registry keyed by user id. A user may have several sockets open
@@ -76,6 +77,7 @@ export function attachConnection(
   socket: WebSocket,
   request: FastifyRequest,
   user: UserRow,
+  ratings: Record<Mode, RatingRow>,
   onMessage: ClientMsgHandler,
   onDisconnect: DisconnectHandler
 ): void {
@@ -83,7 +85,7 @@ export function attachConnection(
   const ip = firstForwardedIp(request);
   insertAuditLog({ kind: 'connect', userId: user.id, ip }).catch(() => {});
 
-  hub.sendTo(socket, { t: 'hi', v: PROTOCOL_VERSION, u: toUserSummary(user) });
+  hub.sendTo(socket, { t: 'hi', v: PROTOCOL_VERSION, u: toUserSummary(user, ratings) });
 
   socket.on('message', (raw: Buffer) => {
     const msg = decodeClient(raw.toString());
