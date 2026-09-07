@@ -4,6 +4,7 @@ import { api } from '../net/api.ts';
 import type { LeaderboardRow } from '../net/types.ts';
 import { useSession } from '../net/session.tsx';
 import { useTitle } from '../ui/title.ts';
+import { int } from '../ui/format.ts';
 
 export function Leaderboard() {
   const { me } = useSession();
@@ -75,15 +76,15 @@ export function Leaderboard() {
                       <td className="r">
                         {list ? (
                           <>
-                            {r.rating}
-                            <span className="rd num">+-{Math.round(r.rd)}</span>
+                            {int(r.rating)}
+                            <span className="rd num">+-{int(r.rd)}</span>
                           </>
                         ) : (
                           <span className="skeleton skeleton-text" style={{ width: 56 }} />
                         )}
                       </td>
                       <td className="r">{list ? r.matches : ''}</td>
-                      <td className="r">{list ? r.peak : ''}</td>
+                      <td className="r">{list ? int(r.peak) : ''}</td>
                     </tr>
                   );
                 })}

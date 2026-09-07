@@ -8,7 +8,7 @@ import { createMatchForPlayers } from '../src/matchmaking.js';
 import { getHandById, getHandsForMatch, getMatchById, getRatingHistoryForUser, sql } from '../src/db.js';
 
 // Short stacks relative to the blinds so the match tends to bust in a handful
-// of hands under random play, and a low hand cap as a backstop either way —
+// of hands under random play, and a low hand cap as a backstop either way -
 // keeps this test fast without weakening what it actually exercises.
 const TEST_FORMAT: MatchFormat = { hands: 5, stack: 20, sb: 1, bb: 2, clockMs: 20_000, graceMs: 15_000 };
 

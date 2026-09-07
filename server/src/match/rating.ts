@@ -23,7 +23,7 @@ function daysSince(date: Date, now: number): number {
 // Widens each player's RD for their own inactivity first (Glicko-2's model
 // for "we're less sure about you the longer it's been"), then runs the
 // head-to-head update both ways. `before`/`rdBefore` report the actual
-// persisted pre-match values, not the widened ones — widening is an input
+// persisted pre-match values, not the widened ones, widening is an input
 // to the algorithm, not something that happened to the player's record.
 export function computeMatchRatings(
   a: PlayerRatingInput,

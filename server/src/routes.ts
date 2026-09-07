@@ -4,6 +4,7 @@ import {
   getLeaderboard,
   getUserByNameLower,
   getUserHandStats,
+  getUserPreflopAccuracy,
   getMatchesForUser,
   getRatingHistoryForUser,
   getMatchById,
@@ -12,7 +13,7 @@ import {
   deleteSession,
 } from './db.js';
 import { claimGuest, login, requireUser, setSessionCookie, clearSessionCookie, createSessionForUser, SESSION_COOKIE } from './auth.js';
-import { isProvisional, toUserSummary } from './userView.js';
+import { isProvisional, roundRatings, toUserSummary } from './userView.js';
 
 function err(reply: { code: (n: number) => { send: (b: unknown) => unknown } }, status: number, message: string) {
   return reply.code(status).send({ error: message });
@@ -85,6 +86,7 @@ export function registerRoutes(app: FastifyInstance): void {
 
     const history = await getRatingHistoryForUser(user.id);
     const stats = await getUserHandStats(user.id);
+    const accuracy = await getUserPreflopAccuracy(user.id);
     const lastMatches = await getMatchesForUser(user.id, 20);
 
     const totalOutcomes = user.wins + user.losses + user.draws;
@@ -101,8 +103,10 @@ export function registerRoutes(app: FastifyInstance): void {
       peak: Math.round(user.peakRating),
       peakAt: user.peakAt,
       provisional: isProvisional(user),
+      matches: user.matches,
       winRate,
-      ratingHistory: history.map((h) => ({ rating: h.rating, rd: h.rd, at: h.at, matchId: h.matchId })),
+      accuracy,
+      ratingHistory: history.map((h) => ({ rating: Math.round(h.rating), rd: Math.round(h.rd), at: h.at, matchId: h.matchId })),
       stats: {
         hands: stats.totalHands,
         vpip,
@@ -128,7 +132,7 @@ export function registerRoutes(app: FastifyInstance): void {
       reason: match.reason,
       handsPlayed: match.handsPlayed,
       finalStacks: match.finalStacks,
-      ratings: match.ratings,
+      ratings: match.ratings ? roundRatings(match.ratings) : null,
       createdAt: match.createdAt,
       finishedAt: match.finishedAt,
       hands: hands.map((h) => ({
@@ -139,6 +143,7 @@ export function registerRoutes(app: FastifyInstance): void {
         board: h.board,
         stacks: h.stacksStart,
         awards: h.result?.awards ?? null,
+        accuracy: [h.study?.[0]?.summary.accuracy ?? null, h.study?.[1]?.summary.accuracy ?? null],
       })),
     };
   });

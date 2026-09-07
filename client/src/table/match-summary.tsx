@@ -5,7 +5,8 @@ import { useReducedMotion } from 'motion/react';
 import type { MatchResult, TableView } from '@opentable/protocol';
 import type { Match } from '../net/types.ts';
 import { BoardText } from '../ui/board-text.tsx';
-import { fmtDate, signed } from '../ui/format.ts';
+import { fmtDate, fmtPct, int, signed } from '../ui/format.ts';
+import { handAccuracy, matchHasAccuracy } from '../net/adapt.ts';
 
 export interface MatchSummaryProps {
   match: Match;
@@ -28,6 +29,7 @@ function reasonText(r: Match['reason']): string {
 
 export function MatchSummary({ match, meId, onAgain, againLabel }: MatchSummaryProps) {
   const mine = meId ? match.seats.find((s) => s.userId === meId) : undefined;
+  const showAccuracy = matchHasAccuracy(match);
   const winnerSeat = match.winner ? match.seats.find((s) => s.userId === match.winner) : null;
 
   const verdict = match.winner == null
@@ -97,6 +99,9 @@ export function MatchSummary({ match, meId, onAgain, againLabel }: MatchSummaryP
                     <th>Board</th>
                     <th>Won by</th>
                     <th className="r">Pot</th>
+                    {showAccuracy && match.seats.map((s) => (
+                      <th className="r" key={s.userId}>{s.name}</th>
+                    ))}
                     <th className="r">Replay</th>
                   </tr>
                 </thead>
@@ -110,6 +115,14 @@ export function MatchSummary({ match, meId, onAgain, againLabel }: MatchSummaryP
                         <td><BoardText cards={h.board} /></td>
                         <td>{winner ? winner.name : h.completedAt ? 'Split' : 'In progress'}</td>
                         <td className="r">{award ? award.amount : ''}</td>
+                        {showAccuracy && match.seats.map((s) => {
+                          const acc = handAccuracy(h, s.seat);
+                          return (
+                            <td className="r" key={s.userId}>
+                              {acc == null ? <span className="muted">no read</span> : fmtPct(acc, 0)}
+                            </td>
+                          );
+                        })}
                         <td className="r">
                           <Link to={`/m/${match.id}/h/${h.number}`}>Open</Link>
                         </td>
@@ -120,6 +133,12 @@ export function MatchSummary({ match, meId, onAgain, againLabel }: MatchSummaryP
               </table>
             </div>
           </div>
+        )}
+        {showAccuracy && (
+          <span className="muted">
+            The two name columns are each player's preflop accuracy against the baseline charts,
+            which are a rough guide and not solver output.
+          </span>
         )}
       </section>
     </main>
@@ -140,18 +159,18 @@ function PlayerResult({
   you: boolean;
 }) {
   const reduced = useReducedMotion();
-  const [shown, setShown] = useState(() => (rating ? rating.before : 0));
+  const [shown, setShown] = useState(() => (rating ? int(rating.before) : 0));
 
   /* The rating moves once, after a beat, so it reads as a change rather than a
      value that happened to land there. */
   useEffect(() => {
     if (!rating) return;
     if (reduced) {
-      setShown(rating.after);
+      setShown(int(rating.after));
       return;
     }
-    setShown(rating.before);
-    const timer = setTimeout(() => setShown(rating.after), 420);
+    setShown(int(rating.before));
+    const timer = setTimeout(() => setShown(int(rating.after)), 420);
     return () => clearTimeout(timer);
   }, [rating, reduced]);
 
@@ -166,7 +185,7 @@ function PlayerResult({
         {won && <span className="badge badge-ok">Won</span>}
       </div>
       <div className="pr-stack num">
-        {stack}
+        {int(stack)}
         <span className="u">units left</span>
       </div>
       {rating ? (
@@ -175,7 +194,7 @@ function PlayerResult({
             <NumberFlow value={shown} format={{ useGrouping: false }} respectMotionPreference />
           </span>
           <span className="delta" {...tone}>{signed(delta)}</span>
-          <span className="muted">deviation {Math.round(rating.rdAfter)}</span>
+          <span className="muted">deviation {int(rating.rdAfter)}</span>
         </div>
       ) : (
         <span className="muted">Unrated. Nothing changed on the ladder.</span>

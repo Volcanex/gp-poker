@@ -10,7 +10,7 @@ import { getHandById, sql } from '../src/db.js';
 // tests 2 relies on reconnecting comfortably inside the grace window.
 const SHORT_FORMAT: MatchFormat = { hands: 1, stack: 200, sb: 1, bb: 2, clockMs: 300, graceMs: 1000 };
 // Same clock, but enough hands that natural completion never preempts the
-// forfeit test — forfeit always fires within hand 1 anyway.
+// forfeit test, forfeit always fires within hand 1 anyway.
 const FORFEIT_FORMAT: MatchFormat = { hands: 25, stack: 200, sb: 1, bb: 2, clockMs: 300, graceMs: 1000 };
 
 // Always checks or calls (never folds, never raises) whenever it's this
@@ -141,6 +141,43 @@ describe('the decision clock', () => {
 
       connResponsive.ws.close();
       connTimeout.ws.close();
+    },
+    15_000
+  );
+
+  // Regression for a bug found live: once a disconnected player's grace
+  // window had already fired once (timing them out), rearmClock kept
+  // pausing the clock on every later turn just because they were still
+  // disconnected, freezing the match on them forever. The clock must run
+  // (and keep timing them out) once grace has already been used up.
+  it(
+    'keeps timing out a still-disconnected player after grace has already fired once',
+    async () => {
+      const sessResponsive = await mintGuestSession(app); // seat 0
+      const sessGone = await mintGuestSession(app); // seat 1, disconnects and never returns
+      createdUserIds.push(sessResponsive.id, sessGone.id);
+
+      const connResponsive = await connectSession(wsUrl, sessResponsive);
+      const connGone = await connectSession(wsUrl, sessGone);
+      await connResponsive.messages.wait((m) => m.t === 'hi');
+      await connGone.messages.wait((m) => m.t === 'hi');
+
+      const matchId = await createMatchForPlayers(sessResponsive.id, sessGone.id, FORFEIT_FORMAT);
+      createdMatchIds.push(matchId);
+      connResponsive.ws.send(JSON.stringify({ t: 'join', m: matchId }));
+
+      // Gone disconnects before ever acting (before their first grace
+      // window even starts ticking) and never comes back. Grace expires,
+      // timing them out once; if the bug were still there, every turn after
+      // that would show clock.paused forever and driveResponsive would hang
+      // waiting for a `state` that never gets a fresh deadline.
+      connGone.ws.close();
+
+      const end = await checkOrCallUntil(connResponsive, (m) => m.t === 'end');
+      expect(end.r.reason).toBe('forfeit');
+      expect(end.r.winner).toBe(sessResponsive.id);
+
+      connResponsive.ws.close();
     },
     15_000
   );

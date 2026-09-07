@@ -4,6 +4,7 @@ import { PlayingCard } from './playing-card.tsx';
 import { TimerRing } from './timer-ring.tsx';
 import { actionText } from './labels.ts';
 import { useFading } from '../ui/bits.tsx';
+import { int } from '../ui/format.ts';
 
 export interface SeatProps {
   seat: SeatView;
@@ -34,7 +35,7 @@ export function Seat({ seat, you, clock, format, reveal, n, handNo }: SeatProps)
         <span className="seat-line">
           <span className="seat-name">{seat.name}</span>
           {you && <span className="seat-you">you</span>}
-          {seat.rating > 0 && <span className="seat-rating num">{seat.rating}</span>}
+          {seat.rating > 0 && <span className="seat-rating num">{int(seat.rating)}</span>}
           {seat.button && <span className="btn-marker" title="Button">D</span>}
           {!seat.connected && <span className="seat-off">Disconnected</span>}
         </span>

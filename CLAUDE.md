@@ -16,6 +16,10 @@ compose up -d db` if there is none), copy `.env.example` to `.env`, then
 tsx, serves everything on one port). Tests: `npm test` (vitest in every
 workspace). Deploy on h: `npm run build && systemctl restart opentable`.
 Schema in `server/db/schema.sql` is applied idempotently at start.
+The server build is an esbuild bundle (`server/build.mjs`) because the
+workspace packages ship TypeScript source only; `server/tsconfig.json` is
+type-check only. Matches left `playing` by a dead process are aborted at
+boot, unrated.
 
 ## Shape (npm workspaces, TypeScript end to end, Node 22)
 - `packages/protocol` — wire types v1 and the per-viewer `TableView`. The

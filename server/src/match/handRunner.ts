@@ -25,7 +25,7 @@ import { computeMatchRatings } from './rating.js';
 import type { HandRunner, MatchOutcome, RoomClock } from './types.js';
 
 // How long a completed hand's result stays on screen before the next hand
-// deals (or the match ends) — long enough for the reveal to actually settle.
+// deals (or the match ends), long enough for the reveal to actually settle.
 export const HAND_HOLD_MS = 4_000;
 
 export interface HandRunnerDeps {

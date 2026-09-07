@@ -4,6 +4,7 @@ import { api } from '../net/api.ts';
 import type { LeaderboardRow } from '../net/types.ts';
 import { useSession } from '../net/session.tsx';
 import { elapsed, useNow } from '../ui/bits.tsx';
+import { int } from '../ui/format.ts';
 import { useTitle } from '../ui/title.ts';
 import { Link, useLocation } from 'react-router-dom';
 
@@ -101,6 +102,11 @@ export function Home() {
       </section>
 
       <Leaderboard />
+
+      <footer className="home-foot">
+        Every hand is provably fair. Every match is public.{' '}
+        <Link to="/leaderboard">See the leaderboard</Link>
+      </footer>
     </main>
   );
 }
@@ -158,8 +164,8 @@ function Leaderboard() {
                     <td className="r">
                       {list ? (
                         <>
-                          {r.rating}
-                          {r.rd != null && <span className="rd num">±{Math.round(r.rd)}</span>}
+                          {int(r.rating)}
+                          {r.rd != null && <span className="rd num">+-{int(r.rd)}</span>}
                         </>
                       ) : (
                         <span className="skeleton skeleton-text" style={{ width: 48 }} />

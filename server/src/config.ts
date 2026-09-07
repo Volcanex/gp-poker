@@ -21,4 +21,8 @@ export const config = {
   port: Number(process.env.PORT ?? 8130),
   host: process.env.HOST ?? '127.0.0.1',
   sessionSecret: required('SESSION_SECRET'),
+  // Fastify logs every request at 'info' by default, which is noise in
+  // journald for a small box; 'warn' surfaces only errors/warnings unless
+  // overridden.
+  logLevel: process.env.LOG_LEVEL ?? 'warn',
 };

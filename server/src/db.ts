@@ -212,6 +212,24 @@ export async function getUserHandStats(userId: string): Promise<UserHandStatsAgg
   );
 }
 
+// Mean of hands.study's per-seat summary.accuracy, over completed hands
+// where the user actually had a scoreable preflop decision (count > 0) -
+// otherwise a hand where they never got a named spot would silently drag
+// the average up via summarise()'s vacuous accuracy: 100 for zero decisions.
+// Null when there are none.
+export async function getUserPreflopAccuracy(userId: string): Promise<number | null> {
+  const [row] = await sql<{ accuracy: number | null }[]>`
+    select avg((h.study -> mp.seat::text -> 'summary' ->> 'accuracy')::numeric)::float8 as accuracy
+    from hands h
+    join match_players mp on mp.match_id = h.match_id
+    where mp.user_id = ${userId}
+      and h.completed_at is not null
+      and h.study is not null
+      and (h.study -> mp.seat::text -> 'summary' ->> 'count')::int > 0
+  `;
+  return row?.accuracy ?? null;
+}
+
 // ---- sessions ----
 
 export async function insertSession(token: string, userId: string, expiresAt: Date): Promise<void> {
@@ -306,7 +324,7 @@ export async function getMatchesForUser(userId: string, limit = 20): Promise<Use
       id: m.id,
       opponent: opponentSeat?.name ?? 'unknown',
       result,
-      ratingChange: mine ? mine.after - mine.before : 0,
+      ratingChange: mine ? Math.round(mine.after - mine.before) : 0,
       finishedAt: m.finishedAt,
     };
   });
@@ -423,11 +441,12 @@ export interface HandSummary {
   board: string[];
   stacksStart: number[];
   result: HandOutcome | null;
+  study: Record<number, HandStudy> | null;
 }
 
 export async function getHandsForMatch(matchId: string): Promise<HandSummary[]> {
   return sql<HandSummary[]>`
-    select number, completed_at, seed_hash, seed, board, stacks_start, result
+    select number, completed_at, seed_hash, seed, board, stacks_start, result, study
     from hands
     where match_id = ${matchId}
     order by number asc

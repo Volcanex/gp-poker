@@ -4,6 +4,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import cookie from '@fastify/cookie';
 import websocket from '@fastify/websocket';
 import fastifyStatic from '@fastify/static';
+import { config } from './config.js';
 import { abortStalePlayingMatches, applySchema } from './db.js';
 import { registerRoutes } from './routes.js';
 import { resolveSessionUser } from './auth.js';
@@ -22,7 +23,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   // restart, so a match still 'playing' from last time is dead, not paused.
   await abortStalePlayingMatches();
 
-  const app = Fastify({ logger: true });
+  const app = Fastify({ logger: { level: config.logLevel } });
 
   await app.register(cookie);
   await app.register(websocket);

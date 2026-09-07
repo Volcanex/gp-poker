@@ -47,6 +47,9 @@ export interface Profile {
   peakAt: string | null;
   provisional: boolean;
   winRate: number;
+  /* Both pending on the server. Read them through src/net/adapt.ts. */
+  accuracy?: number | null;
+  matches?: number;
   ratingHistory: RatingPoint[];
   stats: {
     hands: number;
@@ -66,6 +69,8 @@ export interface MatchHandSummary {
   board: string[];
   stacks: number[];
   awards: HandOutcome['awards'] | null;
+  /* Pending on the server. Read it through src/net/adapt.ts, never directly. */
+  accuracy?: Record<number, number | null> | (number | null)[] | null;
 }
 
 export interface Match {

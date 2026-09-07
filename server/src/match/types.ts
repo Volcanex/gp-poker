@@ -20,7 +20,7 @@ export interface MatchOutcome {
 
 /* The seam between orchestration and game state. MatchRoom owns
    subscribers, the wall clock, disconnect grace, persistence and rating
-   writeback on finish, and never touches a HandState directly — only
+   writeback on finish, and never touches a HandState directly, only
    through this interface. viewFor takes the room's clock and connectivity
    state as parameters rather than the hand runner tracking disconnects
    itself: masking hole cards is the engine's job, but whose turn it is on
@@ -31,14 +31,14 @@ export interface HandRunner {
   // Returns whether the action actually changed state. A rejected action
   // (wrong turn, stale seq, illegal amount, malformed message) sends its own
   // `err` directly and returns false so the room doesn't rebroadcast or
-  // rearm the clock over nothing — armed clock resets are exactly the
+  // rearm the clock over nothing, armed clock resets are exactly the
   // exploit a client spamming illegal actions would otherwise get for free.
   onAction(userId: string, msg: Extract<ClientMsg, { t: 'act' }>): boolean;
   // Called by the room's clock on expiry. Applies 'x' if legal for this
   // seat, else 'f', logging the action with `to: true`.
   onTimeout(seat: number): void;
   toActSeat(): number | null; // null when no decision is pending (between hands, at showdown)
-  isDone(): boolean; // true once the whole MATCH is decided (bust or hands played out) — not just the current hand
+  isDone(): boolean; // true once the whole MATCH is decided (bust or hands played out), not just the current hand
   matchResult(): MatchOutcome | null; // non-null once isDone()
   currentStacks(): Record<string, number>; // live stacks, for a forced forfeit that isn't isDone()
   viewFor(userId: string | null, clock: RoomClock | null, connected: boolean[]): TableView | null;

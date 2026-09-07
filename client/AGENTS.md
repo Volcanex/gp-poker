@@ -20,8 +20,9 @@ declaration for `phe` that the engine's own tsconfig provides.
 
 ## Shape
 - `src/net/` — the wire. `types.ts` mirrors the REST payloads, `api.ts` is the
-  fetch layer, `socket.ts` is the single WebSocket, `session.tsx` owns the
-  session, the connection state, the queue and the match to return to.
+  fetch layer, `adapt.ts` reads the fields the server has not shipped yet,
+  `socket.ts` is the single WebSocket, `session.tsx` owns the session, the
+  connection state, the queue and the match to return to.
 - `src/routes/` — `home.tsx`, `leaderboard.tsx`, `profile.tsx`, `match.tsx`
   (live table, finished summary and the mock), `replay.tsx`.
 - `src/table/` — the table. `table.tsx` renders one `TableView`; `seat.tsx`,
@@ -63,6 +64,11 @@ Acting sends `{t:'act', m, h: view.h, n: view.n, a, v}` and disables the bar
 until a state with a different `h:n` arrives. The server refuses a stale action
 with `err`, so a replayed act is rejected rather than misapplied.
 
+**`/api/me` is refetched** after `end`, and after claim, login and logout.
+A finished match has just moved the rating, and the top bar was still showing
+the value from before it. Claim and login also merge the summary they return so
+the name changes immediately, with the refetch behind it for the counts.
+
 **The match to return to** is remembered in `localStorage` whenever a `state`
 arrives with a seat for you, and cleared on `end`. On load it is offered only
 after `GET /api/matches/:id` confirms the match is still playing: a match that
@@ -76,17 +82,27 @@ mirror, and dates are strings there because JSON has no Date.
 `/m/:id/h/:n` addresses `GET /api/hands/<id>-<n>` with no lookup step. If that
 key ever changes, `api.hand()` is the one place to change.
 
-Three things the endpoints do not carry, left out rather than invented:
-- **Preflop accuracy on the profile.** `/api/users/:name` returns vpip, pfr,
-  aggression frequency and fold-to-3bet, not a mean study accuracy. The tile is
-  absent, not zero.
-- **Per-hand accuracy in the match hand list.** `/api/matches/:id` does not
-  include each hand's study, and fetching every hand to fill a column is not
-  worth it. Accuracy lives on the replay page, which has the hand row.
-- **A total match count for another player.** The profile carries the last
-  twenty matches, not a count. The Matches fact is shown on your own profile
-  (from `/api/me`) and omitted on everyone else's, rather than passing a capped
-  list off as a total.
+**Fields the server is still adding go through `src/net/adapt.ts`**, never
+read directly: mean preflop accuracy and a total match count on
+`/api/users/:name`, and per-seat accuracy on the hands list of
+`/api/matches/:id`. That file is the single place to change when the names are
+confirmed, and the UI above it never learns a name. Absent and null both mean
+"no number", and the caller hides its tile or column rather than printing a
+zero; a real zero (a hand scored 0% accuracy) still shows, which is why the
+adapter tests distinguish the two.
+
+Two things the endpoints do not carry, left out rather than invented:
+- **A total match count for another player**, until the profile carries one.
+  `lastMatches` is capped at twenty, so it is never passed off as a total: the
+  count comes from the endpoint when it sends one, else from `/api/me` on your
+  own profile, else the fact is not shown.
+- **Per-hand study on the match page** beyond the accuracy column. The full
+  decision list lives on the replay page, which has the hand row.
+
+**Every rating and delta is rounded at the display site** (`int` and `signed`
+in `src/ui/format.ts`). The server sends integers, but a fraction must never
+reach the screen: a delta once rendered as "+162.31089256906034". Rounding
+where the number is printed does not depend on the producer staying correct.
 
 ## The replay
 `replay(config, actions)` from the engine returns one `HandState` per step, and

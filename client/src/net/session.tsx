@@ -83,6 +83,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const refreshMe = useCallback(async () => {
+    try {
+      setMeState(await api.me());
+    } catch {
+      /* the rating on screen goes stale rather than the page breaking */
+    }
+  }, []);
+
   useEffect(() => socket.onState(setConn), []);
 
   /* A remembered match is only offered once the server confirms it is still
@@ -114,6 +122,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         } else if (m.t === 'end') {
           writeLiveMatch(null);
           setLiveMatch(null);
+          /* The match just moved the rating, and the top bar is showing the
+             value from before it. */
+          void refreshMe();
         } else if (m.t === 'q') {
           setQueue((prev) => ({
             s: m.s,
@@ -124,7 +135,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           }));
         }
       }),
-    [],
+    [refreshMe],
   );
 
   const send = useCallback((m: ClientMsg) => socket.send(m), []);
@@ -145,11 +156,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
      either, so the summary is merged over what is already there. */
   const setMe = useCallback((u: UserSummary) => {
     setMeState((prev) => (prev ? { ...prev, ...u } : { ...u, peak: u.rating, matches: 0, wins: 0, losses: 0, draws: 0 }));
-  }, []);
-
-  const refreshMe = useCallback(async () => {
-    const u = await api.me();
-    setMeState(u);
   }, []);
 
   const value = useMemo(

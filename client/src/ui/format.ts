@@ -17,8 +17,17 @@ export function fmtPct(n: number, digits = 1): string {
   return `${n.toFixed(digits)}%`;
 }
 
+/* Ratings and their deltas are whole numbers wherever they are shown. The
+   server sends integers, but a fraction must never reach the screen: a rating
+   delta once rendered as "+162.31089256906034", so the rounding lives at the
+   display site rather than depending on the producer. */
+export function int(n: number): number {
+  return Math.round(n);
+}
+
 export function signed(n: number): string {
-  return n > 0 ? `+${n}` : String(n);
+  const v = Math.round(n);
+  return v > 0 ? `+${v}` : String(v);
 }
 
 /* Rating and deviation always travel together: a rating without its deviation

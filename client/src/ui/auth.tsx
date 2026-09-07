@@ -3,12 +3,13 @@ import { Link } from 'react-router-dom';
 import { api } from '../net/api.ts';
 import { useSession } from '../net/session.tsx';
 import { useGInit } from './bits.tsx';
+import { int } from './format.ts';
 
 /* Shown on your own profile while the account is still a guest. The point it
    has to make is that nothing is lost by claiming: the rating is already
    yours, this only puts a name and a password on it. */
 export function ClaimCard({ onClaimed }: { onClaimed?: () => void }) {
-  const { setMe } = useSession();
+  const { setMe, refreshMe } = useSession();
   const nameId = useId();
   const passId = useId();
   const [name, setName] = useState('');
@@ -23,7 +24,11 @@ export function ClaimCard({ onClaimed }: { onClaimed?: () => void }) {
     setError(null);
     try {
       const user = await api.claim(name.trim(), password);
+      /* The summary lands first so the name changes immediately; the full row
+         follows, because claiming does not change the counts but a stale /me
+         is how the top bar ends up disagreeing with the page. */
       setMe(user);
+      void refreshMe();
       onClaimed?.();
     } catch (err) {
       setError((err as Error).message);
@@ -74,7 +79,7 @@ export function ClaimCard({ onClaimed }: { onClaimed?: () => void }) {
 }
 
 export function AccountMenu() {
-  const { me, setMe, refreshMe } = useSession();
+  const { me, refreshMe } = useSession();
   const wrapRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   useGInit(wrapRef);
@@ -100,7 +105,7 @@ export function AccountMenu() {
         aria-haspopup="menu"
       >
         {me ? me.name : 'Account'}
-        {me && <span className="r num">{me.rating}</span>}
+        {me && <span className="r num">{int(me.rating)}</span>}
       </button>
 
       <div className="menu" popover="auto" id="account-menu" role="menu">
@@ -132,18 +137,13 @@ export function AccountMenu() {
         )}
       </div>
 
-      <LoginDialog ref={dialogRef} onDone={setMe} />
+      <LoginDialog ref={dialogRef} />
     </div>
   );
 }
 
-function LoginDialog({
-  ref,
-  onDone,
-}: {
-  ref: React.RefObject<HTMLDialogElement | null>;
-  onDone: (u: Awaited<ReturnType<typeof api.login>>) => void;
-}) {
+function LoginDialog({ ref }: { ref: React.RefObject<HTMLDialogElement | null> }) {
+  const { setMe, refreshMe } = useSession();
   const nameId = useId();
   const passId = useId();
   const [name, setName] = useState('');
@@ -158,7 +158,8 @@ function LoginDialog({
     setError(null);
     try {
       const user = await api.login(name.trim(), password);
-      onDone(user);
+      setMe(user);
+      void refreshMe();
       ref.current?.close();
       setName('');
       setPassword('');

@@ -4,6 +4,7 @@ import { finishMatch as persistFinishMatch, getUserById, type MatchRow } from '.
 import { unregisterRoom } from './rooms.js';
 import { EngineHandRunner } from './handRunner.js';
 import { computeMatchRatings } from './rating.js';
+import { roundRatings } from '../userView.js';
 import type { HandRunner, MatchOutcome, RoomClock } from './types.js';
 
 export type { HandRunner, MatchOutcome, RoomClock } from './types.js';
@@ -13,12 +14,15 @@ export type { HandRunner, MatchOutcome, RoomClock } from './types.js';
 // still gets the final state instead of `no_match`.
 const ROOM_LINGER_MS = 60_000;
 
-function toWireResult(outcome: MatchOutcome): MatchResult {
+// Full Glicko-2 precision, no volatility (that never goes on the wire).
+// `matches.ratings` is persisted with this, full precision, the `end`
+// message sends `roundRatings()` of it instead.
+function toMatchResultRatings(outcome: MatchOutcome): MatchResult['ratings'] {
   const ratings: MatchResult['ratings'] = {};
   for (const [uid, r] of Object.entries(outcome.ratings)) {
     ratings[uid] = { before: r.before, after: r.after, rdBefore: r.rdBefore, rdAfter: r.rdAfter };
   }
-  return { winner: outcome.winner, reason: outcome.reason, stacks: outcome.stacks, rated: true, ratings };
+  return ratings;
 }
 
 export class MatchRoom {
@@ -109,7 +113,7 @@ export class MatchRoom {
   // changes; it is armed with a real setTimeout to the deadline, and the
   // deadline is also mirrored into `clock` so viewFor can report it. While
   // the acting player is disconnected the timer itself is not running
-  // (`paused: true` instead) — handleGraceExpiry stands in for it.
+  // (`paused: true` instead), handleGraceExpiry stands in for it.
   private rearmClock(): void {
     this.clearClockTimer();
     if (!this.hand) {
@@ -169,7 +173,7 @@ export class MatchRoom {
   // moment their last socket drops before a pending decision is timed out on
   // their behalf; reconnecting inside that window clears the grace timer and
   // grants a fresh full decision clock (we do not track sub-second remaining
-  // time across the pause — simpler, and indistinguishable to the player).
+  // time across the pause, simpler, and indistinguishable to the player).
   handleDisconnect(userId: string): void {
     if (!this.playerIds.includes(userId) || this.match.status !== 'playing') return;
     this.disconnected.add(userId);
@@ -215,8 +219,8 @@ export class MatchRoom {
     const [userA, userB] = await Promise.all([getUserById(uidA), getUserById(uidB)]);
     const stacks = this.hand?.currentStacks() ?? {};
     if (!userA || !userB) {
-      // Unreachable in practice — both users must exist for the match to
-      // exist — but degrade to a no-op rating change rather than throwing.
+      // Unreachable in practice, both users must exist for the match to
+      // exist, but degrade to a no-op rating change rather than throwing.
       const ratings: MatchOutcome['ratings'] = {};
       for (const uid of this.playerIds) ratings[uid] = { before: 0, after: 0, rdBefore: 0, rdAfter: 0, volatility: 0.06 };
       return { winner: winnerId, reason: 'forfeit', stacks, ratings };
@@ -244,17 +248,24 @@ export class MatchRoom {
         })
       : [];
 
+    const rawRatings = toMatchResultRatings(outcome);
     await persistFinishMatch(this.id, {
       status: 'finished',
       winner: outcome.winner,
       reason: outcome.reason,
       finalStacks: outcome.stacks,
-      ratings: toWireResult(outcome).ratings,
+      ratings: rawRatings,
       players,
     });
 
     this.match = { ...this.match, status: 'finished', winner: outcome.winner, reason: outcome.reason };
-    const result = toWireResult(outcome);
+    const result: MatchResult = {
+      winner: outcome.winner,
+      reason: outcome.reason,
+      stacks: outcome.stacks,
+      rated: true,
+      ratings: roundRatings(rawRatings),
+    };
     this.lastResult = result;
     for (const uid of this.subscribers) hub.send(uid, { t: 'end', m: this.id, r: result });
     setTimeout(() => unregisterRoom(this.id), ROOM_LINGER_MS);

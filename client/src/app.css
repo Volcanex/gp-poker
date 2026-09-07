@@ -326,7 +326,7 @@ a.btn { text-decoration: none; }
 .switch-row .label { white-space: nowrap; }
 
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); align-items: start; }
-.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-3); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: var(--sp-3); }
 .kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px var(--sp-4); margin: 0; font-size: 12px; }
 .kv dt { color: var(--text-secondary); }
 .kv dd { margin: 0; overflow-wrap: anywhere; }
@@ -465,4 +465,10 @@ a.btn { text-decoration: none; }
   /* The rating is on the profile the button leads to; the name is what has to
      stay on screen next to the theme control. */
   .account .btn .r { display: none; }
+}
+
+.home-foot {
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border-subtle);
+  font-size: 12px; color: var(--text-secondary);
 }

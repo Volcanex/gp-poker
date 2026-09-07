@@ -5,7 +5,8 @@ import type { Profile as ProfileData } from '../net/types.ts';
 import { useSession } from '../net/session.tsx';
 import { useTitle } from '../ui/title.ts';
 import { RatingGraph } from '../ui/rating-graph.tsx';
-import { fmtDate, fmtPct, ratingWithRd, signed } from '../ui/format.ts';
+import { fmtDate, fmtPct, int, ratingWithRd, signed } from '../ui/format.ts';
+import { profileAccuracy, profileMatchCount } from '../net/adapt.ts';
 import { ClaimCard } from '../ui/auth.tsx';
 
 export function Profile() {
@@ -65,6 +66,10 @@ export function Profile() {
      the last twenty. Rather than pass off a capped list as a total, the count
      is shown for your own profile and left out for everyone else. */
   const played = data.lastMatches.length > 0 || data.ratingHistory.length > 1;
+  const accuracy = profileAccuracy(data);
+  /* The endpoint's own total when it sends one; otherwise your own count from
+     /api/me, and nothing at all for another player. */
+  const matchCount = profileMatchCount(data) ?? (isMe && me ? me.matches : null);
 
   return (
     <main className="page wide stack">
@@ -76,8 +81,8 @@ export function Profile() {
         </div>
         {played ? (
           <div className="facts">
-            <Fact k="Peak" v={String(data.peak)} d={data.peakAt ? fmtDate(data.peakAt) : 'Not set yet'} />
-            {isMe && me && <Fact k="Matches" v={String(me.matches)} d="rated" />}
+            <Fact k="Peak" v={String(int(data.peak))} d={data.peakAt ? fmtDate(data.peakAt) : 'Not set yet'} />
+            {matchCount != null && <Fact k="Matches" v={String(matchCount)} d="rated" />}
             <Fact k="Win rate" v={fmtPct(data.winRate * 100, 0)} d="of decided matches" />
           </div>
         ) : (
@@ -100,6 +105,9 @@ export function Profile() {
             <Tile k="PFR" v={fmtPct(data.stats.pfr)} d="hands raised preflop" />
             <Tile k="Aggression" v={fmtPct(data.stats.aggressionFrequency * 100)} d="bets and raises of all actions" />
             <Tile k="Fold to 3bet" v={fmtPct(data.stats.foldTo3bet)} d="when facing a 3bet" />
+            {accuracy != null && (
+              <Tile k="Preflop accuracy" v={fmtPct(accuracy)} d="against the baseline charts" />
+            )}
           </div>
         ) : (
           <div className="card">
