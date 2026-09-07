@@ -1,0 +1,25 @@
+{
+  "notes": "Cumulative percentile cutoffs on the equity ranking in equity.json (0 = best hand, e.g. AA). aggr = where the aggressive region ends; passive = where the passive region ends (both cumulative). Fold takes whatever is left up to 100. Heuristic baselines, not solver output -- see CLAUDE.md for the reasoning and how to retune. push.sb_push and push.bb_vs_push are Nash push/fold approximations for 10bb effective heads-up, not exact solves.",
+  "deep": {
+    "sb_open": { "aggr": 80, "passive": 90 },
+    "bb_vs_open": { "aggr": 15, "passive": 70 },
+    "sb_vs_3bet": { "aggr": 8, "passive": 45 },
+    "bb_vs_4bet": { "aggr": 4, "passive": 25 }
+  },
+  "mid": {
+    "sb_open": { "aggr": 75, "passive": 82 },
+    "bb_vs_open": { "aggr": 13, "passive": 65 },
+    "sb_vs_3bet": { "aggr": 7, "passive": 38 },
+    "bb_vs_4bet": { "aggr": 5, "passive": 20 }
+  },
+  "short": {
+    "sb_open": { "aggr": 70, "passive": 73 },
+    "bb_vs_open": { "aggr": 10, "passive": 55 },
+    "sb_vs_3bet": { "aggr": 10, "passive": 30 },
+    "bb_vs_4bet": { "aggr": 8, "passive": 15 }
+  },
+  "push": {
+    "sb_push": { "aggr": 71 },
+    "bb_vs_push": { "passive": 34 }
+  }
+}
