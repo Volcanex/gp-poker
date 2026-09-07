@@ -1,36 +1,86 @@
-/* Wire protocol v1. JSON over WebSocket, short keys, every message carries t.
+/* Wire protocol v2. JSON over WebSocket, short keys, every message carries t.
    The server is authoritative: clients send intent only. Any change to the
    shapes below is a protocol change: bump PROTOCOL_VERSION and keep the
    server accepting the previous one for a deploy cycle. */
 
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 export type Card = string; // 'As', 'Td', '2c' (rank + suit, lowercase suit)
 
 export type ActionKind = 'f' | 'x' | 'c' | 'b' | 'r' | 'a'; // fold check call bet raise all-in
 export type Street = 'pre' | 'flop' | 'turn' | 'river' | 'showdown' | 'done';
 
+export type Mode = 'heads-up' | 'six-max';
+
 export interface MatchFormat {
-  hands: number; // best-of: match ends after this many hands unless someone busts
+  mode: Mode;
+  players: number; // seats at the table: 2 for heads-up, 6 for six-max
+  rated: boolean;
+  hands: number | null; // heads-up: match ends after this many hands unless someone busts; null = until one player has every chip
   stack: number; // starting stack in table units
-  sb: number;
+  sb: number; // level 1 blinds; kept flat so old readers still work
   bb: number;
+  levels: { sb: number; bb: number }[]; // blind schedule; a single entry means blinds never escalate
+  levelHands: number; // hands per level (ignored with a single level)
   clockMs: number; // per-decision clock
   graceMs: number; // reconnect grace before the clock runs while disconnected
 }
 
-export const DEFAULT_FORMAT: MatchFormat = {
+export const HEADS_UP_FORMAT: MatchFormat = {
+  mode: 'heads-up',
+  players: 2,
+  rated: true,
   hands: 25,
   stack: 200,
   sb: 1,
   bb: 2,
+  levels: [{ sb: 1, bb: 2 }],
+  levelHands: 25,
   clockMs: 20_000,
   graceMs: 15_000,
 };
 
+/* Sit-and-go: last player with chips wins, blinds climb so it ends. */
+export const SIX_MAX_FORMAT: MatchFormat = {
+  mode: 'six-max',
+  players: 6,
+  rated: true,
+  hands: null,
+  stack: 200,
+  sb: 1,
+  bb: 2,
+  levels: [
+    { sb: 1, bb: 2 },
+    { sb: 2, bb: 4 },
+    { sb: 3, bb: 6 },
+    { sb: 5, bb: 10 },
+    { sb: 8, bb: 16 },
+    { sb: 12, bb: 24 },
+    { sb: 20, bb: 40 },
+    { sb: 30, bb: 60 },
+    { sb: 50, bb: 100 },
+  ],
+  levelHands: 8,
+  clockMs: 20_000,
+  graceMs: 15_000,
+};
+
+export const DEFAULT_FORMAT = HEADS_UP_FORMAT;
+
+export function formatFor(mode: Mode, rated: boolean): MatchFormat {
+  const base = mode === 'six-max' ? SIX_MAX_FORMAT : HEADS_UP_FORMAT;
+  return { ...base, rated };
+}
+
+export function blindsAt(format: MatchFormat, handNumber: number): { sb: number; bb: number } {
+  if (format.levels.length <= 1) return { sb: format.sb, bb: format.bb };
+  const level = Math.min(format.levels.length - 1, Math.floor((handNumber - 1) / format.levelHands));
+  return format.levels[level];
+}
+
 /* Client -> server */
 export type ClientMsg =
-  | { t: 'queue' }
+  | { t: 'queue'; mode?: Mode; rated?: boolean } // defaults: heads-up, rated
   | { t: 'dequeue' }
   | { t: 'join'; m: string } // subscribe to a match as player or spectator
   | { t: 'leave'; m: string }
@@ -40,7 +90,7 @@ export type ClientMsg =
 /* Server -> client */
 export type ServerMsg =
   | { t: 'hi'; v: number; u: UserSummary }
-  | { t: 'q'; s: 'searching' | 'found' | 'left'; w?: number; range?: number; m?: string }
+  | { t: 'q'; s: 'searching' | 'found' | 'left'; w?: number; range?: number; m?: string; mode?: Mode; rated?: boolean; seated?: number } // seated = players gathered so far for a multiway table
   | { t: 'state'; s: TableView }
   | { t: 'end'; m: string; r: MatchResult }
   | { t: 'err'; c: 'illegal' | 'stale' | 'not_your_turn' | 'no_match' | 'bad_msg' | 'version'; msg: string }
@@ -50,6 +100,7 @@ export interface UserSummary {
   id: string;
   name: string;
   guest: boolean;
+  bot: boolean;
   rating: number;
   rd: number;
   provisional: boolean;
@@ -76,6 +127,9 @@ export interface SeatView {
   button: boolean;
   acting: boolean;
   connected: boolean;
+  bot: boolean;
+  out: boolean; // eliminated from a multiway match, seat stays visible with its place
+  place: number | null; // finishing position once out (1 = winner), null while in
   last: { a: ActionKind; v?: number } | null;
 }
 
@@ -101,6 +155,7 @@ export interface TableView {
   seedHash: string;
   seed: string | null; // published when the hand completes
   format: MatchFormat;
+  blinds: { sb: number; bb: number }; // current level
   handsPlayed: number;
   last: LastEvent | null;
   result: HandResult | null; // set while street === 'done'
@@ -115,6 +170,7 @@ export interface MatchResult {
   winner: string | null; // user id, null on draw
   reason: 'bust' | 'hands' | 'forfeit' | 'draw' | 'abort';
   stacks: Record<string, number>;
+  places: Record<string, number>; // finishing position per user id, 1 = winner; heads-up draw gives both 1
   rated: boolean;
   ratings: Record<string, { before: number; after: number; rdBefore: number; rdAfter: number }>;
 }
