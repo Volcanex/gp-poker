@@ -1,0 +1,12 @@
+# Local Postgres for machines without one. On h the system Postgres is used.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: opentable
+      POSTGRES_PASSWORD: opentable
+      POSTGRES_DB: opentable
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+volumes:
+  pgdata: {}

@@ -1,0 +1,28 @@
+{
+  "name": "@opentable/client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@opentable/protocol": "*",
+    "@opentable/engine": "*",
+    "@opentable/preflop": "*",
+    "@number-flow/react": "^0.6.2",
+    "motion": "^13.2.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.9.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "vite": "^8.2.2",
+    "jsdom": "^30.0.1"
+  }
+}

@@ -1,0 +1,8 @@
+[project]
+name = "opentable"
+version = "0.1.0"
+description = "Open Table: free ranked heads-up no-limit hold'em, Lichess-style (poker.gabrielpenman.com)"
+
+[tool.gcore]
+design = "g-system@1.0.0"
+depends = []

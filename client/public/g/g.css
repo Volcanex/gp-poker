@@ -1,0 +1,2368 @@
+/* g-system@1.0.0, vendored, do not edit. Update: node scripts/vendor.mjs from the g-system repo. */
+/* g-tokens fonts — Inter (UI), Space Grotesk (display, optional), JetBrains Mono. */
+
+@font-face {
+  font-family: "InterVariable";
+  src: url("fonts/InterVariable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("fonts/SpaceGrotesk-Variable.woff2") format("woff2");
+  font-weight: 300 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("fonts/JetBrainsMono-Variable.woff2") format("woff2");
+  font-weight: 100 800;
+  font-style: normal;
+  font-display: swap;
+}
+/* Metric-matched fallback: Arial adjusted to Inter's metrics so the swap
+   never shifts layout. */
+@font-face {
+  font-family: "Inter Fallback";
+  src: local("Arial");
+  size-adjust: 107%;
+  ascent-override: 90.44%;
+  descent-override: 22.52%;
+  line-gap-override: 0%;
+}
+
+:root {
+  /* One-variable family swap: point --font-ui elsewhere and everything follows. */
+  --font-ui: "InterVariable", "Inter Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-ui); /* opt in to Space Grotesk per app */
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Inter features: contextual alternates and ligatures on, optical sizing on.
+     Tabular numbers are opt-in via font-variant-numeric where data aligns. */
+  --font-features-ui: "calt" 1, "liga" 1, "cv05" 1, "cv11" 1;
+}
+
+/* g-tokens — generated from @radix-ui/colors by scripts/build-tokens.mjs. Do not edit. */
+
+/* Dark is the default, unconditionally. data-theme="light" opts a tree out;
+   data-theme="system" follows the OS preference. Any element can re-assert
+   a mode, so theme islands compose. */
+
+:root {
+  --slate-1: #111113;
+  --slate-2: #18191b;
+  --slate-3: #212225;
+  --slate-4: #272a2d;
+  --slate-5: #2e3135;
+  --slate-6: #363a3f;
+  --slate-7: #43484e;
+  --slate-8: #5a6169;
+  --slate-9: #696e77;
+  --slate-10: #777b84;
+  --slate-11: #b0b4ba;
+  --slate-12: #edeef0;
+  --slate-a1: #00000000;
+  --slate-a2: #d8f4f609;
+  --slate-a3: #ddeaf814;
+  --slate-a4: #d3edf81d;
+  --slate-a5: #d9edfe25;
+  --slate-a6: #d6ebfd30;
+  --slate-a7: #d9edff40;
+  --slate-a8: #d9edff5d;
+  --slate-a9: #dfebfd6d;
+  --slate-a10: #e5edfd7b;
+  --slate-a11: #f1f7feb5;
+  --slate-a12: #fcfdffef;
+  --red-1: #191111;
+  --red-2: #201314;
+  --red-3: #3b1219;
+  --red-4: #500f1c;
+  --red-5: #611623;
+  --red-6: #72232d;
+  --red-7: #8c333a;
+  --red-8: #b54548;
+  --red-9: #e5484d;
+  --red-10: #ec5d5e;
+  --red-11: #ff9592;
+  --red-12: #ffd1d9;
+  --red-a1: #f4121209;
+  --red-a2: #f22f3e11;
+  --red-a3: #ff173f2d;
+  --red-a4: #fe0a3b44;
+  --red-a5: #ff204756;
+  --red-a6: #ff3e5668;
+  --red-a7: #ff536184;
+  --red-a8: #ff5d61b0;
+  --red-a9: #fe4e54e4;
+  --red-a10: #ff6465eb;
+  --red-a11: #ff9592;
+  --red-a12: #ffd1d9;
+  --green-1: #0e1512;
+  --green-2: #121b17;
+  --green-3: #132d21;
+  --green-4: #113b29;
+  --green-5: #174933;
+  --green-6: #20573e;
+  --green-7: #28684a;
+  --green-8: #2f7c57;
+  --green-9: #30a46c;
+  --green-10: #33b074;
+  --green-11: #3dd68c;
+  --green-12: #b1f1cb;
+  --green-a1: #00de4505;
+  --green-a2: #29f99d0b;
+  --green-a3: #22ff991e;
+  --green-a4: #11ff992d;
+  --green-a5: #2bffa23c;
+  --green-a6: #44ffaa4b;
+  --green-a7: #50fdac5e;
+  --green-a8: #54ffad73;
+  --green-a9: #44ffa49e;
+  --green-a10: #43fea4ab;
+  --green-a11: #46fea5d4;
+  --green-a12: #bbffd7f0;
+  --blue-1: #0d1520;
+  --blue-2: #111927;
+  --blue-3: #0d2847;
+  --blue-4: #003362;
+  --blue-5: #004074;
+  --blue-6: #104d87;
+  --blue-7: #205d9e;
+  --blue-8: #2870bd;
+  --blue-9: #0090ff;
+  --blue-10: #3b9eff;
+  --blue-11: #70b8ff;
+  --blue-12: #c2e6ff;
+  --blue-a1: #004df211;
+  --blue-a2: #1166fb18;
+  --blue-a3: #0077ff3a;
+  --blue-a4: #0075ff57;
+  --blue-a5: #0081fd6b;
+  --blue-a6: #0f89fd7f;
+  --blue-a7: #2a91fe98;
+  --blue-a8: #3094feb9;
+  --blue-a9: #0090ff;
+  --blue-a10: #3b9eff;
+  --blue-a11: #70b8ff;
+  --blue-a12: #c2e6ff;
+  --amber-1: #16120c;
+  --amber-2: #1d180f;
+  --amber-3: #302008;
+  --amber-4: #3f2700;
+  --amber-5: #4d3000;
+  --amber-6: #5c3d05;
+  --amber-7: #714f19;
+  --amber-8: #8f6424;
+  --amber-9: #ffc53d;
+  --amber-10: #ffd60a;
+  --amber-11: #ffca16;
+  --amber-12: #ffe7b3;
+  --amber-a1: #e63c0006;
+  --amber-a2: #fd9b000d;
+  --amber-a3: #fa820022;
+  --amber-a4: #fc820032;
+  --amber-a5: #fd8b0041;
+  --amber-a6: #fd9b0051;
+  --amber-a7: #ffab2567;
+  --amber-a8: #ffae3587;
+  --amber-a9: #ffc53d;
+  --amber-a10: #ffd60a;
+  --amber-a11: #ffca16;
+  --amber-a12: #ffe7b3;
+  --contrast-fill: var(--slate-12);
+  --contrast-fill-hover: #fcfcfd;
+  --contrast-fg: var(--slate-1);
+  --chart-1: #0090ff;
+  --chart-2: #6e56cf;
+  --chart-3: #12a594;
+  --chart-4: #ffc53d;
+  --chart-5: #e93d82;
+  --chart-6: #46a758;
+  --ok-text: #3dd68c;
+  --warn-text: #ffca16;
+  --danger-text: #ff9592;
+  --info-text: #70b8ff;
+  --shadow-overlay: 0 0 0 1px var(--slate-a6), 0 8px 24px rgb(0 0 0 / 0.42), 0 2px 8px rgb(0 0 0 / 0.32);
+  color-scheme: dark;
+}
+
+/* Aliases live on every themed element, not just :root — var() substitutes
+   where a property is declared, so a theme island only re-maps its aliases
+   if they are re-declared on it. */
+:root, [data-theme] {
+  /* ---- aliasing layer: components reference these, never slate-* ---- */
+  --surface-1: var(--slate-1);          /* page */
+  --surface-2: var(--slate-2);          /* card, panel, overlay */
+  --border-subtle: var(--slate-a6);     /* hairline */
+  --border: var(--slate-a7);            /* control border */
+  --border-hover: var(--slate-a8);
+  --fill-hover: var(--slate-a3);
+  --fill-active: var(--slate-a4);
+  --highlight: var(--slate-a5);         /* inset top edge */
+  --text-primary: var(--slate-12);
+  --text-secondary: var(--slate-11);
+  --text-placeholder: var(--slate-9);
+  --focus-ring: var(--slate-8);
+
+  /* ---- control slots: per-variant fill/fg/edge, overridden on .btn-* and
+     friends; registered here so overrides resolve to known tokens ---- */
+  --_fill: transparent;
+  --_fg: var(--text-primary);
+  --_edge: var(--border);
+
+  /* ---- accent slot: the entire per-app override surface ---- */
+  --accent-fill: var(--contrast-fill);
+  --accent-fill-hover: var(--contrast-fill-hover);
+  --accent-fg: var(--contrast-fg);
+  --accent-edge: var(--contrast-fill);
+
+  /* ---- meaning colours: not overridable, always carry an icon ---- */
+  --go-fill: var(--green-9);
+  --go-edge: var(--green-10);
+  --go-fill-hover: var(--green-10);
+  --go-fg: #ffffff;
+  --danger-fill: var(--red-9);
+  --danger-edge: var(--red-10);
+  --danger-fill-hover: var(--red-10);
+  --danger-fg: #ffffff;
+
+  /* ---- materials: named surface presets (bg / border / highlight) ---- */
+  --card-bg: var(--surface-2);
+  --card-border: var(--border-subtle);
+  --card-highlight: inset 0 1px 0 var(--highlight);
+  --overlay-bg: var(--surface-2);
+  --overlay-shadow: var(--shadow-overlay);
+  --well-bg: var(--fill-hover);
+  --well-border: var(--border-subtle);
+
+  /* ---- geometry ---- */
+  --radius: 6.5px;
+  --radius-sm: 4.5px;
+  --radius-card: 9.5px;
+  --radius-full: 999px;
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
+  --sp-5: 24px; --sp-6: 32px; --sp-7: 48px; --sp-8: 64px;
+
+  /* ---- density: remapped by [data-density="compact"] only ---- */
+  --h-control: 32px;
+  --h-control-sm: 28px;
+  --h-control-lg: 38px;
+  --pad-control-x: 12px;
+  --pad-control-x-sm: 10px;
+  --pad-control-x-lg: 16px;
+  --pad-card: 16px;
+  --font-size-ui: 13px;
+  --font-size-body: 14px;
+  --row-h: 40px;
+
+  /* ---- motion: two curves, four durations, three springs ---- */
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-ios: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-fast: 100ms;
+  --dur-base: 140ms;
+  --dur-slow: 200ms;
+  --dur-sheet: 500ms;
+  --spring-snap: linear(0.0000, 0.0730 4.2%, 0.2287 8.3%, 0.4038 12.5%, 0.5654 16.7%, 0.6995 20.8%, 0.8030 25.0%, 0.8783 29.2%, 0.9302 33.3%, 0.9642 37.5%, 0.9852 41.7%, 0.9972 45.8%, 1.0033 50.0%, 1.0058 54.2%, 1.0063 58.3%, 1.0057 62.5%, 1.0046 66.7%, 1.0035 70.8%, 1.0026 75.0%, 1.0017 79.2%, 1.0011 83.3%, 1.0007 87.5%, 1.0004 91.7%, 1.0002 95.8%, 1.0000 100.0%);
+  --spring-snap-dur: 330ms;
+  --spring-smooth: linear(0.0000, 0.0703 4.2%, 0.2144 8.3%, 0.3717 12.5%, 0.5154 16.7%, 0.6355 20.8%, 0.7310 25.0%, 0.8044 29.2%, 0.8594 33.3%, 0.8998 37.5%, 0.9292 41.7%, 0.9503 45.8%, 0.9653 50.0%, 0.9759 54.2%, 0.9833 58.3%, 0.9885 62.5%, 0.9921 66.7%, 0.9946 70.8%, 0.9963 75.0%, 0.9975 79.2%, 0.9983 83.3%, 0.9988 87.5%, 0.9992 91.7%, 0.9995 95.8%, 1.0000 100.0%);
+  --spring-smooth-dur: 495ms;
+  --spring-sheet: linear(0.0000, 0.0712 4.2%, 0.2190 8.3%, 0.3819 12.5%, 0.5311 16.7%, 0.6555 20.8%, 0.7535 25.0%, 0.8275 29.2%, 0.8817 33.3%, 0.9204 37.5%, 0.9474 41.7%, 0.9658 45.8%, 0.9783 50.0%, 0.9865 54.2%, 0.9918 58.3%, 0.9951 62.5%, 0.9972 66.7%, 0.9985 70.8%, 0.9992 75.0%, 0.9997 79.2%, 0.9999 83.3%, 1.0000 87.5%, 1.0001 91.7%, 1.0001 95.8%, 1.0000 100.0%);
+  --spring-sheet-dur: 825ms;
+
+  /* ---- g-system compat aliases (older g-design contract) ---- */
+  --bg: var(--surface-1);
+  --bg-panel: var(--surface-2);
+  --bg-panel-2: var(--fill-hover);
+  --text: var(--text-primary);
+  --text-hot: var(--text-primary);
+  --text-muted: var(--text-secondary);
+  --accent: var(--accent-fill);
+  --accent-on: var(--accent-fg);
+  --border-strong: var(--border);
+  --ok: var(--ok-text);
+  --warn: var(--warn-text);
+  --danger: var(--danger-text);
+}
+
+[data-theme="dark"] {
+  --slate-1: #111113;
+  --slate-2: #18191b;
+  --slate-3: #212225;
+  --slate-4: #272a2d;
+  --slate-5: #2e3135;
+  --slate-6: #363a3f;
+  --slate-7: #43484e;
+  --slate-8: #5a6169;
+  --slate-9: #696e77;
+  --slate-10: #777b84;
+  --slate-11: #b0b4ba;
+  --slate-12: #edeef0;
+  --slate-a1: #00000000;
+  --slate-a2: #d8f4f609;
+  --slate-a3: #ddeaf814;
+  --slate-a4: #d3edf81d;
+  --slate-a5: #d9edfe25;
+  --slate-a6: #d6ebfd30;
+  --slate-a7: #d9edff40;
+  --slate-a8: #d9edff5d;
+  --slate-a9: #dfebfd6d;
+  --slate-a10: #e5edfd7b;
+  --slate-a11: #f1f7feb5;
+  --slate-a12: #fcfdffef;
+  --red-1: #191111;
+  --red-2: #201314;
+  --red-3: #3b1219;
+  --red-4: #500f1c;
+  --red-5: #611623;
+  --red-6: #72232d;
+  --red-7: #8c333a;
+  --red-8: #b54548;
+  --red-9: #e5484d;
+  --red-10: #ec5d5e;
+  --red-11: #ff9592;
+  --red-12: #ffd1d9;
+  --red-a1: #f4121209;
+  --red-a2: #f22f3e11;
+  --red-a3: #ff173f2d;
+  --red-a4: #fe0a3b44;
+  --red-a5: #ff204756;
+  --red-a6: #ff3e5668;
+  --red-a7: #ff536184;
+  --red-a8: #ff5d61b0;
+  --red-a9: #fe4e54e4;
+  --red-a10: #ff6465eb;
+  --red-a11: #ff9592;
+  --red-a12: #ffd1d9;
+  --green-1: #0e1512;
+  --green-2: #121b17;
+  --green-3: #132d21;
+  --green-4: #113b29;
+  --green-5: #174933;
+  --green-6: #20573e;
+  --green-7: #28684a;
+  --green-8: #2f7c57;
+  --green-9: #30a46c;
+  --green-10: #33b074;
+  --green-11: #3dd68c;
+  --green-12: #b1f1cb;
+  --green-a1: #00de4505;
+  --green-a2: #29f99d0b;
+  --green-a3: #22ff991e;
+  --green-a4: #11ff992d;
+  --green-a5: #2bffa23c;
+  --green-a6: #44ffaa4b;
+  --green-a7: #50fdac5e;
+  --green-a8: #54ffad73;
+  --green-a9: #44ffa49e;
+  --green-a10: #43fea4ab;
+  --green-a11: #46fea5d4;
+  --green-a12: #bbffd7f0;
+  --blue-1: #0d1520;
+  --blue-2: #111927;
+  --blue-3: #0d2847;
+  --blue-4: #003362;
+  --blue-5: #004074;
+  --blue-6: #104d87;
+  --blue-7: #205d9e;
+  --blue-8: #2870bd;
+  --blue-9: #0090ff;
+  --blue-10: #3b9eff;
+  --blue-11: #70b8ff;
+  --blue-12: #c2e6ff;
+  --blue-a1: #004df211;
+  --blue-a2: #1166fb18;
+  --blue-a3: #0077ff3a;
+  --blue-a4: #0075ff57;
+  --blue-a5: #0081fd6b;
+  --blue-a6: #0f89fd7f;
+  --blue-a7: #2a91fe98;
+  --blue-a8: #3094feb9;
+  --blue-a9: #0090ff;
+  --blue-a10: #3b9eff;
+  --blue-a11: #70b8ff;
+  --blue-a12: #c2e6ff;
+  --amber-1: #16120c;
+  --amber-2: #1d180f;
+  --amber-3: #302008;
+  --amber-4: #3f2700;
+  --amber-5: #4d3000;
+  --amber-6: #5c3d05;
+  --amber-7: #714f19;
+  --amber-8: #8f6424;
+  --amber-9: #ffc53d;
+  --amber-10: #ffd60a;
+  --amber-11: #ffca16;
+  --amber-12: #ffe7b3;
+  --amber-a1: #e63c0006;
+  --amber-a2: #fd9b000d;
+  --amber-a3: #fa820022;
+  --amber-a4: #fc820032;
+  --amber-a5: #fd8b0041;
+  --amber-a6: #fd9b0051;
+  --amber-a7: #ffab2567;
+  --amber-a8: #ffae3587;
+  --amber-a9: #ffc53d;
+  --amber-a10: #ffd60a;
+  --amber-a11: #ffca16;
+  --amber-a12: #ffe7b3;
+  --contrast-fill: var(--slate-12);
+  --contrast-fill-hover: #fcfcfd;
+  --contrast-fg: var(--slate-1);
+  --chart-1: #0090ff;
+  --chart-2: #6e56cf;
+  --chart-3: #12a594;
+  --chart-4: #ffc53d;
+  --chart-5: #e93d82;
+  --chart-6: #46a758;
+  --ok-text: #3dd68c;
+  --warn-text: #ffca16;
+  --danger-text: #ff9592;
+  --info-text: #70b8ff;
+  --shadow-overlay: 0 0 0 1px var(--slate-a6), 0 8px 24px rgb(0 0 0 / 0.42), 0 2px 8px rgb(0 0 0 / 0.32);
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --slate-1: #fcfcfd;
+  --slate-2: #f9f9fb;
+  --slate-3: #f0f0f3;
+  --slate-4: #e8e8ec;
+  --slate-5: #e0e1e6;
+  --slate-6: #d9d9e0;
+  --slate-7: #cdced6;
+  --slate-8: #b9bbc6;
+  --slate-9: #8b8d98;
+  --slate-10: #80838d;
+  --slate-11: #60646c;
+  --slate-12: #1c2024;
+  --slate-a1: #00005503;
+  --slate-a2: #00005506;
+  --slate-a3: #0000330f;
+  --slate-a4: #00002d17;
+  --slate-a5: #0009321f;
+  --slate-a6: #00002f26;
+  --slate-a7: #00062e32;
+  --slate-a8: #00083046;
+  --slate-a9: #00051d74;
+  --slate-a10: #00071b7f;
+  --slate-a11: #0007149f;
+  --slate-a12: #000509e3;
+  --red-1: #fffcfc;
+  --red-2: #fff7f7;
+  --red-3: #feebec;
+  --red-4: #ffdbdc;
+  --red-5: #ffcdce;
+  --red-6: #fdbdbe;
+  --red-7: #f4a9aa;
+  --red-8: #eb8e90;
+  --red-9: #e5484d;
+  --red-10: #dc3e42;
+  --red-11: #ce2c31;
+  --red-12: #641723;
+  --red-a1: #ff000003;
+  --red-a2: #ff000008;
+  --red-a3: #f3000d14;
+  --red-a4: #ff000824;
+  --red-a5: #ff000632;
+  --red-a6: #f8000442;
+  --red-a7: #df000356;
+  --red-a8: #d2000571;
+  --red-a9: #db0007b7;
+  --red-a10: #d10005c1;
+  --red-a11: #c40006d3;
+  --red-a12: #55000de8;
+  --green-1: #fbfefc;
+  --green-2: #f4fbf6;
+  --green-3: #e6f6eb;
+  --green-4: #d6f1df;
+  --green-5: #c4e8d1;
+  --green-6: #adddc0;
+  --green-7: #8eceaa;
+  --green-8: #5bb98b;
+  --green-9: #30a46c;
+  --green-10: #2b9a66;
+  --green-11: #218358;
+  --green-12: #193b2d;
+  --green-a1: #00c04004;
+  --green-a2: #00a32f0b;
+  --green-a3: #00a43319;
+  --green-a4: #00a83829;
+  --green-a5: #019c393b;
+  --green-a6: #00963c52;
+  --green-a7: #00914071;
+  --green-a8: #00924ba4;
+  --green-a9: #008f4acf;
+  --green-a10: #008647d4;
+  --green-a11: #00713fde;
+  --green-a12: #002616e6;
+  --blue-1: #fbfdff;
+  --blue-2: #f4faff;
+  --blue-3: #e6f4fe;
+  --blue-4: #d5efff;
+  --blue-5: #c2e5ff;
+  --blue-6: #acd8fc;
+  --blue-7: #8ec8f6;
+  --blue-8: #5eb1ef;
+  --blue-9: #0090ff;
+  --blue-10: #0588f0;
+  --blue-11: #0d74ce;
+  --blue-12: #113264;
+  --blue-a1: #0080ff04;
+  --blue-a2: #008cff0b;
+  --blue-a3: #008ff519;
+  --blue-a4: #009eff2a;
+  --blue-a5: #0093ff3d;
+  --blue-a6: #0088f653;
+  --blue-a7: #0083eb71;
+  --blue-a8: #0084e6a1;
+  --blue-a9: #0090ff;
+  --blue-a10: #0086f0fa;
+  --blue-a11: #006dcbf2;
+  --blue-a12: #002359ee;
+  --amber-1: #fefdfb;
+  --amber-2: #fefbe9;
+  --amber-3: #fff7c2;
+  --amber-4: #ffee9c;
+  --amber-5: #fbe577;
+  --amber-6: #f3d673;
+  --amber-7: #e9c162;
+  --amber-8: #e2a336;
+  --amber-9: #ffc53d;
+  --amber-10: #ffba18;
+  --amber-11: #ab6400;
+  --amber-12: #4f3422;
+  --amber-a1: #c0800004;
+  --amber-a2: #f4d10016;
+  --amber-a3: #ffde003d;
+  --amber-a4: #ffd40063;
+  --amber-a5: #f8cf0088;
+  --amber-a6: #eab5008c;
+  --amber-a7: #dc9b009d;
+  --amber-a8: #da8a00c9;
+  --amber-a9: #ffb300c2;
+  --amber-a10: #ffb300e7;
+  --amber-a11: #ab6400;
+  --amber-a12: #341500dd;
+  --contrast-fill: var(--slate-12);
+  --contrast-fill-hover: #2b3036;
+  --contrast-fg: var(--slate-1);
+  --chart-1: #0090ff;
+  --chart-2: #6e56cf;
+  --chart-3: #12a493;
+  --chart-4: #c88515;
+  --chart-5: #e93d82;
+  --chart-6: #45a557;
+  --ok-text: #207952;
+  --warn-text: #a05e04;
+  --danger-text: #c82b30;
+  --info-text: #0d6cc1;
+  --shadow-overlay: 0 0 0 1px var(--slate-a4), 0 8px 24px rgb(0 10 30 / 0.10), 0 2px 8px rgb(0 10 30 / 0.06);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] {
+  --slate-1: #fcfcfd;
+  --slate-2: #f9f9fb;
+  --slate-3: #f0f0f3;
+  --slate-4: #e8e8ec;
+  --slate-5: #e0e1e6;
+  --slate-6: #d9d9e0;
+  --slate-7: #cdced6;
+  --slate-8: #b9bbc6;
+  --slate-9: #8b8d98;
+  --slate-10: #80838d;
+  --slate-11: #60646c;
+  --slate-12: #1c2024;
+  --slate-a1: #00005503;
+  --slate-a2: #00005506;
+  --slate-a3: #0000330f;
+  --slate-a4: #00002d17;
+  --slate-a5: #0009321f;
+  --slate-a6: #00002f26;
+  --slate-a7: #00062e32;
+  --slate-a8: #00083046;
+  --slate-a9: #00051d74;
+  --slate-a10: #00071b7f;
+  --slate-a11: #0007149f;
+  --slate-a12: #000509e3;
+  --red-1: #fffcfc;
+  --red-2: #fff7f7;
+  --red-3: #feebec;
+  --red-4: #ffdbdc;
+  --red-5: #ffcdce;
+  --red-6: #fdbdbe;
+  --red-7: #f4a9aa;
+  --red-8: #eb8e90;
+  --red-9: #e5484d;
+  --red-10: #dc3e42;
+  --red-11: #ce2c31;
+  --red-12: #641723;
+  --red-a1: #ff000003;
+  --red-a2: #ff000008;
+  --red-a3: #f3000d14;
+  --red-a4: #ff000824;
+  --red-a5: #ff000632;
+  --red-a6: #f8000442;
+  --red-a7: #df000356;
+  --red-a8: #d2000571;
+  --red-a9: #db0007b7;
+  --red-a10: #d10005c1;
+  --red-a11: #c40006d3;
+  --red-a12: #55000de8;
+  --green-1: #fbfefc;
+  --green-2: #f4fbf6;
+  --green-3: #e6f6eb;
+  --green-4: #d6f1df;
+  --green-5: #c4e8d1;
+  --green-6: #adddc0;
+  --green-7: #8eceaa;
+  --green-8: #5bb98b;
+  --green-9: #30a46c;
+  --green-10: #2b9a66;
+  --green-11: #218358;
+  --green-12: #193b2d;
+  --green-a1: #00c04004;
+  --green-a2: #00a32f0b;
+  --green-a3: #00a43319;
+  --green-a4: #00a83829;
+  --green-a5: #019c393b;
+  --green-a6: #00963c52;
+  --green-a7: #00914071;
+  --green-a8: #00924ba4;
+  --green-a9: #008f4acf;
+  --green-a10: #008647d4;
+  --green-a11: #00713fde;
+  --green-a12: #002616e6;
+  --blue-1: #fbfdff;
+  --blue-2: #f4faff;
+  --blue-3: #e6f4fe;
+  --blue-4: #d5efff;
+  --blue-5: #c2e5ff;
+  --blue-6: #acd8fc;
+  --blue-7: #8ec8f6;
+  --blue-8: #5eb1ef;
+  --blue-9: #0090ff;
+  --blue-10: #0588f0;
+  --blue-11: #0d74ce;
+  --blue-12: #113264;
+  --blue-a1: #0080ff04;
+  --blue-a2: #008cff0b;
+  --blue-a3: #008ff519;
+  --blue-a4: #009eff2a;
+  --blue-a5: #0093ff3d;
+  --blue-a6: #0088f653;
+  --blue-a7: #0083eb71;
+  --blue-a8: #0084e6a1;
+  --blue-a9: #0090ff;
+  --blue-a10: #0086f0fa;
+  --blue-a11: #006dcbf2;
+  --blue-a12: #002359ee;
+  --amber-1: #fefdfb;
+  --amber-2: #fefbe9;
+  --amber-3: #fff7c2;
+  --amber-4: #ffee9c;
+  --amber-5: #fbe577;
+  --amber-6: #f3d673;
+  --amber-7: #e9c162;
+  --amber-8: #e2a336;
+  --amber-9: #ffc53d;
+  --amber-10: #ffba18;
+  --amber-11: #ab6400;
+  --amber-12: #4f3422;
+  --amber-a1: #c0800004;
+  --amber-a2: #f4d10016;
+  --amber-a3: #ffde003d;
+  --amber-a4: #ffd40063;
+  --amber-a5: #f8cf0088;
+  --amber-a6: #eab5008c;
+  --amber-a7: #dc9b009d;
+  --amber-a8: #da8a00c9;
+  --amber-a9: #ffb300c2;
+  --amber-a10: #ffb300e7;
+  --amber-a11: #ab6400;
+  --amber-a12: #341500dd;
+  --contrast-fill: var(--slate-12);
+  --contrast-fill-hover: #2b3036;
+  --contrast-fg: var(--slate-1);
+  --chart-1: #0090ff;
+  --chart-2: #6e56cf;
+  --chart-3: #12a493;
+  --chart-4: #c88515;
+  --chart-5: #e93d82;
+  --chart-6: #45a557;
+  --ok-text: #207952;
+  --warn-text: #a05e04;
+  --danger-text: #c82b30;
+  --info-text: #0d6cc1;
+  --shadow-overlay: 0 0 0 1px var(--slate-a4), 0 8px 24px rgb(0 10 30 / 0.10), 0 2px 8px rgb(0 10 30 / 0.06);
+    color-scheme: light;
+  }
+}
+
+@supports (color: color(display-p3 1 1 1)) {
+  :root, [data-theme="dark"] {
+  --slate-1: color(display-p3 0.067 0.067 0.074);
+  --slate-2: color(display-p3 0.095 0.098 0.105);
+  --slate-3: color(display-p3 0.13 0.135 0.145);
+  --slate-4: color(display-p3 0.156 0.163 0.176);
+  --slate-5: color(display-p3 0.183 0.191 0.206);
+  --slate-6: color(display-p3 0.215 0.226 0.244);
+  --slate-7: color(display-p3 0.265 0.28 0.302);
+  --slate-8: color(display-p3 0.357 0.381 0.409);
+  --slate-9: color(display-p3 0.415 0.431 0.463);
+  --slate-10: color(display-p3 0.469 0.483 0.514);
+  --slate-11: color(display-p3 0.692 0.704 0.728);
+  --slate-12: color(display-p3 0.93 0.933 0.94);
+  --slate-a1: color(display-p3 0 0 0 / 0);
+  --slate-a2: color(display-p3 0.875 0.992 1 / 0.034);
+  --slate-a3: color(display-p3 0.882 0.933 0.992 / 0.077);
+  --slate-a4: color(display-p3 0.882 0.953 0.996 / 0.111);
+  --slate-a5: color(display-p3 0.878 0.929 0.996 / 0.145);
+  --slate-a6: color(display-p3 0.882 0.949 0.996 / 0.183);
+  --slate-a7: color(display-p3 0.882 0.929 1 / 0.246);
+  --slate-a8: color(display-p3 0.871 0.937 1 / 0.361);
+  --slate-a9: color(display-p3 0.898 0.937 1 / 0.42);
+  --slate-a10: color(display-p3 0.918 0.945 1 / 0.475);
+  --slate-a11: color(display-p3 0.949 0.969 0.996 / 0.708);
+  --slate-a12: color(display-p3 0.988 0.992 1 / 0.937);
+  }
+  [data-theme="light"] {
+  --slate-1: color(display-p3 0.988 0.988 0.992);
+  --slate-2: color(display-p3 0.976 0.976 0.984);
+  --slate-3: color(display-p3 0.94 0.941 0.953);
+  --slate-4: color(display-p3 0.908 0.909 0.925);
+  --slate-5: color(display-p3 0.88 0.881 0.901);
+  --slate-6: color(display-p3 0.85 0.852 0.876);
+  --slate-7: color(display-p3 0.805 0.808 0.838);
+  --slate-8: color(display-p3 0.727 0.733 0.773);
+  --slate-9: color(display-p3 0.547 0.553 0.592);
+  --slate-10: color(display-p3 0.503 0.512 0.549);
+  --slate-11: color(display-p3 0.379 0.392 0.421);
+  --slate-12: color(display-p3 0.113 0.125 0.14);
+  --slate-a1: color(display-p3 0.024 0.024 0.349 / 0.012);
+  --slate-a2: color(display-p3 0.024 0.024 0.349 / 0.024);
+  --slate-a3: color(display-p3 0.004 0.004 0.204 / 0.059);
+  --slate-a4: color(display-p3 0.012 0.012 0.184 / 0.091);
+  --slate-a5: color(display-p3 0.004 0.039 0.2 / 0.122);
+  --slate-a6: color(display-p3 0.008 0.008 0.165 / 0.15);
+  --slate-a7: color(display-p3 0.008 0.027 0.184 / 0.197);
+  --slate-a8: color(display-p3 0.004 0.031 0.176 / 0.275);
+  --slate-a9: color(display-p3 0.004 0.02 0.106 / 0.455);
+  --slate-a10: color(display-p3 0.004 0.027 0.098 / 0.499);
+  --slate-a11: color(display-p3 0 0.02 0.063 / 0.62);
+  --slate-a12: color(display-p3 0 0.012 0.031 / 0.887);
+  }
+  @media (prefers-color-scheme: light) {
+    [data-theme="system"] {
+  --slate-1: color(display-p3 0.988 0.988 0.992);
+  --slate-2: color(display-p3 0.976 0.976 0.984);
+  --slate-3: color(display-p3 0.94 0.941 0.953);
+  --slate-4: color(display-p3 0.908 0.909 0.925);
+  --slate-5: color(display-p3 0.88 0.881 0.901);
+  --slate-6: color(display-p3 0.85 0.852 0.876);
+  --slate-7: color(display-p3 0.805 0.808 0.838);
+  --slate-8: color(display-p3 0.727 0.733 0.773);
+  --slate-9: color(display-p3 0.547 0.553 0.592);
+  --slate-10: color(display-p3 0.503 0.512 0.549);
+  --slate-11: color(display-p3 0.379 0.392 0.421);
+  --slate-12: color(display-p3 0.113 0.125 0.14);
+  --slate-a1: color(display-p3 0.024 0.024 0.349 / 0.012);
+  --slate-a2: color(display-p3 0.024 0.024 0.349 / 0.024);
+  --slate-a3: color(display-p3 0.004 0.004 0.204 / 0.059);
+  --slate-a4: color(display-p3 0.012 0.012 0.184 / 0.091);
+  --slate-a5: color(display-p3 0.004 0.039 0.2 / 0.122);
+  --slate-a6: color(display-p3 0.008 0.008 0.165 / 0.15);
+  --slate-a7: color(display-p3 0.008 0.027 0.184 / 0.197);
+  --slate-a8: color(display-p3 0.004 0.031 0.176 / 0.275);
+  --slate-a9: color(display-p3 0.004 0.02 0.106 / 0.455);
+  --slate-a10: color(display-p3 0.004 0.027 0.098 / 0.499);
+  --slate-a11: color(display-p3 0 0.02 0.063 / 0.62);
+  --slate-a12: color(display-p3 0 0.012 0.031 / 0.887);
+    }
+  }
+}
+
+/* Density: one attribute on the root, never a per-component prop. */
+[data-density="compact"] {
+  --h-control: 28px;
+  --h-control-sm: 24px;
+  --h-control-lg: 34px;
+  --pad-control-x: 10px;
+  --pad-control-x-sm: 8px;
+  --pad-control-x-lg: 12px;
+  --pad-card: 12px;
+  --font-size-ui: 12.5px;
+  --font-size-body: 13px;
+  --row-h: 32px;
+}
+
+/* Browsers without linear() easing fall back to ease-out. */
+@supports not (animation-timing-function: linear(0, 1)) {
+  :root {
+    --spring-snap: var(--ease-out);
+    --spring-smooth: var(--ease-out);
+    --spring-sheet: var(--ease-ios);
+  }
+}
+
+/* g-ui — framework-free component layer over g-tokens.
+   Components reference the aliasing layer only, never slate-* directly.
+   Icon masks are Phosphor Regular glyphs from @phosphor-icons/core. */
+
+/* ---------------------------------------------------------------- base */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* components set their own display, which would otherwise beat the UA's
+   [hidden] rule; the hidden attribute must always win */
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-body);
+  font-feature-settings: var(--font-features-ui);
+  font-optical-sizing: auto;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4 { margin: 0; font-weight: 500; letter-spacing: -0.01em; line-height: 1.25; }
+h1 { font-size: 24px; letter-spacing: -0.02em; }
+h2 { font-size: 18px; }
+h3 { font-size: 15px; }
+p { margin: 0; }
+a { color: var(--text-primary); text-decoration-color: var(--slate-a8); text-underline-offset: 2px; }
+a:hover { text-decoration-color: currentColor; }
+
+::selection { background: var(--slate-a5); }
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+.num { font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--font-mono); font-size: 0.925em; }
+
+/* ---------------------------------------------------------------- button */
+
+.btn {
+  --_fill: transparent;
+  --_fg: var(--text-primary);
+  --_edge: var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: var(--h-control);
+  padding: 0 var(--pad-control-x);
+  border-radius: var(--radius);
+  border: 1px solid var(--_edge);
+  background: var(--_fill);
+  color: var(--_fg);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-ui);
+  font-weight: 450;
+  letter-spacing: -0.003em;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  transition:
+    background var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out),
+    color var(--dur-base) var(--ease-out),
+    transform var(--dur-base) var(--ease-out);
+}
+.btn:hover:not(:disabled) { transform: scale(1.02); }
+.btn:active:not(:disabled) { transform: scale(0.97); }
+.btn:disabled { opacity: 0.45; cursor: default; transform: none; }
+.btn svg { width: 15px; height: 15px; flex: none; }
+
+.btn-sm { height: var(--h-control-sm); padding: 0 var(--pad-control-x-sm); border-radius: var(--radius-sm); }
+.btn-lg { height: var(--h-control-lg); padding: 0 var(--pad-control-x-lg); }
+.btn-icon { width: var(--h-control); padding: 0; }
+.btn-sm.btn-icon { width: var(--h-control-sm); }
+
+.btn-primary { --_fill: var(--accent-fill); --_fg: var(--accent-fg); --_edge: var(--accent-edge); }
+.btn-primary:hover:not(:disabled) { background: var(--accent-fill-hover); }
+
+.btn-secondary { --_edge: var(--border); }
+.btn-secondary:hover:not(:disabled) { background: var(--fill-hover); border-color: var(--border-hover); }
+
+.btn-tertiary { --_fg: var(--text-secondary); --_edge: var(--border-subtle); }
+.btn-tertiary:hover:not(:disabled) { background: var(--fill-hover); color: var(--text-primary); border-color: var(--border); }
+
+/* Meaning colours are always solid and always carry an icon. */
+.btn-go { --_fill: var(--go-fill); --_fg: var(--go-fg); --_edge: var(--go-edge); }
+.btn-go:hover:not(:disabled) { background: var(--go-fill-hover); }
+.btn-danger { --_fill: var(--danger-fill); --_fg: var(--danger-fg); --_edge: var(--danger-edge); }
+.btn-danger:hover:not(:disabled) { background: var(--danger-fill-hover); }
+
+/* Loading: spinner overlays, content fades — width never changes, so no reflow. */
+.btn[data-loading] { pointer-events: none; }
+.btn[data-loading] > :not(.spinner) { opacity: 0; }
+.btn[data-loading] > .spinner {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  opacity: 1;
+}
+.btn > .spinner { opacity: 0; transition: opacity var(--dur-fast) var(--ease-out); }
+
+/* ---------------------------------------------------------------- fields */
+
+.field { display: flex; flex-direction: column; gap: 6px; }
+
+.label {
+  font-size: var(--font-size-ui);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.label .optional { color: var(--text-placeholder); font-weight: 400; }
+
+.input, .textarea, .select {
+  width: 100%;
+  height: var(--h-control);
+  padding: 0 var(--pad-control-x);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-ui);
+  transition:
+    border-color var(--dur-base) var(--ease-out),
+    background var(--dur-base) var(--ease-out);
+}
+.textarea { height: auto; min-height: 72px; padding: 8px var(--pad-control-x); resize: vertical; line-height: 1.5; }
+.input::placeholder, .textarea::placeholder { color: var(--text-placeholder); }
+.input:hover, .textarea:hover, .select:hover { border-color: var(--border-hover); }
+.input:focus, .textarea:focus, .select:focus {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-color: var(--border-hover);
+}
+.input[aria-invalid="true"], .textarea[aria-invalid="true"] {
+  border-color: var(--red-9);
+}
+.field .error {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 12px; color: var(--danger-text);
+}
+.field .hint { font-size: 12px; color: var(--text-secondary); }
+
+/* Native select, real Phosphor caret-up-down as a mask. */
+.select {
+  appearance: none;
+  padding-right: 30px;
+  cursor: pointer;
+}
+.select-wrap { position: relative; display: block; }
+.select-wrap::after {
+  content: "";
+  position: absolute;
+  right: 9px; top: 50%;
+  width: 14px; height: 14px;
+  translate: 0 -50%;
+  background: var(--text-secondary);
+  pointer-events: none;
+  mask: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path d="M181.66,170.34a8,8,0,0,1,0,11.32l-48,48a8,8,0,0,1-11.32,0l-48-48a8,8,0,0,1,11.32-11.32L128,212.69l42.34-42.35A8,8,0,0,1,181.66,170.34Zm-96-84.68L128,43.31l42.34,42.35a8,8,0,0,0,11.32-11.32l-48-48a8,8,0,0,0-11.32,0l-48,48A8,8,0,0,0,85.66,85.66Z"/></svg>') center / contain no-repeat;
+}
+
+/* ---------------------------------------------------------------- selection controls */
+
+.checkbox, .radio {
+  appearance: none;
+  margin: 0;
+  width: 16px; height: 16px;
+  flex: none;
+  border: 1px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  transition: background var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out);
+}
+.checkbox { border-radius: var(--radius-sm); }
+.radio { border-radius: 50%; }
+.checkbox:hover, .radio:hover { border-color: var(--border-hover); }
+.checkbox:checked, .radio:checked {
+  background: var(--accent-fill);
+  border-color: var(--accent-edge);
+}
+.checkbox::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: var(--accent-fg);
+  mask-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path d="M232.49,80.49l-128,128a12,12,0,0,1-17,0l-56-56a12,12,0,1,1,17-17L96,183,215.51,63.51a12,12,0,0,1,17,17Z"/></svg>');
+  mask-size: 10px 10px; mask-position: center; mask-repeat: no-repeat;
+  /* wipes in left-to-right along the stroke rather than scaling: the tick
+     never moves, it just appears */
+  clip-path: inset(0 100% 0 0);
+  opacity: 0;
+  transition: clip-path var(--dur-base) var(--ease-out), opacity var(--dur-fast) var(--ease-out);
+}
+.checkbox:checked::after { clip-path: inset(0 0 0 0); opacity: 1; }
+.radio::after {
+  content: "";
+  position: absolute; inset: 4.5px;
+  border-radius: 50%;
+  background: var(--accent-fg);
+  scale: 0;
+  transition: scale var(--dur-base) var(--spring-snap);
+}
+.radio:checked::after { scale: 1; }
+
+.choice {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: var(--font-size-ui); cursor: pointer; user-select: none;
+}
+
+.switch {
+  appearance: none;
+  margin: 0;
+  width: 34px; height: 20px;
+  flex: none;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: var(--fill-active);
+  cursor: pointer;
+  position: relative;
+  transition: background var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out);
+}
+.switch::after {
+  content: "";
+  position: absolute; top: 0; bottom: 0; left: 2px; margin: auto 0;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--slate-11);
+  transition: translate var(--spring-snap-dur) var(--spring-snap), background var(--dur-base) var(--ease-out);
+}
+.switch:checked { background: var(--accent-fill); border-color: var(--accent-edge); }
+.switch:checked::after { translate: 14px 0; background: var(--accent-fg); }
+.switch:active:not(:disabled)::after { width: 16px; }
+
+/* ---------------------------------------------------------------- surfaces */
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-card);
+  padding: var(--pad-card);
+}
+.card-title { font-size: var(--font-size-ui); font-weight: 500; }
+
+.well {
+  background: var(--well-bg);
+  border: 1px solid var(--well-border);
+  border-radius: var(--radius);
+  padding: var(--sp-3);
+}
+
+.separator { border: none; border-top: 1px solid var(--border-subtle); margin: 0; }
+
+/* ---------------------------------------------------------------- small parts */
+
+.badge {
+  --_c: var(--text-secondary);
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 20px; padding: 0 8px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-subtle);
+  background: var(--fill-hover);
+  color: var(--_c);
+  font-size: 12px; font-weight: 450; line-height: 1;
+  white-space: nowrap; overflow: hidden; box-sizing: border-box;
+  transition:
+    background var(--spring-smooth-dur) var(--ease-out),
+    border-color var(--spring-smooth-dur) var(--ease-out),
+    color var(--spring-smooth-dur) var(--ease-out),
+    width var(--spring-smooth-dur) var(--spring-smooth);
+}
+.badge::before {
+  content: ""; width: 5px; height: 5px; border-radius: 50%; flex: none;
+  background: var(--_c);
+  transition: background var(--spring-smooth-dur) var(--ease-out), box-shadow var(--dur-slow) var(--ease-out);
+}
+.badge-ok    { --_c: var(--ok-text); background: var(--green-a3); border-color: var(--green-a4); }
+.badge-warn  { --_c: var(--warn-text); background: var(--amber-a3); border-color: var(--amber-a4); }
+.badge-danger{ --_c: var(--danger-text); background: var(--red-a3); border-color: var(--red-a4); }
+.badge-info  { --_c: var(--info-text); background: var(--blue-a3); border-color: var(--blue-a4); }
+.badge-plain::before { display: none; }
+/* Status change (g.status()): the pill swells to its new width while the
+   colours crossfade and the label blurs through, and from the first frame it
+   pulses: three equal beats, the pill growing a touch and its tint deepening.
+   No light, no halo, just the pill briefly more itself, three times. */
+.badge[data-flash] { animation: g-status-pulse 1.5s ease-in-out; }
+@keyframes g-status-pulse {
+  0%, 33.3%, 66.6%, 100% { scale: 1; filter: saturate(1) contrast(1); }
+  16.6%, 50%, 83.3% { scale: 1.06; filter: saturate(1.5) contrast(1.12); }
+}
+
+.avatar {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  /* opaque on purpose: alpha fills merge when avatars overlap in a stack */
+  background: color-mix(in srgb, var(--text-primary) 9%, var(--surface-1));
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 11px; font-weight: 500;
+  flex: none;
+}
+.avatar-stack { display: inline-flex; --ring: var(--surface-1); }
+.avatar-stack .avatar {
+  margin-left: -6px;
+  box-shadow: 0 0 0 2px var(--ring);
+  transition: margin var(--dur-base) var(--ease-out);
+}
+.card .avatar-stack .avatar, .toast .avatar-stack .avatar { box-shadow: 0 0 0 2px var(--card-bg); }
+.avatar-stack .avatar:first-child { margin-left: 0 !important; }
+.avatar-stack:hover .avatar { margin-left: 3px; }
+
+.kbd {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  border-bottom-width: 2px;
+  background: var(--fill-hover);
+  color: var(--text-secondary);
+  font-family: var(--font-ui);
+  font-size: 11px;
+}
+
+/* ---------------------------------------------------------------- loading */
+
+.spinner {
+  width: 14px; height: 14px;
+  flex: none;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-top-color: currentColor;
+  color: var(--text-secondary);
+  animation: g-spin 0.6s linear infinite;
+}
+.btn .spinner { color: inherit; }
+@keyframes g-spin { to { transform: rotate(360deg); } }
+
+/* Skeleton: mirrors final layout, shimmers left-to-right, and holds off
+   ~350ms so sub-second loads never flash it. */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--fill-active);
+  opacity: 0;
+  animation: g-skel-in 0s 0.35s forwards;
+}
+.skeleton::after {
+  content: "";
+  position: absolute; inset: 0;
+  translate: -100% 0;
+  background: linear-gradient(90deg, transparent, var(--highlight), transparent);
+  animation: g-shimmer 1.8s var(--ease-out) 0.35s infinite;
+}
+.skeleton-text { height: 1em; }
+@keyframes g-skel-in { to { opacity: 1; } }
+@keyframes g-shimmer { to { translate: 100% 0; } }
+
+/* ---------------------------------------------------------------- overlays */
+
+dialog.dlg {
+  width: min(440px, calc(100vw - 32px));
+  padding: 0;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-card);
+  background: var(--overlay-bg);
+  color: var(--text-primary);
+  box-shadow: var(--overlay-shadow);
+  opacity: 0;
+  translate: 0 6px;
+  scale: 0.97;
+  transition:
+    opacity var(--dur-slow) var(--ease-out),
+    translate var(--dur-slow) var(--ease-out),
+    scale var(--dur-slow) var(--ease-out),
+    overlay var(--dur-slow) allow-discrete,
+    display var(--dur-slow) allow-discrete;
+}
+dialog.dlg[open] { opacity: 1; translate: 0 0; scale: 1; }
+@starting-style {
+  dialog.dlg[open] { opacity: 0; translate: 0 6px; scale: 0.97; }
+}
+dialog.dlg::backdrop {
+  background: rgb(0 0 0 / 0.44);
+  opacity: 0;
+  transition: opacity var(--dur-slow) var(--ease-out), overlay var(--dur-slow) allow-discrete, display var(--dur-slow) allow-discrete;
+}
+dialog.dlg[open]::backdrop { opacity: 1; }
+@starting-style { dialog.dlg[open]::backdrop { opacity: 0; } }
+
+.dlg-body { padding: var(--sp-4) var(--sp-4) var(--sp-3); display: flex; flex-direction: column; gap: 6px; }
+.dlg-title { font-size: 15px; font-weight: 500; }
+.dlg-desc { font-size: var(--font-size-ui); color: var(--text-secondary); line-height: 1.55; }
+.dlg-foot {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: var(--sp-3) var(--sp-4);
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* Menu / popover: Popover API, positioned by g-ui.js. */
+.menu {
+  position: fixed;
+  margin: 0;
+  min-width: 180px;
+  padding: 4px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  background: var(--overlay-bg);
+  color: var(--text-primary);
+  box-shadow: var(--overlay-shadow);
+  opacity: 0;
+  scale: 0.97;
+  transform-origin: var(--_origin, top);
+  transition:
+    opacity var(--dur-base) var(--ease-out),
+    scale var(--dur-base) var(--ease-out),
+    overlay var(--dur-base) allow-discrete,
+    display var(--dur-base) allow-discrete;
+}
+.menu:popover-open { opacity: 1; scale: 1; }
+@starting-style { .menu:popover-open { opacity: 0; scale: 0.97; } }
+
+.menu-item {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%;
+  height: 30px; padding: 0 8px;
+  border: none; border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-primary);
+  font-family: var(--font-ui); font-size: var(--font-size-ui);
+  text-align: left;
+  cursor: pointer;
+}
+.menu-item svg { width: 15px; height: 15px; color: var(--text-secondary); }
+.menu-item:hover, .menu-item[data-highlighted] { background: var(--fill-hover); }
+.menu-item:active { background: var(--fill-active); }
+.menu-item.danger, .menu-item.danger svg { color: var(--danger-text); }
+.menu-item .kbd { margin-left: 3px; }
+.menu-item .kbd:first-of-type { margin-left: auto; }
+.menu .separator { margin: 4px -4px; }
+
+/* Tooltip: single element moved between triggers by g-ui.js delay-grouping. */
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  max-width: 240px;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--card-border);
+  background: var(--overlay-bg);
+  box-shadow: var(--overlay-shadow);
+  color: var(--text-primary);
+  font-size: 12px; line-height: 1.4;
+  pointer-events: none;
+  opacity: 0;
+  translate: 0 2px;
+  scale: 0.97;
+  transform-origin: bottom;
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    translate var(--dur-fast) var(--ease-out),
+    scale var(--dur-fast) var(--ease-out);
+}
+.tooltip[data-side="bottom"] { translate: 0 -2px; transform-origin: top; }
+.tooltip[data-open] { opacity: 1; translate: 0 0; scale: 1; }
+.tooltip[data-instant] { transition-duration: 1ms; }
+
+/* Toast: stacked by g-ui.js — scale and a 14px offset, newest on top. */
+.toaster {
+  position: fixed;
+  right: 16px; bottom: 16px;
+  z-index: 60;
+  display: flex; flex-direction: column;
+  width: 320px;
+}
+.toast {
+  position: absolute;
+  right: 0; bottom: 0;
+  width: 100%;
+  display: flex; align-items: flex-start; gap: 9px;
+  padding: 11px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-card);
+  background: var(--overlay-bg);
+  box-shadow: var(--overlay-shadow);
+  font-size: var(--font-size-ui);
+  transition:
+    translate var(--spring-smooth-dur) var(--spring-smooth),
+    scale var(--spring-smooth-dur) var(--spring-smooth),
+    opacity var(--dur-slow) var(--ease-out);
+}
+.toast[data-entering] { translate: 0 16px; opacity: 0; }
+.toast[data-leaving] { translate: 0 8px; opacity: 0; }
+/* Icons sit on the title's first line: a 15px box centred in the title's
+   18px line-box, so the spinner and the status glyphs share one vertical. */
+.toast > svg, .toast > .spinner { width: 15px; height: 15px; flex: none; margin-top: 1.5px; }
+.toast .t-ok { color: var(--ok-text); }
+.toast .t-danger { color: var(--danger-text); }
+.toast b { font-weight: 500; display: block; line-height: 18px; }
+.toast .t-desc { color: var(--text-secondary); font-size: 12px; margin-top: 1px; }
+.toast .t-body { flex: 1; min-width: 0; }
+.toast .btn { margin-left: auto; align-self: center; flex: none; }
+.toast[data-progress] { padding-bottom: 14px; }
+.toast .g-progress.t-bar { position: absolute; left: 0; right: 0; bottom: 0; width: auto; height: 3px; border-radius: 0 0 var(--radius-card) var(--radius-card); background: transparent; }
+.toast .t-bar .g-progress-fill { border-radius: 0; }
+
+/* ---------------------------------------------------------------- tabs */
+
+.tabs {
+  position: relative;
+  display: flex; gap: 2px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.tab {
+  position: relative;
+  height: 34px; padding: 0 11px;
+  border: none; background: none;
+  color: var(--text-secondary);
+  font-family: var(--font-ui); font-size: var(--font-size-ui); font-weight: 450;
+  cursor: pointer;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  transition: color var(--dur-base) var(--ease-out), background var(--dur-base) var(--ease-out);
+}
+/* invisible detail: each tab's hit area bridges half the gap to its
+   neighbour, so hover never flickers off while crossing between tabs */
+.tab::before { content: ""; position: absolute; inset: 0 -1px; }
+.tab:hover { color: var(--text-primary); background: var(--fill-hover); }
+.tab[aria-selected="true"] { color: var(--text-primary); }
+.tab-indicator {
+  position: absolute;
+  bottom: -1px; left: 0;
+  height: 2px; width: 0;
+  background: var(--text-primary);
+  transition: translate var(--dur-slow) var(--ease-out), width var(--dur-slow) var(--ease-out);
+}
+
+/* ---------------------------------------------------------------- data */
+
+.table-wrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: var(--font-size-ui); }
+.table th {
+  height: 36px; padding: 0 var(--sp-3);
+  text-align: left;
+  font-weight: 500; font-size: 12px;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+.table td {
+  height: var(--row-h); padding: 0 var(--sp-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.table tbody tr { transition: background var(--dur-fast) var(--ease-out); }
+.table tbody tr:hover { background: var(--fill-hover); }
+.table tbody tr:last-child td { border-bottom: none; }
+.table .r { text-align: right; }
+.table td.r { font-variant-numeric: tabular-nums; }
+
+.empty {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: var(--sp-7) var(--sp-5);
+  text-align: center;
+}
+.empty svg { width: 22px; height: 22px; color: var(--text-placeholder); }
+.empty .e-title { font-size: var(--font-size-ui); font-weight: 500; }
+.empty .e-desc { font-size: 12px; color: var(--text-secondary); max-width: 300px; }
+
+/* ---------------------------------------------------------------- command menu */
+
+dialog.cmdk {
+  width: min(560px, calc(100vw - 32px));
+  margin-top: 12vh;
+}
+.cmdk-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 var(--sp-4);
+  border: none; border-bottom: 1px solid var(--border-subtle);
+  background: none; outline: none;
+  color: var(--text-primary);
+  font-family: var(--font-ui); font-size: 14px;
+}
+.cmdk-input::placeholder { color: var(--text-placeholder); }
+.cmdk-list { max-height: 300px; overflow-y: auto; padding: 5px; }
+.cmdk-group {
+  padding: 7px 8px 4px;
+  font-size: 11px; font-weight: 500;
+  color: var(--text-placeholder);
+}
+.cmdk-empty { padding: var(--sp-5); text-align: center; font-size: var(--font-size-ui); color: var(--text-secondary); }
+
+/* invisible detail: a swapped label blurs through the change instead of
+   snapping, bridging the two states (applied by the behaviour layer) */
+.g-label-bridge { animation: g-text-bridge 240ms var(--ease-out); }
+@keyframes g-text-bridge {
+  0%, 100% { filter: blur(0); opacity: 1; }
+  40% { filter: blur(2.5px); opacity: 0.45; }
+}
+
+/* ---------------------------------------------------------------- copy button */
+
+/* Copy: the two sheets separate (the copy happening), then the check draws. */
+.copy-btn .copy-icons { position: relative; width: 15px; height: 15px; }
+.copy-btn .copy-icons svg { position: absolute; inset: 0; }
+.copy-btn .gi-copy [data-part] { transition: translate 220ms var(--ease-out), opacity 170ms var(--ease-out) 40ms; }
+.copy-btn .gi-check { color: var(--ok-text); }
+.copy-btn .gi-check path[pathLength] { transition-delay: 170ms; }
+.copy-btn[data-copied] .gi-copy [data-part="back"] { translate: 12px -12px; opacity: 0; }
+.copy-btn[data-copied] .gi-copy [data-part="front"] { translate: -5px 5px; opacity: 0; }
+.copy-btn[data-copied] .gi-check [data-part="tick"] path { stroke-dashoffset: 0; }
+
+.codeblock {
+  position: relative;
+  background: var(--well-bg);
+  border: 1px solid var(--well-border);
+  border-radius: var(--radius);
+  padding: var(--sp-3) var(--sp-4);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  overflow-x: auto;
+}
+.codeblock .copy-btn { position: absolute; top: 6px; right: 6px; }
+
+/* ---- animated icons (g-icons) ------------------------------------------
+   Stroke geometry, one glyph per motion, every moving piece a named part.
+   16-unit strokes on the 256 grid match Phosphor Regular's weight. */
+
+.gi {
+  width: 15px; height: 15px; flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 16;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  overflow: visible;
+}
+/* a path with pathLength="1" is a drawable: hidden until its state draws it.
+   Icons whose drawables are part of the resting shape re-assert offset 0. */
+.gi path[pathLength] {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset 280ms var(--ease-out);
+}
+.gi-refresh path[pathLength] { stroke-dashoffset: 0; }
+
+/* Save: the floppy springs in, its label rectangle draws (the write), and
+   the top stripe blinks as the heads settle. */
+.save-btn .gi-save {
+  width: 0; opacity: 0; translate: 0 -7px; margin-right: -6px; /* cancels the flex gap while collapsed */
+  transition:
+    width var(--dur-slow) var(--ease-out),
+    margin-right var(--dur-slow) var(--ease-out),
+    opacity var(--dur-slow) var(--ease-out),
+    translate var(--dur-slow) var(--ease-out);
+}
+.save-btn[data-saved] .gi-save {
+  width: 15px; opacity: 1; translate: 0 0; margin-right: 0;
+  transition:
+    width var(--dur-base) var(--ease-out),
+    margin-right var(--dur-base) var(--ease-out),
+    opacity var(--dur-base) var(--ease-out),
+    translate var(--spring-snap-dur) var(--spring-snap);
+}
+.save-btn .gi-save [data-part="label"] path { transition-delay: 220ms; }
+.save-btn .gi-save [data-part="label"] path:not(:is([data-saved] *)) { transition-delay: 0ms; transition-duration: var(--dur-slow); }
+.save-btn[data-saved] .gi-save [data-part="label"] path { stroke-dashoffset: 0; }
+.save-btn[data-saved] .gi-save [data-part="stripe"] { animation: g-blink 0.5s var(--ease-out) 0.5s; }
+@keyframes g-blink {
+  0%, 100% { opacity: 1; }
+  35% { opacity: 0.2; }
+  65% { opacity: 1; }
+  85% { opacity: 0.3; }
+}
+
+/* Send: the plane launches up and to the right with a little bank, and the
+   check draws in behind it. */
+.send-btn .gi-send [data-part="plane"] {
+  transform-box: fill-box; transform-origin: center;
+  transition: translate 380ms cubic-bezier(0.45, 0, 0.6, 1), rotate 380ms cubic-bezier(0.45, 0, 0.6, 1), opacity 220ms var(--ease-out) 160ms;
+}
+.send-btn .gi-send [data-part="check"] path { transition-delay: 260ms; }
+/* translate on an SVG group is in user units (256 grid), so a real launch needs ~a full glyph */
+.send-btn[data-sent] .gi-send [data-part="plane"] { translate: 260px -260px; rotate: 10deg; opacity: 0; }
+.send-btn[data-sent] .gi-send [data-part="check"] path { stroke-dashoffset: 0; }
+
+/* Download: while working, arrows feed INTO the tray on a conveyor. Each one
+   is swallowed behind the tray rim (a view-box clip), the tray flexes under
+   the weight, and when the download lands the check draws. */
+.dl-btn .gi-download [data-part="arrow-clip"] { clip-path: inset(4% 0 40% 0) view-box; }
+.dl-btn .gi-download [data-part="arrow"] { transition: translate 300ms var(--ease-out); }
+.dl-btn[data-active] .gi-download [data-part="arrow"] { animation: g-dl-feed 0.9s var(--ease-out) infinite; }
+.dl-btn[data-active] .gi-download [data-part="tray"] { animation: g-tray-flex 0.9s var(--ease-out) infinite; }
+.dl-btn[data-done] .gi-download [data-part="arrow"] { translate: 0 175px; }
+.dl-btn[data-done] .gi-download [data-part="check"] path { stroke-dashoffset: 0; transition-delay: 80ms; }
+@keyframes g-dl-feed {
+  0% { translate: 0 -160px; }
+  42%, 55% { translate: 0 0; }
+  100% { translate: 0 175px; }
+}
+@keyframes g-tray-flex {
+  0%, 68% { translate: 0 0; }
+  80% { translate: 0 4px; }
+  94% { translate: 0 0; }
+}
+
+/* Refresh: one spring-timed revolution while the two arcs chase their own
+   tails; a re-click restarts cleanly. */
+.spin-btn[data-spinning] .gi-refresh { animation: g-revolve var(--spring-smooth-dur) var(--spring-smooth); }
+.spin-btn[data-spinning] .gi-refresh path[pathLength] { animation: g-arc-chase var(--spring-smooth-dur) var(--ease-out); }
+@keyframes g-revolve { to { rotate: 360deg; } }
+@keyframes g-arc-chase {
+  0% { stroke-dashoffset: 0; }
+  40% { stroke-dashoffset: 0.55; }
+  100% { stroke-dashoffset: 0; }
+}
+
+/* Trash: the lid hinges open from its left corner on hover. During a hold it
+   closes slowly over the whole sweep, so the lid landing shut is the same
+   moment the fill completes. The body stays still. */
+.btn .gi-trash [data-part="lid"] {
+  transform-box: view-box; transform-origin: 40px 72px;
+  transition: rotate var(--spring-snap-dur) var(--spring-snap), translate var(--spring-snap-dur) var(--spring-snap);
+}
+.btn-danger:hover:not(:disabled) .gi-trash [data-part="lid"] { rotate: -22deg; translate: -4px -10px; }
+.hold-btn[data-holding] .gi-trash [data-part="lid"] { animation: g-lid-close var(--hold-dur, 900ms) var(--ease-out) forwards; }
+@keyframes g-lid-close {
+  0% { rotate: -22deg; translate: -4px -10px; }
+  100% { rotate: 0deg; translate: 0 0; }
+}
+
+/* Bell: rings from the crown; the clapper follows 60ms behind. */
+[data-ring] .gi-bell [data-part="body"],
+[data-ring] .gi-bell [data-part="clapper"] {
+  transform-box: view-box; transform-origin: 128px 38px;
+  animation: g-ring 0.9s var(--ease-out);
+}
+[data-ring] .gi-bell [data-part="clapper"] { animation-delay: 60ms; }
+@keyframes g-ring {
+  0%, 100% { rotate: 0deg; }
+  15% { rotate: 14deg; }
+  35% { rotate: -11deg; }
+  55% { rotate: 7deg; }
+  72% { rotate: -4deg; }
+  86% { rotate: 2deg; }
+}
+
+/* Plus: springs 45 degrees into an x when its control expands. */
+.gi-plus [data-part="cross"] {
+  transform-box: fill-box; transform-origin: center;
+  transition: rotate var(--spring-snap-dur) var(--spring-snap);
+}
+[aria-expanded="true"] .gi-plus [data-part="cross"] { rotate: 45deg; }
+
+/* Confirm button: no tick at rest; ticking draws one in. */
+.confirm-btn .gi-check { width: 0; margin-right: -6px; transition: width var(--dur-base) var(--ease-out), margin-right var(--dur-base) var(--ease-out); }
+.confirm-btn .gi-check path[pathLength] { transition-delay: 70ms; }
+.confirm-btn[data-done] .gi-check { width: 15px; margin-right: 0; }
+.confirm-btn[data-done] .gi-check [data-part="tick"] path { stroke-dashoffset: 0; }
+
+/* Hold to delete: a fill sweeps while held; release early and it rewinds. */
+.hold-btn { position: relative; overflow: hidden; }
+.hold-btn .hold-fill {
+  content: "";
+  position: absolute; inset: 0;
+  background: color-mix(in srgb, #000 22%, transparent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--dur-base) var(--ease-out);
+  pointer-events: none;
+}
+.hold-btn[data-holding] .hold-fill {
+  transform: scaleX(1);
+  transition: transform var(--hold-dur, 900ms) linear;
+}
+@keyframes g-wiggle {
+  0%, 100% { rotate: 0deg; }
+  25% { rotate: -9deg; }
+  75% { rotate: 7deg; }
+}
+
+/* ---------------------------------------------------------------- view swap */
+
+/* Page change inside persistent chrome: the nav and top bar never move;
+   the content answers. Out in 100ms, then the new view staggers in with
+   the same entrance choreography as first load (g.swap in g-ui.js). */
+.view {
+  transition: opacity var(--dur-fast) var(--ease-out), translate var(--dur-fast) var(--ease-out);
+}
+.view[data-leaving] {
+  opacity: 0;
+  translate: 0 4px;
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------- MPA page loads */
+
+/* Cross-document view transitions: real page navigations get the g.swap
+   choreography with zero JS wherever the browser supports it, and degrade
+   to a plain swap elsewhere. Pair with speculation-rules prerender for
+   instant server-rendered navigation. */
+@view-transition { navigation: auto; }
+::view-transition-old(root) { animation: g-vt-out var(--dur-fast) var(--ease-out) both; }
+::view-transition-new(root) { animation: g-vt-in var(--dur-slow) var(--ease-out) both; }
+@keyframes g-vt-out { to { opacity: 0; translate: 0 4px; } }
+@keyframes g-vt-in { from { opacity: 0; translate: 0 4px; } }
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 1ms; }
+}
+
+/* ---------------------------------------------------------------- page entrance */
+
+/* One choreography, on load only. Never scroll-triggered. */
+.enter > * {
+  animation: g-rise var(--dur-slow) var(--ease-out) backwards;
+}
+.enter > *:nth-child(1) { animation-delay: 0ms; }
+.enter > *:nth-child(2) { animation-delay: 30ms; }
+.enter > *:nth-child(3) { animation-delay: 60ms; }
+.enter > *:nth-child(4) { animation-delay: 90ms; }
+.enter > *:nth-child(5) { animation-delay: 120ms; }
+.enter > *:nth-child(6) { animation-delay: 150ms; }
+.enter > *:nth-child(7) { animation-delay: 180ms; }
+.enter > *:nth-child(8) { animation-delay: 210ms; }
+@keyframes g-rise {
+  from { opacity: 0; translate: 0 4px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+/* ---------------------------------------------------------------- app shell */
+
+/* Persistent chrome as a reusable layout: sidebar + topbar + content.
+   Under 720px the sidebar becomes an off-canvas sheet behind a scrim,
+   opened by a .g-nav-toggle (hamburger morphs to an x). */
+.g-shell {
+  display: grid;
+  grid-template-columns: 224px 1fr;
+  height: 100vh;
+  overflow: hidden;
+}
+.g-shell > aside {
+  display: flex; flex-direction: column; gap: 1px;
+  padding: var(--sp-3);
+  border-right: 1px solid var(--border-subtle);
+  background: var(--surface-1);
+}
+.g-nav-toggle { display: none; }
+.g-scrim {
+  display: block;
+  position: fixed; inset: 0;
+  z-index: 39;
+  background: rgb(0 0 0 / 0.44);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-slow) var(--ease-out);
+}
+[data-nav-open] .g-scrim { opacity: 1; pointer-events: auto; }
+@media (max-width: 720px) {
+  .g-shell { grid-template-columns: 1fr; }
+  .g-shell > aside {
+    position: fixed; inset: 0 auto 0 0;
+    width: 248px;
+    z-index: 40;
+    translate: -100% 0;
+    transition: translate 280ms var(--ease-ios);
+  }
+  /* the scrim separates the sheet; a shadow here trips a software-raster
+     compositing bug that washes the whole layer light */
+  [data-nav-open].g-shell > aside,
+  [data-nav-open] .g-shell > aside { translate: 0 0; border-right-color: var(--border); }
+  .g-nav-toggle { display: inline-flex; }
+}
+
+/* hamburger morph */
+.gi-list [data-part] {
+  transform-box: view-box; transform-origin: 128px 128px;
+  transition: rotate var(--spring-snap-dur) var(--spring-snap), translate var(--spring-snap-dur) var(--spring-snap), opacity var(--dur-fast) var(--ease-out);
+}
+[aria-expanded="true"] .gi-list [data-part="top"] { rotate: 45deg; translate: 0 52px; }
+[aria-expanded="true"] .gi-list [data-part="mid"] { opacity: 0; }
+[aria-expanded="true"] .gi-list [data-part="bottom"] { rotate: -45deg; translate: 0 -52px; }
+
+/* ---------------------------------------------------------------- prose */
+
+/* Long-form rendered content: markdown output, docs, posts. */
+.prose {
+  max-width: 68ch;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text);
+}
+.prose h1, .prose h2, .prose h3 { color: var(--text-primary); margin: 1.6em 0 0.5em; }
+.prose h1:first-child, .prose h2:first-child { margin-top: 0; }
+.prose h1 { font-size: 22px; }
+.prose h2 { font-size: 17px; }
+.prose h3 { font-size: 14.5px; }
+.prose p { margin: 0 0 0.9em; }
+.prose a { color: var(--text-primary); }
+.prose strong { font-weight: 500; color: var(--text-primary); }
+.prose ul, .prose ol { margin: 0 0 0.9em; padding-left: 1.4em; }
+.prose li { margin: 0.25em 0; }
+.prose li::marker { color: var(--text-placeholder); }
+.prose blockquote {
+  margin: 1em 0;
+  padding: 2px 0 2px 14px;
+  border-left: 2px solid var(--border);
+  color: var(--text-secondary);
+}
+.prose code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  background: var(--well-bg);
+  border: 1px solid var(--well-border);
+  border-radius: var(--radius-sm);
+  padding: 1px 5px;
+}
+.prose pre {
+  background: var(--well-bg);
+  border: 1px solid var(--well-border);
+  border-radius: var(--radius);
+  padding: var(--sp-3) var(--sp-4);
+  overflow-x: auto;
+  line-height: 1.6;
+}
+.prose pre code { background: none; border: none; padding: 0; font-size: 12.5px; }
+.prose hr { border: none; border-top: 1px solid var(--border-subtle); margin: 1.6em 0; }
+.prose img { max-width: 100%; border-radius: var(--radius); }
+.prose table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 13px; }
+.prose th { text-align: left; font-weight: 500; padding: 6px 10px; border-bottom: 1px solid var(--border); }
+.prose td { padding: 6px 10px; border-bottom: 1px solid var(--border-subtle); }
+
+/* ---------------------------------------------------------------- a11y + adaptation */
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  clip-path: inset(50%); overflow: hidden; white-space: nowrap;
+}
+
+/* 44px touch target on coarse pointers; the visual control stays as designed. */
+@media (pointer: coarse) {
+  .btn, .checkbox, .radio, .switch, .menu-item, .tab { position: relative; }
+  .btn::after, .checkbox::before, .radio::before, .switch::before,
+  .menu-item::after, .tab::after {
+    content: "";
+    position: absolute;
+    inset: min(0px, calc((100% - 44px) / 2));
+  }
+}
+
+/* Reduced motion: feedback stays, movement goes. Crossfades, not nothing. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+  .enter > * { animation: g-fade 1ms backwards; }
+  dialog.dlg, .menu, .tooltip, .toast { translate: 0 0 !important; scale: 1 !important; }
+  dialog.dlg, .menu, .tooltip, .toast, .spinner ~ * {
+    transition-property: opacity, overlay, display !important;
+    transition-duration: var(--dur-base) !important;
+  }
+  .skeleton::after { animation: none; }
+  .dl-btn [data-part="arrow"], .dl-btn [data-part="tray"],
+  [data-ring] .gi-bell [data-part] { animation: none !important; }
+  @keyframes g-fade { from { opacity: 0; } to { opacity: 1; } }
+}
+
+/* ---- charts (g.chart) --------------------------------------------------
+   Dependency-free SVG renderers. Colour stays in the markup as
+   var(--chart-N) strings, so a theme switch recolours a chart live and no
+   re-render is needed. Everything that is not colour or geometry is here. */
+
+.g-chart { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.g-chart > svg { display: block; flex: 1 1 auto; min-height: 0; overflow: visible; }
+.g-chart text {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  fill: var(--text-placeholder);
+}
+.g-chart .num { font-variant-numeric: tabular-nums; }
+.g-chart .center-value { fill: var(--text-primary); font-weight: 500; }
+
+/* Donut with its legend beside rather than under it. */
+.g-chart[data-layout="side"] { flex-direction: row; align-items: center; gap: var(--sp-4); }
+.g-chart[data-layout="side"] .g-chart-legend { flex-direction: column; flex-wrap: nowrap; gap: 7px; }
+
+.g-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.g-chart-key { display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.g-chart-key i {
+  width: 7px; height: 7px;
+  flex: none;
+  border-radius: 50%;
+  translate: 0 -1px;
+}
+.g-chart-key b {
+  margin-left: 2px;
+  color: var(--text-primary);
+  font-weight: 450;
+  font-variant-numeric: tabular-nums;
+}
+
+.g-spark { display: block; height: 28px; }
+
+/* Entrance: lines draw themselves, bars rise off the baseline. Once per
+   element, applied by the renderer, never replayed on a re-render unless
+   g.chart.replay(host) re-arms it first. */
+.g-chart [data-draw] {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset 900ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.g-chart [data-draw][data-on] { stroke-dashoffset: 0; }
+.g-chart [data-rise] {
+  transform: scaleY(0);
+  transform-box: view-box;
+  transition: transform 600ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.g-chart [data-rise][data-on] { transform: scaleY(1); }
+.g-chart [data-fade] { opacity: 0; transition: opacity 500ms var(--ease-out); }
+.g-chart [data-fade][data-on] { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .g-chart [data-draw] { stroke-dasharray: none; stroke-dashoffset: 0; }
+  .g-chart [data-rise] { transform: none; }
+  .g-chart [data-fade] { opacity: 1; }
+}
+
+/* data - navigation and table upgrades over the base .table recipe.
+   Every upgrade is opt-in by class, so a plain .table is untouched. */
+
+/* ---------------------------------------------------------------- breadcrumb */
+
+/* Separators are drawn, never authored, so copy stays free of stray glyphs. */
+.g-crumbs ol {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-size-ui);
+}
+.g-crumbs li { display: flex; align-items: center; }
+.g-crumbs li + li::before {
+  content: "/";
+  margin: 0 7px;
+  color: var(--text-placeholder);
+}
+.g-crumbs a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color var(--dur-base) var(--ease-out);
+}
+.g-crumbs a:hover { color: var(--text-primary); }
+.g-crumbs [aria-current="page"] { color: var(--text-primary); }
+
+/* ---------------------------------------------------------------- pagination */
+
+.g-pages { display: flex; align-items: center; gap: 4px; }
+.g-pages [aria-current="page"] { background: var(--fill-active); color: var(--text-primary); border-color: var(--border-subtle); }
+.g-pages .g-gap {
+  width: var(--h-control-sm);
+  text-align: center;
+  color: var(--text-placeholder);
+  font-size: var(--font-size-ui);
+  user-select: none;
+}
+
+/* ---------------------------------------------------------------- context menu */
+
+[data-context-menu] { cursor: context-menu; }
+
+/* ---------------------------------------------------------------- sortable */
+
+.table.g-sortable th[data-sort] {
+  position: relative;
+  padding-right: calc(var(--sp-3) + 12px);
+  cursor: pointer;
+  user-select: none;
+  transition: color var(--dur-base) var(--ease-out);
+}
+.table.g-sortable th[data-sort]:hover { color: var(--text-primary); }
+/* One caret, rotated rather than swapped, so the direction reads as a turn. */
+.table.g-sortable th[data-sort]::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: var(--sp-3);
+  width: 0;
+  height: 0;
+  border-left: 3.5px solid transparent;
+  border-right: 3.5px solid transparent;
+  border-bottom: 4px solid currentColor;
+  translate: 0 -50%;
+  opacity: 0;
+  transition:
+    opacity var(--dur-base) var(--ease-out),
+    rotate var(--dur-base) var(--ease-out);
+}
+.table.g-sortable th[data-sort]:hover::after { opacity: 0.4; }
+.table.g-sortable th[aria-sort="ascending"],
+.table.g-sortable th[aria-sort="descending"] { color: var(--text-primary); }
+.table.g-sortable th[aria-sort="ascending"]::after,
+.table.g-sortable th[aria-sort="descending"]::after { opacity: 1; }
+.table.g-sortable th[aria-sort="descending"]::after { rotate: 180deg; }
+
+/* ---------------------------------------------------------------- sticky head */
+
+.table-wrap:has(> .table.g-sticky) {
+  max-height: var(--table-max-h, 260px);
+  overflow-y: auto;
+}
+.table.g-sticky thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--card-bg, var(--surface-2));
+  background-clip: padding-box;
+  /* the hairline is a shadow: collapsed table borders do not travel with a
+     sticky row, so the drawn border vanishes the moment the body scrolls */
+  border-bottom: none;
+  box-shadow: inset 0 -1px 0 var(--border-subtle);
+}
+
+/* ---------------------------------------------------------------- selectable */
+
+.table.g-selectable th:first-child,
+.table.g-selectable td:first-child {
+  width: 1px;
+  padding-right: 0;
+}
+.table.g-selectable tbody tr[data-selected] td { background: var(--fill-hover); }
+
+/* Select-all in its third state: a dash, not a tick. Outlined rather than
+   filled, so a partial selection reads as "some": a filled box in the sticky
+   corner would shout louder than the fully-selected rows beneath it. */
+.checkbox:indeterminate {
+  background: transparent;
+  border-color: var(--accent-edge);
+}
+.checkbox:indeterminate::after {
+  clip-path: inset(0 0 0 0);
+  opacity: 1;
+  background: var(--accent-fill);
+  mask-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path d="M228,128a12,12,0,0,1-12,12H40a12,12,0,0,1,0-24H216A12,12,0,0,1,228,128Z"/></svg>');
+}
+
+/* g-ui components: slider, progress, meter, dropzone.
+   Value-carrying controls. Each one keeps its number in the DOM the browser
+   already owns (the range input, aria-valuenow, the file input's FileList),
+   so the paint below is only ever a read of that. */
+
+/* ---------------------------------------------------------------- slider */
+
+/* .g-slider is the wrapper; it carries --_p (0..1, set by the behaviour
+   layer on input) and draws the rail, so the native input is left holding
+   nothing but its thumb and its keyboard. */
+.g-slider {
+  position: relative;
+  display: block;
+}
+.g-slider[data-output] { padding-top: 18px; }
+
+.g-slider::before,
+.g-slider::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 6px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  pointer-events: none;
+}
+.g-slider::before { right: 0; background: var(--fill-active); }
+/* the fill stops under the thumb centre, which travels 8px..100%-8px */
+.g-slider::after {
+  width: calc(8px + var(--_p, 0) * (100% - 16px));
+  background: var(--accent-fill);
+}
+
+.g-slider input[type="range"] {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.g-slider input[type="range"]::-webkit-slider-runnable-track {
+  height: 16px;
+  background: transparent;
+}
+.g-slider input[type="range"]::-moz-range-track {
+  height: 4px;
+  background: transparent;
+}
+.g-slider input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent-fill);
+  box-shadow: 0 0 0 2px var(--surface-1);
+  transition: transform var(--dur-base) var(--ease-out);
+}
+.g-slider input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent-fill);
+  box-shadow: 0 0 0 2px var(--surface-1);
+  transition: transform var(--dur-base) var(--ease-out);
+}
+.g-slider input[type="range"]:hover::-webkit-slider-thumb { transform: scale(1.12); }
+.g-slider input[type="range"]:hover::-moz-range-thumb { transform: scale(1.12); }
+.g-slider input[type="range"]:active::-webkit-slider-thumb { transform: scale(0.94); }
+.g-slider input[type="range"]:active::-moz-range-thumb { transform: scale(0.94); }
+.g-slider input[type="range"]:focus { outline: none; }
+.g-slider input[type="range"]:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+  border-radius: var(--radius-full);
+}
+.g-slider input[type="range"]:disabled { cursor: default; opacity: 0.45; }
+
+/* the readout rides the thumb rather than sitting in a fixed corner, so the
+   number and the position it describes are never read as two facts */
+.g-slider-out {
+  position: absolute;
+  top: 0;
+  left: calc(8px + var(--_p, 0) * (100% - 16px));
+  translate: -50% 0;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  pointer-events: none;
+  transition: color var(--dur-base) var(--ease-out);
+}
+.g-slider-out::after { content: attr(data-suffix); position: absolute; left: 100%; top: 0; }
+.g-slider:hover .g-slider-out,
+.g-slider:focus-within .g-slider-out { color: var(--text-primary); }
+
+/* ---------------------------------------------------------------- progress + meter */
+
+.g-progress,
+.g-meter {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 6px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--fill-active);
+}
+.g-progress-fill,
+.g-meter-fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent-fill);
+}
+.g-progress-fill { transition: width var(--dur-slow) var(--ease-out); }
+.g-meter-fill { transition: width var(--dur-slow) var(--ease-out), background var(--dur-base) var(--ease-out); }
+
+/* Indeterminate: one segment sweeps the track on transform alone, so the
+   layout never reflows and the loop can be cut dead under reduced motion. */
+.g-progress[data-indeterminate] .g-progress-fill {
+  width: 34%;
+  transition: none;
+  animation: g-progress-sweep 1.4s linear infinite;
+}
+@keyframes g-progress-sweep {
+  from { transform: translateX(-105%); }
+  to { transform: translateX(300%); }
+}
+
+.g-meter[data-zone="ok"] .g-meter-fill { background: var(--ok-text); }
+.g-meter[data-zone="warn"] .g-meter-fill { background: var(--warn-text); }
+.g-meter[data-zone="danger"] .g-meter-fill { background: var(--danger-text); }
+
+/* ---------------------------------------------------------------- dropzone */
+
+.g-dropzone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--well-bg);
+  transition: border-color var(--dur-base) var(--ease-out), background var(--dur-base) var(--ease-out);
+}
+.g-dropzone:hover { border-color: var(--border-hover); }
+.g-dropzone[data-dragover] {
+  border-color: var(--border-hover);
+  background: var(--fill-hover);
+}
+.g-dropzone:focus-within {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* the input covers the prompt only, never the file list, so a remove button
+   below it stays clickable and does not re-open the picker */
+.g-dropzone-prompt {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: var(--sp-3);
+  text-align: center;
+}
+.g-dropzone input[type="file"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.g-dropzone input[type="file"]:disabled { cursor: default; }
+.g-dropzone-prompt svg {
+  width: 20px;
+  height: 20px;
+  color: var(--text-placeholder);
+  transition: color var(--dur-base) var(--ease-out), translate var(--dur-base) var(--ease-out);
+}
+.g-dropzone[data-dragover] .g-dropzone-prompt svg {
+  color: var(--text-primary);
+  translate: 0 -2px;
+}
+.g-dropzone-title { font-size: var(--font-size-ui); font-weight: 500; }
+.g-dropzone-hint { font-size: 12px; color: var(--text-secondary); }
+
+.g-dropzone-files {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.g-dropzone-files:empty { display: none; }
+.g-dropzone-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--h-control-sm);
+  padding: 0 4px 0 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  font-size: var(--font-size-ui);
+  animation: g-file-in var(--dur-slow) var(--ease-out) backwards;
+}
+@keyframes g-file-in {
+  from { opacity: 0; translate: 0 3px; }
+  to { opacity: 1; translate: 0 0; }
+}
+.g-dropzone-file svg { width: 14px; height: 14px; flex: none; color: var(--text-secondary); }
+.g-dropzone-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.g-dropzone-size { font-size: 12px; color: var(--text-secondary); flex: none; }
+
+/* ---------------------------------------------------------------- adaptation */
+
+/* 44px hit area on coarse pointers; the negative margins keep the wrapper
+   16px tall, so the rail and thumb do not move. */
+@media (pointer: coarse) {
+  .g-slider input[type="range"] { height: 44px; margin: -14px 0; }
+  .g-slider input[type="range"]::-webkit-slider-runnable-track { height: 44px; }
+  .g-slider input[type="range"]::-webkit-slider-thumb { margin-top: 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .g-progress[data-indeterminate] .g-progress-fill {
+    animation: none !important;
+    width: 100%;
+    opacity: 0.45;
+  }
+  .g-dropzone-file { animation: none; }
+}
+
+/* Pinned: the bar is an edge of its panel, not an object in it. At rest it
+   IS the hairline separator; the fill thickens to 3px while work runs, so the
+   panel never carries a rule and a track side by side. */
+.g-progress-pinned { position: sticky; top: 0; z-index: 1; height: 3px; border-radius: 0; background: transparent; overflow: visible; }
+.g-progress-pinned::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 1px; background: var(--border-subtle); }
+.g-progress-pinned .g-progress-fill { position: relative; border-radius: 0; height: 1px; transition: width var(--dur-slow) var(--ease-out), height var(--dur-base) var(--ease-out); }
+.g-progress-pinned[aria-valuenow]:not([aria-valuenow="0"]) .g-progress-fill, .g-progress-pinned[data-indeterminate] .g-progress-fill { height: 3px; }
+/* Readout: percent first, then whatever the job can honestly report. */
+.progress-readout { display: inline-flex; align-items: baseline; gap: 5px; font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.progress-readout .pct { font-weight: 500; color: var(--text-primary); }
+.progress-readout .sep { color: var(--text-placeholder); }
+
+/* g-select and g-combobox, a listbox popup on the Popover API, wired by
+   select.js. The control wears the .input recipe; the popup wears the .menu
+   recipe. `.g-select` is the custom one; `.select` stays the native element. */
+
+.g-select, .g-combobox { position: relative; display: block; }
+
+/* caret-up-down, the same Phosphor glyph the native .select wears */
+.g-select::after, .g-combobox::after {
+  content: "";
+  position: absolute;
+  right: 9px; top: 50%;
+  width: 14px; height: 14px;
+  translate: 0 -50%;
+  background: var(--text-secondary);
+  pointer-events: none;
+  mask: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><path d="M181.66,170.34a8,8,0,0,1,0,11.32l-48,48a8,8,0,0,1-11.32,0l-48-48a8,8,0,0,1,11.32-11.32L128,212.69l42.34-42.35A8,8,0,0,1,181.66,170.34Zm-96-84.68L128,43.31l42.34,42.35a8,8,0,0,0,11.32-11.32l-48-48a8,8,0,0,0-11.32,0l-48,48A8,8,0,0,0,85.66,85.66Z"/></svg>') center / contain no-repeat;
+}
+
+.g-select-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: var(--h-control);
+  padding: 0 30px 0 var(--pad-control-x);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-ui);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-base) var(--ease-out),
+    background var(--dur-base) var(--ease-out);
+}
+.g-select-trigger:hover:not(:disabled) { border-color: var(--border-hover); }
+.g-select-trigger[aria-expanded="true"] { border-color: var(--border-hover); background: var(--fill-hover); }
+.g-select-trigger:disabled { opacity: 0.45; cursor: default; }
+.g-select-trigger:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+.g-select-value {
+  display: flex; align-items: center; gap: 8px;
+  flex: 1; min-width: 0;
+  overflow: hidden; white-space: nowrap;
+}
+.g-select-trigger[data-empty] .g-select-value { color: var(--text-placeholder); }
+
+.g-combobox .input { padding-right: 30px; }
+
+/* ---- the popup ---- */
+
+.g-listbox {
+  position: fixed;
+  margin: 0;
+  min-width: 180px;
+  max-height: 264px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  background: var(--overlay-bg);
+  color: var(--text-primary);
+  box-shadow: var(--overlay-shadow);
+  opacity: 0;
+  scale: 0.97;
+  transform-origin: var(--_origin, top);
+  transition:
+    opacity var(--dur-base) var(--ease-out),
+    scale var(--dur-base) var(--ease-out),
+    overlay var(--dur-base) allow-discrete,
+    display var(--dur-base) allow-discrete;
+}
+.g-listbox:popover-open { opacity: 1; scale: 1; }
+@starting-style { .g-listbox:popover-open { opacity: 0; scale: 0.97; } }
+/* the list holds focus so it can hear the keys; the highlighted row is the
+   visible focus, so a ring around the whole popup would be a second answer */
+.g-listbox:focus { outline: none; }
+
+.g-option {
+  position: relative;
+  display: flex; align-items: center; gap: 8px;
+  width: 100%;
+  min-height: 30px;
+  padding: 5px 8px 5px 27px;
+  border: none; border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-primary);
+  font-family: var(--font-ui); font-size: var(--font-size-ui);
+  text-align: left;
+  cursor: pointer;
+  scroll-margin: 4px;
+}
+.g-option:hover, .g-option[data-highlighted] { background: var(--fill-hover); }
+.g-option:active { background: var(--fill-active); }
+.g-option[aria-disabled="true"] { color: var(--text-placeholder); cursor: default; pointer-events: none; }
+.g-option[hidden], .g-listbox-empty[hidden] { display: none; }
+
+/* the check draws itself in when a row becomes the chosen one */
+.g-option .gi-check {
+  position: absolute;
+  left: 7px; top: 50%;
+  width: 13px; height: 13px;
+  translate: 0 -50%;
+  color: var(--text-secondary);
+}
+.g-option[aria-selected="true"] .gi-check [data-part="tick"] path { stroke-dashoffset: 0; }
+
+.g-option-meta { margin-left: auto; padding-left: 10px; color: var(--text-secondary); font-size: 12px; }
+.g-option-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.g-listbox-empty {
+  padding: 9px 8px;
+  font-size: var(--font-size-ui);
+  color: var(--text-secondary);
+}
+
+@media (pointer: coarse) {
+  .g-option { min-height: 44px; }
+}
+
+/* the popup keeps its crossfade, loses the scale, like .menu does */
+@media (prefers-reduced-motion: reduce) {
+  .g-listbox {
+    scale: 1 !important;
+    transition-property: opacity, overlay, display !important;
+    transition-duration: var(--dur-base) !important;
+  }
+}
