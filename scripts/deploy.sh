@@ -15,6 +15,7 @@ rm -rf "$repo/release/server.new" && cp -r "$wt/server/dist" "$repo/release/serv
 rm -rf "$repo/release/data.new"; [ -d "$wt/server/data" ] && cp -r "$wt/server/data" "$repo/release/data.new" || true
 rm -rf "$repo/release/server" && mv "$repo/release/server.new" "$repo/release/server"
 [ -d "$repo/release/data.new" ] && { rm -rf "$repo/release/data"; mv "$repo/release/data.new" "$repo/release/data"; } || true
+rm -rf "$repo/release/db.new" && cp -r "$wt/server/db" "$repo/release/db.new" && rm -rf "$repo/release/db" && mv "$repo/release/db.new" "$repo/release/db"
 systemctl restart opentable
 sleep 2
 curl -sf http://127.0.0.1:8130/health >/dev/null && echo "deployed $rev"
