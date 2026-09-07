@@ -1,17 +1,17 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import type { MatchFormat, TableView } from '@opentable/protocol';
-import { makeApp, mintGuestSession, deleteUser, listenForWs, connectSession, type Connected } from './helpers.js';
+import { makeApp, mintGuestSession, deleteUser, listenForWs, connectSession, testFormat, type Connected } from './helpers.js';
 import { createMatchForPlayers } from '../src/matchmaking.js';
 import { getHandById, sql } from '../src/db.js';
 
 // Short enough that waiting out a real timeout is fast; graceMs is generous
 // relative to how quickly this process can reconnect a websocket, since
 // tests 2 relies on reconnecting comfortably inside the grace window.
-const SHORT_FORMAT: MatchFormat = { hands: 1, stack: 200, sb: 1, bb: 2, clockMs: 300, graceMs: 1000 };
+const SHORT_FORMAT: MatchFormat = testFormat({ hands: 1, clockMs: 300, graceMs: 1000 });
 // Same clock, but enough hands that natural completion never preempts the
 // forfeit test, forfeit always fires within hand 1 anyway.
-const FORFEIT_FORMAT: MatchFormat = { hands: 25, stack: 200, sb: 1, bb: 2, clockMs: 300, graceMs: 1000 };
+const FORFEIT_FORMAT: MatchFormat = testFormat({ clockMs: 300, graceMs: 1000 });
 
 // Always checks or calls (never folds, never raises) whenever it's this
 // connection's turn, so the hand progresses deterministically. Resolves once
@@ -57,7 +57,7 @@ describe('the decision clock', () => {
       await connA.messages.wait((m) => m.t === 'hi');
       await connB.messages.wait((m) => m.t === 'hi');
 
-      const matchId = await createMatchForPlayers(sessA.id, sessB.id, SHORT_FORMAT);
+      const matchId = await createMatchForPlayers([sessA.id, sessB.id], SHORT_FORMAT);
       createdMatchIds.push(matchId);
       connB.ws.send(JSON.stringify({ t: 'join', m: matchId }));
 
@@ -89,7 +89,7 @@ describe('the decision clock', () => {
       await connA.messages.wait((m) => m.t === 'hi');
       await connB.messages.wait((m) => m.t === 'hi');
 
-      const matchId = await createMatchForPlayers(sessA.id, sessB.id, SHORT_FORMAT);
+      const matchId = await createMatchForPlayers([sessA.id, sessB.id], SHORT_FORMAT);
       createdMatchIds.push(matchId);
       connA.ws.send(JSON.stringify({ t: 'join', m: matchId }));
       connB.ws.send(JSON.stringify({ t: 'join', m: matchId }));
@@ -131,7 +131,7 @@ describe('the decision clock', () => {
       await connResponsive.messages.wait((m) => m.t === 'hi');
       await connTimeout.messages.wait((m) => m.t === 'hi');
 
-      const matchId = await createMatchForPlayers(sessResponsive.id, sessTimeout.id, FORFEIT_FORMAT);
+      const matchId = await createMatchForPlayers([sessResponsive.id, sessTimeout.id], FORFEIT_FORMAT);
       createdMatchIds.push(matchId);
       connResponsive.ws.send(JSON.stringify({ t: 'join', m: matchId }));
 
@@ -162,7 +162,7 @@ describe('the decision clock', () => {
       await connResponsive.messages.wait((m) => m.t === 'hi');
       await connGone.messages.wait((m) => m.t === 'hi');
 
-      const matchId = await createMatchForPlayers(sessResponsive.id, sessGone.id, FORFEIT_FORMAT);
+      const matchId = await createMatchForPlayers([sessResponsive.id, sessGone.id], FORFEIT_FORMAT);
       createdMatchIds.push(matchId);
       connResponsive.ws.send(JSON.stringify({ t: 'join', m: matchId }));
 

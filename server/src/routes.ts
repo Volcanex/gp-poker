@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { blindsAt } from '@opentable/protocol';
 import {
   sql,
   getLeaderboard,
@@ -132,6 +133,7 @@ export function registerRoutes(app: FastifyInstance): void {
       reason: match.reason,
       handsPlayed: match.handsPlayed,
       finalStacks: match.finalStacks,
+      places: match.places,
       ratings: match.ratings ? roundRatings(match.ratings) : null,
       createdAt: match.createdAt,
       finishedAt: match.finishedAt,
@@ -143,7 +145,10 @@ export function registerRoutes(app: FastifyInstance): void {
         board: h.board,
         stacks: h.stacksStart,
         awards: h.result?.awards ?? null,
-        accuracy: [h.study?.[0]?.summary.accuracy ?? null, h.study?.[1]?.summary.accuracy ?? null],
+        liveSeats: h.liveSeats,
+        // One entry per table seat; null for a six-max hand, which stores no
+        // preflop study at all.
+        accuracy: match.seats.map((s) => h.study?.[s.seat]?.summary.accuracy ?? null),
       })),
     };
   });
@@ -159,9 +164,9 @@ export function registerRoutes(app: FastifyInstance): void {
       matchId: hand.matchId,
       number: hand.number,
       seats: match.seats,
-      button: hand.button,
-      sb: match.format.sb,
-      bb: match.format.bb,
+      button: hand.button, // table seat
+      liveSeats: hand.liveSeats, // engine-seat order; null on pre-v2 hands
+      ...blindsAt(match.format, hand.number),
       stacksStart: hand.stacksStart,
       seedHash: hand.seedHash,
       seed: completed ? hand.seed : null,

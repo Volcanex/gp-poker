@@ -25,4 +25,7 @@ export const config = {
   // journald for a small box; 'warn' surfaces only errors/warnings unless
   // overridden.
   logLevel: process.env.LOG_LEVEL ?? 'warn',
+  // How many of the named bot accounts to keep alive. Six is enough to fill
+  // a six-max table around a single human.
+  botCount: Number(process.env.BOT_COUNT ?? 6),
 };

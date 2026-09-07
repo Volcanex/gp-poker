@@ -14,6 +14,9 @@ export type { HandRunner, MatchOutcome, RoomClock } from './types.js';
 // still gets the final state instead of `no_match`.
 const ROOM_LINGER_MS = 60_000;
 
+// Consecutive timeouts before a player stops being treated as present.
+const TIMEOUT_STREAK_LIMIT = 3;
+
 // Full Glicko-2 precision, no volatility (that never goes on the wire).
 // `matches.ratings` is persisted with this, full precision, the `end`
 // message sends `roundRatings()` of it instead.
@@ -34,6 +37,10 @@ export class MatchRoom {
   private disconnected = new Set<string>();
   private graceTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private timeoutStreak = new Map<string, number>();
+  // Multiway only: a player who timed out three times running is sat out,
+  // auto check-folding every decision while still posting blinds, until they
+  // bust or act again. Heads-up forfeits instead, as it always has.
+  private satOut = new Set<string>();
   private clockTimer: ReturnType<typeof setTimeout> | null = null;
   private clock: RoomClock | null = null;
   private lastResult: MatchResult | null = null;
@@ -63,6 +70,12 @@ export class MatchRoom {
     await this.hand.startHand(1);
     this.broadcast();
     this.rearmClock();
+  }
+
+  // Whether the match is still live. Matchmaking asks this before putting a
+  // bot into a new table, since a finished room lingers for a minute.
+  get active(): boolean {
+    return this.match.status === 'playing';
   }
 
   join(userId: string): void {
@@ -101,6 +114,10 @@ export class MatchRoom {
       hub.send(userId, { t: 'err', c: 'not_your_turn', msg: 'spectators cannot act' });
       return;
     }
+    // Any attempt to act un-sits a sat-out player, including one the room
+    // rejects: the auto check-fold fires the instant it becomes their turn,
+    // so a real player coming back always arrives too late to act cleanly.
+    if (this.satOut.delete(userId)) this.timeoutStreak.set(userId, 0);
     const applied = this.hand.onAction(userId, msg);
     if (!applied) return; // the hand runner already sent the specific err
     this.timeoutStreak.set(userId, 0);
@@ -126,6 +143,14 @@ export class MatchRoom {
       return;
     }
     const userId = this.playerIds[seat];
+    if (userId !== undefined && this.satOut.has(userId)) {
+      // Sat out: fold (or check) immediately rather than burning the clock.
+      // Deferred by a timer so a whole street of sat-out seats unwinds as
+      // separate turns instead of recursing through rearmClock.
+      this.clock = { seat, deadline: Date.now(), paused: false };
+      this.clockTimer = setTimeout(() => this.autoActSatOut(seat), 0);
+      return;
+    }
     // Paused only while the grace window is still open. Once grace has
     // expired the clock runs against a disconnected player, otherwise a
     // player who never comes back would freeze the match on their turn.
@@ -154,11 +179,25 @@ export class MatchRoom {
     const streak = (this.timeoutStreak.get(userId) ?? 0) + 1;
     this.timeoutStreak.set(userId, streak);
     this.broadcast();
-    if (streak >= 3) {
-      const opponent = this.playerIds.find((id) => id !== userId) ?? null;
-      void this.forfeit(opponent);
-      return;
+    if (streak >= TIMEOUT_STREAK_LIMIT) {
+      if (this.playerIds.length === 2) {
+        const opponent = this.playerIds.find((id) => id !== userId) ?? null;
+        void this.forfeit(opponent);
+        return;
+      }
+      // Multiway: forfeiting one seat would hand the rest of the table a
+      // free elimination, so the player is sat out and blinded off instead.
+      this.satOut.add(userId);
     }
+    this.rearmClock();
+    this.settleIfDone();
+  }
+
+  private autoActSatOut(seat: number): void {
+    this.clockTimer = null;
+    if (!this.hand || this.match.status !== 'playing') return;
+    this.hand.onTimeout(seat);
+    this.broadcast();
     this.rearmClock();
     this.settleIfDone();
   }
@@ -214,24 +253,31 @@ export class MatchRoom {
     await this.finishMatch(outcome);
   }
 
+  // Heads-up only: three consecutive timeouts hands the match to the
+  // opponent before the hand runner ever reaches isDone(), so the outcome
+  // (including the rating change) is built here instead of asked for.
   private async buildForfeitOutcome(winnerId: string | null): Promise<MatchOutcome> {
-    const [uidA, uidB] = this.playerIds;
-    const [userA, userB] = await Promise.all([getUserById(uidA), getUserById(uidB)]);
     const stacks = this.hand?.currentStacks() ?? {};
-    if (!userA || !userB) {
-      // Unreachable in practice, both users must exist for the match to
+    const places: Record<string, number> = {};
+    for (const uid of this.playerIds) places[uid] = winnerId === null ? 1 : uid === winnerId ? 1 : 2;
+
+    const users = await Promise.all(this.playerIds.map((uid) => getUserById(uid)));
+    if (users.some((u) => u === null)) {
+      // Unreachable in practice, every seat must exist for the match to
       // exist, but degrade to a no-op rating change rather than throwing.
       const ratings: MatchOutcome['ratings'] = {};
       for (const uid of this.playerIds) ratings[uid] = { before: 0, after: 0, rdBefore: 0, rdAfter: 0, volatility: 0.06 };
-      return { winner: winnerId, reason: 'forfeit', stacks, ratings };
+      return { winner: winnerId, reason: 'forfeit', stacks, places, ratings };
     }
-    const scoreForA: 0 | 0.5 | 1 = winnerId === null ? 0.5 : winnerId === userA.id ? 1 : 0;
-    const ratings = computeMatchRatings(
-      { userId: userA.id, rating: userA.rating, rd: userA.rd, volatility: userA.volatility, ratingAt: userA.ratingAt },
-      { userId: userB.id, rating: userB.rating, rd: userB.rd, volatility: userB.volatility, ratingAt: userB.ratingAt },
-      scoreForA
-    );
-    return { winner: winnerId, reason: 'forfeit', stacks, ratings };
+    const inputs = users.map((u) => ({
+      userId: u!.id,
+      rating: u!.rating,
+      rd: u!.rd,
+      volatility: u!.volatility,
+      ratingAt: u!.ratingAt,
+    }));
+    const ratings = computeMatchRatings(inputs, places, this.match.rated);
+    return { winner: winnerId, reason: 'forfeit', stacks, places, ratings };
   }
 
   async finishMatch(outcome: MatchOutcome): Promise<void> {
@@ -239,14 +285,29 @@ export class MatchRoom {
     for (const t of this.graceTimers.values()) clearTimeout(t);
     this.graceTimers.clear();
 
-    const players = this.match.rated
-      ? this.playerIds.map((uid) => {
-          const r = outcome.ratings[uid];
-          const result: 'win' | 'loss' | 'draw' =
-            outcome.winner === null ? 'draw' : outcome.winner === uid ? 'win' : 'loss';
-          return { userId: uid, rating: r.after, rd: r.rdAfter, volatility: r.volatility, outcome: result };
-        })
-      : [];
+    // Counters move for every finished match; the Glicko-2 state and a
+    // rating_history row only for a rated one. Multiway has no draw: first
+    // place is a win, every other place a loss.
+    const multiway = this.playerIds.length > 2;
+    const players = this.playerIds.map((uid) => {
+      const r = outcome.ratings[uid];
+      const place = outcome.places[uid] ?? this.playerIds.length;
+      const result: 'win' | 'loss' | 'draw' = multiway
+        ? place === 1
+          ? 'win'
+          : 'loss'
+        : outcome.winner === null
+          ? 'draw'
+          : outcome.winner === uid
+            ? 'win'
+            : 'loss';
+      return {
+        userId: uid,
+        place,
+        outcome: result,
+        rating: this.match.rated ? { rating: r.after, rd: r.rdAfter, volatility: r.volatility } : null,
+      };
+    });
 
     const rawRatings = toMatchResultRatings(outcome);
     await persistFinishMatch(this.id, {
@@ -254,6 +315,7 @@ export class MatchRoom {
       winner: outcome.winner,
       reason: outcome.reason,
       finalStacks: outcome.stacks,
+      places: outcome.places,
       ratings: rawRatings,
       players,
     });
@@ -263,7 +325,8 @@ export class MatchRoom {
       winner: outcome.winner,
       reason: outcome.reason,
       stacks: outcome.stacks,
-      rated: true,
+      places: outcome.places,
+      rated: this.match.rated,
       ratings: roundRatings(rawRatings),
     };
     this.lastResult = result;

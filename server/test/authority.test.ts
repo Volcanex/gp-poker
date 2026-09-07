@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import type { MatchFormat, TableView } from '@opentable/protocol';
-import { makeApp, mintGuestSession, deleteUser, listenForWs, connectSession, type Connected } from './helpers.js';
+import { makeApp, mintGuestSession, deleteUser, listenForWs, connectSession, testFormat, type Connected } from './helpers.js';
 import { createMatchForPlayers } from '../src/matchmaking.js';
 import { sql } from '../src/db.js';
 
-const TEST_FORMAT: MatchFormat = { hands: 25, stack: 200, sb: 1, bb: 2, clockMs: 20_000, graceMs: 15_000 };
+const TEST_FORMAT: MatchFormat = testFormat();
 
 describe('server authority over actions', () => {
   let app: FastifyInstance;
@@ -32,7 +32,7 @@ describe('server authority over actions', () => {
     await b.messages.wait((m) => m.t === 'hi');
     await spectator.messages.wait((m) => m.t === 'hi');
 
-    matchId = await createMatchForPlayers(sessA.id, sessB.id, TEST_FORMAT);
+    matchId = await createMatchForPlayers([sessA.id, sessB.id], TEST_FORMAT);
 
     a.ws.send(JSON.stringify({ t: 'join', m: matchId }));
     b.ws.send(JSON.stringify({ t: 'join', m: matchId }));

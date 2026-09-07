@@ -69,4 +69,32 @@ describe('matchmaking', () => {
     connA.ws.close();
     connB.ws.close();
   });
+
+  it('keeps the four mode/rated queues apart', async () => {
+    const a = await mintGuestSession(app);
+    const b = await mintGuestSession(app);
+    createdUserIds.push(a.id, b.id);
+
+    const connA = await connectWs(wsUrl, a.token);
+    const connB = await connectWs(wsUrl, b.token);
+    await connA.messages.wait((m) => m.t === 'hi');
+    await connB.messages.wait((m) => m.t === 'hi');
+
+    // Same mode, different rated flag: never each other's opponent.
+    connA.ws.send(JSON.stringify({ t: 'queue', mode: 'heads-up', rated: true }));
+    connB.ws.send(JSON.stringify({ t: 'queue', mode: 'heads-up', rated: false }));
+    const searchingA = await connA.messages.wait((m) => m.t === 'q' && m.s === 'searching');
+    const searchingB = await connB.messages.wait((m) => m.t === 'q' && m.s === 'searching');
+    expect(searchingA.rated).toBe(true);
+    expect(searchingB.rated).toBe(false);
+
+    await tick();
+
+    await expect(connA.messages.wait((m) => m.t === 'q' && m.s === 'found', 300)).rejects.toThrow();
+
+    connA.ws.send(JSON.stringify({ t: 'dequeue' }));
+    connB.ws.send(JSON.stringify({ t: 'dequeue' }));
+    connA.ws.close();
+    connB.ws.close();
+  });
 });

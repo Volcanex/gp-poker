@@ -1,6 +1,7 @@
 import type { AddressInfo } from 'node:net';
 import type { FastifyInstance } from 'fastify';
 import { WebSocket } from 'ws';
+import { formatFor, type MatchFormat, type MatchResult, type Mode, type TableView } from '@opentable/protocol';
 import { buildApp } from '../src/app.js';
 import { sql } from '../src/db.js';
 
@@ -91,4 +92,36 @@ export interface Connected extends Session {
 export async function connectSession(url: string, session: Session): Promise<Connected> {
   const { ws, messages } = await connectWs(url, session.token);
   return { ...session, ws, messages };
+}
+
+// A real format with the product's shape and whatever the test needs to
+// change about it (a 300ms clock, a tiny stack, a one-hand cap). Built off
+// formatFor so a new field on MatchFormat never has to be added by hand in
+// five test files.
+export function testFormat(overrides: Partial<MatchFormat> = {}): MatchFormat {
+  const mode: Mode = overrides.mode ?? 'heads-up';
+  return { ...formatFor(mode, overrides.rated ?? true), ...overrides };
+}
+
+/* Plays a seat with uniformly random legal actions until the match ends.
+   Every client in a match runs one of these; whoever is not to act simply
+   waits, and a player who has busted waits for `end` like a spectator. */
+export async function driveRandomPlay(
+  conn: { ws: WebSocket; messages: WsMessages },
+  timeoutMs = 20_000,
+  maxSteps = 4000
+): Promise<MatchResult> {
+  for (let step = 0; step < maxSteps; step++) {
+    const msg = await conn.messages.wait((m) => (m.t === 'state' && m.s.legal !== null) || m.t === 'end', timeoutMs);
+    if (msg.t === 'end') return msg.r as MatchResult;
+    const view = msg.s as TableView;
+    const legal = view.legal!;
+    const action = legal.actions[Math.floor(Math.random() * legal.actions.length)];
+    const payload: Record<string, unknown> = { t: 'act', m: view.m, h: view.h, n: view.n, a: action };
+    if (action === 'b' || action === 'r') {
+      payload.v = legal.min + Math.floor(Math.random() * (legal.max - legal.min + 1));
+    }
+    conn.ws.send(JSON.stringify(payload));
+  }
+  throw new Error('too many steps without reaching end');
 }

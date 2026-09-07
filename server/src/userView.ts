@@ -13,6 +13,7 @@ export function toUserSummary(user: UserRow): UserSummary {
     id: user.id,
     name: user.name,
     guest: user.guest,
+    bot: user.bot,
     rating: Math.round(user.rating),
     rd: Math.round(user.rd),
     provisional: isProvisional(user),

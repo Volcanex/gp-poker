@@ -10,6 +10,7 @@ import { registerRoutes } from './routes.js';
 import { resolveSessionUser } from './auth.js';
 import { attachConnection } from './ws/hub.js';
 import { routeClientMessage, routeConnect, routeDisconnect } from './ws/router.js';
+import { ensureBots, setBotDispatch } from './bots/index.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const clientDist = path.resolve(here, '..', '..', 'client', 'dist');
@@ -22,6 +23,10 @@ export async function buildApp(): Promise<FastifyInstance> {
   // There is no way to safely resume live in-memory hand state across a
   // restart, so a match still 'playing' from last time is dead, not paused.
   await abortStalePlayingMatches();
+  // Bots act through the ordinary client router; wiring it here keeps the
+  // bot module from importing the websocket layer that imports matchmaking.
+  setBotDispatch(routeClientMessage);
+  await ensureBots();
 
   const app = Fastify({ logger: { level: config.logLevel } });
 

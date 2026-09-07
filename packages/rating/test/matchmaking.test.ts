@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pairQueue, window, type QueueEntry } from '../src/matchmaking.js';
+import { groupQueue, pairQueue, window, type QueueEntry } from '../src/matchmaking.js';
 
 function mulberry32(seed: number) {
   let a = seed;
@@ -77,5 +77,75 @@ describe('pairQueue', () => {
       expect(at, `entry ${entry.id} never paired`).toBeDefined();
       expect((at as number) - entry.joinedAt).toBeLessThanOrEqual(90000);
     }
+  });
+});
+
+describe('groupQueue', () => {
+  const entry = (id: string, rating: number, joinedAt: number, rd = 30): QueueEntry => ({ id, rating, rd, joinedAt });
+
+  it('returns nothing until a whole group can be filled', () => {
+    const entries = [entry('a', 1500, 0), entry('b', 1510, 100), entry('c', 1490, 200)];
+    expect(groupQueue(entries, 6, 1000)).toEqual([]);
+    expect(groupQueue(entries, 3, 1000).length).toBe(1);
+  });
+
+  it('gathers the closest-rated entries around the longest waiter', () => {
+    const entries = [
+      entry('anchor', 1500, 0),
+      entry('far', 1580, 100),
+      entry('near', 1505, 200),
+      entry('mid', 1540, 300),
+    ];
+    const [group] = groupQueue(entries, 3, 1000);
+    expect(group.map((e) => e.id)).toEqual(['anchor', 'near', 'mid']);
+  });
+
+  it('refuses a member outside another member\'s window', () => {
+    // b and c are both inside a's window but 180 apart from each other,
+    // which is outside their own 100-point windows.
+    const entries = [entry('a', 1500, 0, 60), entry('b', 1410, 100), entry('c', 1590, 200)];
+    expect(groupQueue(entries, 3, 1000)).toEqual([]);
+  });
+
+  it('takes anyone once an entry has waited past the unbounded cutoff', () => {
+    const now = 61_000;
+    // old's window is unbounded, but x and y joined a moment ago and their
+    // own windows still have to cover the gap, so no group forms.
+    const entries = [entry('old', 1500, 0), entry('x', 2400, 60_000), entry('y', 2410, 60_100)];
+    expect(groupQueue(entries, 3, now)).toEqual([]);
+    const patient = [entry('old', 1500, 0), entry('x', 2400, 0), entry('y', 2410, 0)];
+    const [group] = groupQueue(patient, 3, now);
+    expect(group.map((e) => e.id).sort()).toEqual(['old', 'x', 'y']);
+  });
+
+  it('forms several disjoint groups in one pass', () => {
+    const entries = [
+      entry('a1', 1500, 0),
+      entry('a2', 1510, 10),
+      entry('b1', 2000, 20),
+      entry('b2', 2010, 30),
+      entry('a3', 1520, 40),
+      entry('b3', 2020, 50),
+    ];
+    const groups = groupQueue(entries, 3, 1000);
+    expect(groups.length).toBe(2);
+    const ids = groups.map((g) => g.map((e) => e.id).sort());
+    expect(ids).toContainEqual(['a1', 'a2', 'a3']);
+    expect(ids).toContainEqual(['b1', 'b2', 'b3']);
+    expect(new Set(groups.flat().map((e) => e.id)).size).toBe(6);
+  });
+
+  it('leaves an unfillable anchor in the queue for a later anchor to use', () => {
+    // `lonely` cannot fill a group of 3 on its own terms, but it is still
+    // available to the pack that can.
+    const entries = [
+      entry('lonely', 1300, 0),
+      entry('p1', 1520, 100),
+      entry('p2', 1530, 200),
+      entry('p3', 1540, 300),
+    ];
+    const groups = groupQueue(entries, 3, 1000);
+    expect(groups.length).toBe(1);
+    expect(groups[0].map((e) => e.id).sort()).toEqual(['p1', 'p2', 'p3']);
   });
 });

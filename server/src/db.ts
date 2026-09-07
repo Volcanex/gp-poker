@@ -39,6 +39,7 @@ export interface UserRow {
   nameLower: string;
   passwordHash: string | null;
   guest: boolean;
+  bot: boolean;
   createdAt: Date;
   lastSeenAt: Date;
   rating: number;
@@ -65,6 +66,7 @@ export interface MatchSeat {
   userId: string;
   name: string;
   rating: number;
+  bot: boolean;
 }
 
 export interface MatchRow {
@@ -77,6 +79,7 @@ export interface MatchRow {
   reason: string | null;
   handsPlayed: number;
   finalStacks: Record<string, number> | null;
+  places: Record<string, number> | null;
   ratings: MatchResult['ratings'] | null;
   createdAt: Date;
   finishedAt: Date | null;
@@ -90,6 +93,7 @@ export interface HandRow {
   seed: string | null;
   button: number;
   stacksStart: number[];
+  liveSeats: number[] | null;
   actions: LoggedAction[];
   board: string[];
   holes: Record<number, [string, string]> | null;
@@ -151,6 +155,22 @@ export async function claimGuestUser(
   return row ?? null;
 }
 
+// Bot accounts are ordinary users with bot = true: real names, real ratings,
+// real history, no password and never a guest. Created once at boot.
+export async function ensureBotUser(name: string): Promise<UserRow> {
+  await sql`
+    insert into users (name, name_lower, guest, bot)
+    values (${name}, ${name.toLowerCase()}, false, true)
+    on conflict (name_lower) do nothing
+  `;
+  const [row] = await sql<UserRow[]>`select * from users where name_lower = ${name.toLowerCase()}`;
+  return row;
+}
+
+export async function getBotUsers(): Promise<UserRow[]> {
+  return sql<UserRow[]>`select * from users where bot = true order by name_lower asc`;
+}
+
 export async function touchLastSeen(id: string): Promise<void> {
   await sql`update users set last_seen_at = now() where id = ${id}`;
 }
@@ -169,7 +189,7 @@ export async function getLeaderboard(limit = 100): Promise<LeaderboardRow[]> {
   return sql<LeaderboardRow[]>`
     select name, rating, rd, matches, peak_rating
     from users
-    where rd <= 110
+    where rd <= 110 and bot = false
     order by rating desc
     limit ${limit}
   `;
@@ -301,8 +321,12 @@ export async function abortStalePlayingMatches(): Promise<number> {
 
 export interface UserMatchSummary {
   id: string;
-  opponent: string;
+  mode: MatchFormat['mode'];
+  opponent: string; // the other seat heads-up, the next seat along multiway
+  players: number; // seats in the match, so a client can render "3rd of 6"
+  place: number | null;
   result: 'win' | 'loss' | 'draw';
+  rated: boolean;
   ratingChange: number;
   finishedAt: Date | null;
 }
@@ -318,12 +342,26 @@ export async function getMatchesForUser(userId: string, limit = 20): Promise<Use
   return rows.map((m) => {
     const opponentSeat = m.seats.find((s) => s.userId !== userId);
     const mine = m.ratings?.[userId];
+    const place = m.places?.[userId] ?? null;
+    // Multiway has no draws: anything but first place is a loss.
     const result: 'win' | 'loss' | 'draw' =
-      m.winner === null ? 'draw' : m.winner === userId ? 'win' : 'loss';
+      m.seats.length > 2
+        ? place === 1
+          ? 'win'
+          : 'loss'
+        : m.winner === null
+          ? 'draw'
+          : m.winner === userId
+            ? 'win'
+            : 'loss';
     return {
       id: m.id,
+      mode: m.format.mode,
       opponent: opponentSeat?.name ?? 'unknown',
+      players: m.seats.length,
+      place,
       result,
+      rated: m.rated,
       ratingChange: mine ? Math.round(mine.after - mine.before) : 0,
       finishedAt: m.finishedAt,
     };
@@ -335,13 +373,16 @@ export interface FinishMatchResult {
   winner: string | null;
   reason: string;
   finalStacks: Record<string, number>;
+  places: Record<string, number>;
   ratings: MatchResult['ratings'];
+  // Every seat, rated or not. `rating` is null for a casual match: the
+  // win/loss/draw and match counters still move, the Glicko-2 state and
+  // rating_history do not.
   players: {
     userId: string;
-    rating: number;
-    rd: number;
-    volatility: number;
+    place: number;
     outcome: 'win' | 'loss' | 'draw';
+    rating: { rating: number; rd: number; volatility: number } | null;
   }[];
 }
 
@@ -353,6 +394,7 @@ export async function finishMatch(matchId: string, result: FinishMatchResult): P
         winner = ${result.winner},
         reason = ${result.reason},
         final_stacks = ${sql.json(jsonb(result.finalStacks))},
+        places = ${sql.json(jsonb(result.places))},
         ratings = ${sql.json(jsonb(result.ratings))},
         finished_at = now()
       where id = ${matchId}
@@ -362,22 +404,32 @@ export async function finishMatch(matchId: string, result: FinishMatchResult): P
       const lossesInc = p.outcome === 'loss' ? 1 : 0;
       const drawsInc = p.outcome === 'draw' ? 1 : 0;
       await tx`
+        update match_players set place = ${p.place}
+        where match_id = ${matchId} and user_id = ${p.userId}
+      `;
+      await tx`
         update users set
-          rating = ${p.rating},
-          rd = ${p.rd},
-          volatility = ${p.volatility},
-          rating_at = now(),
-          peak_rating = greatest(peak_rating, ${p.rating}),
-          peak_at = case when ${p.rating} > peak_rating then now() else peak_at end,
           matches = matches + 1,
           wins = wins + ${winsInc},
           losses = losses + ${lossesInc},
           draws = draws + ${drawsInc}
         where id = ${p.userId}
       `;
+      if (!p.rating) continue;
+      const { rating, rd, volatility } = p.rating;
+      await tx`
+        update users set
+          rating = ${rating},
+          rd = ${rd},
+          volatility = ${volatility},
+          rating_at = now(),
+          peak_rating = greatest(peak_rating, ${rating}),
+          peak_at = case when ${rating} > peak_rating then now() else peak_at end
+        where id = ${p.userId}
+      `;
       await tx`
         insert into rating_history (user_id, match_id, rating, rd)
-        values (${p.userId}, ${matchId}, ${p.rating}, ${p.rd})
+        values (${p.userId}, ${matchId}, ${rating}, ${rd})
       `;
     }
   });
@@ -392,10 +444,11 @@ export async function insertHand(hand: {
   seedHash: string;
   button: number;
   stacksStart: number[];
+  liveSeats: number[];
 }): Promise<HandRow> {
   const [row] = await sql<HandRow[]>`
-    insert into hands (id, match_id, number, seed_hash, button, stacks_start)
-    values (${hand.id}, ${hand.matchId}, ${hand.number}, ${hand.seedHash}, ${hand.button}, ${sql.json(jsonb(hand.stacksStart))})
+    insert into hands (id, match_id, number, seed_hash, button, stacks_start, live_seats)
+    values (${hand.id}, ${hand.matchId}, ${hand.number}, ${hand.seedHash}, ${hand.button}, ${sql.json(jsonb(hand.stacksStart))}, ${hand.liveSeats})
     returning *
   `;
   return row;
@@ -440,13 +493,14 @@ export interface HandSummary {
   seed: string | null;
   board: string[];
   stacksStart: number[];
+  liveSeats: number[] | null;
   result: HandOutcome | null;
   study: Record<number, HandStudy> | null;
 }
 
 export async function getHandsForMatch(matchId: string): Promise<HandSummary[]> {
   return sql<HandSummary[]>`
-    select number, completed_at, seed_hash, seed, board, stacks_start, result, study
+    select number, completed_at, seed_hash, seed, board, stacks_start, live_seats, result, study
     from hands
     where match_id = ${matchId}
     order by number asc

@@ -98,3 +98,14 @@ create table if not exists audit_log (
   at timestamptz not null default now()
 );
 create index if not exists audit_log_match on audit_log(match_id);
+
+-- Additive columns for protocol v2 (modes, multiway, bots). Kept as separate
+-- alters rather than folded into the create-table blocks above so an existing
+-- database picks them up on the next boot.
+alter table users add column if not exists bot boolean not null default false;
+alter table matches add column if not exists places jsonb;            -- {user_id: place}, 1 = winner
+alter table match_players add column if not exists place int;
+-- Table seats that were dealt into this hand, in engine-seat order. The
+-- action log, holes and result are stored in TABLE seats; this is what turns
+-- them back into an engine HandConfig for replay.
+alter table hands add column if not exists live_seats int[];

@@ -27,16 +27,16 @@ export function window(entry: QueueEntry, now: number): number {
 // pair only forms when the rating gap sits inside both sides' windows.
 // Sorting by joinedAt then id makes the result deterministic for equal
 // timestamps.
-export function pairQueue(entries: QueueEntry[], now: number): [QueueEntry, QueueEntry][] {
+export function pairQueue<T extends QueueEntry>(entries: T[], now: number): [T, T][] {
   const ordered = [...entries].sort((a, b) => a.joinedAt - b.joinedAt || a.id.localeCompare(b.id));
   const paired = new Set<string>();
-  const pairs: [QueueEntry, QueueEntry][] = [];
+  const pairs: [T, T][] = [];
 
   for (const entry of ordered) {
     if (paired.has(entry.id)) continue;
     const entryWindow = window(entry, now);
 
-    let best: QueueEntry | null = null;
+    let best: T | null = null;
     let bestDiff = Infinity;
     for (const other of ordered) {
       if (other.id === entry.id || paired.has(other.id)) continue;
@@ -59,4 +59,52 @@ export function pairQueue(entries: QueueEntry[], now: number): [QueueEntry, Queu
   }
 
   return pairs;
+}
+
+/* Multiway gathering. Repeatedly takes the longest-waiting entry as the
+   anchor and gathers the closest-rated entries that sit inside the anchor's
+   window and every already-gathered member's window (and theirs inside each
+   other's), until the group is `size` strong. An anchor that cannot fill a
+   whole group is left in the queue rather than half-consumed, so the next
+   anchor can still reach it. Entries past WINDOW_UNBOUNDED_MS have an
+   infinite window and so accept anyone who accepts them. */
+export function groupQueue<T extends QueueEntry>(entries: T[], size: number, now: number): T[][] {
+  if (size < 2) return [];
+  const ordered = [...entries].sort((a, b) => a.joinedAt - b.joinedAt || a.id.localeCompare(b.id));
+  const windows = new Map(ordered.map((e) => [e.id, window(e, now)]));
+  const used = new Set<string>();
+  const groups: T[][] = [];
+
+  const compatible = (a: T, b: T): boolean => {
+    const diff = Math.abs(a.rating - b.rating);
+    return diff <= (windows.get(a.id) ?? 0) && diff <= (windows.get(b.id) ?? 0);
+  };
+
+  for (const anchor of ordered) {
+    if (used.has(anchor.id)) continue;
+    const group = [anchor];
+
+    while (group.length < size) {
+      let best: T | null = null;
+      let bestDiff = Infinity;
+      for (const other of ordered) {
+        if (used.has(other.id) || group.includes(other)) continue;
+        if (!group.every((m) => compatible(m, other))) continue;
+        const diff = Math.abs(anchor.rating - other.rating);
+        if (diff < bestDiff || (diff === bestDiff && best !== null && other.joinedAt < best.joinedAt)) {
+          best = other;
+          bestDiff = diff;
+        }
+      }
+      if (!best) break;
+      group.push(best);
+    }
+
+    if (group.length === size) {
+      for (const m of group) used.add(m.id);
+      groups.push(group);
+    }
+  }
+
+  return groups;
 }

@@ -8,7 +8,7 @@ import { getRoom, roomForPlayer } from '../match/rooms.js';
 export function routeClientMessage(userId: string, msg: ClientMsg): void {
   switch (msg.t) {
     case 'queue':
-      void enqueue(userId);
+      void enqueue(userId, msg.mode ?? 'heads-up', msg.rated ?? true);
       return;
     case 'dequeue':
       dequeue(userId);

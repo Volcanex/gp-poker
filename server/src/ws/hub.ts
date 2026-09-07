@@ -8,6 +8,10 @@ import { toUserSummary } from '../userView.js';
 // at once (multiple tabs); every send fans out to all of them.
 class Hub {
   private byUser = new Map<string, Set<WebSocket>>();
+  // In-process players (bots) have no socket. They register a handler here
+  // and `send` routes to it exactly as it would to a websocket, so nothing
+  // upstream - rooms, matchmaking, the router - needs to know the difference.
+  private virtual = new Map<string, (msg: ServerMsg) => void>();
 
   add(userId: string, socket: WebSocket): void {
     let set = this.byUser.get(userId);
@@ -25,11 +29,20 @@ class Hub {
     if (set.size === 0) this.byUser.delete(userId);
   }
 
+  attachVirtual(userId: string, handler: (msg: ServerMsg) => void): void {
+    this.virtual.set(userId, handler);
+  }
+
   isConnected(userId: string): boolean {
-    return this.byUser.has(userId);
+    return this.byUser.has(userId) || this.virtual.has(userId);
   }
 
   send(userId: string, msg: ServerMsg): void {
+    const handler = this.virtual.get(userId);
+    if (handler) {
+      handler(msg);
+      return;
+    }
     const set = this.byUser.get(userId);
     if (!set) return;
     const raw = encode(msg);

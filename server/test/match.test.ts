@@ -1,37 +1,15 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import type { WebSocket } from 'ws';
 import { replay, seedHash, type HandConfig } from '@opentable/engine';
-import type { MatchFormat, MatchResult, TableView } from '@opentable/protocol';
-import { makeApp, mintGuestSession, deleteUser, listenForWs, connectWs, type WsMessages } from './helpers.js';
+import type { MatchFormat, TableView } from '@opentable/protocol';
+import { makeApp, mintGuestSession, deleteUser, listenForWs, connectWs, driveRandomPlay, testFormat } from './helpers.js';
 import { createMatchForPlayers } from '../src/matchmaking.js';
 import { getHandById, getHandsForMatch, getMatchById, getRatingHistoryForUser, sql } from '../src/db.js';
 
 // Short stacks relative to the blinds so the match tends to bust in a handful
 // of hands under random play, and a low hand cap as a backstop either way -
 // keeps this test fast without weakening what it actually exercises.
-const TEST_FORMAT: MatchFormat = { hands: 5, stack: 20, sb: 1, bb: 2, clockMs: 20_000, graceMs: 15_000 };
-
-interface Conn {
-  ws: WebSocket;
-  messages: WsMessages;
-}
-
-async function driveRandomPlay(conn: Conn): Promise<MatchResult> {
-  for (let step = 0; step < 500; step++) {
-    const msg = await conn.messages.wait((m) => (m.t === 'state' && m.s.legal !== null) || m.t === 'end', 20_000);
-    if (msg.t === 'end') return msg.r as MatchResult;
-    const view = msg.s as TableView;
-    const legal = view.legal!;
-    const action = legal.actions[Math.floor(Math.random() * legal.actions.length)];
-    const payload: Record<string, unknown> = { t: 'act', m: view.m, h: view.h, n: view.n, a: action };
-    if (action === 'b' || action === 'r') {
-      payload.v = legal.min + Math.floor(Math.random() * (legal.max - legal.min + 1));
-    }
-    conn.ws.send(JSON.stringify(payload));
-  }
-  throw new Error('too many steps without reaching end');
-}
+const TEST_FORMAT: MatchFormat = testFormat({ hands: 5, stack: 20 });
 
 describe('a full match', () => {
   let app: FastifyInstance;
@@ -68,7 +46,7 @@ describe('a full match', () => {
       const framesB: any[] = [];
       connB.ws.on('message', (raw: Buffer) => framesB.push(JSON.parse(raw.toString())));
 
-      matchId = await createMatchForPlayers(a.id, b.id, TEST_FORMAT);
+      matchId = await createMatchForPlayers([a.id, b.id], TEST_FORMAT);
 
       connA.ws.send(JSON.stringify({ t: 'join', m: matchId }));
       connB.ws.send(JSON.stringify({ t: 'join', m: matchId }));

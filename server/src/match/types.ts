@@ -15,6 +15,10 @@ export interface MatchOutcome {
   winner: string | null;
   reason: MatchResult['reason'];
   stacks: Record<string, number>;
+  // Finishing position per user id, 1 = best. Always filled: heads-up gives
+  // the winner 1 and the loser 2 (both 1 on a draw), multiway gives reverse
+  // elimination order.
+  places: Record<string, number>;
   ratings: Record<string, { before: number; after: number; rdBefore: number; rdAfter: number; volatility: number }>;
 }
 
@@ -37,6 +41,9 @@ export interface HandRunner {
   // Called by the room's clock on expiry. Applies 'x' if legal for this
   // seat, else 'f', logging the action with `to: true`.
   onTimeout(seat: number): void;
+  // Seat numbers crossing this interface are always TABLE seats (0..N-1,
+  // fixed for the match). The runner maps them onto the engine's live-seat
+  // config in both directions.
   toActSeat(): number | null; // null when no decision is pending (between hands, at showdown)
   isDone(): boolean; // true once the whole MATCH is decided (bust or hands played out), not just the current hand
   matchResult(): MatchOutcome | null; // non-null once isDone()

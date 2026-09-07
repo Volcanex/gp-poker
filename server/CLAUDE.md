@@ -18,14 +18,26 @@ decisions; this file covers what's not obvious from the code.
   `sql.json()` needs a value typed with an index signature; the `jsonb()`
   helper is the one cast boundary for that mismatch, since named interfaces
   like `MatchFormat` don't have one even though they're plain JSON.
+  Protocol v2 added four columns, all additive and applied by the same
+  idempotent `schema.sql` (`alter table ... add column if not exists`):
+  `users.bot`, `matches.places`, `match_players.place` and `hands.live_seats`.
 - `src/auth.ts` — guest minting, scrypt password hashing, session cookies.
 - `src/userView.ts` — `UserRow` → wire `UserSummary`. `isProvisional`
   delegates to `@opentable/rating`'s own threshold rather than keeping a
   second constant that could drift from it (the leaderboard SQL's
   `rd <= 110` is the one unavoidable duplicate, since SQL can't call into
   the package — commented at the query).
-- `src/routes.ts` — all REST endpoints.
-- `src/matchmaking.ts` — the in-memory queue and its tick.
+- `src/routes.ts` — all REST endpoints. `/api/matches/:id` adds `places` and
+  a per-hand `liveSeats`, and its per-hand `accuracy` is now one entry per
+  table seat (null throughout for six-max, which stores no study).
+  `/api/hands/:id` adds `liveSeats` and reports the hand's own `sb`/`bb` from
+  `blindsAt` rather than the format's level-1 blinds, which is what a replay
+  needs to rebuild the engine config. `/api/users/:name`'s `lastMatches`
+  entries carry `mode`, `players`, `place` and `rated` alongside the existing
+  fields, so a client can render "3rd of 6" without a second request.
+- `src/matchmaking.ts` — the in-memory queues and their tick.
+- `src/bots/` — the bot roster (`index.ts`), one bot's message loop
+  (`player.ts`) and the pure decision function (`strategy.ts`).
 - `src/ws/hub.ts` — connection registry + the raw per-socket protocol
   handling (decode, `hi`, ping/pong, audit log). Knows nothing about
   matchmaking or match rooms; dispatch is injected.
@@ -70,18 +82,147 @@ does **not** mint a guest; `/ws`'s `preValidation` hook rejects the upgrade
 with 401 if there's no valid session, since the client always calls
 `/api/me` first to get one.
 
+## Modes and formats
+Two modes, each rated or casual, so four independent queues. `formatFor(mode,
+rated)` in the protocol builds the `MatchFormat`; the server never invents
+one. Heads-up is unchanged: two seats, 200 units, flat 1/2 blinds, 25 hands
+or bust. Six-max is a sit-and-go: six seats, `hands: null`, and a nine-level
+blind schedule (`levels`, `levelHands: 8`) so it always ends. Every hand asks
+`blindsAt(format, handNumber)` for its level and `TableView.blinds` reports
+it, which is the only place the client should read the current blinds from.
+
+`format.rated` is what goes into `matches.rated`; a casual match plays
+identically and settles differently (see "End conditions and rating").
+
+## Table seats and engine seats
+Table seats are 0..N-1 and fixed for the whole match. They are what the wire,
+the database and `MatchRoom` all speak. The engine is only ever handed the
+seats that still have chips, so its `HandConfig` indexes are a different,
+shorter numbering that changes every hand.
+
+`EngineHandRunner` owns the map (`liveSeats[engineSeat] = tableSeat`) and
+translates everything crossing the boundary: actions in, views out, and the
+stored action log, holes and hand result, all of which are persisted in TABLE
+seats. The mapping itself is stored on the hand row as `live_seats`, which is
+what lets a replay rebuild the same `HandConfig`:
+
+```
+config.seats  = live_seats.map(t => ({ id: seats[t].user_id, stack: stacks_start[t] }))
+config.button = live_seats.indexOf(hands.button)   // hands.button is a table seat
+actions       = stored.map(a => ({ ...a, s: live_seats.indexOf(a.s) }))
+```
+
+Heads-up `live_seats` is always `[0, 1]` (a bust ends the match), so the two
+numberings coincide and nothing about existing matches changes. The button
+starts on the lowest live seat and moves to the next live seat each hand,
+skipping anyone who has busted. An eliminated player keeps their seat in the
+view with `out: true` and their `place`; `SeatView.bot` comes from
+`users.bot`.
+
+Preflop `study` and `stats` are heads-up only. `@opentable/preflop`'s charts
+and spot walker model two players, so a six-max hand stores null for both
+rather than a wrong number, and the profile aggregates already skip hands
+with null stats.
+
 ## Matchmaking tick
-`src/matchmaking.ts` keeps an in-memory `Map<userId, QueueEntry>` — nothing
+`src/matchmaking.ts` keeps one in-memory `Map<userId, QueuedPlayer>` — nothing
 here is persisted, so a server restart drops the queue (acceptable: clients
-just re-send `queue`). `enqueue` widens the user's RD for inactivity via
-`@opentable/rating`'s `widenRd` before adding them, and immediately replies
-`q searching`. A 1s `setInterval` (`tick`, exported so tests can call it
-directly instead of waiting on the real timer) calls `pairQueue` and, for
-each pair returned, creates the match: allocates a short id (base32-ish,
-retried on the rare collision), inserts `matches`/`match_players`, builds a
-`MatchRoom`, registers it, and sends `q found` to both sockets. Every
-un-paired entry gets a fresh `q searching` each tick with its current
-`window()` range.
+just re-send `queue`). Each entry carries its own `mode` and `rated`, and the
+tick buckets them by `(mode, rated)`, which is what makes the four queues
+independent without four maps. `enqueue` widens the user's RD for inactivity
+via `@opentable/rating`'s `widenRd` before adding them, and immediately
+replies `q searching` with the mode, the rated flag, the current `window()`
+range and, for a multiway table, `seated` (how many are gathered so far).
+
+A 1s `setInterval` (`tick`, exported so tests can call it directly instead of
+waiting on the real timer) walks each bucket:
+
+- **heads-up** pairs humans with `pairQueue`, exactly as before.
+- **six-max** gathers with `groupQueue(entries, 6, now)`: the longest waiter
+  anchors a group and pulls in the closest-rated entries that sit inside its
+  window and each other's. An anchor that cannot fill a whole table is left
+  in the queue rather than half-consumed.
+
+Creating the match allocates a short id (base32-ish, retried on the rare
+collision), inserts `matches`/`match_players`, builds a `MatchRoom`,
+registers it, and sends `q found` to every seat. Seat order is shuffled, so a
+human is not always on the first button.
+
+### Bot fill
+Two constants at the top of the file, both measured from the longest wait in
+that queue:
+
+| queue | wait before bots come in |
+|---|---|
+| `BOT_FILL_HEADS_UP_MS` | 5s |
+| `BOT_FILL_SIX_MAX_MS` | 20s |
+
+Heads-up gives a lone human one bot. Six-max launches on six humans, or after
+the threshold with bots in the remaining seats. Bots never fill a table with
+no human, and a roster too short to fill the table waits rather than seating a
+short-handed one. Candidates come from `availableBots(rating, n)`: loaded in
+this process, not in a live match (a finished room lingers a minute, so this
+asks `room.active`, not whether the room exists), closest in rating first.
+
+`setFormatResolver` is a test seam in the same spirit as `tick` and
+`createMatchForPlayers`: it swaps `formatFor` so the real queue path can run
+against a short clock and a small stack.
+
+## Bots
+`src/bots/` exists so one human can play right now. A bot is an ordinary
+`users` row with `bot = true`: a real name (`bot-otter`, `bot-heron`, ...
+from a fixed list of eight), a real Glicko-2 rating and real match history,
+no password, never a guest. `ensureBots()` runs once in `buildApp` and keeps
+`BOT_COUNT` (default 6) of them alive; the insert is `on conflict do nothing`
+so parallel boots are safe.
+
+A bot has no socket. It registers a **virtual connection** with the hub
+(`hub.attachVirtual`), and `hub.send` routes to that handler before it looks
+for websockets, so rooms, the clock and persistence never learn the
+difference; `hub.isConnected` counts it too, and since nothing ever closes,
+a bot is `connected: true` for the life of the match. Messages go back out
+through `routeClientMessage`, the same path a socket action takes, injected
+via `setBotDispatch` in `app.ts` so `src/bots/` never imports the websocket
+layer that imports matchmaking.
+
+`BotPlayer` (`player.ts`) joins on `q found`, and on any `state` where
+`legal` is non-null it decides immediately and *acts on a timer*: 600 to
+1800ms normally, 100 to 400ms when the answer is a free check or it is
+effectively all-in, capped at a quarter of `format.clockMs` (which is what
+lets a test with a 300ms clock finish). Because the decision is made before
+the timer is set, a bot cannot time out. Decisions are keyed by
+`match:hand:seq` so a rebroadcast at the same decision point (an opponent
+disconnecting, say) does not queue the action twice.
+
+`strategy.ts` is pure and unit-tested, with the RNG injectable:
+
+- **Preflop** starts from the hand class's percentile in
+  `@opentable/preflop`'s equity ranking, jittered a few points so the bot is
+  not a lookup table. Two-handed it reads the real charts: the stack bucket
+  plus the spot (recovered from the two bets, since heads-up a seat that has
+  put in more than a big blind has raised) give a chart entry, and
+  `regionsOf` says aggr, passive or fold. Multiway it uses position-aware
+  thresholds instead, because the charts model two players and applying them
+  six-handed would be worse than a rule of thumb: raise the top 12% to 25%
+  by position, call the top 40%, three-bet the top 6%, call a three-bet with
+  the top 12%, and under 12bb jam the top 25% or fold.
+- **Postflop** is hand strength, computed with `phe`: the fraction of the
+  opponent two-card holdings still possible on this board that the bot's
+  hand beats, ties counting a half (990 combinations on the flop). Above
+  0.85 it bets or raises about two thirds of the pot; 0.55 to 0.85 it bets
+  half pot when checked to and calls when the price beats its strength;
+  below that it checks or folds unless the pot odds still justify a call,
+  with an 8% bluff when checked to on the turn or river.
+- Sizes are clamped to `legal.min..legal.max`, and a raise over 80% of the
+  stack becomes `'a'`. Every decision leaves through `ensureLegal`, so an
+  action the view did not offer degrades to check, else call, else fold
+  rather than reaching the room.
+
+Bots are excluded from the leaderboard (`getLeaderboard`'s `bot = false`) and
+`/api/users/:name` reports `bot: true` for them. **Bot matches are rated.**
+That is a deliberate bootstrap choice while there is nobody else to play:
+casual bot matches would leave every early human provisional forever with
+nothing to calibrate against. Revisit once humans are pairing with humans.
 
 ## HandRunner seam
 `MatchRoom` (in `src/match/room.ts`) owns orchestration only — subscribers,
@@ -93,7 +234,7 @@ through the `HandRunner` interface (`src/match/types.ts`):
 interface HandRunner {
   startHand(number: number): Promise<void>;
   onAction(userId: string, msg: Extract<ClientMsg, { t: 'act' }>): boolean; // false = rejected, err already sent
-  onTimeout(seat: number): void; // apply check-if-legal-else-fold, log with to: true
+  onTimeout(seat: number): void; // TABLE seat: apply check-if-legal-else-fold, log with to: true
   toActSeat(): number | null;
   isDone(): boolean; // true once the whole MATCH is decided, not just the current hand
   matchResult(): MatchOutcome | null;
@@ -113,18 +254,23 @@ and *who's currently connected* are orchestration concerns the hand runner
 shouldn't need to know about.
 
 `EngineHandRunner` (`src/match/handRunner.ts`) is the implementation, over
-`@opentable/engine`. Per match it tracks the two seats' running stacks
-across hands, the current `HandState`, and a `MatchOutcome | null` that's
-non-null once the whole match (not just a hand) is decided. Notable pieces:
+`@opentable/engine`. Per match it tracks every table seat's running stack and
+`place`, the live-seat map for the current hand, the current `HandState`, and
+a `MatchOutcome | null` that's non-null once the whole match (not just a
+hand) is decided. Every seat number on its public surface is a table seat.
+Notable pieces:
 
-- **startHand** allocates a fresh `newSeed()`, computes `button = (number -
-  1) % 2` (hand 1 = seat 0), and `insertHand`s the row — seed hash, button,
-  starting stacks — *before* calling `createHand`, so the commitment exists
-  before any card is dealt even if the process dies immediately after. If
-  both stacks are covered by the blinds alone, `createHand` itself resolves
-  straight to `'done'` (see engine's CLAUDE.md); `startHand` handles that by
-  immediately kicking off hand completion rather than assuming there's
-  something to act on.
+- **startHand** collects the seats that still have chips, moves the button to
+  the next live one (hand 1 puts it on the lowest live seat, which heads-up
+  reproduces the old `(number - 1) % 2` rotation), reads the level from
+  `blindsAt(format, number)`, allocates a fresh `newSeed()`, and `insertHand`s
+  the row — seed hash, button, starting stacks for all N seats, `live_seats` —
+  *before* calling `createHand`, so the commitment exists before any card is
+  dealt even if the process dies immediately after. If everyone left is
+  covered by the blinds alone, `createHand` itself resolves straight to
+  `'done'` (see engine's CLAUDE.md); `startHand` handles that by immediately
+  kicking off hand completion rather than assuming there's something to act
+  on.
 - **onAction** validates in the order the wire error codes imply: not this
   seat's turn → `err not_your_turn`; `msg.h`/`msg.n` mismatch the current
   hand/seq → `err stale`; otherwise hands off to `apply()`, which throws
@@ -149,15 +295,17 @@ non-null once the whole match (not just a hand) is decided. Notable pieces:
   (`bet` resets to 0 each street, `committed` never does), so there's
   nothing to add on top.
 - **Hand completion** (`completeHand`, triggered whenever `state.street`
-  becomes `'done'`): persists the hand row (seed, actions, board, holes,
-  `result`, `stats` from `preflop.handStats`, `study` — per seat,
+  becomes `'done'`): persists the hand row (seed, actions, board, holes and
+  `result`, all translated into table seats, plus `completedAt`, and
+  heads-up only `stats` from `preflop.handStats` and `study` — per seat,
   `preflop.extractDecisions` filtered to that seat plus `summarise()` of
-  them — and `completedAt`), updates the running stacks from
-  `state.seats[].stack`, bumps `hands_played`. If a stack hit 0 or
-  `hands_played` reached `format.hands`, calls `finishNaturally` and reports
-  `isDone()`/`matchResult()`. Otherwise it waits `HAND_HOLD_MS` (a plain
-  module constant, currently 4s — long enough for the reveal to actually
-  register) and then calls `startHand` for the next number.
+  them), updates the running stacks, bumps `hands_played`, then settles:
+  `settleHeadsUp` (bust or `format.hands` reached) or `settleMultiway`
+  (assign places to whoever busted, finish when one player is left). If
+  neither ends the match it waits `min(HAND_HOLD_MS, format.clockMs)` — 4s in
+  the product, long enough for the reveal to register, and never longer than
+  the decision clock so a short test clock doesn't spend four seconds on a
+  finished board — and then calls `startHand` for the next number.
 - **onChange callback**: `MatchRoom.start()` hands the hand runner a closure
   that does `broadcast(); rearmClock(); settleIfDone()`. The room calls those
   itself right after any *synchronous* `onAction`/`onTimeout`, but starting
@@ -167,30 +315,58 @@ non-null once the whole match (not just a hand) is decided. Notable pieces:
 
 `MatchOutcome` (`src/match/types.ts`) is deliberately richer than the wire
 `MatchResult`: it carries each player's post-match `volatility`, which
-Glicko-2 needs internally but which the protocol never puts on the wire.
+Glicko-2 needs internally but which the protocol never puts on the wire. It
+also carries `places`, which the wire does take.
 `finishMatch` projects it down to `MatchResult` for the `end` broadcast and
 passes the full thing to `db.finishMatch` for persistence.
 
-## End conditions and rating
-Three ways a match ends, all producing a `MatchOutcome`:
-- **bust** — a stack hit 0 at hand completion (`EngineHandRunner.
-  finishNaturally`).
-- **hands** — `hands_played` reached `format.hands`; ties (equal stacks) are
-  a draw (`winner: null`).
-- **forfeit** — `MatchRoom`'s own per-player consecutive-timeout counter hit
-  3 (see "Clock design" below); this can fire mid-hand, before the hand
-  runner ever reaches `isDone()`, so `MatchRoom.buildForfeitOutcome` computes
-  the rating change itself rather than asking the hand runner for one.
+## End conditions, places and rating
+Ways a match ends, all producing a `MatchOutcome` (which now always carries
+`places`, one finishing position per user id, 1 = best):
 
-Both paths (`finishNaturally` and `buildForfeitOutcome`) go through the same
-`computeMatchRatings(a, b, scoreForA)` in `src/match/rating.ts`: widen each
-player's RD for their own inactivity (`widenRd`, days since `rating_at`),
-then `updateRating` each one against the other's *widened* rating/RD with
-score 1/0/0.5. `before`/`rdBefore` in the result are the actual persisted
-pre-match values, not the widened ones — widening is an input to the
-algorithm, not something that happened to the player's record. Peak rating
-updates when the new rating exceeds it (`db.finishMatch`'s SQL, `greatest(
-peak_rating, new_rating)`).
+- **bust, heads-up** — a stack hit 0 at hand completion. Winner 1, loser 2.
+- **hands, heads-up** — `hands_played` reached `format.hands`; equal stacks
+  is a draw (`winner: null`, both places 1).
+- **bust, six-max** — one player holds every chip. Places are reverse
+  elimination order: everyone knocked out in the same hand shares the block
+  of places just below whoever is left, ordered by the stack they *started*
+  that hand with, since the bigger stack outlasted the smaller one.
+- **forfeit** — heads-up only, `MatchRoom`'s per-player consecutive-timeout
+  counter hit 3 (see "Clock design"). It can fire mid-hand, before the hand
+  runner ever reaches `isDone()`, so `MatchRoom.buildForfeitOutcome` computes
+  the outcome itself rather than asking the hand runner for one.
+
+Multiway never forfeits: handing the rest of the table a free elimination
+because one seat went quiet is worse than the alternative. After three
+timeouts that player is **sat out** instead: every decision is auto
+check-folded the instant it reaches them (no clock burnt), blinds keep being
+posted, and they play down to a bust like anyone else. Any `act` message
+un-sits them, including one the room rejects, because the auto check-fold
+fires the moment it becomes their turn and a returning player is always too
+late to act cleanly.
+
+### One rating period per match
+`computeMatchRatings(players, places, rated)` in `src/match/rating.ts` is the
+one place a finished match becomes a rating change, shared by
+`finishNaturally` and `buildForfeitOutcome`. Every player gets exactly **one**
+Glicko-2 period holding a result against every other seat: 1 if their place is
+better, 0 if worse, 0.5 if equal. Heads-up that reduces to the old
+win/loss/draw update; six seats give each player five results in the one
+period, which is what stops a sit-and-go being scored as five separate
+matches. Each player's RD is widened for their own inactivity first
+(`widenRd`, days since `rating_at`) and every opponent is fed in at their
+widened rating too. `before`/`rdBefore` report the actual persisted pre-match
+values, not the widened ones — widening is an input to the algorithm, not
+something that happened to the player's record. Peak rating updates when the
+new rating exceeds it (`db.finishMatch`'s SQL, `greatest(peak_rating,
+new_rating)`).
+
+A **casual** match (`rated: false`) returns an echo instead: after === before,
+rdAfter === rdBefore. `db.finishMatch` then skips the Glicko-2 columns,
+`rating_at` and the `rating_history` row entirely. The win/loss/draw and
+`matches` counters still move for every finished match either way: a casual
+game was played, it just wasn't rated. Multiway has no draw, so first place
+counts as a win and every other place as a loss.
 
 ## Boot-time abort
 There's no way to safely resume live in-memory hand state across a process
@@ -211,7 +387,10 @@ with a real `setTimeout`. On expiry (`handleClockExpiry`), the room calls
 `hand.onTimeout(seat)` — the hand runner is responsible for checking if
 legal, else folding, logging the action with `to: true` — then bumps that
 player's consecutive-timeout counter; three in a row forfeits the match to
-the opponent (`forfeit`).
+the opponent heads-up, or sits the player out multiway (see "End conditions,
+places and rating"). A sat-out seat is never given a clock: `rearmClock`
+queues its auto check-fold on a zero-delay timer instead, so a whole street
+of sat-out seats unwinds as separate turns rather than recursing.
 
 Disconnects: `handleDisconnect` marks the player disconnected, freezes the
 clock (`paused: true`, timer cleared) if it was their turn, and starts a
@@ -262,11 +441,15 @@ npm test -w server
 `connectSession` combines a `Session` with `connectWs` into a `Connected`
 (`{id, name, token, ws, messages}`) for tests that juggle several players.
 
-`createMatchForPlayers(userIdA, userIdB, format?)` (`src/matchmaking.ts`) is
-exported specifically so tests can create a match directly — skipping the
-queue/tick entirely — with a custom `MatchFormat` (short `clockMs`/`graceMs`,
-a small `hands` count, whatever the test needs) instead of `DEFAULT_FORMAT`.
-The normal pairing path (`tick`) just calls it with the default.
+`createMatchForPlayers(userIds, format?)` (`src/matchmaking.ts`) is exported
+specifically so tests can create a match directly — skipping the queue/tick
+entirely — with any number of seats and a custom `MatchFormat`. Build that
+format with `testFormat(overrides)` from `helpers.ts` rather than by hand, so
+a new field on `MatchFormat` never has to be added in five files;
+`driveRandomPlay(conn)` in the same file plays a seat with uniformly random
+legal actions and is what every full-match test drives its clients with.
+Tests that need the *real* queue path against a fast format replace
+`setFormatResolver` instead, and must put `formatFor` back in `afterAll`.
 
 - `match.test.ts` — plays a whole match to `end` with two real clients
   picking uniformly random legal actions from each `state.legal` (a short
@@ -290,6 +473,30 @@ The normal pairing path (`tick`) just calls it with the default.
   trying to act, and a malformed action kind — noting a spectator's own view
   never has `legal` populated, so getting the acting player's legal bounds
   means asking *their* connection for a fresh view, not the spectator's.
+- `sixmax.test.ts` — six in-process clients play a six-max match to
+  completion with random legal actions: one player ends with every chip,
+  places are a permutation of 1..6, the winner's rating went up and the
+  sixth's down, all six got a `rating_history` row and a `match_players.place`,
+  every hand rehashes and replays through its stored `live_seats` mapping,
+  every hand's `stats`/`study` are null, and nobody ever saw another seat's
+  hole cards in a live frame. Its second case proves the multiway timeout
+  rule: a silent seat at a three-handed table is sat out rather than
+  forfeiting, keeps being dealt in (more than three `to: true` actions) and
+  the table still finishes on a bust.
+- `casual.test.ts` — a casual match leaves both players' rating, rd and
+  `rating_at` exactly where they were, writes no `rating_history`, echoes
+  before === after in the result, and still increments `matches`.
+- `bots.test.ts` — a lone human waits out `BOT_FILL_HEADS_UP_MS`, is paired
+  with a bot and plays the match out, with no bot action ever carrying
+  `to: true`; then queues six-max, waits out `BOT_FILL_SIX_MAX_MS` and gets a
+  table of five bots that runs down to a single winner. It replaces
+  `setFormatResolver` so the real queue path runs on a short clock, which
+  also caps how long the bots think.
+- `strategy.test.ts` — pure, no database: 400 synthetic views across streets,
+  seat counts and stack sizes, asserting every returned action is in that
+  view's legal set with an in-range integer amount, plus the specific
+  behaviours (raise the best hand, fold the worst to a three-bet, bet a
+  monster, fold air to a big bet, call a token bet on the odds, jam short).
 - `clock.test.ts` — uses `createMatchForPlayers` with a short `clockMs`
   (300ms) so waiting out a real timeout is fast, and (for the check-fold and
   reconnect cases) `hands: 1` so the match finishes the instant that one
