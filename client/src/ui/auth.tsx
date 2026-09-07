@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { api } from '../net/api.ts';
 import { useSession } from '../net/session.tsx';
 import { useGInit } from './bits.tsx';
+import { modeRating } from '../net/adapt.ts';
+import { MODE_NAME } from './mode-tabs.tsx';
 import { int } from './format.ts';
 
 /* Shown on your own profile while the account is still a guest. The point it
@@ -79,7 +81,10 @@ export function ClaimCard({ onClaimed }: { onClaimed?: () => void }) {
 }
 
 export function AccountMenu() {
-  const { me, refreshMe } = useSession();
+  const { me, refreshMe, queue } = useSession();
+  /* Ratings are per mode, so the one in the top bar is the mode you last
+     played or chose to play. */
+  const mode = queue.mode;
   const wrapRef = useRef<HTMLDivElement>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   useGInit(wrapRef);
@@ -105,7 +110,8 @@ export function AccountMenu() {
         aria-haspopup="menu"
       >
         {me ? me.name : 'Account'}
-        {me && <span className="r num">{int(me.rating)}</span>}
+        {me && <span className="r num">{int(modeRating(me, mode).rating)}</span>}
+        {me && <span className="m">{MODE_NAME[mode].toLowerCase()}</span>}
       </button>
 
       <div className="menu" popover="auto" id="account-menu" role="menu">

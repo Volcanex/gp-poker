@@ -1,4 +1,7 @@
-import type { Hand, Match, MatchHandSummary, MatchSeat, Profile, UserMatchSummary } from './types.ts';
+import type { Mode, ModeRating, UserSummary } from '@opentable/protocol';
+import type {
+  Hand, Match, MatchHandSummary, MatchSeat, Profile, RatingPoint, UserMatchSummary,
+} from './types.ts';
 
 /* Fields the server is adding but has not shipped yet: mean preflop accuracy
    and a total match count on /api/users/:name, and per-seat accuracy on the
@@ -9,11 +12,6 @@ import type { Hand, Match, MatchHandSummary, MatchSeat, Profile, UserMatchSummar
 
 export function profileAccuracy(profile: Profile): number | null {
   return num(profile.accuracy);
-}
-
-/* The total, not the length of `lastMatches`, which is capped at twenty. */
-export function profileMatchCount(profile: Profile): number | null {
-  return num(profile.matches);
 }
 
 /* Per-seat accuracy may arrive keyed by seat or indexed by seat; both read the
@@ -32,6 +30,38 @@ export function matchHasAccuracy(match: Match): boolean {
 
 function num(v: unknown): number | null {
   return typeof v === 'number' && Number.isFinite(v) ? v : null;
+}
+
+/* One standing per mode, the way a chess site keeps bullet and blitz apart.
+   The map is on the wire now, but a client can outlive the server it talks to:
+   without it, heads-up falls back to the flat fields (which are the heads-up
+   standing) and any other mode reads as never played. Every rating shown
+   outside a match comes through here. */
+const FRESH: ModeRating = {
+  rating: 1500, rd: 350, provisional: true, peak: 1500,
+  matches: 0, wins: 0, losses: 0, draws: 0,
+};
+
+export function modeRating(summary: UserSummary, mode: Mode): ModeRating {
+  const map = summary.ratings as Partial<Record<Mode, ModeRating>> | undefined;
+  const found = map?.[mode];
+  if (found) return found;
+  if (mode !== 'heads-up') return FRESH;
+  return {
+    ...FRESH,
+    rating: summary.rating,
+    rd: summary.rd,
+    provisional: summary.provisional,
+    peak: summary.rating,
+  };
+}
+
+/* A rating line is per mode too: a six-max result is not a point on a heads-up
+   curve. A flat array is the old single-line shape and belongs to heads-up. */
+export function ratingHistoryFor(profile: Profile, mode: Mode): RatingPoint[] {
+  const h = profile.ratingHistory;
+  if (Array.isArray(h)) return mode === 'heads-up' ? h : [];
+  return h?.[mode] ?? [];
 }
 
 /* Seats the server has not flagged yet are people, not bots: the mark appears

@@ -43,6 +43,9 @@
 .top nav a { white-space: nowrap; }
 .theme-btn { flex: none; }
 .whoami .r { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+/* the mode the top bar's rating belongs to: a number that means two things
+   without it */
+.account .btn .m { color: var(--text-placeholder); margin-left: 5px; }
 
 .page { flex: 1; width: 100%; max-width: 720px; margin: 0 auto; padding: var(--sp-6) var(--sp-4) var(--sp-7); }
 .page.wide { max-width: 960px; }
@@ -459,12 +462,6 @@ a.btn { text-decoration: none; }
 
 .profile-head { display: flex; flex-direction: column; gap: var(--sp-4); }
 .profile-name { display: flex; align-items: baseline; gap: var(--sp-3); flex-wrap: wrap; }
-.profile-rating { font-size: 15px; color: var(--text-secondary); }
-.facts { display: flex; gap: var(--sp-6); flex-wrap: wrap; }
-.fact { display: flex; flex-direction: column; gap: 1px; }
-.fact .k { font-size: 12px; color: var(--text-secondary); }
-.fact .v { font-size: 19px; font-weight: 500; letter-spacing: -0.015em; }
-.fact .d { font-size: 11px; color: var(--text-placeholder); }
 
 .graph-card { display: flex; flex-direction: column; gap: var(--sp-2); }
 .graph { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-3); align-items: stretch; }
@@ -560,7 +557,6 @@ a.btn { text-decoration: none; }
 
 @media (max-width: 560px) {
   .two { grid-template-columns: 1fr; }
-  .facts { gap: var(--sp-4); }
   .claim-fields { flex-direction: column; align-items: stretch; }
   .claim-fields .btn { width: 100%; }
   .kv { grid-template-columns: minmax(0, 1fr); gap: 1px; }
@@ -584,7 +580,7 @@ a.btn { text-decoration: none; }
 @media (max-width: 560px) {
   /* The rating is on the profile the button leads to; the name is what has to
      stay on screen next to the theme control. */
-  .account .btn .r { display: none; }
+  .account .btn .r, .account .btn .m { display: none; }
 }
 
 .home-foot {

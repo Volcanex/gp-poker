@@ -29,9 +29,3 @@ export function signed(n: number): string {
   const v = Math.round(n);
   return v > 0 ? `+${v}` : String(v);
 }
-
-/* Rating and deviation always travel together: a rating without its deviation
-   overstates how much is known about a player. */
-export function ratingWithRd(rating: number, rd: number): string {
-  return `${Math.round(rating)} +-${Math.round(rd)}`;
-}

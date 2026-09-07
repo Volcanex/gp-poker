@@ -1,36 +1,45 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import type { Mode } from '@opentable/protocol';
 import { api } from '../net/api.ts';
 import type { LeaderboardRow } from '../net/types.ts';
 import { useSession } from '../net/session.tsx';
 import { useTitle } from '../ui/title.ts';
+import { MODE_NAME, ModeTabs } from '../ui/mode-tabs.tsx';
 import { int } from '../ui/format.ts';
 
 export function Leaderboard() {
-  const { me } = useSession();
+  const { me, queue } = useSession();
+  /* One ladder per mode. The board opens on the mode you last played or chose,
+     which is the one the rest of the app is already showing you. */
+  const [mode, setMode] = useState<Mode>(queue.mode);
   const [list, setList] = useState<LeaderboardRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   useTitle('Leaderboard');
 
   useEffect(() => {
     let live = true;
+    setList(null);
+    setError(null);
     api
-      .leaderboard()
+      .leaderboard(mode)
       .then((rows) => live && setList(rows))
       .catch((e: Error) => live && setError(e.message));
     return () => {
       live = false;
     };
-  }, []);
+  }, [mode]);
 
   return (
     <main className="page wide stack">
-      <div>
+      <div className="stack" style={{ gap: 'var(--sp-3)' }}>
         <h1 className="h1">Leaderboard</h1>
         <p className="muted">
           The top 100 by rating. A player joins the board once their deviation settles below 110,
-          so provisional players are listed after a few rated matches.
+          so provisional players are listed after a few rated matches. Each mode has its own
+          ladder: a six-max result never moves a heads-up rating.
         </p>
+        <ModeTabs mode={mode} onPick={setMode} label="Leaderboard mode" />
       </div>
 
       {error ? (
@@ -43,14 +52,14 @@ export function Leaderboard() {
       ) : list && list.length === 0 ? (
         <div className="card">
           <div className="empty">
-            <span className="e-title">No ratings yet</span>
-            <span className="e-desc">The board fills in as rated matches finish.</span>
+            <span className="e-title">No {MODE_NAME[mode].toLowerCase()} ratings yet</span>
+            <span className="e-desc">The board fills in as rated matches in this mode finish.</span>
           </div>
         </div>
       ) : (
         <div className="card lb-card">
           <div className="table-wrap">
-            <table className="table" aria-label="Top rated players">
+            <table className="table" aria-label={`Top rated ${MODE_NAME[mode].toLowerCase()} players`}>
               <thead>
                 <tr>
                   <th className="r" style={{ width: 40 }}>#</th>

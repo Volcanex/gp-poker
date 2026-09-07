@@ -4,6 +4,9 @@ import type { LoggedAction, MatchFormat, MatchResult, Mode, UserSummary } from '
 import type { HandOutcome } from '@opentable/engine';
 import type { Decision } from '@opentable/preflop';
 
+/* The flat fields here are the heads-up standing, the same bargain the wire
+   makes. Anything per mode comes from `summary.ratings` through
+   `modeRating()`, never from these. */
 export interface Me extends UserSummary {
   peak: number;
   matches: number;
@@ -51,14 +54,17 @@ export interface UserMatchSummary {
 
 export interface Profile {
   summary: UserSummary;
+  /* Flat fields are the heads-up standing. Per mode, read summary.ratings
+     through modeRating() in src/net/adapt.ts. */
   peak: number;
   peakAt: string | null;
   provisional: boolean;
   winRate: number;
-  /* Both pending on the server. Read them through src/net/adapt.ts. */
+  /* Pending on the server. Read it through src/net/adapt.ts. */
   accuracy?: number | null;
-  matches?: number;
-  ratingHistory: RatingPoint[];
+  /* One line per mode. A server that has not shipped that yet sends a single
+     flat array, which is why nothing reads this without ratingHistoryFor(). */
+  ratingHistory: Record<Mode, RatingPoint[]> | RatingPoint[];
   stats: {
     hands: number;
     vpip: number;

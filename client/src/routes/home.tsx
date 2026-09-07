@@ -3,15 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { formatFor } from '@opentable/protocol';
 import type { Mode } from '@opentable/protocol';
 import { api } from '../net/api.ts';
-import type { LeaderboardRow } from '../net/types.ts';
+import { modeRating } from '../net/adapt.ts';
+import type { LeaderboardRow, Me } from '../net/types.ts';
 import { readPlayChoice, useSession } from '../net/session.tsx';
+import { MODES, MODE_NAME } from '../ui/mode-tabs.tsx';
 import { elapsed, useNow } from '../ui/bits.tsx';
 import { int } from '../ui/format.ts';
 import { useTitle } from '../ui/title.ts';
 import { Link, useLocation } from 'react-router-dom';
-
-const MODES: Mode[] = ['heads-up', 'six-max'];
-const MODE_NAME: Record<Mode, string> = { 'heads-up': 'Heads-up', 'six-max': 'Six-max' };
 
 /* The line under each mode's name is built from that mode's format, so the
    promise on the card cannot drift from the match it starts. */
@@ -24,7 +23,7 @@ function modeBlurb(mode: Mode): string {
 }
 
 export function Home() {
-  const { queue, startQueue, cancelQueue, offline, ready, conn, liveMatch } = useSession();
+  const { me, queue, startQueue, cancelQueue, offline, ready, conn, liveMatch } = useSession();
   const nav = useNavigate();
   const searching = queue.s === 'searching';
   const { hash } = useLocation();
@@ -81,6 +80,7 @@ export function Home() {
                   {last?.mode === mode && <span className="muted">last played</span>}
                 </div>
                 <span className="muted">{modeBlurb(mode)}</span>
+                {me && <YourRating mode={mode} me={me} />}
                 <div className="stakes">
                   {[true, false].map((r) => (
                     <label className="choice" key={String(r)}>
@@ -158,7 +158,7 @@ export function Home() {
         </div>
       </section>
 
-      <Leaderboard />
+      <Leaderboard mode={queue.mode} />
 
       <footer className="home-foot">
         Every hand is provably fair. Every match is public.{' '}
@@ -168,25 +168,44 @@ export function Home() {
   );
 }
 
-function Leaderboard() {
+/* Your standing in that mode, on the card that starts it. A mode you have
+   never played says so rather than showing the 1500 everyone starts on as
+   though it were earned. */
+function YourRating({ mode, me }: { mode: Mode; me: Me }) {
+  const r = modeRating(me, mode);
+  if (r.matches === 0) return <span className="muted">No rated matches in this mode yet.</span>;
+  return (
+    <span className="muted">
+      Your rating <span className="num">{int(r.rating)}</span>
+      <span className="rd num">+-{int(r.rd)}</span>
+      {r.provisional && ' · provisional'}
+    </span>
+  );
+}
+
+/* The peek follows the mode the picker is on, so the board underneath is the
+   ladder the button above it plays for. */
+function Leaderboard({ mode }: { mode: Mode }) {
   const [list, setList] = useState<LeaderboardRow[] | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let live = true;
+    setList(null);
+    setFailed(false);
     api
-      .leaderboard()
+      .leaderboard(mode)
       .then((p) => live && setList(p.slice(0, 10)))
       .catch(() => live && setFailed(true));
     return () => {
       live = false;
     };
-  }, []);
+  }, [mode]);
 
   return (
     <section className="stack" id="leaderboard" style={{ gap: 'var(--sp-3)' }}>
       <div className="lb-head">
-        <span className="h2">Top ten</span>
+        <span className="h2">Top ten, {MODE_NAME[mode].toLowerCase()}</span>
         <span className="muted">Rating, with the deviation beside it</span>
         <span style={{ flex: 1 }} />
         <Link className="btn btn-tertiary btn-sm" to="/leaderboard">See all</Link>

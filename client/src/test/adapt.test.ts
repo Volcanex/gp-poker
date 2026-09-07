@@ -3,7 +3,7 @@ import { HEADS_UP_FORMAT } from '@opentable/protocol';
 import type { ModeRating } from '@opentable/protocol';
 import {
   handAccuracy, liveSeats, matchHasAccuracy, matchPlacing, matchRated,
-  profileAccuracy, profileMatchCount, startStacks,
+  modeRating, profileAccuracy, ratingHistoryFor, startStacks,
 } from '../net/adapt.ts';
 import type { Hand, Match, MatchHandSummary, Profile, UserMatchSummary } from '../net/types.ts';
 
@@ -64,13 +64,11 @@ describe('pending server fields', () => {
     expect(profileAccuracy(profile({}))).toBeNull();
     expect(profileAccuracy(profile({ accuracy: null }))).toBeNull();
     expect(profileAccuracy(profile({ accuracy: Number.NaN }))).toBeNull();
-    expect(profileMatchCount(profile({}))).toBeNull();
   });
 
   it('reads the value when it is there, including zero', () => {
     expect(profileAccuracy(profile({ accuracy: 0 }))).toBe(0);
     expect(profileAccuracy(profile({ accuracy: 88.9 }))).toBe(88.9);
-    expect(profileMatchCount(profile({ matches: 214 }))).toBe(214);
   });
 
   it('takes per-seat accuracy keyed by seat or indexed by seat', () => {
@@ -156,5 +154,33 @@ describe('live seats', () => {
     // one stack per player in the hand
     const perPlayer = handRow({ live_seats: [0, 2, 5], stacksStart: [200, 340, 160] });
     expect(startStacks(perPlayer, [0, 2, 5])).toEqual([200, 340, 160]);
+  });
+});
+
+describe('per-mode ratings', () => {
+  const summary = profile({}).summary;
+
+  it('reads the standing for the mode asked for', () => {
+    expect(modeRating(summary, 'heads-up').rating).toBe(1541);
+    expect(modeRating(summary, 'six-max').rating).toBe(1500);
+    expect(modeRating(summary, 'six-max').provisional).toBe(true);
+  });
+
+  it('falls back to the flat fields for heads-up when the map is missing', () => {
+    const old = { ...summary, ratings: undefined } as unknown as typeof summary;
+    expect(modeRating(old, 'heads-up')).toMatchObject({ rating: 1541, rd: 79, matches: 0 });
+    // Any other mode reads as never played rather than borrowing heads-up.
+    expect(modeRating(old, 'six-max')).toMatchObject({ rating: 1500, rd: 350, matches: 0 });
+  });
+
+  it('takes one rating line per mode, and a flat one as heads-up', () => {
+    const point = { rating: 1520, rd: 80, at: '2026-09-06T14:19:00.000Z', matchId: 'm1' };
+    const keyed = profile({ ratingHistory: { 'heads-up': [point], 'six-max': [] } });
+    expect(ratingHistoryFor(keyed, 'heads-up')).toHaveLength(1);
+    expect(ratingHistoryFor(keyed, 'six-max')).toHaveLength(0);
+
+    const flat = profile({ ratingHistory: [point] });
+    expect(ratingHistoryFor(flat, 'heads-up')).toHaveLength(1);
+    expect(ratingHistoryFor(flat, 'six-max')).toHaveLength(0);
   });
 });

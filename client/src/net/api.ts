@@ -1,5 +1,5 @@
 import type { Hand, LeaderboardRow, Match, Me, Profile } from './types.ts';
-import type { UserSummary } from '@opentable/protocol';
+import type { Mode, UserSummary } from '@opentable/protocol';
 
 export class ApiError extends Error {
   status: number;
@@ -37,7 +37,10 @@ const post = <T>(path: string, body?: unknown) =>
 
 export const api = {
   me: () => req<Me>('/api/me'),
-  leaderboard: () => req<LeaderboardRow[]>('/api/leaderboard'),
+  /* One board per mode; the server defaults to heads-up and falls back to it
+     for anything it does not recognise. */
+  leaderboard: (mode?: Mode) =>
+    req<LeaderboardRow[]>(mode ? `/api/leaderboard?mode=${encodeURIComponent(mode)}` : '/api/leaderboard'),
   user: (name: string) => req<Profile>(`/api/users/${encodeURIComponent(name)}`),
   match: (id: string) => req<Match>(`/api/matches/${encodeURIComponent(id)}`),
   /* A hand's primary key is '<match id>-<number>' (server/db/schema.sql), so a

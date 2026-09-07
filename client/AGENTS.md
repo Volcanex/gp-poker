@@ -33,7 +33,8 @@ declaration for `phe` that the engine's own tsconfig provides.
 - `src/replay/` — `to-view.ts` turns an engine `HandState` into a `TableView`;
   `fairness.ts` re-derives the deck and rehashes the commitment.
 - `src/ui/` — `auth.tsx` (claim, log in, account menu), `rating-graph.tsx`,
-  `board-text.tsx`, `bits.tsx`, `format.ts`, `title.ts`.
+  `board-text.tsx`, `mode-tabs.tsx` (the heads-up / six-max switch), `bits.tsx`,
+  `format.ts`, `title.ts`.
 - `src/dev/mock.ts` — the scripted live table, dev only.
 - `src/app.css` — page layout plus the poker-specific pieces. Tokens only.
 
@@ -70,6 +71,36 @@ pure, so the rotation is unit tested rather than eyeballed:
 
 `SeatView.out` seats render dimmed with their place ("4th") where the stack
 would be, and `SeatView.bot` gets a small mark beside the name.
+
+## Ratings are per mode
+
+A six-max result never moves a heads-up rating, the way a chess site keeps
+bullet and blitz apart. `UserSummary.ratings` is a `ModeRating` per mode and it
+is the real answer; the flat `rating`/`rd`/`provisional` on the wire are the
+heads-up standing, kept for compatibility. **Nothing outside a match reads the
+flat fields.** `modeRating(summary, mode)` in `adapt.ts` is the only way in,
+and it falls back to the flat fields for heads-up so the client keeps working
+against a server that has not shipped the map. Every other mode then reads as
+never played rather than borrowing the heads-up number.
+
+`ratingHistory` is one line per mode for the same reason, and
+`ratingHistoryFor()` reads a flat array as the heads-up line. `/api/leaderboard`
+takes `?mode=`, one ladder each.
+
+Where the mode comes from on each screen:
+
+| Screen | Mode |
+| --- | --- |
+| top bar | `queue.mode`: the mode last played or chosen |
+| home cards | each card shows its own mode |
+| home top ten | `queue.mode`, so the board matches the button above it |
+| leaderboard | its own tab, opening on `queue.mode` |
+| profile standings | both, one row each |
+| profile rating line | its own tab, opening on whichever mode has more matches |
+| seat, result panel | the match's own mode, which the server already resolved |
+
+A mode with no rated matches says so rather than showing the 1500 everyone
+starts on as though it were earned.
 
 ## Routes
 | Path | Page |
@@ -123,24 +154,21 @@ mirror, and dates are strings there because JSON has no Date.
 `/m/:id/h/:n` addresses `GET /api/hands/<id>-<n>` with no lookup step. If that
 key ever changes, `api.hand()` is the one place to change.
 
-**Fields the server is still adding go through `src/net/adapt.ts`**, never
-read directly: mean preflop accuracy and a total match count on
+**Fields that are pending, transitional or shaped two ways go through
+`src/net/adapt.ts`**, never read directly: mean preflop accuracy on
 `/api/users/:name`, per-seat accuracy on the hands list of `/api/matches/:id`,
 a seat's bot flag, `place`/`players`/`rated` on a profile's match history (a
-placing needs both halves before "1st of 6" can be said at all), and a hand
-row's `live_seats`. That file is the single place to change when the names are
+placing needs both halves before "1st of 6" can be said at all), a hand row's
+`live_seats`, and both per-mode readers (`modeRating`, `ratingHistoryFor`). That file is the single place to change when the names are
 confirmed, and the UI above it never learns a name. Absent and null both mean
 "no number", and the caller hides its tile or column rather than printing a
 zero; a real zero (a hand scored 0% accuracy) still shows, which is why the
 adapter tests distinguish the two.
 
-Two things the endpoints do not carry, left out rather than invented:
-- **A total match count for another player**, until the profile carries one.
-  `lastMatches` is capped at twenty, so it is never passed off as a total: the
-  count comes from the endpoint when it sends one, else from `/api/me` on your
-  own profile, else the fact is not shown.
-- **Per-hand study on the match page** beyond the accuracy column. The full
-  decision list lives on the replay page, which has the hand row.
+One thing the endpoints do not carry, left out rather than invented:
+**per-hand study on the match page** beyond the accuracy column. The full
+decision list lives on the replay page, which has the hand row. (A match count
+per player used to be missing too; `summary.ratings` carries one per mode now.)
 
 **Every rating and delta is rounded at the display site** (`int` and `signed`
 in `src/ui/format.ts`). The server sends integers, but a fraction must never
@@ -199,11 +227,17 @@ Four things to know:
 
 1. **`g.init` and React.** g-ui.js wires its behaviour layer at load; React
    mounts later. `useGInit` (`src/ui/bits.tsx`) asks for a pass over a subtree
-   and stamps it so a second pass is a no-op. Two nodes are co-owned: the
-   `.copy-btn` in the hand header (g inserts icons and rewrites the label on
-   click) and the account `.menu` (g positions it and binds its items). Their
-   React children must stay constant, and the menu handlers call
-   `hidePopover()` themselves so a re-rendered item still closes the menu.
+   and stamps it so a second pass is a no-op. Note it passes the *wrapper*: g
+   looks for its components inside the node it is given, never at the node
+   itself. Three nodes are co-owned: the `.copy-btn` in the hand header (g
+   inserts icons and rewrites the label on click), the account `.menu` (g
+   positions it and binds its items) and `.tabs` in `mode-tabs.tsx` (g owns
+   `aria-selected`, the roving tab index and the sliding indicator, and handles
+   the arrow keys itself). Their React children must stay constant. The menu
+   handlers call `hidePopover()` themselves so a re-rendered item still closes
+   the menu; the tabs render `aria-selected` from the mode they mounted with,
+   which React writes once and never touches again, and read the selection back
+   out of the DOM on click and on key up rather than setting it.
 2. **The slider.** g owns the fill and the readout and syncs them on the input
    event. The action bar keeps the range React-controlled and replays a native
    input event after a programmatic change, so g stays the only thing that

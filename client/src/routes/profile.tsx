@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import type { Mode } from '@opentable/protocol';
 import { api, ApiError } from '../net/api.ts';
 import type { Profile as ProfileData } from '../net/types.ts';
 import { useSession } from '../net/session.tsx';
 import { useTitle } from '../ui/title.ts';
 import { RatingGraph } from '../ui/rating-graph.tsx';
-import { fmtDate, fmtPct, int, ratingWithRd, signed } from '../ui/format.ts';
-import { matchPlacing, matchRated, profileAccuracy, profileMatchCount } from '../net/adapt.ts';
+import { fmtDate, fmtPct, int, signed } from '../ui/format.ts';
+import { matchPlacing, matchRated, modeRating, profileAccuracy, ratingHistoryFor } from '../net/adapt.ts';
+import { MODES, MODE_NAME, ModeTabs } from '../ui/mode-tabs.tsx';
 import { ordinal } from '../table/labels.ts';
 import { deltaTone } from '../ui/bits.tsx';
 import { ClaimCard } from '../ui/auth.tsx';
@@ -64,40 +66,68 @@ export function Profile() {
 
   const isMe = me != null && me.id === data.summary.id;
   const hasHands = data.stats.hands > 0;
-  /* The profile payload carries no total match count for another player, only
-     the last twenty. Rather than pass off a capped list as a total, the count
-     is shown for your own profile and left out for everyone else. */
-  const played = data.lastMatches.length > 0 || data.ratingHistory.length > 1;
+  const standings = MODES.map((mode) => ({ mode, r: modeRating(data.summary, mode) }));
+  const played = standings.some((s) => s.r.matches > 0) || data.lastMatches.length > 0;
   const accuracy = profileAccuracy(data);
-  /* The endpoint's own total when it sends one; otherwise your own count from
-     /api/me, and nothing at all for another player. */
-  const matchCount = profileMatchCount(data) ?? (isMe && me ? me.matches : null);
 
   return (
     <main className="page wide stack">
       <header className="profile-head">
         <div className="profile-name">
           <h1 className="h1">{data.summary.name}</h1>
-          <span className="profile-rating num">{ratingWithRd(data.summary.rating, data.summary.rd)}</span>
-          {data.provisional && <span className="badge badge-warn">Provisional</span>}
         </div>
-        {played ? (
-          <div className="facts">
-            <Fact k="Peak" v={String(int(data.peak))} d={data.peakAt ? fmtDate(data.peakAt) : 'Not set yet'} />
-            {matchCount != null && <Fact k="Matches" v={String(matchCount)} d="rated" />}
-            <Fact k="Win rate" v={fmtPct(data.winRate * 100, 0)} d="of decided matches" />
+        {/* One standing per mode: a six-max result never moves a heads-up
+            rating, so a single number here would be two things at once. */}
+        <div className="card lb-card">
+          <div className="table-wrap">
+            <table className="table" aria-label="Rating in each mode">
+              <thead>
+                <tr>
+                  <th>Mode</th>
+                  <th className="r">Rating</th>
+                  <th className="r">Peak</th>
+                  <th className="r">Matches</th>
+                  <th className="r">Record</th>
+                </tr>
+              </thead>
+              <tbody>
+                {standings.map(({ mode, r }) => (
+                  <tr key={mode}>
+                    <td>
+                      <span className="tags">
+                        {MODE_NAME[mode]}
+                        {r.provisional && r.matches > 0 && (
+                          <span className="badge badge-warn">Provisional</span>
+                        )}
+                      </span>
+                    </td>
+                    <td className="r">
+                      {r.matches === 0 ? (
+                        <span className="muted">unrated</span>
+                      ) : (
+                        <>
+                          {int(r.rating)}
+                          <span className="rd num">+-{int(r.rd)}</span>
+                        </>
+                      )}
+                    </td>
+                    <td className="r num">{r.matches === 0 ? '' : int(r.peak)}</td>
+                    <td className="r num">{r.matches}</td>
+                    <td className="r num">
+                      {r.matches === 0 ? '' : `${r.wins}-${r.losses}-${r.draws}`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        ) : (
-          <span className="muted">No rated matches yet.</span>
-        )}
+        </div>
+        {!played && <span className="muted">No rated matches yet.</span>}
       </header>
 
       {isMe && me?.guest && <ClaimCard onClaimed={load} />}
 
-      <section className="stack" style={{ gap: 'var(--sp-3)' }}>
-        <span className="h2">Rating</span>
-        <RatingGraph points={data.ratingHistory} />
-      </section>
+      <RatingSection profile={data} />
 
       <section className="stack" style={{ gap: 'var(--sp-3)' }}>
         <span className="h2">Play style</span>
@@ -190,13 +220,35 @@ export function Profile() {
   );
 }
 
-function Fact({ k, v, d }: { k: string; v: string; d: string }) {
+/* The line is per mode as well: splicing a six-max result into a heads-up
+   curve would draw a shape neither ladder ever had. */
+function RatingSection({ profile }: { profile: ProfileData }) {
+  const [mode, setMode] = useState<Mode>(() =>
+    modeRating(profile.summary, 'six-max').matches > modeRating(profile.summary, 'heads-up').matches
+      ? 'six-max'
+      : 'heads-up',
+  );
+  const points = ratingHistoryFor(profile, mode);
+  const peakAt = mode === 'heads-up' && profile.peakAt ? fmtDate(profile.peakAt) : null;
+
   return (
-    <div className="fact">
-      <span className="k">{k}</span>
-      <span className="v num">{v}</span>
-      <span className="d">{d}</span>
-    </div>
+    <section className="stack" style={{ gap: 'var(--sp-3)' }}>
+      <span className="h2">Rating</span>
+      <ModeTabs mode={mode} onPick={setMode} label="Rating history mode" />
+      {points.length === 0 ? (
+        <div className="card">
+          <div className="empty">
+            <span className="e-title">No {MODE_NAME[mode].toLowerCase()} matches yet</span>
+            <span className="e-desc">The line starts at the first rated match in this mode.</span>
+          </div>
+        </div>
+      ) : (
+        <>
+          <RatingGraph points={points} />
+          {peakAt && <span className="muted">Peak {int(profile.peak)} on {peakAt}.</span>}
+        </>
+      )}
+    </section>
   );
 }
 
