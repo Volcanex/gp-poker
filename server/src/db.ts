@@ -1,0 +1,442 @@
+import postgres from 'postgres';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+import type { LoggedAction, MatchFormat, MatchResult } from '@opentable/protocol';
+import type { HandOutcome } from '@opentable/engine';
+import { config } from './config.js';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+
+export const sql = postgres(config.databaseUrl, { transform: postgres.camel });
+
+// sql.json()'s JSONValue type requires an index signature, which our named
+// interfaces don't have even though every value in them is plain JSON data.
+// This is the one cast boundary for that mismatch.
+function jsonb<T>(value: T): postgres.JSONValue {
+  return value as unknown as postgres.JSONValue;
+}
+
+// Arbitrary constant: an advisory lock held for the duration of the
+// migration transaction. Without it, concurrent boots (multiple test
+// workers, or a rolling deploy) can race on `create extension if not
+// exists` and similar DDL that Postgres doesn't make fully concurrent-safe.
+const SCHEMA_LOCK_KEY = 727100;
+
+export async function applySchema() {
+  const schemaPath = path.resolve(here, '..', 'db', 'schema.sql');
+  const schema = readFileSync(schemaPath, 'utf8');
+  await sql.begin(async (tx) => {
+    await tx`select pg_advisory_xact_lock(${SCHEMA_LOCK_KEY})`;
+    await tx.unsafe(schema);
+  });
+}
+
+export interface UserRow {
+  id: string;
+  name: string;
+  nameLower: string;
+  passwordHash: string | null;
+  guest: boolean;
+  createdAt: Date;
+  lastSeenAt: Date;
+  rating: number;
+  rd: number;
+  volatility: number;
+  ratingAt: Date;
+  peakRating: number;
+  peakAt: Date | null;
+  matches: number;
+  wins: number;
+  losses: number;
+  draws: number;
+}
+
+export interface SessionRow {
+  token: string;
+  userId: string;
+  createdAt: Date;
+  expiresAt: Date;
+}
+
+export interface MatchSeat {
+  seat: number;
+  userId: string;
+  name: string;
+}
+
+export interface MatchRow {
+  id: string;
+  format: MatchFormat;
+  rated: boolean;
+  seats: MatchSeat[];
+  status: 'playing' | 'finished' | 'aborted';
+  winner: string | null;
+  reason: string | null;
+  handsPlayed: number;
+  finalStacks: Record<string, number> | null;
+  ratings: MatchResult['ratings'] | null;
+  createdAt: Date;
+  finishedAt: Date | null;
+}
+
+export interface HandRow {
+  id: string;
+  matchId: string;
+  number: number;
+  seedHash: string;
+  seed: string | null;
+  button: number;
+  stacksStart: number[];
+  actions: LoggedAction[];
+  board: string[];
+  holes: Record<number, [string, string]> | null;
+  result: HandOutcome | null;
+  stats: Record<number, HandStats> | null;
+  study: Record<number, unknown> | null;
+  startedAt: Date;
+  completedAt: Date | null;
+}
+
+// Shape HandRunner (phase two) is expected to fill in per seat, per hand.
+export interface HandStats {
+  vpip: boolean;
+  pfr: boolean;
+  aggr: number;
+  passive: number;
+  faced3bet: boolean;
+  foldTo3bet: boolean;
+}
+
+export interface RatingHistoryRow {
+  id: number;
+  userId: string;
+  matchId: string | null;
+  rating: number;
+  rd: number;
+  at: Date;
+}
+
+// ---- users ----
+
+export async function insertGuestUser(name: string): Promise<UserRow> {
+  const [row] = await sql<UserRow[]>`
+    insert into users (name, name_lower, guest)
+    values (${name}, ${name.toLowerCase()}, true)
+    returning *
+  `;
+  return row;
+}
+
+export async function getUserById(id: string): Promise<UserRow | null> {
+  const [row] = await sql<UserRow[]>`select * from users where id = ${id}`;
+  return row ?? null;
+}
+
+export async function getUserByNameLower(nameLower: string): Promise<UserRow | null> {
+  const [row] = await sql<UserRow[]>`select * from users where name_lower = ${nameLower}`;
+  return row ?? null;
+}
+
+export async function claimGuestUser(
+  id: string,
+  name: string,
+  passwordHash: string
+): Promise<UserRow | null> {
+  const [row] = await sql<UserRow[]>`
+    update users
+    set name = ${name}, name_lower = ${name.toLowerCase()}, password_hash = ${passwordHash}, guest = false
+    where id = ${id} and guest = true
+    returning *
+  `;
+  return row ?? null;
+}
+
+export async function touchLastSeen(id: string): Promise<void> {
+  await sql`update users set last_seen_at = now() where id = ${id}`;
+}
+
+export interface LeaderboardRow {
+  name: string;
+  rating: number;
+  rd: number;
+  matches: number;
+  peakRating: number;
+}
+
+export async function getLeaderboard(limit = 100): Promise<LeaderboardRow[]> {
+  // 110 mirrors @opentable/rating's isProvisional threshold (see userView.ts);
+  // it's duplicated here only because SQL can't call into that package.
+  return sql<LeaderboardRow[]>`
+    select name, rating, rd, matches, peak_rating
+    from users
+    where rd <= 110
+    order by rating desc
+    limit ${limit}
+  `;
+}
+
+export interface UserHandStatsAgg {
+  totalHands: number;
+  vpipHands: number;
+  pfrHands: number;
+  faced3betHands: number;
+  foldTo3betHands: number;
+  aggrTotal: number;
+  passiveTotal: number;
+}
+
+export async function getUserHandStats(userId: string): Promise<UserHandStatsAgg> {
+  const [row] = await sql<UserHandStatsAgg[]>`
+    select
+      count(*)::int as total_hands,
+      count(*) filter (where (h.stats -> mp.seat::text ->> 'vpip')::boolean)::int as vpip_hands,
+      count(*) filter (where (h.stats -> mp.seat::text ->> 'pfr')::boolean)::int as pfr_hands,
+      count(*) filter (where (h.stats -> mp.seat::text ->> 'faced3bet')::boolean)::int as faced3bet_hands,
+      count(*) filter (where (h.stats -> mp.seat::text ->> 'foldTo3bet')::boolean)::int as fold_to3bet_hands,
+      coalesce(sum((h.stats -> mp.seat::text ->> 'aggr')::int), 0)::int as aggr_total,
+      coalesce(sum((h.stats -> mp.seat::text ->> 'passive')::int), 0)::int as passive_total
+    from hands h
+    join match_players mp on mp.match_id = h.match_id
+    where mp.user_id = ${userId} and h.completed_at is not null and h.stats is not null
+  `;
+  return (
+    row ?? {
+      totalHands: 0,
+      vpipHands: 0,
+      pfrHands: 0,
+      faced3betHands: 0,
+      foldTo3betHands: 0,
+      aggrTotal: 0,
+      passiveTotal: 0,
+    }
+  );
+}
+
+// ---- sessions ----
+
+export async function insertSession(token: string, userId: string, expiresAt: Date): Promise<void> {
+  await sql`insert into sessions (token, user_id, expires_at) values (${token}, ${userId}, ${expiresAt})`;
+}
+
+export async function getSessionUser(token: string): Promise<UserRow | null> {
+  const [row] = await sql<UserRow[]>`
+    select u.* from sessions s
+    join users u on u.id = s.user_id
+    where s.token = ${token} and s.expires_at > now()
+  `;
+  return row ?? null;
+}
+
+export async function deleteSession(token: string): Promise<void> {
+  await sql`delete from sessions where token = ${token}`;
+}
+
+// ---- matches ----
+
+export async function insertMatch(
+  id: string,
+  format: MatchFormat,
+  seats: MatchSeat[],
+  rated: boolean
+): Promise<MatchRow> {
+  const [row] = await sql<MatchRow[]>`
+    insert into matches (id, format, rated, seats)
+    values (${id}, ${sql.json(jsonb(format))}, ${rated}, ${sql.json(jsonb(seats))})
+    returning *
+  `;
+  return row;
+}
+
+export async function insertMatchPlayers(
+  matchId: string,
+  players: { userId: string; seat: number }[]
+): Promise<void> {
+  for (const p of players) {
+    await sql`
+      insert into match_players (match_id, user_id, seat)
+      values (${matchId}, ${p.userId}, ${p.seat})
+    `;
+  }
+}
+
+export async function getMatchById(id: string): Promise<MatchRow | null> {
+  const [row] = await sql<MatchRow[]>`select * from matches where id = ${id}`;
+  return row ?? null;
+}
+
+export interface UserMatchSummary {
+  id: string;
+  opponent: string;
+  result: 'win' | 'loss' | 'draw';
+  ratingChange: number;
+  finishedAt: Date | null;
+}
+
+export async function getMatchesForUser(userId: string, limit = 20): Promise<UserMatchSummary[]> {
+  const rows = await sql<MatchRow[]>`
+    select m.* from matches m
+    join match_players mp on mp.match_id = m.id
+    where mp.user_id = ${userId} and m.status = 'finished'
+    order by m.finished_at desc
+    limit ${limit}
+  `;
+  return rows.map((m) => {
+    const opponentSeat = m.seats.find((s) => s.userId !== userId);
+    const mine = m.ratings?.[userId];
+    const result: 'win' | 'loss' | 'draw' =
+      m.winner === null ? 'draw' : m.winner === userId ? 'win' : 'loss';
+    return {
+      id: m.id,
+      opponent: opponentSeat?.name ?? 'unknown',
+      result,
+      ratingChange: mine ? mine.after - mine.before : 0,
+      finishedAt: m.finishedAt,
+    };
+  });
+}
+
+export interface FinishMatchResult {
+  status: 'finished' | 'aborted';
+  winner: string | null;
+  reason: string;
+  finalStacks: Record<string, number>;
+  ratings: MatchResult['ratings'];
+  players: {
+    userId: string;
+    rating: number;
+    rd: number;
+    volatility: number;
+    outcome: 'win' | 'loss' | 'draw';
+  }[];
+}
+
+export async function finishMatch(matchId: string, result: FinishMatchResult): Promise<void> {
+  await sql.begin(async (tx) => {
+    await tx`
+      update matches set
+        status = ${result.status},
+        winner = ${result.winner},
+        reason = ${result.reason},
+        final_stacks = ${sql.json(jsonb(result.finalStacks))},
+        ratings = ${sql.json(jsonb(result.ratings))},
+        finished_at = now()
+      where id = ${matchId}
+    `;
+    for (const p of result.players) {
+      const winsInc = p.outcome === 'win' ? 1 : 0;
+      const lossesInc = p.outcome === 'loss' ? 1 : 0;
+      const drawsInc = p.outcome === 'draw' ? 1 : 0;
+      await tx`
+        update users set
+          rating = ${p.rating},
+          rd = ${p.rd},
+          volatility = ${p.volatility},
+          rating_at = now(),
+          peak_rating = greatest(peak_rating, ${p.rating}),
+          peak_at = case when ${p.rating} > peak_rating then now() else peak_at end,
+          matches = matches + 1,
+          wins = wins + ${winsInc},
+          losses = losses + ${lossesInc},
+          draws = draws + ${drawsInc}
+        where id = ${p.userId}
+      `;
+      await tx`
+        insert into rating_history (user_id, match_id, rating, rd)
+        values (${p.userId}, ${matchId}, ${p.rating}, ${p.rd})
+      `;
+    }
+  });
+}
+
+// ---- hands ----
+
+export async function insertHand(hand: {
+  id: string;
+  matchId: string;
+  number: number;
+  seedHash: string;
+  button: number;
+  stacksStart: number[];
+}): Promise<HandRow> {
+  const [row] = await sql<HandRow[]>`
+    insert into hands (id, match_id, number, seed_hash, button, stacks_start)
+    values (${hand.id}, ${hand.matchId}, ${hand.number}, ${hand.seedHash}, ${hand.button}, ${sql.json(jsonb(hand.stacksStart))})
+    returning *
+  `;
+  return row;
+}
+
+export async function updateHand(
+  id: string,
+  patch: Partial<{
+    seed: string;
+    actions: LoggedAction[];
+    board: string[];
+    holes: Record<number, [string, string]>;
+    result: HandOutcome;
+    stats: Record<number, HandStats>;
+    study: Record<number, unknown>;
+    completedAt: Date;
+  }>
+): Promise<void> {
+  await sql`
+    update hands set
+      seed = coalesce(${patch.seed ?? null}, seed),
+      actions = coalesce(${patch.actions ? sql.json(jsonb(patch.actions)) : null}, actions),
+      board = coalesce(${patch.board ?? null}, board),
+      holes = coalesce(${patch.holes ? sql.json(jsonb(patch.holes)) : null}, holes),
+      result = coalesce(${patch.result ? sql.json(jsonb(patch.result)) : null}, result),
+      stats = coalesce(${patch.stats ? sql.json(jsonb(patch.stats)) : null}, stats),
+      study = coalesce(${patch.study ? sql.json(jsonb(patch.study)) : null}, study),
+      completed_at = coalesce(${patch.completedAt ?? null}, completed_at)
+    where id = ${id}
+  `;
+}
+
+export async function getHandById(id: string): Promise<HandRow | null> {
+  const [row] = await sql<HandRow[]>`select * from hands where id = ${id}`;
+  return row ?? null;
+}
+
+export interface HandSummary {
+  number: number;
+  completedAt: Date | null;
+  seedHash: string;
+  seed: string | null;
+  board: string[];
+  stacksStart: number[];
+  result: HandOutcome | null;
+}
+
+export async function getHandsForMatch(matchId: string): Promise<HandSummary[]> {
+  return sql<HandSummary[]>`
+    select number, completed_at, seed_hash, seed, board, stacks_start, result
+    from hands
+    where match_id = ${matchId}
+    order by number asc
+  `;
+}
+
+// ---- rating history ----
+
+export async function getRatingHistoryForUser(userId: string): Promise<RatingHistoryRow[]> {
+  return sql<RatingHistoryRow[]>`
+    select * from rating_history where user_id = ${userId} order by at asc
+  `;
+}
+
+// ---- audit log ----
+
+export async function insertAuditLog(entry: {
+  kind: string;
+  userId?: string | null;
+  matchId?: string | null;
+  detail?: unknown;
+  ip?: string | null;
+}): Promise<void> {
+  await sql`
+    insert into audit_log (kind, user_id, match_id, detail, ip)
+    values (${entry.kind}, ${entry.userId ?? null}, ${entry.matchId ?? null}, ${sql.json(jsonb(entry.detail ?? {}))}, ${entry.ip ?? null})
+  `;
+}
