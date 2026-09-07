@@ -1,24 +1,17 @@
-import type { ClientMsg, MatchResult, TableView } from '@opentable/protocol';
+import type { ClientMsg, MatchResult } from '@opentable/protocol';
 import { hub } from '../ws/hub.js';
-import { finishMatch as persistFinishMatch, type MatchRow } from '../db.js';
+import { finishMatch as persistFinishMatch, getUserById, type MatchRow } from '../db.js';
 import { unregisterRoom } from './rooms.js';
+import { EngineHandRunner } from './handRunner.js';
+import { computeMatchRatings } from './rating.js';
+import type { HandRunner, MatchOutcome, RoomClock } from './types.js';
 
-export interface RoomClock {
-  seat: number;
-  deadline: number; // epoch ms
-  paused: boolean;
-}
+export type { HandRunner, MatchOutcome, RoomClock } from './types.js';
 
-// Everything finishMatch needs to persist and to report, richer than the
-// wire-level MatchResult because it carries the Glicko-2 volatility that
-// never goes out over the wire. Phase two (once @opentable/rating is wired
-// into the hand runner) is the only thing that constructs one of these.
-export interface MatchOutcome {
-  winner: string | null;
-  reason: MatchResult['reason'];
-  stacks: Record<string, number>;
-  ratings: Record<string, { before: number; after: number; rdBefore: number; rdAfter: number; volatility: number }>;
-}
+// How long a finished match's room stays addressable after it ends, so a
+// `join` that arrives moments after `end` (or a client that was mid-reconnect)
+// still gets the final state instead of `no_match`.
+const ROOM_LINGER_MS = 60_000;
 
 function toWireResult(outcome: MatchOutcome): MatchResult {
   const ratings: MatchResult['ratings'] = {};
@@ -26,25 +19,6 @@ function toWireResult(outcome: MatchOutcome): MatchResult {
     ratings[uid] = { before: r.before, after: r.after, rdBefore: r.rdBefore, rdAfter: r.rdAfter };
   }
   return { winner: outcome.winner, reason: outcome.reason, stacks: outcome.stacks, rated: true, ratings };
-}
-
-/* The seam phase two fills in: everything about actually running NLHE hands
-   (dealing, legality, applying actions, settling pots, scoring preflop
-   accuracy). MatchRoom below owns orchestration only — subscribers, the wall
-   clock, disconnect grace, persistence and rating writeback — and never
-   touches a HandState directly. It talks to the hand only through this
-   interface, and gets the clock's own state handed *to* viewFor rather than
-   asking the hand to know about disconnects at all. */
-export interface HandRunner {
-  startHand(number: number): Promise<void>;
-  onAction(userId: string, msg: Extract<ClientMsg, { t: 'act' }>): void;
-  // Called by the room's clock on expiry. Implementation: apply 'x' if legal
-  // for this seat, else 'f', logging the action with `to: true`.
-  onTimeout(seat: number): void;
-  toActSeat(): number | null; // null when no decision is pending (between hands, at showdown)
-  isDone(): boolean; // true once the whole match is decided (bust or hands played out)
-  matchResult(): MatchOutcome | null; // non-null once isDone()
-  viewFor(userId: string | null, clock: RoomClock | null): TableView | null;
 }
 
 export class MatchRoom {
@@ -58,9 +32,8 @@ export class MatchRoom {
   private timeoutStreak = new Map<string, number>();
   private clockTimer: ReturnType<typeof setTimeout> | null = null;
   private clock: RoomClock | null = null;
+  private lastResult: MatchResult | null = null;
 
-  // TODO(phase two): construct the real HandRunner here (engine + preflop
-  // scoring) and call `void this.hand.startHand(1)` once both seats are set.
   private hand: HandRunner | null = null;
 
   constructor(match: MatchRow) {
@@ -70,18 +43,43 @@ export class MatchRoom {
     for (const uid of this.playerIds) this.timeoutStreak.set(uid, 0);
   }
 
+  // Builds the hand runner and deals hand 1. Callers (matchmaking) should
+  // await this before telling clients the match was `found`, so a join right
+  // after that message always has a hand to view.
+  async start(): Promise<void> {
+    this.hand = new EngineHandRunner({
+      matchId: this.id,
+      match: this.match,
+      onChange: () => {
+        this.broadcast();
+        this.rearmClock();
+        this.settleIfDone();
+      },
+    });
+    await this.hand.startHand(1);
+    this.broadcast();
+    this.rearmClock();
+  }
+
   join(userId: string): void {
     this.subscribers.add(userId);
     this.sendViewTo(userId);
+    if (this.match.status === 'finished' && this.lastResult) {
+      hub.send(userId, { t: 'end', m: this.id, r: this.lastResult });
+    }
   }
 
   leave(userId: string): void {
     this.subscribers.delete(userId);
   }
 
+  private connectedArray(): boolean[] {
+    return this.playerIds.map((id) => !this.disconnected.has(id));
+  }
+
   private sendViewTo(userId: string): void {
     if (!this.hand) return;
-    const view = this.hand.viewFor(userId, this.clock);
+    const view = this.hand.viewFor(userId, this.clock, this.connectedArray());
     if (view) hub.send(userId, { t: 'state', s: view });
   }
 
@@ -99,7 +97,8 @@ export class MatchRoom {
       hub.send(userId, { t: 'err', c: 'not_your_turn', msg: 'spectators cannot act' });
       return;
     }
-    this.hand.onAction(userId, msg);
+    const applied = this.hand.onAction(userId, msg);
+    if (!applied) return; // the hand runner already sent the specific err
     this.timeoutStreak.set(userId, 0);
     this.broadcast();
     this.rearmClock();
@@ -174,8 +173,8 @@ export class MatchRoom {
     if (this.clock && this.playerIds[this.clock.seat] === userId) {
       this.clearClockTimer();
       this.clock = { ...this.clock, paused: true };
-      this.broadcast();
     }
+    this.broadcast(); // let the opponent see connected:false / paused right away
     const timer = setTimeout(() => this.handleGraceExpiry(userId), this.match.format.graceMs);
     this.graceTimers.set(userId, timer);
   }
@@ -191,8 +190,8 @@ export class MatchRoom {
       const deadline = Date.now() + this.match.format.clockMs;
       this.clock = { seat: this.clock.seat, deadline, paused: false };
       this.armTimer(deadline, this.clock.seat);
-      this.broadcast();
     }
+    this.broadcast();
   }
 
   private handleGraceExpiry(userId: string): void {
@@ -204,20 +203,28 @@ export class MatchRoom {
   }
 
   private async forfeit(winnerId: string | null): Promise<void> {
-    const outcome = this.hand?.matchResult() ?? this.buildForfeitOutcome(winnerId);
+    const outcome = this.hand?.matchResult() ?? (await this.buildForfeitOutcome(winnerId));
     await this.finishMatch(outcome);
   }
 
-  // TODO(phase two): once @opentable/rating is wired into the hand runner,
-  // this fallback goes away — a forfeit becomes just another matchResult().
-  // Volatility is left at each player's last known value since a forfeit
-  // outside a completed hand has no new Glicko-2 observation to fold in.
-  private buildForfeitOutcome(winnerId: string | null): MatchOutcome {
-    const ratings: MatchOutcome['ratings'] = {};
-    for (const uid of this.playerIds) {
-      ratings[uid] = { before: 0, after: 0, rdBefore: 0, rdAfter: 0, volatility: 0.06 };
+  private async buildForfeitOutcome(winnerId: string | null): Promise<MatchOutcome> {
+    const [uidA, uidB] = this.playerIds;
+    const [userA, userB] = await Promise.all([getUserById(uidA), getUserById(uidB)]);
+    const stacks = this.hand?.currentStacks() ?? {};
+    if (!userA || !userB) {
+      // Unreachable in practice — both users must exist for the match to
+      // exist — but degrade to a no-op rating change rather than throwing.
+      const ratings: MatchOutcome['ratings'] = {};
+      for (const uid of this.playerIds) ratings[uid] = { before: 0, after: 0, rdBefore: 0, rdAfter: 0, volatility: 0.06 };
+      return { winner: winnerId, reason: 'forfeit', stacks, ratings };
     }
-    return { winner: winnerId, reason: 'forfeit', stacks: {}, ratings };
+    const scoreForA: 0 | 0.5 | 1 = winnerId === null ? 0.5 : winnerId === userA.id ? 1 : 0;
+    const ratings = computeMatchRatings(
+      { userId: userA.id, rating: userA.rating, rd: userA.rd, volatility: userA.volatility, ratingAt: userA.ratingAt },
+      { userId: userB.id, rating: userB.rating, rd: userB.rd, volatility: userB.volatility, ratingAt: userB.ratingAt },
+      scoreForA
+    );
+    return { winner: winnerId, reason: 'forfeit', stacks, ratings };
   }
 
   async finishMatch(outcome: MatchOutcome): Promise<void> {
@@ -245,7 +252,8 @@ export class MatchRoom {
 
     this.match = { ...this.match, status: 'finished', winner: outcome.winner, reason: outcome.reason };
     const result = toWireResult(outcome);
+    this.lastResult = result;
     for (const uid of this.subscribers) hub.send(uid, { t: 'end', m: this.id, r: result });
-    unregisterRoom(this.id);
+    setTimeout(() => unregisterRoom(this.id), ROOM_LINGER_MS);
   }
 }

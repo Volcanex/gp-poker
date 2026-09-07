@@ -4,7 +4,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import cookie from '@fastify/cookie';
 import websocket from '@fastify/websocket';
 import fastifyStatic from '@fastify/static';
-import { applySchema } from './db.js';
+import { abortStalePlayingMatches, applySchema } from './db.js';
 import { registerRoutes } from './routes.js';
 import { resolveSessionUser } from './auth.js';
 import { attachConnection } from './ws/hub.js';
@@ -18,6 +18,9 @@ const clientDist = path.resolve(here, '..', '..', 'client', 'dist');
 // control the matchmaking loop themselves.
 export async function buildApp(): Promise<FastifyInstance> {
   await applySchema();
+  // There is no way to safely resume live in-memory hand state across a
+  // restart, so a match still 'playing' from last time is dead, not paused.
+  await abortStalePlayingMatches();
 
   const app = Fastify({ logger: true });
 

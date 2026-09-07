@@ -8,7 +8,13 @@ export async function makeApp(): Promise<FastifyInstance> {
   return buildApp();
 }
 
-export async function mintGuestSession(app: FastifyInstance): Promise<{ token: string; id: string; name: string }> {
+export interface Session {
+  token: string;
+  id: string;
+  name: string;
+}
+
+export async function mintGuestSession(app: FastifyInstance): Promise<Session> {
   const res = await app.inject({ method: 'GET', url: '/api/me' });
   const token = res.cookies.find((c) => c.name === 'ot_session')?.value;
   if (!token) throw new Error('no session cookie minted');
@@ -75,4 +81,14 @@ export function connectWs(url: string, token: string): Promise<{ ws: WebSocket; 
     ws.once('unexpected-response', (_req, res) => reject(new Error(`unexpected response: ${res.statusCode}`)));
     ws.once('error', reject);
   });
+}
+
+export interface Connected extends Session {
+  ws: WebSocket;
+  messages: WsMessages;
+}
+
+export async function connectSession(url: string, session: Session): Promise<Connected> {
+  const { ws, messages } = await connectWs(url, session.token);
+  return { ...session, ws, messages };
 }

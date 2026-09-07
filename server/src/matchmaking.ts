@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { pairQueue, widenRd, window as ratingWindow, type QueueEntry } from '@opentable/rating';
-import { DEFAULT_FORMAT } from '@opentable/protocol';
+import { DEFAULT_FORMAT, type MatchFormat } from '@opentable/protocol';
 import { hub } from './ws/hub.js';
 import { getUserById, insertMatch, insertMatchPlayers, type MatchSeat } from './db.js';
 import { isUniqueViolation } from './pgError.js';
@@ -40,31 +40,43 @@ export function dequeue(userId: string): void {
 
 function sendSearching(entry: QueueEntry): void {
   const now = Date.now();
-  const range = ratingWindow(entry, now);
+  const window = ratingWindow(entry, now);
   const waited = Math.floor((now - entry.joinedAt) / 1000);
+  // window() returns Infinity once the search is unbounded; that doesn't
+  // survive JSON.stringify (becomes null), so drop the field instead of
+  // passing it through raw.
+  const range = Number.isFinite(window) ? window : undefined;
   hub.send(entry.id, { t: 'q', s: 'searching', w: waited, range });
 }
 
-async function createMatch(a: QueueEntry, b: QueueEntry): Promise<void> {
-  const [userA, userB] = await Promise.all([getUserById(a.id), getUserById(b.id)]);
-  if (!userA || !userB) return;
+// Parameterized by format so tests can create a match with a short
+// clockMs/graceMs instead of the real 20s/15s, bypassing the queue entirely.
+export async function createMatchForPlayers(
+  userIdA: string,
+  userIdB: string,
+  format: MatchFormat = DEFAULT_FORMAT
+): Promise<string> {
+  const [userA, userB] = await Promise.all([getUserById(userIdA), getUserById(userIdB)]);
+  if (!userA || !userB) throw new Error('both users must exist to create a match');
 
   for (let attempt = 0; attempt < 5; attempt++) {
     const id = randomMatchId();
     const seats: MatchSeat[] = [
-      { seat: 0, userId: userA.id, name: userA.name },
-      { seat: 1, userId: userB.id, name: userB.name },
+      { seat: 0, userId: userA.id, name: userA.name, rating: Math.round(userA.rating) },
+      { seat: 1, userId: userB.id, name: userB.name, rating: Math.round(userB.rating) },
     ];
     try {
-      const match = await insertMatch(id, DEFAULT_FORMAT, seats, true);
+      const match = await insertMatch(id, format, seats, true);
       await insertMatchPlayers(id, [
         { userId: userA.id, seat: 0 },
         { userId: userB.id, seat: 1 },
       ]);
-      registerRoom(new MatchRoom(match));
+      const room = new MatchRoom(match);
+      registerRoom(room);
+      await room.start();
       hub.send(userA.id, { t: 'q', s: 'found', m: id });
       hub.send(userB.id, { t: 'q', s: 'found', m: id });
-      return;
+      return id;
     } catch (err) {
       if (isUniqueViolation(err)) continue;
       throw err;
@@ -82,7 +94,7 @@ export async function tick(): Promise<void> {
     for (const [a, b] of pairs) {
       queue.delete(a.id);
       queue.delete(b.id);
-      await createMatch(a, b);
+      await createMatchForPlayers(a.id, b.id);
     }
   }
   for (const entry of queue.values()) sendSearching(entry);

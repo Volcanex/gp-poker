@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import type { LoggedAction, MatchFormat, MatchResult } from '@opentable/protocol';
 import type { HandOutcome } from '@opentable/engine';
+import type { Decision, SeatStats, Summary } from '@opentable/preflop';
 import { config } from './config.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -63,6 +64,7 @@ export interface MatchSeat {
   seat: number;
   userId: string;
   name: string;
+  rating: number;
 }
 
 export interface MatchRow {
@@ -92,20 +94,17 @@ export interface HandRow {
   board: string[];
   holes: Record<number, [string, string]> | null;
   result: HandOutcome | null;
-  stats: Record<number, HandStats> | null;
-  study: Record<number, unknown> | null;
+  stats: Record<number, SeatStats> | null;
+  study: Record<number, HandStudy> | null;
   startedAt: Date;
   completedAt: Date | null;
 }
 
-// Shape HandRunner (phase two) is expected to fill in per seat, per hand.
-export interface HandStats {
-  vpip: boolean;
-  pfr: boolean;
-  aggr: number;
-  passive: number;
-  faced3bet: boolean;
-  foldTo3bet: boolean;
+// Per seat, per hand: the preflop decisions extracted from the action log
+// plus their EV-lost/accuracy summary. Built by @opentable/preflop.
+export interface HandStudy {
+  decisions: Decision[];
+  summary: Summary;
 }
 
 export interface RatingHistoryRow {
@@ -265,6 +264,23 @@ export async function getMatchById(id: string): Promise<MatchRow | null> {
   return row ?? null;
 }
 
+export async function updateMatchHandsPlayed(matchId: string, handsPlayed: number): Promise<void> {
+  await sql`update matches set hands_played = ${handsPlayed} where id = ${matchId}`;
+}
+
+// Run once at boot: a match still 'playing' means the process died mid-match
+// last time around. There's no way to safely resume live hand state across a
+// restart, so these are aborted rather than rated.
+export async function abortStalePlayingMatches(): Promise<number> {
+  const rows = await sql<{ id: string }[]>`
+    update matches
+    set status = 'aborted', reason = 'abort', rated = false, finished_at = now()
+    where status = 'playing'
+    returning id
+  `;
+  return rows.length;
+}
+
 export interface UserMatchSummary {
   id: string;
   opponent: string;
@@ -375,8 +391,8 @@ export async function updateHand(
     board: string[];
     holes: Record<number, [string, string]>;
     result: HandOutcome;
-    stats: Record<number, HandStats>;
-    study: Record<number, unknown>;
+    stats: Record<number, SeatStats>;
+    study: Record<number, HandStudy>;
     completedAt: Date;
   }>
 ): Promise<void> {
