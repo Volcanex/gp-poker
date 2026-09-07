@@ -6,7 +6,9 @@ import { useSession } from '../net/session.tsx';
 import { useTitle } from '../ui/title.ts';
 import { RatingGraph } from '../ui/rating-graph.tsx';
 import { fmtDate, fmtPct, int, ratingWithRd, signed } from '../ui/format.ts';
-import { profileAccuracy, profileMatchCount } from '../net/adapt.ts';
+import { matchPlacing, matchRated, profileAccuracy, profileMatchCount } from '../net/adapt.ts';
+import { ordinal } from '../table/labels.ts';
+import { deltaTone } from '../ui/bits.tsx';
 import { ClaimCard } from '../ui/auth.tsx';
 
 export function Profile() {
@@ -143,13 +145,32 @@ export function Profile() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.lastMatches.map((m) => (
+                  {data.lastMatches.map((m) => {
+                    const placing = matchPlacing(m);
+                    const multiway = placing != null && placing.players > 2;
+                    const rated = matchRated(m);
+                    return (
                     <tr key={m.id}>
                       <td>{fmtDate(m.finishedAt)}</td>
-                      <td><Link to={`/u/${encodeURIComponent(m.opponent)}`}>{m.opponent}</Link></td>
                       <td>
-                        <span className={`badge ${m.result === 'win' ? 'badge-ok' : m.result === 'loss' ? 'badge-danger' : 'badge-plain'}`}>
-                          {m.result === 'win' ? 'Won' : m.result === 'loss' ? 'Lost' : 'Drew'}
+                        {multiway && placing ? (
+                          <span className="muted">{placing.players} players</span>
+                        ) : (
+                          <Link to={`/u/${encodeURIComponent(m.opponent)}`}>{m.opponent}</Link>
+                        )}
+                      </td>
+                      <td>
+                        <span className="tags">
+                          {multiway && placing ? (
+                            <span className="badge badge-plain num">
+                              {ordinal(placing.place)} of {placing.players}
+                            </span>
+                          ) : (
+                            <span className={`badge ${m.result === 'win' ? 'badge-ok' : m.result === 'loss' ? 'badge-danger' : 'badge-plain'}`}>
+                              {m.result === 'win' ? 'Won' : m.result === 'loss' ? 'Lost' : 'Drew'}
+                            </span>
+                          )}
+                          {rated === false && <span className="badge badge-plain">Casual</span>}
                         </span>
                       </td>
                       <td className="r">
@@ -157,7 +178,8 @@ export function Profile() {
                       </td>
                       <td className="r"><Link to={`/m/${m.id}`}>Open</Link></td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -166,12 +188,6 @@ export function Profile() {
       </section>
     </main>
   );
-}
-
-export function deltaTone(n: number): Record<string, string> {
-  if (n > 0) return { 'data-up': '' };
-  if (n < 0) return { 'data-down': '' };
-  return { 'data-flat': '' };
 }
 
 function Fact({ k, v, d }: { k: string; v: string; d: string }) {

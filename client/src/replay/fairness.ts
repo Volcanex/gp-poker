@@ -11,9 +11,10 @@ export interface Check {
 export interface FairnessInput {
   seed: string;
   seedHash: string;
-  seatCount: number;
-  button: number;
-  holes: Record<number, [string, string]> | null;
+  seatCount: number; // seats dealt into this hand
+  button: number; // as an index into those seats, not a table seat
+  seats?: number[]; // that index to the table seat it sat in; absent means the same thing
+  holes: Record<number, [string, string]> | null; // keyed by table seat
   board: string[];
 }
 
@@ -33,6 +34,14 @@ export function dealFromDeck(deck: Card[], seatCount: number, button: number) {
     }
   }
   return { holes, board: deck.slice(i, i + 5) };
+}
+
+/* The deal is in the order the engine dealt it, so a recorded table seat has
+   to come back to the position it was dealt at. */
+function dealtIndex(input: FairnessInput, tableSeat: number): number {
+  if (!input.seats) return tableSeat;
+  const at = input.seats.indexOf(tableSeat);
+  return at < 0 ? tableSeat : at;
 }
 
 /* Both checks run here in the browser, on the published seed. Nothing is taken
@@ -58,7 +67,7 @@ export function verifyHand(input: FairnessInput): Check[] {
     input.holes == null
       ? false
       : Object.entries(input.holes).every(([seat, cards]) => {
-          const mine = dealt.holes[Number(seat)];
+          const mine = dealt.holes[dealtIndex(input, Number(seat))];
           return mine != null && mine[0] === cards[0] && mine[1] === cards[1];
         });
   const deckOk = boardOk && holesOk;

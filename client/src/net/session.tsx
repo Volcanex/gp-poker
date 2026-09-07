@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { ClientMsg, ServerMsg, UserSummary } from '@opentable/protocol';
+import type { ClientMsg, Mode, ServerMsg, UserSummary } from '@opentable/protocol';
 import { api } from './api.ts';
 import type { Me } from './types.ts';
 import { socket } from './socket.ts';
@@ -9,9 +9,44 @@ import type { ConnState } from './socket.ts';
 export interface QueueState {
   s: 'idle' | 'searching' | 'found' | 'left';
   since: number;
+  mode: Mode;
+  rated: boolean;
   range?: number;
   w?: number;
+  seated?: number; // players gathered so far for a multiway table
   m?: string;
+}
+
+/* What the player last chose to play, so the picker opens where they left it
+   and "play again" means the same thing they just played. */
+export interface PlayChoice {
+  mode: Mode;
+  rated: boolean;
+}
+
+const CHOICE_KEY = 'ot-play-choice';
+const DEFAULT_CHOICE: PlayChoice = { mode: 'heads-up', rated: true };
+
+/* Null until something has actually been played: the picker must not claim a
+   mode was played last on a first visit. */
+export function readPlayChoice(): PlayChoice | null {
+  try {
+    const raw = localStorage.getItem(CHOICE_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as Partial<PlayChoice>;
+    const mode: Mode = v.mode === 'six-max' ? 'six-max' : 'heads-up';
+    return { mode, rated: v.rated !== false };
+  } catch {
+    return null;
+  }
+}
+
+function writePlayChoice(c: PlayChoice) {
+  try {
+    localStorage.setItem(CHOICE_KEY, JSON.stringify(c));
+  } catch {
+    /* private mode: the picker forgets, which is not worth failing over */
+  }
 }
 
 /* The match this browser last saw itself seated at. Remembered so a reload
@@ -47,7 +82,7 @@ interface Session {
   conn: ConnState;
   queue: QueueState;
   send: (m: ClientMsg) => void;
-  startQueue: () => void;
+  startQueue: (mode?: Mode, rated?: boolean) => void;
   cancelQueue: () => void;
   clearFound: () => void;
 }
@@ -60,7 +95,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [offline, setOffline] = useState(false);
   const [conn, setConn] = useState<ConnState>('idle');
-  const [queue, setQueue] = useState<QueueState>({ s: 'idle', since: 0 });
+  const [queue, setQueue] = useState<QueueState>(() => ({
+    s: 'idle', since: 0, ...(readPlayChoice() ?? DEFAULT_CHOICE),
+  }));
 
   useEffect(() => {
     let live = true;
@@ -129,8 +166,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           setQueue((prev) => ({
             s: m.s,
             since: m.s === 'searching' && prev.s === 'searching' ? prev.since : Date.now(),
+            /* The server echoes what it queued you for; before it answers, the
+               screen shows what you asked for rather than nothing. */
+            mode: m.mode ?? prev.mode,
+            rated: m.rated ?? prev.rated,
             range: m.range,
             w: m.w,
+            seated: m.seated,
             m: m.m,
           }));
         }
@@ -140,17 +182,25 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const send = useCallback((m: ClientMsg) => socket.send(m), []);
 
-  const startQueue = useCallback(() => {
-    setQueue({ s: 'searching', since: Date.now() });
-    socket.send({ t: 'queue' });
+  /* Called with a choice from the picker, and without one from "play again",
+     which repeats whatever was played last. */
+  const startQueue = useCallback((mode?: Mode, rated?: boolean) => {
+    const last = readPlayChoice() ?? DEFAULT_CHOICE;
+    const choice: PlayChoice = { mode: mode ?? last.mode, rated: rated ?? last.rated };
+    writePlayChoice(choice);
+    setQueue({ s: 'searching', since: Date.now(), ...choice });
+    socket.send({ t: 'queue', ...choice });
   }, []);
 
   const cancelQueue = useCallback(() => {
-    setQueue({ s: 'idle', since: 0 });
+    setQueue((prev) => ({ s: 'idle', since: 0, mode: prev.mode, rated: prev.rated }));
     socket.send({ t: 'dequeue' });
   }, []);
 
-  const clearFound = useCallback(() => setQueue({ s: 'idle', since: 0 }), []);
+  const clearFound = useCallback(
+    () => setQueue((prev) => ({ s: 'idle', since: 0, mode: prev.mode, rated: prev.rated })),
+    [],
+  );
 
   /* Claim and login return a UserSummary; the counts on Me are unchanged by
      either, so the summary is merged over what is already there. */

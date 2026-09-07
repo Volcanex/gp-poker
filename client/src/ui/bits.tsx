@@ -72,3 +72,11 @@ export function elapsed(ms: number): string {
   const s = total % 60;
   return `${m}:${String(s).padStart(2, '0')}`;
 }
+
+/* Up, down or flat: the one place a rating delta's colour is decided, so the
+   profile and the result panel cannot drift apart. */
+export function deltaTone(n: number): Record<string, string> {
+  if (n > 0) return { 'data-up': '' };
+  if (n < 0) return { 'data-down': '' };
+  return { 'data-flat': '' };
+}

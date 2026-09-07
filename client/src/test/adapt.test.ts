@@ -1,9 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { handAccuracy, matchHasAccuracy, profileAccuracy, profileMatchCount } from '../net/adapt.ts';
-import type { Match, MatchHandSummary, Profile } from '../net/types.ts';
+import { HEADS_UP_FORMAT } from '@opentable/protocol';
+import type { ModeRating } from '@opentable/protocol';
+import {
+  handAccuracy, liveSeats, matchHasAccuracy, matchPlacing, matchRated,
+  profileAccuracy, profileMatchCount, startStacks,
+} from '../net/adapt.ts';
+import type { Hand, Match, MatchHandSummary, Profile, UserMatchSummary } from '../net/types.ts';
+
+const standing = (rating: number, rd: number): ModeRating => ({
+  rating, rd, provisional: rd > 110, peak: rating, matches: 0, wins: 0, losses: 0, draws: 0,
+});
 
 const profile = (extra: Partial<Profile>): Profile => ({
-  summary: { id: 'u1', name: 'kestrel', guest: false, rating: 1541, rd: 79, provisional: false },
+  summary: {
+    id: 'u1', name: 'kestrel', guest: false, bot: false,
+    rating: 1541, rd: 79, provisional: false,
+    ratings: { 'heads-up': standing(1541, 79), 'six-max': standing(1500, 350) },
+  },
   peak: 1541,
   peakAt: null,
   provisional: false,
@@ -27,7 +40,7 @@ const hand = (accuracy: MatchHandSummary['accuracy']): MatchHandSummary => ({
 
 const match = (hands: MatchHandSummary[]): Match => ({
   id: 'm1',
-  format: { hands: 25, stack: 200, sb: 1, bb: 2, clockMs: 20000, graceMs: 15000 },
+  format: HEADS_UP_FORMAT,
   rated: true,
   seats: [
     { seat: 0, userId: 'u1', name: 'kestrel' },
@@ -72,5 +85,76 @@ describe('pending server fields', () => {
     expect(matchHasAccuracy(match([hand(null), hand(undefined)]))).toBe(false);
     expect(matchHasAccuracy(match([hand(null), hand({ 1: 74 })]))).toBe(true);
     expect(matchHasAccuracy(match([]))).toBe(false);
+  });
+});
+
+const history = (extra: Partial<UserMatchSummary>): UserMatchSummary => ({
+  id: 'm1',
+  opponent: 'riverrat',
+  result: 'win',
+  ratingChange: 12,
+  finishedAt: '2026-09-06T14:19:00.000Z',
+  ...extra,
+});
+
+describe('match history fields', () => {
+  it('says nothing about a placing until both halves of it are there', () => {
+    expect(matchPlacing(history({}))).toBeNull();
+    expect(matchPlacing(history({ place: 1 }))).toBeNull();
+    expect(matchPlacing(history({ players: 6 }))).toBeNull();
+    expect(matchPlacing(history({ place: 0, players: 6 }))).toBeNull();
+    expect(matchPlacing(history({ place: 1, players: 6 }))).toEqual({ place: 1, players: 6 });
+  });
+
+  it('leaves the casual tag off a row that does not say either way', () => {
+    expect(matchRated(history({}))).toBeNull();
+    expect(matchRated(history({ rated: false }))).toBe(false);
+    expect(matchRated(history({ rated: true }))).toBe(true);
+  });
+});
+
+const handRow = (extra: Partial<Hand>): Hand => ({
+  id: 'm1-1',
+  matchId: 'm1',
+  number: 1,
+  seats: [
+    { seat: 0, userId: 'u1', name: 'kestrel' },
+    { seat: 1, userId: 'u2', name: 'riverrat' },
+  ],
+  button: 0,
+  sb: 1,
+  bb: 2,
+  stacksStart: [200, 200],
+  seedHash: 'a'.repeat(64),
+  seed: 'b'.repeat(64),
+  actions: [],
+  board: [],
+  holes: null,
+  result: null,
+  stats: null,
+  study: null,
+  startedAt: '2026-09-06T14:02:00.000Z',
+  completedAt: null,
+  ...extra,
+});
+
+describe('live seats', () => {
+  it('falls back to the identity, which is every heads-up hand ever written', () => {
+    expect(liveSeats(handRow({}))).toEqual([0, 1]);
+    expect(liveSeats(handRow({ live_seats: null }))).toEqual([0, 1]);
+  });
+
+  it('takes the map when the row carries one', () => {
+    const row = handRow({ live_seats: [0, 2, 5] });
+    expect(liveSeats(row)).toEqual([0, 2, 5]);
+  });
+
+  it('indexes the starting stacks by table seat only when there are more of them', () => {
+    // one stack per table seat, three of the six still playing
+    const perTable = handRow({ live_seats: [0, 2, 5], stacksStart: [200, 0, 340, 0, 0, 160] });
+    expect(startStacks(perTable, [0, 2, 5])).toEqual([200, 340, 160]);
+    // one stack per player in the hand
+    const perPlayer = handRow({ live_seats: [0, 2, 5], stacksStart: [200, 340, 160] });
+    expect(startStacks(perPlayer, [0, 2, 5])).toEqual([200, 340, 160]);
   });
 });

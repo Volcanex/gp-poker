@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { replay } from '@opentable/engine';
 import type { HandConfig, HandState } from '@opentable/engine';
 import { api, ApiError } from '../net/api.ts';
+import { liveSeats, startStacks } from '../net/adapt.ts';
 import type { Hand, Match, SeatStudy } from '../net/types.ts';
 import { useTitle } from '../ui/title.ts';
 import { isTextEntry } from '../ui/bits.tsx';
@@ -71,21 +72,35 @@ function HandReplay({ hand, handCount }: { hand: Hand; handCount: number | null 
   const [step, setStep] = useState(0);
   const [showAll, setShowAll] = useState(false);
 
+  /* Which table seats were dealt in. The engine works in a dense 0..n-1 index
+     over the players in the hand; everything the row records (actions, holes,
+     the button) is in table seats, so the two are mapped either way here and
+     the table gets its seats back in the chairs they sat in. */
+  const seatMap = useMemo(() => liveSeats(hand), [hand]);
+
   const states = useMemo<HandState[] | null>(() => {
     if (!hand.seed) return null;
+    const engineOf = new Map(seatMap.map((seat, i) => [seat, i]));
+    const stacks = startStacks(hand, seatMap);
     const config: HandConfig = {
-      seats: hand.seats.map((s, i) => ({ id: s.userId, stack: hand.stacksStart[i] ?? 0 })),
-      button: hand.button,
+      seats: seatMap.map((seat, i) => ({
+        id: hand.seats.find((s) => s.seat === seat)?.userId ?? `seat-${seat}`,
+        stack: stacks[i] ?? 0,
+      })),
+      button: engineOf.get(hand.button) ?? hand.button,
       sb: hand.sb,
       bb: hand.bb,
       seed: hand.seed,
     };
+    /* A seat in the log that never sat down is a broken row: the replay fails
+       here rather than quietly attributing the action to someone else. */
+    const actions = hand.actions.map((a) => ({ ...a, s: engineOf.get(a.s) ?? -1 }));
     try {
-      return replay(config, hand.actions);
+      return replay(config, actions);
     } catch {
       return null;
     }
-  }, [hand]);
+  }, [hand, seatMap]);
 
   const total = states?.length ?? 0;
   const clampStep = useCallback((v: number) => Math.max(0, Math.min(total - 1, v)), [total]);
@@ -106,7 +121,7 @@ function HandReplay({ hand, handCount }: { hand: Hand; handCount: number | null 
     return () => window.removeEventListener('keydown', onKey);
   }, [states, total]);
 
-  const view = states ? stateToView(hand, states[clampStep(step)], clampStep(step), showAll) : null;
+  const view = states ? stateToView(hand, states[clampStep(step)], clampStep(step), showAll, seatMap) : null;
 
   return (
     <main className="page wide stack">
@@ -269,7 +284,9 @@ function ActionList({
                 data-current={step === i + 1 ? '' : undefined}
                 onClick={() => onPick(i + 1)}
               >
-                <span className="act-seat">{hand.seats[a.s]?.name ?? `Seat ${a.s}`}</span>
+                <span className="act-seat">
+                  {hand.seats.find((s) => s.seat === a.s)?.name ?? `Seat ${a.s}`}
+                </span>
                 <span className="act-what">{actionText(a.a, a.v)}</span>
                 {a.to && <span className="act-note">on the clock</span>}
                 {verdict && <span className="act-note">{verdict}</span>}
@@ -285,11 +302,14 @@ function ActionList({
 function Fairness({ hand }: { hand: Hand }) {
   const checks = useMemo<Check[] | null>(() => {
     if (!hand.seed) return null;
+    const seats = liveSeats(hand);
+    const button = seats.indexOf(hand.button);
     return verifyHand({
       seed: hand.seed,
       seedHash: hand.seedHash,
-      seatCount: hand.seats.length,
-      button: hand.button,
+      seatCount: seats.length,
+      button: button < 0 ? hand.button : button,
+      seats,
       holes: hand.holes,
       board: hand.board,
     });

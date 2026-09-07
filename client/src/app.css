@@ -59,6 +59,17 @@
 .searching { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
 .searching .el { font-variant-numeric: tabular-nums; font-size: var(--font-size-ui); }
 
+/* The picker: one card per mode, its stake, and the button that starts it. */
+.modes { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); width: 100%; align-items: stretch; }
+.mode { display: flex; flex-direction: column; gap: var(--sp-3); }
+.mode .muted { flex: 1; }
+.mode[data-last] { border-color: var(--border); }
+.mode-head { display: flex; align-items: baseline; gap: var(--sp-3); }
+.mode-head .t { font-size: 15px; font-weight: 500; letter-spacing: -0.01em; }
+.stakes { display: flex; gap: var(--sp-4); flex-wrap: wrap; }
+.searching-card { display: flex; flex-direction: column; gap: var(--sp-3); width: 100%; }
+.searching-card .t { font-size: var(--font-size-ui); font-weight: 500; }
+
 .how { display: grid; gap: var(--sp-3); grid-template-columns: repeat(3, 1fr); }
 .how .card { display: flex; flex-direction: column; gap: 5px; }
 .how .k { font-size: 12px; color: var(--text-secondary); }
@@ -70,7 +81,10 @@
 
 /* ------------------------------------------------------------------ table */
 
+/* The table asks how much room it has, not how wide the window is: the replay
+   draws the same felt in a narrow column beside its action list. */
 .match {
+  container-type: inline-size;
   flex: 1;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
@@ -91,18 +105,109 @@
   font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary);
 }
 
+/* One felt, two shapes. Two seats stack into three rows down the middle, the
+   layout this table has always had; three to six sit on an ellipse with the
+   viewer at the bottom. Both come out of the same markup, so a seat, a bet and
+   a chip flight are the same elements either way. */
 .felt {
-  display: grid;
-  grid-template-rows: auto auto auto;
-  align-content: center;
-  gap: var(--sp-4);
+  display: flex; flex-direction: column; justify-content: center;
   padding: var(--sp-4);
   min-height: 0;
   overflow: auto;
 }
-/* One column, capped: the whole table has to read in a single glance, so the
-   felt never spreads to the width of the window. */
-.felt > *, .bar-in { width: 100%; max-width: 680px; margin: 0 auto; }
+.felt .felt-in { width: 100%; max-width: var(--felt-w); margin: 0 auto; }
+.bar-in { width: 100%; max-width: 680px; margin: 0 auto; }
+
+/* Capped: the whole table has to read in a single glance, so the felt never
+   spreads to the width of the window. */
+.felt[data-mode="stack"] { --felt-w: 680px; }
+.felt[data-mode="stack"] .felt-in { display: grid; grid-template-rows: auto auto auto; gap: var(--sp-4); }
+.felt[data-mode="stack"] .pos { display: flex; flex-direction: column; gap: 2px; }
+.felt[data-mode="stack"] .pos[data-half="top"] { grid-row: 1; flex-direction: column-reverse; }
+.felt[data-mode="stack"] .middle { grid-row: 2; }
+.felt[data-mode="stack"] .pos[data-half="bottom"] { grid-row: 3; }
+
+/* The felt sizes its own seats: the replay draws the same table in a narrow
+   column beside its action list, so the question is how wide this felt is, not
+   how wide the window is. */
+.felt[data-mode="ring"] {
+  --felt-w: 960px; --seat-w: 252px; --seat-h: 78px; --ring-h: 404px;
+  --seat-card: 32px; --board-card: 40px;
+}
+.felt[data-mode="ring"][data-seats="3"], .felt[data-mode="ring"][data-seats="4"] { --ring-h: 340px; }
+.felt[data-mode="ring"] .felt-in { position: relative; height: var(--ring-h); }
+/* Each seat owns a full-size layer inset by half a seat box, so a seat placed
+   at the far edge of the ellipse still sits inside the felt. The bet gets the
+   same layer inset further by that box plus a margin: the same ellipse, shrunk
+   by exactly the room a seat takes up, which puts every chip on the line from
+   its seat to the pot and clear of both. */
+.felt[data-mode="ring"] .pos {
+  position: absolute; inset: calc(var(--seat-h) / 2) calc(var(--seat-w) / 2);
+  pointer-events: none;
+}
+.felt[data-mode="ring"] .seat {
+  position: absolute; left: var(--x); top: var(--y); width: var(--seat-w);
+  translate: -50% -50%;
+  pointer-events: auto;
+  background: var(--surface-2);
+  border-color: var(--border-subtle);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "cards id ring" "cards last ring";
+  column-gap: var(--sp-2); row-gap: 0;
+  padding: 6px var(--sp-2);
+}
+.felt[data-mode="ring"] .seat[data-acting] { background: var(--fill-hover); border-color: var(--border); }
+.felt[data-mode="ring"] .seat-bet {
+  position: absolute;
+  inset: calc(var(--seat-h) / 2 + 18px) calc(var(--seat-w) / 2 + 44px);
+  min-height: 0;
+}
+.felt[data-mode="ring"] .seat-bet > * {
+  position: absolute; left: var(--x); top: var(--y); translate: -50% -50%;
+}
+.felt[data-mode="ring"] .middle { position: absolute; inset: 0; padding: 0; border: none; }
+.felt[data-mode="ring"] .seat .pcard { --card-w: var(--seat-card); }
+.felt[data-mode="ring"] .board .pcard { --card-w: var(--board-card); }
+.felt[data-mode="ring"] .seat-cards { grid-area: cards; }
+.felt[data-mode="ring"] .seat-id { grid-area: id; }
+.felt[data-mode="ring"] .seat-last { grid-area: last; min-height: 15px; }
+.felt[data-mode="ring"] .seat-right { grid-area: ring; }
+
+@container (max-width: 900px) {
+  .felt[data-mode="ring"] {
+    --seat-w: 204px; --seat-h: 76px; --ring-h: 392px;
+    --seat-card: 28px; --board-card: 34px;
+  }
+  .felt[data-mode="ring"][data-seats="3"], .felt[data-mode="ring"][data-seats="4"] { --ring-h: 336px; }
+}
+
+/* Narrow: a phone, or the replay's column. Three rows to a seat so the name
+   has the width of the box, the rating goes (it is on the profile the name
+   leads to), and the ellipse pinches so no seat sits level with the board. */
+@container (max-width: 640px) {
+  .felt[data-mode="ring"] {
+    --seat-w: 152px; --seat-h: 78px; --ring-h: 448px;
+    --seat-card: 24px; --board-card: 26px;
+  }
+  .felt[data-mode="ring"][data-seats="3"], .felt[data-mode="ring"][data-seats="4"] { --ring-h: 400px; }
+  .felt[data-mode="ring"] .seat { top: var(--yt); grid-template-areas: "cards id id" "cards last ring"; }
+  .felt[data-mode="ring"] .seat-bet {
+    top: var(--yt);
+    inset: calc(var(--seat-h) / 2 + 12px) calc(var(--seat-w) / 2 + 30px);
+  }
+  .felt[data-mode="ring"] .seat-bet > * { top: var(--yt); }
+  .felt[data-mode="ring"] .seat { padding: 5px 6px; }
+  .felt[data-mode="ring"] .seat-rating { display: none; }
+  .felt[data-mode="ring"] .seat-name { font-size: 12px; }
+  .felt[data-mode="ring"] .seat-stack { font-size: 14px; }
+  .felt[data-mode="ring"] .seat-stack .u { display: none; }
+  .felt[data-mode="ring"] .seat-last { font-size: 10px; min-height: 13px; }
+  .felt[data-mode="ring"] .seat-cards { gap: 3px; }
+  .felt[data-mode="ring"] .seat-line { gap: 5px; }
+  .felt[data-mode="ring"] .seat-bot { font-size: 9px; padding: 0 3px; }
+  .felt[data-mode="ring"] .btn-marker { width: 15px; height: 15px; font-size: 9px; }
+  .felt[data-mode="ring"] .ring, .felt[data-mode="ring"] .ring-wrap { width: 22px; height: 22px; }
+}
 
 .middle {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -116,7 +221,7 @@
 .pot { display: flex; flex-direction: column; align-items: center; gap: 1px; }
 .pot .k { font-size: 11px; color: var(--text-secondary); }
 .pot .v { font-size: 19px; font-weight: 500; letter-spacing: -0.015em; font-variant-numeric: tabular-nums; }
-.pot .side { font-size: 11px; color: var(--text-placeholder); font-variant-numeric: tabular-nums; }
+.pot-side { font-size: 11px; color: var(--text-placeholder); font-variant-numeric: tabular-nums; }
 
 .board { display: flex; gap: 6px; }
 
@@ -159,9 +264,12 @@
 
 /* ------------------------------------------------------------------- seat */
 
+/* Four columns, right packed: cards, who and what they hold, their last
+   action, then the clock. The last-action span is always rendered, empty or
+   not, so the clock never shifts when a label comes and goes. */
 .seat {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
   gap: var(--sp-3);
   padding: var(--sp-2) var(--sp-3);
@@ -171,6 +279,7 @@
 }
 .seat[data-acting] { background: var(--fill-hover); border-color: var(--border-subtle); }
 .seat[data-folded] { opacity: 0.62; }
+.seat[data-out] { opacity: 0.48; }
 
 .seat-cards { display: flex; gap: 5px; }
 .seat-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -194,6 +303,10 @@
   font-size: 10px; font-weight: 600; line-height: 1;
 }
 .seat-you { color: var(--text-placeholder); font-size: 11px; }
+.seat-bot {
+  color: var(--text-secondary); font-size: 10px;
+  padding: 0 4px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+}
 .seat-off { color: var(--danger-text); font-size: 11px; white-space: nowrap; }
 .seat-last {
   font-size: 12px; color: var(--text-secondary);
@@ -291,6 +404,7 @@
   .whoami { font-size: 12px; gap: 4px; }
   .page { padding: var(--sp-5) var(--sp-3) var(--sp-6); }
   .how { grid-template-columns: 1fr; }
+  .modes { grid-template-columns: 1fr; }
   .pcard { --card-w: 38px; }
   .felt { padding: var(--sp-2) var(--sp-3); }
   .seat { gap: var(--sp-2); padding: 6px var(--sp-2); }
@@ -299,13 +413,14 @@
   .sizing .input { width: 68px; }
   .hand-head { gap: var(--sp-2); padding: 7px var(--sp-3); }
   .result .grid { grid-template-columns: 1fr; }
+
+  /* Six seats on a phone: smaller cards, no rating, the stack without its
+     unit word. Nothing overlaps and every seat still reads. */
 }
 
 /* pot flight layer: the chip lands over the pot without moving it */
 .pot { position: relative; }
 .flights { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
-.side { display: flex; flex-direction: column; gap: 2px; }
-.side.you { flex-direction: column; }
 
 .theme-btn .short { display: none; }
 @media (max-width: 640px) {
@@ -373,6 +488,11 @@ a.btn { text-decoration: none; }
 .table tr[data-mine] td:first-child { box-shadow: inset 2px 0 0 var(--accent-fill); }
 
 /* ----------------------------------------------------------------- result */
+
+/* the finishing order, one row per player */
+.who { display: inline-flex; align-items: baseline; gap: 7px; }
+.rating-cell { display: inline-flex; align-items: baseline; gap: 7px; justify-content: flex-end; }
+.tags { display: inline-flex; align-items: center; gap: 6px; }
 
 .player-result { display: flex; flex-direction: column; gap: var(--sp-2); }
 .pr-head { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }

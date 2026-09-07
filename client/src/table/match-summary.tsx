@@ -6,7 +6,10 @@ import type { MatchResult, TableView } from '@opentable/protocol';
 import type { Match } from '../net/types.ts';
 import { BoardText } from '../ui/board-text.tsx';
 import { fmtDate, fmtPct, int, signed } from '../ui/format.ts';
-import { handAccuracy, matchHasAccuracy } from '../net/adapt.ts';
+import { handAccuracy, matchHasAccuracy, seatIsBot } from '../net/adapt.ts';
+import { deltaTone } from '../ui/bits.tsx';
+import { ordinal } from './labels.ts';
+import { rankSeats } from './results.ts';
 
 export interface MatchSummaryProps {
   match: Match;
@@ -15,10 +18,12 @@ export interface MatchSummaryProps {
   againLabel?: string;
 }
 
+const CASUAL = 'Casual match, no rating change.';
+
 /* The count is on the line beside this one, so the reason does not repeat it. */
-function reasonText(r: Match['reason']): string {
+function reasonText(r: Match['reason'], players: number): string {
   switch (r) {
-    case 'bust': return 'A stack hit zero.';
+    case 'bust': return players > 2 ? 'Last player standing.' : 'A stack hit zero.';
     case 'hands': return 'The match went the full distance.';
     case 'forfeit': return 'Forfeited on the clock after three timeouts.';
     case 'draw': return 'Level stacks after the last hand.';
@@ -27,40 +32,104 @@ function reasonText(r: Match['reason']): string {
   }
 }
 
+/* The rating moves once, after a beat, so it reads as a change rather than a
+   value that happened to land there. */
+function useRatingReveal(rating: { before: number; after: number } | null): number {
+  const reduced = useReducedMotion();
+  const [shown, setShown] = useState(() => (rating ? int(rating.before) : 0));
+
+  useEffect(() => {
+    if (!rating) return;
+    if (reduced) {
+      setShown(int(rating.after));
+      return;
+    }
+    setShown(int(rating.before));
+    const timer = setTimeout(() => setShown(int(rating.after)), 420);
+    return () => clearTimeout(timer);
+  }, [rating, reduced]);
+
+  return shown;
+}
+
 export function MatchSummary({ match, meId, onAgain, againLabel }: MatchSummaryProps) {
-  const mine = meId ? match.seats.find((s) => s.userId === meId) : undefined;
-  const showAccuracy = matchHasAccuracy(match);
+  const players = match.seats.length;
+  const multiway = players > 2;
+  const rows = rankSeats(match);
+  const mine = meId ? rows.find((r) => r.seat.userId === meId) : undefined;
+  /* Preflop accuracy is scored against heads-up baseline charts, so the
+     columns stay off a multiway table rather than printing a number the
+     charts do not mean. */
+  const showAccuracy = matchHasAccuracy(match) && !multiway;
   const winnerSeat = match.winner ? match.seats.find((s) => s.userId === match.winner) : null;
 
-  const verdict = match.winner == null
+  const verdict = match.winner == null && !multiway
     ? 'Draw'
     : mine
-      ? match.winner === mine.userId ? 'You win' : 'You lose'
-      : `${winnerSeat?.name ?? 'Unknown'} wins`;
+      ? mine.place === 1 ? 'You win' : multiway ? `You finished ${ordinal(mine.place)}` : 'You lose'
+      : `${winnerSeat?.name ?? rows[0]?.seat.name ?? 'Nobody'} wins`;
 
   return (
     <main className="page stack">
       <header>
         <h1 className="h1">{verdict}</h1>
         <span className="muted">
-          {reasonText(match.reason)} {match.rated ? 'Rated' : 'Unrated'} match over{' '}
+          {reasonText(match.reason, players)} {match.rated ? 'Rated' : 'Casual'} match over{' '}
           {match.handsPlayed} {match.handsPlayed === 1 ? 'hand' : 'hands'}
           {match.finishedAt ? `, finished ${fmtDate(match.finishedAt)}` : ''}.
         </span>
       </header>
 
-      <div className="two">
-        {match.seats.map((seat) => (
-          <PlayerResult
-            key={seat.userId}
-            name={seat.name}
-            stack={match.finalStacks?.[seat.userId] ?? 0}
-            rating={match.ratings?.[seat.userId] ?? null}
-            won={match.winner === seat.userId}
-            you={mine?.userId === seat.userId}
-          />
-        ))}
-      </div>
+      {multiway ? (
+        <section className="stack" style={{ gap: 'var(--sp-3)' }}>
+          <div className="card lb-card">
+            <div className="table-wrap">
+              <table className="table" aria-label="Finishing order">
+                <thead>
+                  <tr>
+                    <th className="r" style={{ width: 44 }}>#</th>
+                    <th>Player</th>
+                    <th className="r">Units</th>
+                    {match.rated && <th className="r">Rating</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={r.seat.userId} data-mine={r.seat.userId === meId ? '' : undefined}>
+                      <td className="r num">{ordinal(r.place)}</td>
+                      <td>
+                        <span className="who">
+                          <Link to={`/u/${encodeURIComponent(r.seat.name)}`}>{r.seat.name}</Link>
+                          {seatIsBot(r.seat) && <span className="seat-bot">bot</span>}
+                          {r.seat.userId === meId && <span className="seat-you">you</span>}
+                        </span>
+                      </td>
+                      <td className="r num">{int(r.stack)}</td>
+                      {match.rated && (
+                        <td className="r"><RatingCell rating={r.rating} /></td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {!match.rated && <span className="muted">{CASUAL}</span>}
+        </section>
+      ) : (
+        <div className="two">
+          {rows.map((r) => (
+            <PlayerResult
+              key={r.seat.userId}
+              name={r.seat.name}
+              stack={r.stack}
+              rating={r.rating}
+              won={match.winner === r.seat.userId}
+              you={mine?.seat.userId === r.seat.userId}
+            />
+          ))}
+        </div>
+      )}
 
       <div className="row-actions">
         <button type="button" className="btn btn-primary" onClick={onAgain}>
@@ -145,6 +214,22 @@ export function MatchSummary({ match, meId, onAgain, againLabel }: MatchSummaryP
   );
 }
 
+function RatingCell({ rating }: { rating: ResultRating }) {
+  const shown = useRatingReveal(rating);
+  if (!rating) return <span className="muted">no change</span>;
+  const delta = rating.after - rating.before;
+  return (
+    <span className="rating-cell">
+      <span className="v num">
+        <NumberFlow value={shown} format={{ useGrouping: false }} respectMotionPreference />
+      </span>
+      <span className="delta" {...deltaTone(delta)}>{signed(delta)}</span>
+    </span>
+  );
+}
+
+type ResultRating = { before: number; after: number; rdBefore: number; rdAfter: number } | null;
+
 function PlayerResult({
   name,
   stack,
@@ -154,28 +239,12 @@ function PlayerResult({
 }: {
   name: string;
   stack: number;
-  rating: { before: number; after: number; rdBefore: number; rdAfter: number } | null;
+  rating: ResultRating;
   won: boolean;
   you: boolean;
 }) {
-  const reduced = useReducedMotion();
-  const [shown, setShown] = useState(() => (rating ? int(rating.before) : 0));
-
-  /* The rating moves once, after a beat, so it reads as a change rather than a
-     value that happened to land there. */
-  useEffect(() => {
-    if (!rating) return;
-    if (reduced) {
-      setShown(int(rating.after));
-      return;
-    }
-    setShown(int(rating.before));
-    const timer = setTimeout(() => setShown(int(rating.after)), 420);
-    return () => clearTimeout(timer);
-  }, [rating, reduced]);
-
+  const shown = useRatingReveal(rating);
   const delta = rating ? rating.after - rating.before : 0;
-  const tone = delta > 0 ? { 'data-up': '' } : delta < 0 ? { 'data-down': '' } : { 'data-flat': '' };
 
   return (
     <div className="card player-result" data-won={won ? '' : undefined}>
@@ -193,11 +262,11 @@ function PlayerResult({
           <span className="v num">
             <NumberFlow value={shown} format={{ useGrouping: false }} respectMotionPreference />
           </span>
-          <span className="delta" {...tone}>{signed(delta)}</span>
+          <span className="delta" {...deltaTone(delta)}>{signed(delta)}</span>
           <span className="muted">deviation {int(rating.rdAfter)}</span>
         </div>
       ) : (
-        <span className="muted">Unrated. Nothing changed on the ladder.</span>
+        <span className="muted">{CASUAL}</span>
       )}
     </div>
   );
@@ -212,12 +281,13 @@ export function matchFromEnd(view: TableView, result: MatchResult): Match {
     id: view.m,
     format: view.format,
     rated: result.rated,
-    seats: view.seats.map((s) => ({ seat: s.i, userId: s.uid, name: s.name })),
+    seats: view.seats.map((s) => ({ seat: s.i, userId: s.uid, name: s.name, bot: s.bot })),
     status: 'finished',
     winner: result.winner,
     reason: result.reason,
     handsPlayed: view.handsPlayed || view.h,
     finalStacks: result.stacks,
+    places: result.places,
     ratings: result.ratings,
     createdAt: new Date().toISOString(),
     finishedAt: new Date().toISOString(),

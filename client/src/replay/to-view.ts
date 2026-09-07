@@ -2,31 +2,51 @@ import type { HandState } from '@opentable/engine';
 import { visibleCards } from '@opentable/engine';
 import type { Card, SeatView, TableView } from '@opentable/protocol';
 import type { Hand } from '../net/types.ts';
+import { seatIsBot } from '../net/adapt.ts';
 
 /* A replayed HandState rendered through the same table components a live match
    uses. The engine's state carries everything the view needs except the names,
    which come from the hand row. Rating is 0 here: a hand row does not record
    what the players were rated at the time, and a made-up number beside a name
-   is worse than no number, so the seat hides it. */
-export function stateToView(hand: Hand, state: HandState, step: number, showAll: boolean): TableView {
+   is worse than no number, so the seat hides it.
+
+   `seatMap` turns an engine seat index into the table seat it was sitting in,
+   which is how a hand dealt to four of a six-max table lands back in the right
+   chairs. The recorded actions and holes are already in table seats. Without a
+   map the two are the same thing, which is every heads-up hand ever written. */
+export function stateToView(
+  hand: Hand,
+  state: HandState,
+  step: number,
+  showAll: boolean,
+  seatMap?: number[],
+): TableView {
+  const map = seatMap ?? state.seats.map((_, i) => i);
   const visible = visibleCards(state, null);
   const lastBySeat = lastActions(hand, step);
 
-  const seats: SeatView[] = state.seats.map((s, i) => ({
-    i,
-    uid: hand.seats[i]?.userId ?? String(i),
-    name: hand.seats[i]?.name ?? `Seat ${i}`,
-    rating: 0,
-    stack: s.stack,
-    bet: s.bet,
-    cards: showAll ? (s.cards as Card[] | null) : visible[i],
-    folded: s.folded,
-    allin: s.allin,
-    button: i === state.config.button,
-    acting: state.toAct === i,
-    connected: true,
-    last: lastBySeat[i] ?? null,
-  }));
+  const seats: SeatView[] = state.seats.map((s, i) => {
+    const at = map[i] ?? i;
+    const row = hand.seats.find((x) => x.seat === at) ?? hand.seats[i];
+    return {
+      i: at,
+      uid: row?.userId ?? String(at),
+      name: row?.name ?? `Seat ${at}`,
+      rating: 0,
+      stack: s.stack,
+      bet: s.bet,
+      cards: showAll ? (s.cards as Card[] | null) : visible[i],
+      folded: s.folded,
+      allin: s.allin,
+      button: i === state.config.button,
+      acting: state.toAct === i,
+      connected: true,
+      bot: row ? seatIsBot(row) : false,
+      out: false,
+      place: null,
+      last: lastBySeat[at] ?? null,
+    };
+  });
 
   return {
     m: hand.matchId,
@@ -42,7 +62,23 @@ export function stateToView(hand: Hand, state: HandState, step: number, showAll:
     clock: null,
     seedHash: hand.seedHash,
     seed: hand.seed,
-    format: { hands: 0, stack: hand.stacksStart[0] ?? 0, sb: hand.sb, bb: hand.bb, clockMs: 0, graceMs: 0 },
+    /* The hand row records the blinds it was dealt at and nothing about the
+       match around it, so the format here says only what this hand knows. The
+       replay draws the felt bare, without the header that would read it. */
+    format: {
+      mode: state.seats.length > 2 ? 'six-max' : 'heads-up',
+      players: hand.seats.length,
+      rated: false,
+      hands: null,
+      stack: hand.stacksStart[0] ?? 0,
+      sb: hand.sb,
+      bb: hand.bb,
+      levels: [{ sb: hand.sb, bb: hand.bb }],
+      levelHands: 0,
+      clockMs: 0,
+      graceMs: 0,
+    },
+    blinds: { sb: hand.sb, bb: hand.bb },
     handsPlayed: hand.number - 1,
     last: null,
     result: state.result ? { awards: state.result.awards, shown: state.result.shown } : null,

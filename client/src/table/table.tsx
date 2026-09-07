@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import NumberFlow from '@number-flow/react';
 import { Link } from 'react-router-dom';
@@ -6,7 +7,8 @@ import type { ActionKind, TableView } from '@opentable/protocol';
 import { Seat } from './seat.tsx';
 import { PlayingCard } from './playing-card.tsx';
 import { ActionBar } from './action-bar.tsx';
-import { cardsOf, shortHash, streetText } from './labels.ts';
+import { blindText, cardsOf, handText, ordinal, shortHash, streetText } from './labels.ts';
+import { dealOrder, layoutMode, seatOrder, slotAt } from './layout.ts';
 import { useGInit } from '../ui/bits.tsx';
 
 export interface TableProps {
@@ -27,13 +29,15 @@ export function Table({ view, onAct, sending, bare }: TableProps) {
   const headRef = useRef<HTMLDivElement>(null);
   useGInit(headRef);
 
-  /* The bottom slot is yours when you are seated. Watching (a spectator or a
-     replay), the last seat takes it, so the table still reads as a table
-     rather than a stack of seats with an empty half below. */
-  const seated = view.you == null ? null : view.seats.find((s) => s.i === view.you) ?? null;
-  const bottom = seated ?? (view.seats.length > 1 ? view.seats[view.seats.length - 1] : null);
-  const others = view.seats.filter((s) => s.i !== bottom?.i);
-  const you = seated;
+  /* The bottom slot is yours when you are seated; watching, seat 0 takes it.
+     Two seats stack into the felt they have always had, three or more sit on
+     an ellipse, and both come out of the same markup. */
+  const order = seatOrder(view.seats, view.you);
+  const mode = layoutMode(order.length);
+  const you = view.you == null ? null : view.seats.find((s) => s.i === view.you) ?? null;
+  const button = view.seats.find((s) => s.button)?.i ?? 0;
+  const deal = dealOrder(view.seats, button);
+  const dealt = Math.max(1, deal.size);
 
   /* Chips fly to the pot when the street's bets are collected: the seat's chip
      unmounts and one with the same layoutId mounts over the pot, so the move is
@@ -70,11 +74,11 @@ export function Table({ view, onAct, sending, bare }: TableProps) {
       {!bare && (
       <div className="hand-head" ref={headRef}>
        <div className="bar-in">
-        <span className="n">Hand {view.h} of {view.format.hands}</span>
+        <span className="n">{handText(view.h, view.format.hands)}</span>
         <span className="dot">·</span>
         <span>{streetText(view.street)}</span>
         <span className="dot">·</span>
-        <span className="num">Blinds {view.format.sb}/{view.format.bb}</span>
+        <span className="num">{blindText(view.format, view.blinds, view.h)}</span>
         <span className="spacer" style={{ flex: 1 }} />
         <span className="seed">
           <code title={view.seedHash}>{shortHash(view.seedHash)}</code>
@@ -96,95 +100,89 @@ export function Table({ view, onAct, sending, bare }: TableProps) {
       </div>
       )}
 
-      <div className="felt">
-        <div className="side">
-          {others.map((s) => (
-            <div key={s.i}>
-              <Seat
-                seat={s}
-                you={false}
-                clock={view.clock}
-                format={view.format}
-                reveal={cardsOf(result?.shown, s.i)}
-                n={view.n}
-                handNo={view.h}
-              />
-              <div className="seat-bet">
-                {s.bet > 0 && (
-                  <motion.span layoutId={`bet-${s.i}`} className="badge num">{s.bet}</motion.span>
-                )}
+      <div className="felt" data-mode={mode} data-seats={order.length}>
+        <div className="felt-in">
+          {order.map((s, k) => {
+            const slot = slotAt(k, order.length);
+            return (
+              <div
+                className="pos"
+                key={s.i}
+                data-half={slot.half}
+                style={{
+                  '--x': `${slot.x}%`,
+                  '--y': `${slot.y}%`,
+                  '--yt': `${slot.yTight}%`,
+                } as CSSProperties}
+              >
+                <div className="seat-bet">
+                  {s.bet > 0 && (
+                    <motion.span layoutId={`bet-${s.i}`} className="badge num">{s.bet}</motion.span>
+                  )}
+                </div>
+                <Seat
+                  seat={s}
+                  you={s.i === view.you}
+                  clock={view.clock}
+                  format={view.format}
+                  reveal={cardsOf(result?.shown, s.i)}
+                  n={view.n}
+                  handNo={view.h}
+                  dealAt={deal.get(s.i) ?? 0}
+                  seatCount={dealt}
+                  origin={mode === 'ring' ? { x: slot.ox, y: slot.oy } : undefined}
+                />
               </div>
-            </div>
-          ))}
-        </div>
+            );
+          })}
 
-        <div className="middle">
-          <div className="pot">
-            <span className="k">Pot</span>
-            <span className="v">
-              <NumberFlow value={view.pot} respectMotionPreference />
-            </span>
-            {view.pots.length > 1 && (
-              <span className="side">{view.pots.map((p) => p.amount).join(' + ')}</span>
+          <div className="middle">
+            <div className="pot">
+              <span className="k">Pot</span>
+              <span className="v">
+                <NumberFlow value={view.pot} respectMotionPreference />
+              </span>
+              {view.pots.length > 1 && (
+                <span className="pot-side">{view.pots.map((p) => p.amount).join(' + ')}</span>
+              )}
+              <span className="flights" aria-hidden="true">
+                <AnimatePresence>
+                  {flights.map((f) => (
+                    <motion.span
+                      key={f.id}
+                      layoutId={`bet-${f.seat}`}
+                      className="badge num"
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ duration: 0.24, ease: [0.2, 0, 0, 1] }}
+                    >
+                      {f.amount}
+                    </motion.span>
+                  ))}
+                </AnimatePresence>
+              </span>
+            </div>
+
+            <div className="board">
+              {board.map((c, i) => (
+                <PlayingCard key={`${view.h}-b${i}`} card={c} index={Math.max(0, i - 2)} />
+              ))}
+            </div>
+
+            {result && (
+              <div className="showdown">
+                {result.awards.map((a) => {
+                  const seat = view.seats.find((s) => s.i === a.seat);
+                  return (
+                    <span className="w" key={`${a.seat}-${a.amount}`}>
+                      {seat?.name ?? `Seat ${a.seat}`} wins <span className="num">{a.amount}</span>
+                      {a.hand ? ` with ${a.hand.toLowerCase()}` : ''}
+                    </span>
+                  );
+                })}
+                <span className="d">Next hand shortly</span>
+              </div>
             )}
-            <span className="flights" aria-hidden="true">
-              <AnimatePresence>
-                {flights.map((f) => (
-                  <motion.span
-                    key={f.id}
-                    layoutId={`bet-${f.seat}`}
-                    className="badge num"
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    transition={{ duration: 0.24, ease: [0.2, 0, 0, 1] }}
-                  >
-                    {f.amount}
-                  </motion.span>
-                ))}
-              </AnimatePresence>
-            </span>
           </div>
-
-          <div className="board">
-            {board.map((c, i) => (
-              <PlayingCard key={`${view.h}-b${i}`} card={c} index={Math.max(0, i - 2)} />
-            ))}
-          </div>
-
-          {result && (
-            <div className="showdown">
-              {result.awards.map((a) => {
-                const seat = view.seats.find((s) => s.i === a.seat);
-                return (
-                  <span className="w" key={`${a.seat}-${a.amount}`}>
-                    {seat?.name ?? `Seat ${a.seat}`} wins <span className="num">{a.amount}</span>
-                    {a.hand ? ` with ${a.hand.toLowerCase()}` : ''}
-                  </span>
-                );
-              })}
-              <span className="d">Next hand shortly</span>
-            </div>
-          )}
-        </div>
-
-        <div className="side you">
-          {bottom && (
-            <>
-              <div className="seat-bet">
-                {bottom.bet > 0 && (
-                  <motion.span layoutId={`bet-${bottom.i}`} className="badge num">{bottom.bet}</motion.span>
-                )}
-              </div>
-              <Seat
-                seat={bottom}
-                you={bottom.i === view.you}
-                clock={view.clock}
-                format={view.format}
-                reveal={cardsOf(result?.shown, bottom.i)}
-                n={view.n}
-                handNo={view.h}
-              />
-            </>
-          )}
         </div>
       </div>
 
@@ -205,6 +203,12 @@ export function Table({ view, onAct, sending, bare }: TableProps) {
 
 function waitingText(view: TableView): string {
   if (view.you == null) return 'Spectating. Actions are hidden for watchers.';
+  const mine = view.seats.find((s) => s.i === view.you);
+  if (mine?.out) {
+    return mine.place == null
+      ? 'You are out. The table plays on.'
+      : `You finished ${ordinal(mine.place)}. The table plays on.`;
+  }
   if (view.street === 'done') return 'Hand over. The next one deals in a moment.';
   const acting = view.seats.find((s) => s.acting);
   if (acting && acting.i !== view.you) return `Waiting for ${acting.name}`;

@@ -1,6 +1,6 @@
 /* The REST payloads, mirroring server/src/routes.ts. Dates arrive as JSON
    strings, not Date objects, so every timestamp is typed as a string here. */
-import type { LoggedAction, MatchFormat, MatchResult, UserSummary } from '@opentable/protocol';
+import type { LoggedAction, MatchFormat, MatchResult, Mode, UserSummary } from '@opentable/protocol';
 import type { HandOutcome } from '@opentable/engine';
 import type { Decision } from '@opentable/preflop';
 
@@ -16,6 +16,8 @@ export interface MatchSeat {
   seat: number;
   userId: string;
   name: string;
+  /* Pending on the server. Read it through src/net/adapt.ts, never directly. */
+  bot?: boolean;
 }
 
 export interface LeaderboardRow {
@@ -39,6 +41,12 @@ export interface UserMatchSummary {
   result: 'win' | 'loss' | 'draw';
   ratingChange: number;
   finishedAt: string | null;
+  /* Multiway matches and casual play. Pending on the server; read them through
+     src/net/adapt.ts, which is where a placing turns into "1st of 6". */
+  place?: number | null;
+  players?: number | null;
+  rated?: boolean | null;
+  mode?: Mode | null;
 }
 
 export interface Profile {
@@ -83,6 +91,7 @@ export interface Match {
   reason: MatchResult['reason'] | null;
   handsPlayed: number;
   finalStacks: Record<string, number> | null;
+  places?: Record<string, number> | null; // finishing position per user id, 1 = winner
   ratings: MatchResult['ratings'] | null;
   createdAt: string;
   finishedAt: string | null;
@@ -120,6 +129,10 @@ export interface Hand {
   seedHash: string;
   seed: string | null;
   actions: LoggedAction[];
+  /* Engine seat index to table seat, for a hand dealt to some of a multiway
+     table. Absent means the two are the same thing. Read it through
+     src/net/adapt.ts, which supplies that identity. */
+  live_seats?: number[] | null;
   board: string[];
   holes: Record<number, [string, string]> | null;
   result: HandOutcome | null;

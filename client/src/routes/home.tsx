@@ -1,12 +1,27 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { formatFor } from '@opentable/protocol';
+import type { Mode } from '@opentable/protocol';
 import { api } from '../net/api.ts';
 import type { LeaderboardRow } from '../net/types.ts';
-import { useSession } from '../net/session.tsx';
+import { readPlayChoice, useSession } from '../net/session.tsx';
 import { elapsed, useNow } from '../ui/bits.tsx';
 import { int } from '../ui/format.ts';
 import { useTitle } from '../ui/title.ts';
 import { Link, useLocation } from 'react-router-dom';
+
+const MODES: Mode[] = ['heads-up', 'six-max'];
+const MODE_NAME: Record<Mode, string> = { 'heads-up': 'Heads-up', 'six-max': 'Six-max' };
+
+/* The line under each mode's name is built from that mode's format, so the
+   promise on the card cannot drift from the match it starts. */
+function modeBlurb(mode: Mode): string {
+  const f = formatFor(mode, true);
+  if (mode === 'six-max') {
+    return `Last player standing. ${f.players} seats, ${f.stack} units each, blinds climb every ${f.levelHands} hands.`;
+  }
+  return `Best of ${f.hands} hands. ${f.stack} units each, blinds fixed at ${f.sb} and ${f.bb}.`;
+}
 
 export function Home() {
   const { queue, startQueue, cancelQueue, offline, ready, conn, liveMatch } = useSession();
@@ -16,6 +31,14 @@ export function Home() {
   useTitle(null);
   const now = useNow(searching, 250);
 
+  /* The last choice reopens the picker where it was left: that mode's stake,
+     and a quiet mark on the card that was played. */
+  const [last] = useState(() => readPlayChoice());
+  const [rated, setRated] = useState<Record<Mode, boolean>>(() => ({
+    'heads-up': last?.mode === 'heads-up' ? last.rated : true,
+    'six-max': last?.mode === 'six-max' ? last.rated : true,
+  }));
+
   useEffect(() => {
     if (queue.s === 'found' && queue.m) nav(`/m/${queue.m}`);
   }, [queue.s, queue.m, nav]);
@@ -24,13 +47,15 @@ export function Home() {
     if (hash) document.querySelector(hash)?.scrollIntoView({ block: 'start' });
   }, [hash]);
 
+  const seats = formatFor(queue.mode, queue.rated).players;
+
   return (
     <main className="page stack">
       <section className="hero">
-        <h1 className="h1">Ranked heads-up hold'em</h1>
+        <h1 className="h1">Ranked hold'em</h1>
         <p className="lede">
-          One opponent, twenty-five hands, <b>no money anywhere</b>. Chips are table units that
-          reset every match. The only thing you keep is your rating.
+          Heads-up or six handed, <b>no money anywhere</b>. Chips are table units that reset every
+          match. The only thing you keep is your rating.
         </p>
 
         {offline && ready && (
@@ -48,27 +73,59 @@ export function Home() {
         )}
 
         {!searching ? (
-          <button
-            type="button"
-            className="btn btn-primary btn-lg"
-            disabled={!ready || offline}
-            onClick={startQueue}
-          >
-            Play rated
-          </button>
+          <div className="modes">
+            {MODES.map((mode) => (
+              <div className="card mode" key={mode} data-last={last?.mode === mode ? '' : undefined}>
+                <div className="mode-head">
+                  <span className="t">{MODE_NAME[mode]}</span>
+                  {last?.mode === mode && <span className="muted">last played</span>}
+                </div>
+                <span className="muted">{modeBlurb(mode)}</span>
+                <div className="stakes">
+                  {[true, false].map((r) => (
+                    <label className="choice" key={String(r)}>
+                      <input
+                        type="radio"
+                        className="radio"
+                        name={`stake-${mode}`}
+                        checked={rated[mode] === r}
+                        onChange={() => setRated((prev) => ({ ...prev, [mode]: r }))}
+                      />
+                      {r ? 'Rated' : 'Casual'}
+                    </label>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={!ready || offline}
+                  onClick={() => startQueue(mode, rated[mode])}
+                >
+                  Play
+                </button>
+              </div>
+            ))}
+          </div>
         ) : (
-          <div className="searching">
-            <span className="spinner" aria-hidden="true" />
-            <span className="el num">Searching {elapsed(now - queue.since)}</span>
-            {queue.range != null && (
-              <span className="badge badge-plain num">Within {queue.range} rating</span>
-            )}
-            {queue.w != null && queue.w > 0 && (
-              <span className="badge badge-plain num">{queue.w} waiting</span>
-            )}
-            <button type="button" className="btn btn-tertiary btn-sm" onClick={cancelQueue}>
-              Cancel search
-            </button>
+          <div className="card searching-card" role="status">
+            <span className="t">Searching for a {MODE_NAME[queue.mode].toLowerCase()} table</span>
+            <div className="searching">
+              <span className="spinner" aria-hidden="true" />
+              <span className="el num">{elapsed(now - queue.since)}</span>
+              <span className="badge badge-plain">{queue.rated ? 'Rated' : 'Casual'}</span>
+              {queue.mode === 'six-max' && queue.seated != null && (
+                <span className="badge badge-plain num">{queue.seated} of {seats} seated</span>
+              )}
+              {queue.range != null && (
+                <span className="badge badge-plain num">Within {queue.range} rating</span>
+              )}
+              {queue.w != null && queue.w > 0 && (
+                <span className="badge badge-plain num">{queue.w} waiting</span>
+              )}
+              <button type="button" className="btn btn-tertiary btn-sm" onClick={cancelQueue}>
+                Cancel search
+              </button>
+            </div>
           </div>
         )}
 
@@ -92,7 +149,7 @@ export function Home() {
         <div className="card">
           <span className="k">2</span>
           <span className="t">Chips reset every match</span>
-          <span className="muted">Both players start on 200 units at blinds 1 and 2.</span>
+          <span className="muted">Everyone starts on 200 units. Six-max blinds climb until one player has the lot.</span>
         </div>
         <div className="card">
           <span className="k">3</span>

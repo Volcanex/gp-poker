@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import type { ActionKind, TableView } from '@opentable/protocol';
+import type { ActionKind, Mode, TableView } from '@opentable/protocol';
 import { Table } from '../table/table.tsx';
 import { MatchSummary, matchFromEnd } from '../table/match-summary.tsx';
 import type { Match as MatchData } from '../net/types.ts';
@@ -13,7 +13,8 @@ export function Match() {
   const { id = '' } = useParams();
   const [params] = useSearchParams();
   const isMock = id === 'mock' || params.get('mock') === '1';
-  return isMock ? <MockMatch step={numOrNull(params.get('step'))} /> : <LiveMatch id={id} />;
+  const mode: Mode = params.get('mode') === 'six-max' ? 'six-max' : 'heads-up';
+  return isMock ? <MockMatch step={numOrNull(params.get('step'))} mode={mode} /> : <LiveMatch id={id} />;
 }
 
 function numOrNull(v: string | null): number | null {
@@ -93,10 +94,11 @@ function LiveMatch({ id }: { id: string }) {
     [view, sending, send, id],
   );
 
+  /* Play again means the match just played: the same mode, rated or not. */
   const playAgain = useCallback(() => {
-    startQueue();
+    startQueue(finished?.format.mode, finished?.rated);
     nav('/');
-  }, [startQueue, nav]);
+  }, [startQueue, nav, finished]);
 
   if (finished) return <MatchSummary match={finished} meId={me?.id ?? null} onAgain={playAgain} />;
 
@@ -120,8 +122,8 @@ function LiveMatch({ id }: { id: string }) {
 
 /* ----------------------------------------------------------------- mock */
 
-function MockMatch({ step }: { step: number | null }) {
-  const script = useMemo(() => mockScript(), []);
+function MockMatch({ step, mode }: { step: number | null; mode: Mode }) {
+  const script = useMemo(() => mockScript(mode), [mode]);
   const start = step == null ? 0 : Math.max(0, Math.min(script.length - 1, step));
   const [i, setI] = useState(start);
   const [enteredAt, setEnteredAt] = useState(() => Date.now());
@@ -171,7 +173,7 @@ function MockMatch({ step }: { step: number | null }) {
         onAgain={() => {
           setI(0);
           setEnteredAt(Date.now());
-          nav('/m/mock');
+          nav(mode === 'six-max' ? '/m/mock?mode=six-max' : '/m/mock');
         }}
       />
     );

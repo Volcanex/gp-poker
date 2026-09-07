@@ -27,7 +27,8 @@ declaration for `phe` that the engine's own tsconfig provides.
   (live table, finished summary and the mock), `replay.tsx`.
 - `src/table/` — the table. `table.tsx` renders one `TableView`; `seat.tsx`,
   `playing-card.tsx`, `timer-ring.tsx`, `action-bar.tsx` are its parts.
-  `match-summary.tsx` is the finished-match page. `sizing.ts` and `labels.ts`
+  `match-summary.tsx` is the finished-match page. `sizing.ts`, `labels.ts`,
+  `layout.ts` (where each seat sits) and `results.ts` (the finishing order)
   are pure.
 - `src/replay/` — `to-view.ts` turns an engine `HandState` into a `TableView`;
   `fairness.ts` re-derives the deck and rehashes the commitment.
@@ -35,6 +36,40 @@ declaration for `phe` that the engine's own tsconfig provides.
   `board-text.tsx`, `bits.tsx`, `format.ts`, `title.ts`.
 - `src/dev/mock.ts` — the scripted live table, dev only.
 - `src/app.css` — page layout plus the poker-specific pieces. Tokens only.
+
+## The table, two to six seats
+
+One component draws every table. `layout.ts` is the whole geometry and it is
+pure, so the rotation is unit tested rather than eyeballed:
+
+- **Rotation.** `seatOrder` puts the viewer at the bottom and the rest in seat
+  order after them, so the player on your left, the next to act, is the next
+  one round to the left. Watching (a spectator, or a replay) seat 0 takes the
+  bottom, so the same match reads the same way round every time it is opened.
+- **Two shapes, one markup.** `layoutMode` is `stack` for two seats and `ring`
+  for three to six. Stack is the three-row felt heads-up has always had; ring
+  places seats on an ellipse. The difference is entirely CSS on
+  `.felt[data-mode]`: a seat, a bet and a chip flight are the same elements
+  either way, which is why the heads-up layout survives untouched.
+- **Nothing overlaps, by construction.** In ring mode each seat owns a layer
+  inset by half a seat box, so a seat at the far edge of the ellipse still sits
+  inside the felt. The bet gets the same layer inset further by a whole seat
+  box: the same ellipse shrunk by exactly the room a seat takes up, which is
+  why a chip always lands between its seat and the pot and never under either.
+  Both read the same `--x`/`--y`.
+- **The felt sizes itself with container queries**, not media queries: the
+  replay draws this table in a narrow column beside its action list, so the
+  question is how wide the felt is, not how wide the window is. `.match` is the
+  container. Below 640px the seat drops to three rows (the name gets the width
+  of the box), the rating goes, and seats move to `--yt`, a pinched ellipse
+  that keeps them off the board when there is no room to clear it sideways.
+- **Dealing.** `dealOrder` is round robin from the seat left of the button, one
+  card each then the second, which is the order the engine deals in; the seat
+  passes it to `PlayingCard` as the stagger index. In ring mode each card also
+  starts from the middle of the table, so cards fan outwards.
+
+`SeatView.out` seats render dimmed with their place ("4th") where the stack
+would be, and `SeatView.bot` gets a small mark beside the name.
 
 ## Routes
 | Path | Page |
@@ -44,7 +79,7 @@ declaration for `phe` that the engine's own tsconfig provides.
 | `/u/:name` | profile |
 | `/m/:id` | live table while playing, result summary once finished |
 | `/m/:id/h/:n` | hand replay, scrubber and fairness checks |
-| `/m/mock` | the scripted table, dev only (`?step=N` freezes one moment) |
+| `/m/mock` | the scripted table, dev only (`?step=N` freezes one moment, `?mode=six-max` runs the six-handed script) |
 
 `useTitle` (`src/ui/title.ts`) sets the document title per route and appends
 the product name, so it is spelled in one place.
@@ -59,6 +94,12 @@ WebSocket connect**: the home page shows its offline state instead.
 exponential backoff (500 ms to 8 s, jittered), pings every 20 s, and buffers
 sends while the socket is down. Sends are typed `ClientMsg`; subscribers get
 every `ServerMsg` and filter for themselves (`useServerMsg` in `session.tsx`).
+
+Queueing sends `{t:'queue', mode, rated}`; the mode picker on the home page
+owns that choice and `session.tsx` remembers it in `localStorage`
+(`ot-play-choice`), so "play again" repeats the match that just finished.
+`readPlayChoice()` returns null until something has been played, which is how
+the picker knows not to claim a mode was played last on a first visit.
 
 Acting sends `{t:'act', m, h: view.h, n: view.n, a, v}` and disables the bar
 until a state with a different `h:n` arrives. The server refuses a stale action
@@ -84,8 +125,10 @@ key ever changes, `api.hand()` is the one place to change.
 
 **Fields the server is still adding go through `src/net/adapt.ts`**, never
 read directly: mean preflop accuracy and a total match count on
-`/api/users/:name`, and per-seat accuracy on the hands list of
-`/api/matches/:id`. That file is the single place to change when the names are
+`/api/users/:name`, per-seat accuracy on the hands list of `/api/matches/:id`,
+a seat's bot flag, `place`/`players`/`rated` on a profile's match history (a
+placing needs both halves before "1st of 6" can be said at all), and a hand
+row's `live_seats`. That file is the single place to change when the names are
 confirmed, and the UI above it never learns a name. Absent and null both mean
 "no number", and the caller hides its tile or column rather than printing a
 zero; a real zero (a hand scored 0% accuracy) still shows, which is why the
@@ -107,6 +150,18 @@ where the number is printed does not depend on the producer staying correct.
 ## The replay
 `replay(config, actions)` from the engine returns one `HandState` per step, and
 `stateToView` renders each through the same table components a live match uses.
+
+**The engine counts seats densely, the record counts them by chair.** A hand
+dealt to four of a six-max table gives the engine seats 0..3, while the hand
+row's actions, holes, button and study are all in table seats. `live_seats` on
+the row maps one to the other and `liveSeats()` supplies the identity for every
+heads-up row ever written. The replay builds the engine config through that
+map, translates the logged actions into engine seats (an action from a seat
+that never sat down fails the replay rather than being attributed to someone
+else), and `stateToView` puts each seat back in its chair. `startStacks()`
+handles the two shapes `stacksStart` can arrive in, and the fairness panel
+takes the same map so a recorded hole card is compared against the card that
+seat was actually dealt.
 Step 0 is the deal; step k is after k actions. The engine ships pure-JS hashing
 (`@noble/hashes`), so all of this runs in the browser.
 
@@ -210,12 +265,16 @@ being poker-specific, build it in g-system, not here.
   call)`. The unit test pins it.
 - The engine's hand descriptions come from `phe` in Title Case ("One Pair").
   They are lowercased at the display site to match the house voice.
-- With no viewer seat (spectating, or a replay) the last seat still takes the
-  bottom slot, so the table reads as a table rather than a stack of seats with
-  an empty half below. `bottom` and `you` are separate in `table.tsx` for that
-  reason: only a real `view.you` gets an action bar.
-- The felt caps its column at 680 px and centres it, except in `bare` mode
-  (the replay), which fills the card it sits in.
+- With no viewer seat (spectating, or a replay) seat 0 takes the bottom slot.
+  Only a real `view.you` gets an action bar.
+- **`.seat-last` is always rendered**, empty or not. It is a grid column of its
+  own, so a label that comes and goes would otherwise shift the clock beside it.
+- The felt's inner box is `.felt-in`, not `.ring`: `.ring` is the timer's svg.
+- The felt caps its column at 680 px heads-up and 960 px on a ring, and centres
+  it, except in `bare` mode (the replay), which fills the card it sits in.
+- A six-max match carries no hand count (`format.hands` is null) and the header
+  says "Hand 12" without "of". `blindText` adds the level and the countdown to
+  the next one whenever `format.levels` holds more than one.
 - Reduced motion is respected everywhere: cards stop dealing, chips stop flying
   and ratings stop counting, but every state change stays legible. NumberFlow
   does this itself through `respectMotionPreference`.

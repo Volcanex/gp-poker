@@ -1,4 +1,4 @@
-import type { Match, MatchHandSummary, Profile } from './types.ts';
+import type { Hand, Match, MatchHandSummary, MatchSeat, Profile, UserMatchSummary } from './types.ts';
 
 /* Fields the server is adding but has not shipped yet: mean preflop accuracy
    and a total match count on /api/users/:name, and per-seat accuracy on the
@@ -32,4 +32,42 @@ export function matchHasAccuracy(match: Match): boolean {
 
 function num(v: unknown): number | null {
   return typeof v === 'number' && Number.isFinite(v) ? v : null;
+}
+
+/* Seats the server has not flagged yet are people, not bots: the mark appears
+   with the field and stays away until then. */
+export function seatIsBot(seat: MatchSeat): boolean {
+  return seat.bot === true;
+}
+
+/* A finishing position only reads as one with the size of the table beside it,
+   so both fields have to be there before "1st of 6" can be said at all. */
+export function matchPlacing(m: UserMatchSummary): { place: number; players: number } | null {
+  const place = num(m.place);
+  const players = num(m.players);
+  if (place == null || players == null || place < 1 || players < 2) return null;
+  return { place, players };
+}
+
+/* Absent is not "casual": a row that predates the field says nothing about
+   which it was, and the tag stays off. */
+export function matchRated(m: UserMatchSummary): boolean | null {
+  return typeof m.rated === 'boolean' ? m.rated : null;
+}
+
+/* Engine seat index to table seat. A heads-up hand row carries no map because
+   the two have always been the same thing, so the identity is the fallback. */
+export function liveSeats(hand: Hand): number[] {
+  const map = hand.live_seats;
+  if (Array.isArray(map) && map.length > 0 && map.every((n) => Number.isInteger(n))) return map;
+  return hand.seats.map((_, i) => i);
+}
+
+/* Starting stacks indexed the way the engine wants them, by live seat. The row
+   holds one per table seat once a table is bigger than the hand (players are
+   already out), and one per player otherwise; both read the same way for the
+   heads-up rows, which is the only shape written so far. */
+export function startStacks(hand: Hand, seatMap: number[]): number[] {
+  const perTableSeat = hand.stacksStart.length > seatMap.length;
+  return seatMap.map((seat, engineIndex) => hand.stacksStart[perTableSeat ? seat : engineIndex] ?? 0);
 }
