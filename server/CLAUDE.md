@@ -8,7 +8,8 @@ decisions; this file covers what's not obvious from the code.
 ## Structure
 - `src/config.ts` — env from the repo-root `.env` via `process.loadEnvFile`
   (no dotenv dependency). `DATABASE_URL` and `SESSION_SECRET` are required;
-  `PORT`/`HOST` default to 8130/127.0.0.1.
+  `PORT`/`HOST` default to 8130/127.0.0.1. Under vitest it resolves
+  `TEST_DATABASE_URL` instead (see "The test database").
 - `src/db.ts` — the `postgres` client (camelCase column transform both ways
   via `postgres.camel`) and every typed query the rest of the server uses.
   `applySchema()` applies `db/schema.sql` idempotently inside a transaction
@@ -412,14 +413,32 @@ Glicko-2 columns, `rating_at` and the `rating_history` row alone. The win/loss/d
 game was played, it just wasn't rated. Multiway has no draw, so first place
 counts as a win and every other place as a loss.
 
+## The rated flag has one source
+`format.rated` is the only thing that decides whether a match is rated.
+`matches.rated` is a copy of it: written from the format at insert, and
+*re-asserted from it* in `db.finishMatch`, so the column cannot end up
+disagreeing with the format it was copied from. `MatchRoom` reads
+`this.rated` (a getter over `match.format.rated`) for the rating write and
+for the `end` message, never the column.
+
+This is not hypothetical tidiness. A match played on the live server came out
+of it with `rated = false` in the row while its format said true and its
+ratings had been written and persisted: a *test run pointed at the live
+database* had called `abortStalePlayingMatches()` mid-match, which used to
+set `rated = false`, and the live server's own finish never wrote the column
+back. Two changes came out of that: the boot abort no longer touches `rated`
+(see below), and the finish re-asserts it.
+
 ## Boot-time abort
 There's no way to safely resume live in-memory hand state across a process
 restart — the queue, every `MatchRoom`, and every `HandRunner`'s `HandState`
 live only in memory. `db.abortStalePlayingMatches()` runs once at the start
 of `buildApp()`, before anything else touches the match tables: any match
 still `status = 'playing'` from a previous process is marked `'aborted'`,
-`reason: 'abort'`, `rated: false` — no rating change, no `rating_history`
-row. Whoever was mid-match just sees the match gone; there's currently no
+`reason: 'abort'` — no rating change, no `rating_history` row. It does **not**
+touch `rated`: that column means "this match's format was rated", and
+`status`/`reason` plus the absence of a `ratings` payload are what say
+whether a rating was actually written. Whoever was mid-match just sees the match gone; there's currently no
 wire message for this since it only happens to matches nobody's connected to
 by definition (the process that would broadcast it just died).
 
@@ -451,6 +470,16 @@ message (`MatchRoom` keeps the last `MatchResult` around for exactly this).
 After the linger the room is dropped from the registry entirely and a
 `join` gets `err no_match`; the match itself is still in the database.
 
+## No caching on /api
+An `onSend` hook in `buildApp` puts `Cache-Control: no-store` on every
+response whose path starts with `/api/`. Fastify sends no cache headers of
+its own, and a browser is free to apply heuristic freshness to a plain 200
+with no validators, which is enough for a client refetching `/api/me` the
+instant `end` arrives to be handed its own pre-match copy. Everything under
+`/api` is session-scoped and changes the moment a match ends, so none of it
+should ever be reused. Static assets are untouched: the static plugin sets
+its own headers.
+
 ## Building for production
 `npm run build -w server` is `tsc -p tsconfig.json` (type-check only — the
 tsconfig is `noEmit: true`) followed by `node build.mjs`. The `@opentable/*`
@@ -472,12 +501,31 @@ JSON there as its last step. `server/data/` is gitignored (generated), same
 as `server/dist/`.
 
 ## Tests
-Real Postgres from the repo-root `.env` (no mocks) — `docker compose up -d
-db` if there's none locally. Run with:
+Real Postgres, no mocks. Run with:
 
 ```
 npm test -w server
 ```
+
+### The test database
+Tests run against `TEST_DATABASE_URL` from the repo-root `.env`, **not**
+`DATABASE_URL`. `src/config.ts` picks it whenever it is running under vitest
+(`VITEST` / `NODE_ENV=test`), falling back to `DATABASE_URL` only when
+`TEST_DATABASE_URL` is unset, which is a checkout that has not been set up
+rather than the intended state. `buildApp()` applies `db/schema.sql` on first
+use, so pointing at an empty database is all the setup there is:
+
+```
+createdb opentable_test   # then put its URL in .env as TEST_DATABASE_URL
+```
+
+This is not hygiene, it is correctness. When the suite ran against the live
+database it moved the bots' real ratings (68 stray `rating_history` rows),
+left dozens of test guests behind, and — because every `makeApp()` calls
+`abortStalePlayingMatches()` — rewrote the flags of a match a real person was
+in the middle of playing. Anything that calls `buildApp()` writes to whatever
+database `config.databaseUrl` resolved to, so a suite pointed at production
+is a suite editing production.
 
 `server/test/helpers.ts` has the shared scaffolding: `makeApp()` builds a
 `buildApp()` instance without listening, `mintGuestSession` mints a guest via

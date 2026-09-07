@@ -16,8 +16,22 @@ function required(name: string): string {
   return v;
 }
 
+// Tests run against their own database. `TEST_DATABASE_URL` in the repo .env
+// points at it, and a test process is anything vitest starts. Without this a
+// test run writes to whatever the live server is using, which is how the
+// bots' ratings were once moved by a test suite rather than by poker. The
+// fallback to DATABASE_URL exists only so a checkout with no test database
+// still runs; it is not the intended setup.
+const inTest = process.env.VITEST === 'true' || process.env.NODE_ENV === 'test';
+
+function databaseUrl(): string {
+  if (inTest && process.env.TEST_DATABASE_URL) return process.env.TEST_DATABASE_URL;
+  return required('DATABASE_URL');
+}
+
 export const config = {
-  databaseUrl: required('DATABASE_URL'),
+  databaseUrl: databaseUrl(),
+  isTest: inTest,
   port: Number(process.env.PORT ?? 8130),
   host: process.env.HOST ?? '127.0.0.1',
   sessionSecret: required('SESSION_SECRET'),

@@ -41,6 +41,15 @@ export async function buildApp(): Promise<FastifyInstance> {
     },
   });
 
+  // Every /api response is session-scoped and changes the moment a match
+  // ends, so none of it may sit in a browser or proxy cache. Without this
+  // there are no cache headers at all and a client refetching /api/me right
+  // after `end` can be handed its own pre-match copy by heuristic freshness.
+  app.addHook('onSend', async (request, reply, payload) => {
+    if (request.raw.url?.startsWith('/api/')) reply.header('Cache-Control', 'no-store');
+    return payload;
+  });
+
   registerRoutes(app);
 
   app.get(

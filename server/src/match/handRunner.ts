@@ -459,7 +459,7 @@ export class EngineHandRunner implements HandRunner {
       const r = standings.get(id)!;
       return { userId: id, rating: r.rating, rd: r.rd, volatility: r.volatility, ratingAt: r.ratingAt };
     });
-    const ratings = computeMatchRatings(inputs, places, this.match.rated);
+    const ratings = computeMatchRatings(inputs, places, this.match.format.rated);
 
     this.matchOutcome = {
       winner,

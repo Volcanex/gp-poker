@@ -47,6 +47,13 @@ export class MatchRoom {
 
   private hand: HandRunner | null = null;
 
+  // The format is the only source of truth for whether this match is rated.
+  // `matches.rated` is a copy of it, re-asserted on finish; nothing reads the
+  // column to make a decision.
+  private get rated(): boolean {
+    return this.match.format.rated;
+  }
+
   constructor(match: MatchRow) {
     this.id = match.id;
     this.match = match;
@@ -266,7 +273,7 @@ export class MatchRoom {
       const r = standings.get(uid)!;
       return { userId: uid, rating: r.rating, rd: r.rd, volatility: r.volatility, ratingAt: r.ratingAt };
     });
-    const ratings = computeMatchRatings(inputs, places, this.match.rated);
+    const ratings = computeMatchRatings(inputs, places, this.rated);
     return { winner: winnerId, reason: 'forfeit', stacks, places, ratings };
   }
 
@@ -295,7 +302,7 @@ export class MatchRoom {
         userId: uid,
         place,
         outcome: result,
-        rating: this.match.rated ? { rating: r.after, rd: r.rdAfter, volatility: r.volatility } : null,
+        rating: this.rated ? { rating: r.after, rd: r.rdAfter, volatility: r.volatility } : null,
       };
     });
 
@@ -303,6 +310,7 @@ export class MatchRoom {
     await persistFinishMatch(this.id, {
       status: 'finished',
       mode: this.match.format.mode,
+      rated: this.rated,
       winner: outcome.winner,
       reason: outcome.reason,
       finalStacks: outcome.stacks,
@@ -317,7 +325,7 @@ export class MatchRoom {
       reason: outcome.reason,
       stacks: outcome.stacks,
       places: outcome.places,
-      rated: this.match.rated,
+      rated: this.rated,
       ratings: roundRatings(rawRatings),
     };
     this.lastResult = result;

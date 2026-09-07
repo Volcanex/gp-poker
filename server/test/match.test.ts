@@ -89,6 +89,22 @@ describe('a full match', () => {
       expect(match).not.toBeNull();
       expect(match!.status).toBe('finished');
       expect(match!.finalStacks).toEqual(resultA.stacks);
+      expect(match!.rated).toBe(match!.format.rated);
+
+      // The client refetches /api/me the moment `end` lands, so the rating it
+      // reads there has to be the post-match one, not the one it started with.
+      for (const session of [a, b]) {
+        const me = await app.inject({
+          method: 'GET',
+          url: '/api/me',
+          cookies: { ot_session: session.token },
+        });
+        const body = me.json();
+        expect(body.id).toBe(session.id);
+        expect(body.rating).toBe(resultA.ratings[session.id].after);
+        expect(body.ratings['heads-up'].rating).toBe(resultA.ratings[session.id].after);
+        expect(body.matches).toBe(1);
+      }
 
       const hands = await getHandsForMatch(matchId);
       expect(hands.length).toBe(match!.handsPlayed);

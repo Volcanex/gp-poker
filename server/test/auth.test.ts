@@ -22,6 +22,8 @@ describe('auth flow', () => {
     expect(body.guest).toBe(true);
     expect(body.name).toMatch(/^guest-/);
     expect(body.rating).toBe(1500);
+    // Session-scoped and always changing: never cacheable.
+    expect(res.headers['cache-control']).toBe('no-store');
     // Flat fields are the heads-up standing; the per-mode map is the real one
     // and a player with no rows yet reads as a fresh 1500/350 in both.
     expect(Object.keys(body.ratings).sort()).toEqual(['heads-up', 'six-max']);

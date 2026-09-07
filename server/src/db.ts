@@ -374,11 +374,20 @@ export async function updateMatchHandsPlayed(matchId: string, handsPlayed: numbe
 
 // Run once at boot: a match still 'playing' means the process died mid-match
 // last time around. There's no way to safely resume live hand state across a
-// restart, so these are aborted rather than rated.
+// restart, so these are aborted, and an aborted match changes nobody's
+// rating (no `ratings` jsonb, no rating_history rows).
+//
+// This deliberately does NOT touch `rated`. That column is a copy of
+// `format.rated` and nothing else; "was a rating actually written" is what
+// status/reason and the absence of a `ratings` payload say. Writing false
+// here used to make the column disagree with the format, and any process
+// running this against a database with a live match elsewhere (a test suite
+// pointed at the live URL, say) silently rewrote that match's flag
+// underneath it.
 export async function abortStalePlayingMatches(): Promise<number> {
   const rows = await sql<{ id: string }[]>`
     update matches
-    set status = 'aborted', reason = 'abort', rated = false, finished_at = now()
+    set status = 'aborted', reason = 'abort', finished_at = now()
     where status = 'playing'
     returning id
   `;
@@ -437,6 +446,7 @@ export async function getMatchesForUser(userId: string, limit = 20): Promise<Use
 export interface FinishMatchResult {
   status: 'finished' | 'aborted';
   mode: Mode; // which rating row this match settles against
+  rated: boolean; // straight from format.rated; re-asserted so the column cannot drift
   winner: string | null;
   reason: string;
   finalStacks: Record<string, number>;
@@ -458,6 +468,7 @@ export async function finishMatch(matchId: string, result: FinishMatchResult): P
     await tx`
       update matches set
         status = ${result.status},
+        rated = ${result.rated},
         winner = ${result.winner},
         reason = ${result.reason},
         final_stacks = ${sql.json(jsonb(result.finalStacks))},
