@@ -1,26 +1,39 @@
 import { describe, expect, it } from 'vitest';
-import { clamp, raisePresets } from '../table/sizing.ts';
+import { clamp, presetsFor } from '../table/sizing.ts';
 import { actionText, shortHash, streetText } from '../table/labels.ts';
+import { bestFive, handCategory } from '../table/best-five.ts';
+import { amountToCall, isLastHand, resolvePreAction, survivesRaise } from '../table/preactions.ts';
+import type { LegalActions, SeatView, TableView } from '@opentable/protocol';
+import { formatFor } from '@opentable/protocol';
 
-describe('raisePresets', () => {
+describe('bet sizes', () => {
   it('sizes a pot raise from the pot after the call', () => {
     // TableView.pot already includes the current street's bets: 98 with 52 in
     // front of the opponent and 18 in front of you. Calling costs 34, so the
     // pot after the call is 132 and a pot-sized raise is to 52 + 132 = 184.
-    const p = raisePresets({ actions: ['f', 'c', 'r'], call: 34, min: 86, max: 186 }, 98, 18);
-    expect(p.map((x) => x.label)).toEqual(['Min', '½ pot', '¾ pot', 'Pot', 'All in']);
-    expect(p.map((x) => x.value)).toEqual([86, 118, 151, 184, 186]);
+    const p = presetsFor({ actions: ['f', 'c', 'r'], call: 34, min: 86, max: 186 }, 98, 18, 'turn');
+    expect(p.map((x) => x.label)).toEqual(['Min', '⅓', '½', '⅔', 'Pot', 'All in']);
+    expect(p.map((x) => x.value)).toEqual([86, 96, 118, 140, 184, 186]);
   });
 
-  it('collapses sizes that land on the same number', () => {
-    // Preflop on the button: the minimum raise and a half-pot raise are both 4.
-    const p = raisePresets({ actions: ['f', 'c', 'r'], call: 1, min: 4, max: 200 }, 3, 1);
-    expect(p.map((x) => x.label)).toEqual(['Min', '¾ pot', 'Pot', 'All in']);
+  it('thinks in multiples of the bet before the flop', () => {
+    // Opening on the button: the big blind is 2, so 3x is a raise to 6.
+    const p = presetsFor({ actions: ['f', 'c', 'r'], call: 1, min: 4, max: 200 }, 3, 1, 'pre');
+    expect(p.map((x) => x.label)).toEqual(['Min', '2x', '2.5x', '3x', 'Pot', 'All in']);
+    expect(p.map((x) => x.value)).toEqual([4, 4, 5, 6, 6, 200]);
   });
 
-  it('never offers a size outside the legal range', () => {
-    const p = raisePresets({ actions: ['b'], call: 0, min: 2, max: 9 }, 400, 0);
+  /* Six slots always, in the same order, because the number keys address them.
+     Two slots landing on the same number costs nothing now that a preset only
+     writes into the field and the button underneath says what will be sent. */
+  it('keeps its six slots even when short stacks collapse the sizes', () => {
+    const p = presetsFor({ actions: ['b'], call: 0, min: 2, max: 9 }, 400, 0, 'flop');
+    expect(p).toHaveLength(6);
     expect(p.every((x) => x.value >= 2 && x.value <= 9)).toBe(true);
+  });
+
+  it('offers nothing when there is no raise to make', () => {
+    expect(presetsFor({ actions: ['f', 'c'], call: 56, min: 0, max: 0 }, 71, 6, 'pre')).toEqual([]);
   });
 });
 
@@ -29,6 +42,98 @@ describe('clamp', () => {
     expect(clamp(1, 4, 10)).toBe(4);
     expect(clamp(99, 4, 10)).toBe(10);
     expect(clamp(7, 4, 10)).toBe(7);
+  });
+});
+
+describe('the five that count', () => {
+  it('picks the flush over the pair it could have made', () => {
+    // Kh 9h with 7h 2c Jh Td 4h: four hearts and a king high flush.
+    const five = bestFive(['Kh', '9h', '7h', '2c', 'Jh', 'Td', '4h']);
+    expect(new Set(five)).toEqual(new Set(['Kh', '9h', '7h', 'Jh', '4h']));
+    expect(handCategory(five)).toBe('flush');
+  });
+
+  it('reads trips over two pair on a paired board', () => {
+    const five = bestFive(['Ac', 'Qd', 'Qs', '9c', '4d', 'Qh', '2s']);
+    expect(new Set(five)).toEqual(new Set(['Qd', 'Qs', 'Qh', 'Ac', '9c']));
+    expect(handCategory(five)).toBe('three of a kind');
+  });
+
+  it('counts the wheel as a straight and the ace as its low card', () => {
+    expect(handCategory(bestFive(['Ah', '2c', '3d', '4s', '5h']))).toBe('straight');
+  });
+
+  it('prefers the higher straight when both are there', () => {
+    const five = bestFive(['9c', '8d', '7s', '6h', '5c', '4d', '3h']);
+    expect(new Set(five)).toEqual(new Set(['9c', '8d', '7s', '6h', '5c']));
+  });
+
+  it('has no answer for fewer than five cards', () => {
+    expect(bestFive(['Ah', 'Kd'])).toEqual([]);
+    expect(handCategory([])).toBe('');
+  });
+});
+
+/* ------------------------------------------------------------ pre-actions */
+
+const seat = (extra: Partial<SeatView>): SeatView => ({
+  i: 0, uid: 'u', name: 'n', rating: 1500, stack: 100, bet: 0, cards: null,
+  folded: false, allin: false, button: false, acting: false, connected: true,
+  bot: false, out: false, place: null, last: null, ...extra,
+});
+
+const view = (seats: SeatView[], extra: Partial<TableView> = {}): TableView => ({
+  m: 'm', h: 3, n: 1, street: 'flop', board: [], pot: 0, pots: [], seats, you: 0,
+  legal: null, clock: null, seedHash: 'h', seed: null, format: formatFor('heads-up', true),
+  blinds: { sb: 1, bb: 2 }, handsPlayed: 2, last: null, result: null, ...extra,
+});
+
+const legal = (extra: Partial<LegalActions>): LegalActions =>
+  ({ actions: ['f', 'c', 'r'], call: 12, min: 24, max: 200, ...extra });
+
+describe('pre-actions', () => {
+  it('reads the price off the seats, because legal is only there on your turn', () => {
+    expect(amountToCall(view([seat({ i: 0, bet: 6 }), seat({ i: 1, bet: 20 })]))).toBe(14);
+    expect(amountToCall(view([seat({ i: 0, bet: 20 }), seat({ i: 1, bet: 20 })]))).toBe(0);
+  });
+
+  it('checks when it can and folds when it cannot', () => {
+    expect(resolvePreAction('check-fold', legal({ actions: ['x', 'b'] }))).toBe('x');
+    expect(resolvePreAction('check-fold', legal({ actions: ['f', 'c', 'r'] }))).toBe('f');
+  });
+
+  it('calls any bet, and checks when there is nothing to call', () => {
+    expect(resolvePreAction('call-any', legal({ actions: ['f', 'c', 'r'] }))).toBe('c');
+    expect(resolvePreAction('call-any', legal({ actions: ['x', 'b'] }))).toBe('x');
+  });
+
+  it('folds to a bet and checks when nobody bet, which is what the words say', () => {
+    expect(resolvePreAction('fold-any', legal({ actions: ['f', 'c', 'r'], call: 12 }))).toBe('f');
+    expect(resolvePreAction('fold-any', legal({ actions: ['x', 'b'], call: 0 }))).toBe('x');
+  });
+
+  it('voids only the pill that assumed nobody would bet', () => {
+    expect(survivesRaise('check-fold')).toBe(false);
+    expect(survivesRaise('call-any')).toBe(true);
+    expect(survivesRaise('fold-any')).toBe(true);
+  });
+});
+
+describe('the last hand', () => {
+  it('knows the match ends when only one stack is left', () => {
+    expect(isLastHand(view([seat({ i: 0, stack: 200 }), seat({ i: 1, stack: 0 })]))).toBe(true);
+    expect(isLastHand(view([seat({ i: 0, stack: 100 }), seat({ i: 1, stack: 100 })]))).toBe(false);
+  });
+
+  it('knows a heads-up match ends at its distance', () => {
+    const seats = [seat({ i: 0, stack: 100 }), seat({ i: 1, stack: 100 })];
+    expect(isLastHand(view(seats, { h: 25 }))).toBe(true);
+    expect(isLastHand(view(seats, { h: 24 }))).toBe(false);
+  });
+
+  it('never promises an end to a sit and go that has players left', () => {
+    const seats = [0, 1, 2].map((i) => seat({ i, stack: 100 }));
+    expect(isLastHand(view(seats, { h: 90, format: formatFor('six-max', true) }))).toBe(false);
   });
 });
 

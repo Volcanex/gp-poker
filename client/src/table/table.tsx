@@ -1,14 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import NumberFlow from '@number-flow/react';
 import { Link } from 'react-router-dom';
-import type { ActionKind, TableView } from '@opentable/protocol';
+import type { ActionKind, Card, TableView } from '@opentable/protocol';
 import { Seat } from './seat.tsx';
 import { PlayingCard } from './playing-card.tsx';
-import { ActionBar } from './action-bar.tsx';
-import { blindText, cardsOf, handText, ordinal, shortHash, streetText } from './labels.ts';
+import { Dock, KeyLegend } from './dock.tsx';
+import { blindText, cardsOf, handText, shortHash, streetText } from './labels.ts';
 import { dealOrder, layoutMode, seatOrder, slotAt } from './layout.ts';
+import { bestFive, handCategory } from './best-five.ts';
 import { useGInit } from '../ui/bits.tsx';
 
 export interface TableProps {
@@ -18,13 +19,22 @@ export interface TableProps {
   /* The replay supplies its own hand header and its own controls, so it asks
      for the felt on its own. */
   bare?: boolean;
+  /* The match is over: the felt stays on screen behind the result panel. */
+  ended?: boolean;
 }
 
 interface Flight { id: number; seat: number; amount: number }
 
 const BOARD_SLOTS = 5;
 
-export function Table({ view, onAct, sending, bare }: TableProps) {
+/* The hand-end sequence, in the order the eye needs it: the cards turn over,
+   then the five that count are outlined and the rest of the board goes quiet,
+   then the chips move. Each number is the moment that step starts. */
+const REVEAL_MS = 0;
+const HIGHLIGHT_MS = 400;
+const SETTLE_MS = 700;
+
+export function Table({ view, onAct, sending, bare, ended }: TableProps) {
   const reduced = useReducedMotion();
   const headRef = useRef<HTMLDivElement>(null);
   useGInit(headRef);
@@ -34,7 +44,6 @@ export function Table({ view, onAct, sending, bare }: TableProps) {
      an ellipse, and both come out of the same markup. */
   const order = seatOrder(view.seats, view.you);
   const mode = layoutMode(order.length);
-  const you = view.you == null ? null : view.seats.find((s) => s.i === view.you) ?? null;
   const button = view.seats.find((s) => s.button)?.i ?? 0;
   const deal = dealOrder(view.seats, button);
   const dealt = Math.max(1, deal.size);
@@ -67,19 +76,27 @@ export function Table({ view, onAct, sending, bare }: TableProps) {
 
   const board = Array.from({ length: BOARD_SLOTS }, (_, i) => view.board[i] ?? null);
   const result = view.street === 'done' ? view.result : null;
-  const canAct = view.legal != null && you != null;
+  const phase = useHandEnd(result ? `${view.m}:${view.h}` : null, reduced);
+
+  const show = useShowdown(view, result, phase);
+
+  const potShown = phase >= 2 ? 0 : view.pot;
+  const settled = phase >= 2;
 
   return (
-    <div className="match" data-bare={bare ? '' : undefined}>
+    <div className="match" data-bare={bare ? '' : undefined} data-ended={ended ? '' : undefined}>
       {!bare && (
       <div className="hand-head" ref={headRef}>
        <div className="bar-in">
         <span className="n">{handText(view.h, view.format.hands)}</span>
         <span className="dot">·</span>
-        <span>{streetText(view.street)}</span>
+        <span className="street">{streetText(view.street)}</span>
         <span className="dot">·</span>
         <span className="num">{blindText(view.format, view.blinds, view.h)}</span>
         <span className="spacer" style={{ flex: 1 }} />
+        {/* Both controls are always here. Verify used to appear beside Copy the
+            moment the seed was published, which moved the header at the end of
+            every hand. */}
         <span className="seed">
           <code title={view.seedHash}>{shortHash(view.seedHash)}</code>
           <button
@@ -90,10 +107,14 @@ export function Table({ view, onAct, sending, bare }: TableProps) {
           >
             <span className="copy-label">Copy</span>
           </button>
-          {view.seed && (
+          {view.seed ? (
             <Link className="btn btn-tertiary btn-sm" to={`/m/${view.m}/h/${view.h}`}>
               Verify
             </Link>
+          ) : (
+            <span className="btn btn-tertiary btn-sm" aria-disabled="true" title="Published when the hand completes">
+              Verify
+            </span>
           )}
         </span>
        </div>
@@ -104,6 +125,8 @@ export function Table({ view, onAct, sending, bare }: TableProps) {
         <div className="felt-in">
           {order.map((s, k) => {
             const slot = slotAt(k, order.length);
+            const award = show.awarded.get(s.i) ?? 0;
+            const seat = settled || award === 0 ? s : { ...s, stack: s.stack - award };
             return (
               <div
                 className="pos"
@@ -121,7 +144,7 @@ export function Table({ view, onAct, sending, bare }: TableProps) {
                   )}
                 </div>
                 <Seat
-                  seat={s}
+                  seat={seat}
                   you={s.i === view.you}
                   clock={view.clock}
                   format={view.format}
@@ -131,6 +154,9 @@ export function Table({ view, onAct, sending, bare }: TableProps) {
                   dealAt={deal.get(s.i) ?? 0}
                   seatCount={dealt}
                   origin={mode === 'ring' ? { x: slot.ox, y: slot.oy } : undefined}
+                  best={show.best}
+                  handLabel={show.names.get(s.i) ?? null}
+                  snap={flights.length > 0}
                 />
               </div>
             );
@@ -140,7 +166,7 @@ export function Table({ view, onAct, sending, bare }: TableProps) {
             <div className="pot">
               <span className="k">Pot</span>
               <span className="v">
-                <NumberFlow value={view.pot} respectMotionPreference />
+                <NumberFlow value={potShown} respectMotionPreference />
               </span>
               {view.pots.length > 1 && (
                 <span className="pot-side">{view.pots.map((p) => p.amount).join(' + ')}</span>
@@ -164,53 +190,115 @@ export function Table({ view, onAct, sending, bare }: TableProps) {
 
             <div className="board">
               {board.map((c, i) => (
-                <PlayingCard key={`${view.h}-b${i}`} card={c} index={Math.max(0, i - 2)} />
+                <PlayingCard
+                  key={`${view.h}-b${i}`}
+                  card={c}
+                  index={Math.max(0, i - 2)}
+                  best={c != null && show.best.size > 0 && show.best.has(c)}
+                  dim={c != null && show.best.size > 0 && !show.best.has(c)}
+                />
               ))}
             </div>
 
-            {result && (
-              <div className="showdown">
-                {result.awards.map((a) => {
-                  const seat = view.seats.find((s) => s.i === a.seat);
-                  return (
-                    <span className="w" key={`${a.seat}-${a.amount}`}>
-                      {seat?.name ?? `Seat ${a.seat}`} wins <span className="num">{a.amount}</span>
-                      {a.hand ? ` with ${a.hand.toLowerCase()}` : ''}
-                    </span>
-                  );
-                })}
-                <span className="d">Next hand shortly</span>
-              </div>
-            )}
+            {/* The pot's chips land here, below the figure and clear of the
+                label they used to cover. The zone holds its height in every
+                street so nothing on the felt moves when a hand is awarded. */}
+            <div className="award-zone">
+              <AnimatePresence>
+                {settled && show.awards.map((a) => (
+                  <motion.span
+                    key={`${a.seat}-${a.amount}`}
+                    className="badge num award-chip"
+                    initial={reduced ? false : { y: -54, opacity: 0, scale: 0.9 }}
+                    animate={{ y: 0, opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.34, ease: [0.2, 0, 0, 1] }}
+                  >
+                    {a.amount} to {view.seats.find((s) => s.i === a.seat)?.name ?? `seat ${a.seat}`}
+                  </motion.span>
+                ))}
+              </AnimatePresence>
+            </div>
           </div>
         </div>
       </div>
 
-      {bare ? null : canAct && view.legal ? (
-        <ActionBar
-          legal={view.legal}
-          pot={view.pot}
-          myBet={you?.bet ?? 0}
-          disabled={sending}
-          onAct={onAct}
-        />
-      ) : (
-        <div className="waiting-bar">{waitingText(view)}</div>
+      {!bare && !ended && (
+        <>
+          <Dock view={view} onAct={onAct} sending={sending} />
+          <KeyLegend />
+        </>
       )}
     </div>
   );
 }
 
-function waitingText(view: TableView): string {
-  if (view.you == null) return 'Spectating. Actions are hidden for watchers.';
-  const mine = view.seats.find((s) => s.i === view.you);
-  if (mine?.out) {
-    return mine.place == null
-      ? 'You are out. The table plays on.'
-      : `You finished ${ordinal(mine.place)}. The table plays on.`;
-  }
-  if (view.street === 'done') return 'Hand over. The next one deals in a moment.';
-  const acting = view.seats.find((s) => s.acting);
-  if (acting && acting.i !== view.you) return `Waiting for ${acting.name}`;
-  return 'Waiting for the next card';
+/* Which step of the hand-end sequence we are on: 0 reveal, 1 highlight,
+   2 settle. Reduced motion lands on the last step immediately, which is the
+   same information with none of the staging. */
+function useHandEnd(key: string | null, reduced: boolean | null): number {
+  const [phase, setPhase] = useState(0);
+  useEffect(() => {
+    if (key == null) {
+      setPhase(0);
+      return;
+    }
+    if (reduced) {
+      setPhase(2);
+      return;
+    }
+    setPhase(0);
+    const timers = [
+      setTimeout(() => setPhase(1), HIGHLIGHT_MS - REVEAL_MS),
+      setTimeout(() => setPhase(2), SETTLE_MS - REVEAL_MS),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, [key, reduced]);
+  return phase;
+}
+
+interface Showdown {
+  best: ReadonlySet<Card>; // the five that made the winning hand
+  names: Map<number, string>; // hand name beside each seat that showed
+  awarded: Map<number, number>; // what each seat was just paid
+  awards: { seat: number; amount: number }[];
+}
+
+const EMPTY_SHOWDOWN: Showdown = {
+  best: new Set(), names: new Map(), awarded: new Map(), awards: [],
+};
+
+/* An uncontested pot shows nothing and skips the highlight: there is no
+   winning five to point at when only one hand was ever live. */
+function useShowdown(view: TableView, result: TableView['result'], phase: number): Showdown {
+  return useMemo(() => {
+    if (!result) return EMPTY_SHOWDOWN;
+
+    const awarded = new Map<number, number>();
+    for (const a of result.awards) awarded.set(a.seat, (awarded.get(a.seat) ?? 0) + a.amount);
+    const awards = result.awards.map((a) => ({ seat: a.seat, amount: a.amount }));
+
+    const shown = Object.entries(result.shown ?? {});
+    if (phase < 1 || shown.length < 2) {
+      return { best: new Set(), names: new Map(), awarded, awards };
+    }
+
+    const board = view.board.filter((c): c is Card => typeof c === 'string');
+    const names = new Map<number, string>();
+    let best: ReadonlySet<Card> = new Set();
+
+    for (const [key, holes] of shown) {
+      const seat = Number(key);
+      const five = bestFive([...holes, ...board]);
+      const win = result.awards.find((a) => a.seat === seat);
+      if (win) {
+        names.set(seat, (win.hand ?? handCategory(five)).toLowerCase());
+        if (five.length === 5 && best.size === 0) best = new Set(five);
+      } else {
+        names.set(seat, handCategory(five));
+      }
+    }
+
+    return { best, names, awarded, awards };
+  }, [result, phase, view.board]);
 }

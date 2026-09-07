@@ -5,3 +5,4 @@ dist/
 data/
 release/
 !packages/preflop/data/
+client/test-results/

@@ -101,7 +101,7 @@ function viewer(players: Player[], you: number, hole: Card[], format: MatchForma
       seed: spec.seed ?? null,
       format,
       blinds: blindsOf(h),
-      handsPlayed: h - 1,
+      handsPlayed: spec.street === 'done' ? h : h - 1,
       last: spec.last ?? null,
       result: spec.result ?? null,
     };
@@ -127,6 +127,10 @@ const YOU = 1;
 const HU_BOARD: Card[] = ['7h', '2c', 'Jh', 'Td', '4h'];
 const HU_HOLE: Card[] = ['Kh', '9h'];
 const HU_OPP_CARDS: Card[] = ['As', 'Qd'];
+/* Hand two runs out a board that beats you, so the mock carries a showdown
+   you lose as well as one you win. */
+const H2_BOARD: Card[] = ['Qs', '9c', '4d', 'Qh', '2s'];
+const H2_OPP_CARDS: Card[] = ['Ac', 'Qd'];
 
 function headsUpScript(): MockStep[] {
   const format = formatFor('heads-up', true);
@@ -314,9 +318,9 @@ function headsUpScript(): MockStep[] {
     },
     {
       delay: 2400,
-      label: 'Hand two deals',
+      label: 'The last hand deals',
       view: view({
-        h: 2, n: 1, street: 'pre', board: [], pot: 3, seedHash: HASH2,
+        h: 25, n: 1, street: 'pre', board: [], pot: 3, seedHash: HASH2,
         seats: [
           { stack: 132, bet: 1, acting: true, button: true },
           { stack: 264, bet: 2 },
@@ -326,12 +330,57 @@ function headsUpScript(): MockStep[] {
       }),
     },
     {
+      delay: 1800,
+      label: 'The last hand, the button raises and it is on you',
+      view: view({
+        h: 25, n: 2, street: 'pre', board: [], pot: 8, seedHash: HASH2,
+        seats: [
+          { stack: 126, bet: 6, button: true, last: { a: 'r', v: 6 } },
+          { stack: 264, bet: 2, acting: true },
+        ],
+        legal: { actions: ['f', 'c', 'r'], call: 4, min: 10, max: 264 },
+        clockSeat: YOU,
+        last: { k: 'act', seat: OPP, a: 'r', v: 6 },
+      }),
+    },
+    {
+      delay: 2000,
+      label: 'You call and it checks down to the river',
+      view: view({
+        h: 25, n: 3, street: 'showdown', board: H2_BOARD, pot: 12, seedHash: HASH2,
+        seats: [
+          { stack: 126, button: true, cards: H2_OPP_CARDS },
+          { stack: 258, last: { a: 'x' } },
+        ],
+        last: { k: 'showdown', cards: H2_OPP_CARDS },
+      }),
+    },
+    {
+      /* A showdown you lose, held on screen: this is the moment the audit
+         found the old table threw away. */
+      delay: 3000,
+      label: 'You lose the showdown, the last hand of the match',
+      view: view({
+        h: 25, n: 4, street: 'done', board: H2_BOARD, pot: 12, seedHash: HASH2,
+        seed: SEED1,
+        seats: [
+          { stack: 138, button: true, cards: H2_OPP_CARDS },
+          { stack: 258 },
+        ],
+        result: {
+          awards: [{ seat: OPP, amount: 12, hand: 'three of a kind, queens' }],
+          shown: { [OPP]: H2_OPP_CARDS, [YOU]: HU_HOLE },
+        },
+        last: { k: 'award', seat: OPP, v: 12 },
+      }),
+    },
+    {
       delay: 0,
       label: 'Match result',
       end: {
         winner: 'u-you',
         reason: 'hands',
-        stacks: { 'u-you': 266, 'u-opp': 134 },
+        stacks: { 'u-you': 258, 'u-opp': 138 },
         places: { 'u-you': 1, 'u-opp': 2 },
         rated: true,
         ratings: {
@@ -357,6 +406,9 @@ const ME = 2;
 const SIX_HOLE: Card[] = ['Ah', 'Kd'];
 const BUST_CARDS: Card[] = ['Qs', 'Qc'];
 const SIX_BOARD: Card[] = ['Kc', '7s', '2d', 'Th', '5c'];
+/* The hand the table ends on: everyone in, aces hold. */
+const SIX_END_BOARD: Card[] = ['Ad', '8c', '3h', 'Tc', '2s'];
+const SIX_END_HOLE: Card[] = ['Ah', 'Td'];
 
 /* Hand 8 is the last of level one, so the header counts down to the change and
    hand 9 opens on the new blinds. */
@@ -476,6 +528,32 @@ function sixMaxScript(): MockStep[] {
       }),
     },
     {
+      /* Four opponents all in on one hand is the only way a sit and go ends in
+         a single step, and the last hand is held on screen like any other. */
+      delay: 3200,
+      label: 'Everyone is in, the aces hold and the table is yours',
+      view: view({
+        h: 9, n: 9, street: 'done', board: SIX_END_BOARD, pot: 1200, seedHash: HASH2,
+        seed: SEED1,
+        seats: [
+          { stack: 0, out: true, place: 3, cards: ['Jc', 'Jd'] },
+          { stack: 0, out: true, place: 4, cards: ['9s', '9d'] },
+          { stack: 1200, cards: SIX_END_HOLE },
+          { stack: 0, out: true, place: 6, cards: null },
+          { stack: 0, out: true, place: 5, cards: ['7c', '7h'] },
+          { stack: 0, out: true, place: 2, button: true, cards: ['Ks', 'Qs'] },
+        ],
+        result: {
+          awards: [{ seat: ME, amount: 1200, hand: 'two pair, aces and tens' }],
+          shown: {
+            0: ['Jc', 'Jd'], 1: ['9s', '9d'], [ME]: SIX_END_HOLE,
+            4: ['7c', '7h'], 5: ['Ks', 'Qs'],
+          },
+        },
+        last: { k: 'award', seat: ME, v: 1200 },
+      }),
+    },
+    {
       delay: 0,
       label: 'Match result',
       end: {
@@ -487,7 +565,7 @@ function sixMaxScript(): MockStep[] {
         },
         places: {
           'u-you': 1, 'u-quarrel': 2, 'u-dredger': 3,
-          'u-pellmell': 4, 'u-hexmark': 5, 'u-ninecut': 6,
+          'u-hexmark': 4, 'u-pellmell': 5, 'u-ninecut': 6,
         },
         rated: true,
         ratings: {

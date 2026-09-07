@@ -14,6 +14,7 @@ import { MODES, MODE_NAME, ModeTabs } from '../ui/mode-tabs.tsx';
 import { ordinal } from '../table/labels.ts';
 import { deltaTone } from '../ui/bits.tsx';
 import { ClaimCard } from '../ui/auth.tsx';
+import { Avatar } from '../ui/avatar.tsx';
 
 export function Profile() {
   const { name = '' } = useParams();
@@ -76,6 +77,7 @@ export function Profile() {
     <main className="page wide stack">
       <header className="profile-head">
         <div className="profile-name">
+          <Avatar seed={data.summary.id} name={data.summary.name} size={56} />
           <h1 className="h1">{data.summary.name}</h1>
         </div>
         {/* One standing per mode: a six-max result never moves a heads-up
@@ -198,7 +200,10 @@ export function Profile() {
                         {multiway && placing ? (
                           <span className="muted">{placing.players} players</span>
                         ) : (
-                          <Link to={`/u/${encodeURIComponent(m.opponent)}`}>{m.opponent}</Link>
+                          <span className="player-cell">
+                            <Avatar seed={m.opponent} name={m.opponent} size={24} />
+                            <Link to={`/u/${encodeURIComponent(m.opponent)}`}>{m.opponent}</Link>
+                          </span>
                         )}
                       </td>
                       <td>

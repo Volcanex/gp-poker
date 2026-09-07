@@ -1,9 +1,10 @@
 import type { Card, MatchFormat, SeatView, TableView } from '@opentable/protocol';
 import NumberFlow from '@number-flow/react';
 import { PlayingCard } from './playing-card.tsx';
-import { TimerRing } from './timer-ring.tsx';
+import { TurnBar, TurnSeconds } from './turn-clock.tsx';
 import { actionText, ordinal } from './labels.ts';
 import { useFading } from '../ui/bits.tsx';
+import { Avatar } from '../ui/avatar.tsx';
 import { int } from '../ui/format.ts';
 
 export interface SeatProps {
@@ -17,13 +18,25 @@ export interface SeatProps {
   dealAt?: number; // this seat's place in the deal, for the stagger
   seatCount?: number; // cards go round the table once before the second card
   origin?: { x: number; y: number }; // where this seat's cards are dealt from
+  /* Showdown: the five cards that made the winning hand, and the name to put
+     beside the seat once they are outlined. */
+  best?: ReadonlySet<Card>;
+  handLabel?: string | null;
+  /* Chips are in the air: the stack shows the number it will settle on with no
+     transition, because digits tumbling while a chip flies is the overlap the
+     audit caught. */
+  snap?: boolean;
 }
 
-export function Seat({ seat, you, clock, format, reveal, n, handNo, dealAt = 0, seatCount = 1, origin }: SeatProps) {
+export function Seat({
+  seat, you, clock, format, reveal, n, handNo,
+  dealAt = 0, seatCount = 1, origin, best, handLabel, snap,
+}: SeatProps) {
   const acting = seat.acting;
   const onClock = clock && clock.seat === seat.i ? clock : null;
   const last = seat.last;
-  const label = useFading(last ? actionText(last.a, last.v) : null, `${handNo}:${n}:${seat.i}`);
+  const faded = useFading(last ? actionText(last.a, last.v) : null, `${handNo}:${n}:${seat.i}`);
+  const label = handLabel ?? faded;
   const cards: (Card | null)[] = reveal ?? seat.cards ?? [null, null];
 
   return (
@@ -33,25 +46,37 @@ export function Seat({ seat, you, clock, format, reveal, n, handNo, dealAt = 0, 
       data-folded={seat.folded ? '' : undefined}
       data-out={seat.out ? '' : undefined}
     >
+      {acting && onClock && (
+        <TurnBar deadline={onClock.deadline} totalMs={format.clockMs} paused={onClock.paused} />
+      )}
+
       <div className="seat-cards">
         {cards.map((c, i) => (
           <PlayingCard
-            key={`${handNo}-${seat.i}-${i}`}
+            /* Turning face up is a remount, which is what makes the flip run
+               where the card already lies rather than dealing it again. */
+            key={`${handNo}-${seat.i}-${i}-${reveal ? 'up' : 'down'}`}
             card={c}
             index={dealAt + i * seatCount}
             dim={seat.folded}
+            best={c != null && best != null && best.has(c)}
+            flip={reveal != null}
             origin={origin}
           />
         ))}
       </div>
 
+      <Avatar seed={seat.uid || seat.name} name={seat.name} size={28} />
+
       <div className="seat-id">
         <span className="seat-line">
           <span className="seat-name">{seat.name}</span>
-          {seat.bot && <span className="seat-bot">bot</span>}
           {you && <span className="seat-you">you</span>}
+          {/* Always here, hidden when the button is elsewhere: a marker that
+              comes and goes moves every badge after it once a hand. */}
+          <span className="btn-marker" title="Button" data-off={seat.button ? undefined : ''}>D</span>
+          {seat.bot && <span className="seat-bot">bot</span>}
           {seat.rating > 0 && <span className="seat-rating num">{int(seat.rating)}</span>}
-          {seat.button && <span className="btn-marker" title="Button">D</span>}
           {!seat.connected && <span className="seat-off">Disconnected</span>}
         </span>
         {seat.out ? (
@@ -60,8 +85,14 @@ export function Seat({ seat, you, clock, format, reveal, n, handNo, dealAt = 0, 
             <span className="u">{seat.place == null ? '' : 'out'}</span>
           </span>
         ) : (
-          <span className="seat-stack">
-            <NumberFlow value={seat.stack} respectMotionPreference />
+          <span className="seat-stack num">
+            {/* The digits get a fixed slot so the word beside them does not
+                slide every time a stack changes size. */}
+            <span className="stack-v">
+              {snap ? seat.stack : (
+                <NumberFlow value={seat.stack} format={{ useGrouping: false }} respectMotionPreference />
+              )}
+            </span>
             <span className="u">{seat.allin ? 'all in' : 'units'}</span>
           </span>
         )}
@@ -69,11 +100,11 @@ export function Seat({ seat, you, clock, format, reveal, n, handNo, dealAt = 0, 
 
       <span className="seat-last">{label}</span>
 
-      <div className="seat-right">
-        {onClock && (
-          <TimerRing deadline={onClock.deadline} totalMs={format.clockMs} paused={onClock.paused} />
+      <span className="seat-clock">
+        {acting && onClock && (
+          <TurnSeconds deadline={onClock.deadline} totalMs={format.clockMs} paused={onClock.paused} />
         )}
-      </div>
+      </span>
     </div>
   );
 }

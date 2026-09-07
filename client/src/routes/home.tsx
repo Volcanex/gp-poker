@@ -11,6 +11,7 @@ import { elapsed, useNow } from '../ui/bits.tsx';
 import { int } from '../ui/format.ts';
 import { useTitle } from '../ui/title.ts';
 import { Link, useLocation } from 'react-router-dom';
+import { Avatar } from '../ui/avatar.tsx';
 
 /* The line under each mode's name is built from that mode's format, so the
    promise on the card cannot drift from the match it starts. */
@@ -234,7 +235,10 @@ function Leaderboard({ mode }: { mode: Mode }) {
                     <td className="r">{i + 1}</td>
                     <td>
                       {list ? (
-                        <Link to={`/u/${encodeURIComponent(r.name)}`}>{r.name}</Link>
+                        <span className="player-cell">
+                          <Avatar seed={r.name} name={r.name} size={24} />
+                          <Link to={`/u/${encodeURIComponent(r.name)}`}>{r.name}</Link>
+                        </span>
                       ) : (
                         <span className="skeleton skeleton-text" style={{ width: 96 }} />
                       )}

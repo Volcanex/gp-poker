@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import type { ActionKind, Mode, TableView } from '@opentable/protocol';
 import { Table } from '../table/table.tsx';
-import { MatchSummary, matchFromEnd } from '../table/match-summary.tsx';
+import { HandsSection, MatchSummary, matchFromEnd } from '../table/match-summary.tsx';
+import { ResultPanel } from '../table/result-panel.tsx';
 import type { Match as MatchData } from '../net/types.ts';
 import { api } from '../net/api.ts';
 import { useServerMsg, useSession } from '../net/session.tsx';
@@ -28,31 +29,41 @@ function numOrNull(v: string | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function scrollToHands() {
+  document.getElementById('hands')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 /* ----------------------------------------------------------------- live */
 
 function LiveMatch({ id }: { id: string }) {
   const { send, me, offline, conn, startQueue } = useSession();
   const nav = useNavigate();
   const [view, setView] = useState<TableView | null>(null);
-  const [finished, setFinished] = useState<MatchData | null>(null);
+  /* Two different endings. `ended` is the match finishing while you are at the
+     table: the felt stays, dimmed, and the result slides in under it. `opened`
+     is arriving at a match that finished some time ago, which has no table to
+     keep. */
+  const [ended, setEnded] = useState<MatchData | null>(null);
+  const [opened, setOpened] = useState<MatchData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const pending = useRef<string | null>(null);
+  const latest = useRef<TableView | null>(null);
   useTitle(`Match ${id}`);
 
   /* The match row decides which of the two pages this is. A finished match
      never opens a socket subscription; a playing one never waits on REST. */
   useEffect(() => {
     let live = true;
-    setFinished(null);
+    setOpened(null);
     setLoadError(null);
     api
       .match(id)
       .then((m) => {
         if (!live) return;
         if (m.status === 'playing') send({ t: 'join', m: id });
-        else setFinished(m);
+        else setOpened(m);
       })
       .catch((e: Error) => {
         if (!live) return;
@@ -74,14 +85,26 @@ function LiveMatch({ id }: { id: string }) {
         pending.current = null;
         setSending(false);
       }
+      latest.current = m.s;
       setView(m.s);
       setError(null);
     } else if (m.t === 'end' && m.m === id) {
-      const fallback = view ? matchFromEnd(view, m.r) : null;
+      /* The server holds the last hand on screen before it sends this, so the
+         table below the panel is showing the hand that decided the match. */
+      const last = latest.current;
+      const fallback = last ? matchFromEnd(last, m.r) : null;
       api
         .match(id)
-        .then((full) => setFinished(full.status === 'playing' ? (fallback ?? full) : full))
-        .catch(() => fallback && setFinished(fallback));
+        .then((full) => {
+          const settled = full.status === 'playing' ? (fallback ?? full) : full;
+          if (last) setEnded(settled);
+          else setOpened(settled);
+        })
+        .catch(() => {
+          if (!fallback) return;
+          if (last) setEnded(fallback);
+          else setOpened(fallback);
+        });
     } else if (m.t === 'err') {
       pending.current = null;
       setSending(false);
@@ -100,12 +123,13 @@ function LiveMatch({ id }: { id: string }) {
   );
 
   /* Play again means the match just played: the same mode, rated or not. */
+  const done = ended ?? opened;
   const playAgain = useCallback(() => {
-    startQueue(finished?.format.mode, finished?.rated);
+    startQueue(done?.format.mode, done?.rated);
     nav('/');
-  }, [startQueue, nav, finished]);
+  }, [startQueue, nav, done]);
 
-  if (finished) return <MatchSummary match={finished} meId={me?.id ?? null} onAgain={playAgain} />;
+  if (opened) return <MatchSummary match={opened} meId={me?.id ?? null} onAgain={playAgain} />;
 
   if (offline && !view) return <Pending text="The table server is not answering. Reload once it is back." />;
   if (!view) {
@@ -119,8 +143,22 @@ function LiveMatch({ id }: { id: string }) {
 
   return (
     <>
-      <Table view={view} onAct={onAct} sending={sending} />
-      {error && <div className="waiting-bar" role="alert">{error}</div>}
+      <Table view={view} onAct={onAct} sending={sending} ended={ended != null} />
+      {ended ? (
+        <>
+          <ResultPanel
+            match={ended}
+            meId={me?.id ?? null}
+            onAgain={playAgain}
+            onReview={scrollToHands}
+          />
+          <main className="page">
+            <HandsSection match={ended} />
+          </main>
+        </>
+      ) : (
+        error && <div className="dock-error" role="alert">{error}</div>
+      )}
     </>
   );
 }
@@ -167,29 +205,37 @@ function MockMatch({ step, mode, rated }: { step: number | null; mode: Mode; rat
     return { ...base, clock: { ...base.clock, deadline: enteredAt + base.format.clockMs } };
   }, [base, enteredAt]);
 
+  const replay = useCallback(() => {
+    setI(0);
+    setEnteredAt(Date.now());
+    nav(mode === 'six-max' ? '/m/mock?mode=six-max' : '/m/mock');
+  }, [nav, mode]);
+
   if (!view) return <Pending text="Loading the mock table" />;
 
-  if (end) {
-    return (
-      <MatchSummary
-        match={matchFromEnd(view, end)}
-        meId="u-you"
-        againLabel="Replay the script"
-        onAgain={() => {
-          setI(0);
-          setEnteredAt(Date.now());
-          nav(mode === 'six-max' ? '/m/mock?mode=six-max' : '/m/mock');
-        }}
-      />
-    );
-  }
+  const ended = end ? matchFromEnd(view, end) : null;
 
   return (
     <>
-      <Table view={view} onAct={advance} sending={false} />
-      <span className="devnote" style={{ padding: '4px var(--sp-4)' }}>
-        Mock table, no server. Step {i + 1} of {script.length}: {script[i].label}
-      </span>
+      <Table view={view} onAct={advance} sending={false} ended={ended != null} />
+      {ended ? (
+        <>
+          <ResultPanel
+            match={ended}
+            meId="u-you"
+            againLabel="Replay the script"
+            onAgain={replay}
+            onReview={scrollToHands}
+          />
+          <main className="page">
+            <HandsSection match={ended} />
+          </main>
+        </>
+      ) : (
+        <span className="devnote" style={{ padding: '4px var(--sp-4)' }}>
+          Mock table, no server. Step {i + 1} of {script.length}: {script[i].label}
+        </span>
+      )}
     </>
   );
 }

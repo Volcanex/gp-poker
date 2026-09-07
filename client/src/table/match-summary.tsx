@@ -8,6 +8,7 @@ import { BoardText } from '../ui/board-text.tsx';
 import { fmtDate, fmtPct, int, signed } from '../ui/format.ts';
 import { handAccuracy, matchHasAccuracy, seatIsBot } from '../net/adapt.ts';
 import { deltaTone } from '../ui/bits.tsx';
+import { Avatar } from '../ui/avatar.tsx';
 import { ordinal } from './labels.ts';
 import { rankSeats } from './results.ts';
 
@@ -57,10 +58,6 @@ export function MatchSummary({ match, meId, onAgain, againLabel }: MatchSummaryP
   const multiway = players > 2;
   const rows = rankSeats(match);
   const mine = meId ? rows.find((r) => r.seat.userId === meId) : undefined;
-  /* Preflop accuracy is scored against heads-up baseline charts, so the
-     columns stay off a multiway table rather than printing a number the
-     charts do not mean. */
-  const showAccuracy = matchHasAccuracy(match) && !multiway;
   const winnerSeat = match.winner ? match.seats.find((s) => s.userId === match.winner) : null;
 
   const verdict = match.winner == null && !multiway
@@ -103,6 +100,7 @@ export function MatchSummary({ match, meId, onAgain, againLabel }: MatchSummaryP
                       <td className="r num">{ordinal(r.place)}</td>
                       <td>
                         <span className="who">
+                          <Avatar seed={r.seat.userId} name={r.seat.name} size={24} />
                           <Link to={`/u/${encodeURIComponent(r.seat.name)}`}>{r.seat.name}</Link>
                           {seatIsBot(r.seat) && <span className="seat-bot">bot</span>}
                           {r.seat.userId === meId && <span className="seat-you">you</span>}
@@ -124,6 +122,7 @@ export function MatchSummary({ match, meId, onAgain, againLabel }: MatchSummaryP
           {rows.map((r) => (
             <PlayerResult
               key={r.seat.userId}
+              userId={r.seat.userId}
               name={r.seat.name}
               stack={r.stack}
               rating={match.rated ? r.rating : null}
@@ -141,78 +140,7 @@ export function MatchSummary({ match, meId, onAgain, againLabel }: MatchSummaryP
         <Link className="btn btn-tertiary" to="/">Back to home</Link>
       </div>
 
-      <section className="stack" style={{ gap: 'var(--sp-3)' }}>
-        <span className="h2">Hands</span>
-        {match.hands.length === 0 ? (
-          <div className="card">
-            <div className="empty">
-              {match.handsPlayed > 0 ? (
-                <>
-                  <span className="e-title">Hand histories are not loaded</span>
-                  <span className="e-desc">
-                    The match record did not come back with this page. Reload to fetch it.
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="e-title">No hands recorded</span>
-                  <span className="e-desc">The match ended before a hand completed.</span>
-                </>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="card lb-card">
-            <div className="table-wrap">
-              <table className="table" aria-label="Hands in this match">
-                <thead>
-                  <tr>
-                    <th className="r" style={{ width: 40 }}>#</th>
-                    <th>Board</th>
-                    <th>Won by</th>
-                    <th className="r">Pot</th>
-                    {showAccuracy && match.seats.map((s) => (
-                      <th className="r" key={s.userId}>{s.name}</th>
-                    ))}
-                    <th className="r">Replay</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {match.hands.map((h) => {
-                    const award = h.awards?.[0] ?? null;
-                    const winner = award ? match.seats.find((s) => s.seat === award.seat) : null;
-                    return (
-                      <tr key={h.number}>
-                        <td className="r">{h.number}</td>
-                        <td><BoardText cards={h.board} /></td>
-                        <td>{winner ? winner.name : h.completedAt ? 'Split' : 'In progress'}</td>
-                        <td className="r">{award ? award.amount : ''}</td>
-                        {showAccuracy && match.seats.map((s) => {
-                          const acc = handAccuracy(h, s.seat);
-                          return (
-                            <td className="r" key={s.userId}>
-                              {acc == null ? <span className="muted">no read</span> : fmtPct(acc, 0)}
-                            </td>
-                          );
-                        })}
-                        <td className="r">
-                          <Link to={`/m/${match.id}/h/${h.number}`}>Open</Link>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-        {showAccuracy && (
-          <span className="muted">
-            The two name columns are each player's preflop accuracy against the baseline charts,
-            which are a rough guide and not solver output.
-          </span>
-        )}
-      </section>
+      <HandsSection match={match} />
     </main>
   );
 }
@@ -234,12 +162,14 @@ function RatingCell({ rating }: { rating: ResultRating }) {
 type ResultRating = { before: number; after: number; rdBefore: number; rdAfter: number } | null;
 
 function PlayerResult({
+  userId,
   name,
   stack,
   rating,
   won,
   you,
 }: {
+  userId: string;
   name: string;
   stack: number;
   rating: ResultRating;
@@ -252,6 +182,7 @@ function PlayerResult({
   return (
     <div className="card player-result" data-won={won ? '' : undefined}>
       <div className="pr-head">
+        <Avatar seed={userId} name={name} size={24} />
         <Link className="pr-name" to={`/u/${encodeURIComponent(name)}`}>{name}</Link>
         {you && <span className="seat-you">you</span>}
         {won && <span className="badge badge-ok">Won</span>}
@@ -270,6 +201,89 @@ function PlayerResult({
         </div>
       ) : null}
     </div>
+  );
+}
+
+/* The hand list, its own component because the result panel under a finished
+   table shows it too: "review hands" has to scroll to something. */
+export function HandsSection({ match }: { match: Match }) {
+  /* Preflop accuracy is scored against heads-up baseline charts, so the
+     columns stay off a multiway table rather than printing a number the
+     charts do not mean. */
+  const showAccuracy = matchHasAccuracy(match) && match.seats.length <= 2;
+  return (
+    <section className="stack" id="hands" style={{ gap: 'var(--sp-3)' }}>
+      <span className="h2">Hands</span>
+      {match.hands.length === 0 ? (
+        <div className="card">
+          <div className="empty">
+            {match.handsPlayed > 0 ? (
+              <>
+                <span className="e-title">Hand histories are not loaded</span>
+                <span className="e-desc">
+                  The match record did not come back with this page. Reload to fetch it.
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="e-title">No hands recorded</span>
+                <span className="e-desc">The match ended before a hand completed.</span>
+              </>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="card lb-card">
+          <div className="table-wrap">
+            <table className="table" aria-label="Hands in this match">
+              <thead>
+                <tr>
+                  <th className="r" style={{ width: 40 }}>#</th>
+                  <th>Board</th>
+                  <th>Won by</th>
+                  <th className="r">Pot</th>
+                  {showAccuracy && match.seats.map((s) => (
+                    <th className="r" key={s.userId}>{s.name}</th>
+                  ))}
+                  <th className="r">Replay</th>
+                </tr>
+              </thead>
+              <tbody>
+                {match.hands.map((h) => {
+                  const award = h.awards?.[0] ?? null;
+                  const winner = award ? match.seats.find((s) => s.seat === award.seat) : null;
+                  return (
+                    <tr key={h.number}>
+                      <td className="r">{h.number}</td>
+                      <td><BoardText cards={h.board} /></td>
+                      <td>{winner ? winner.name : h.completedAt ? 'Split' : 'In progress'}</td>
+                      <td className="r">{award ? award.amount : ''}</td>
+                      {showAccuracy && match.seats.map((s) => {
+                        const acc = handAccuracy(h, s.seat);
+                        return (
+                          <td className="r" key={s.userId}>
+                            {acc == null ? <span className="muted">no read</span> : fmtPct(acc, 0)}
+                          </td>
+                        );
+                      })}
+                      <td className="r">
+                        <Link to={`/m/${match.id}/h/${h.number}`}>Open</Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      {showAccuracy && (
+        <span className="muted">
+          The two name columns are each player's preflop accuracy against the baseline charts,
+          which are a rough guide and not solver output.
+        </span>
+      )}
+    </section>
   );
 }
 

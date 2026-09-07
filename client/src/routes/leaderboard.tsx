@@ -7,6 +7,7 @@ import { useSession } from '../net/session.tsx';
 import { useTitle } from '../ui/title.ts';
 import { MODE_NAME, ModeTabs } from '../ui/mode-tabs.tsx';
 import { int } from '../ui/format.ts';
+import { Avatar } from '../ui/avatar.tsx';
 
 export function Leaderboard() {
   const { me, queue } = useSession();
@@ -77,7 +78,10 @@ export function Leaderboard() {
                       <td className="r">{i + 1}</td>
                       <td>
                         {list ? (
-                          <Link to={`/u/${encodeURIComponent(r.name)}`}>{r.name}</Link>
+                          <span className="player-cell">
+                            <Avatar seed={r.name} name={r.name} size={24} />
+                            <Link to={`/u/${encodeURIComponent(r.name)}`}>{r.name}</Link>
+                          </span>
                         ) : (
                           <span className="skeleton skeleton-text" style={{ width: 96 }} />
                         )}

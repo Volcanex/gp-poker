@@ -82,31 +82,58 @@
 .lb-head { display: flex; align-items: center; gap: var(--sp-3); }
 .rd { color: var(--text-placeholder); font-size: 11px; margin-left: 5px; }
 
+/* The name plus avatar pair in a leaderboard or match-history row. A 24px
+   avatar sits well inside --row-h, so it never grows the row. */
+.player-cell { display: inline-flex; align-items: center; gap: var(--sp-2); }
+
 /* ------------------------------------------------------------------ table */
 
 /* The table asks how much room it has, not how wide the window is: the replay
    draws the same felt in a narrow column beside its action list. */
+/* One rule holds this whole screen together: the header, the felt and the dock
+   each keep the same box in every state, and only their contents change. The
+   old table mounted its action bar only on your turn, so the felt re-divided
+   the moment it was your decision to make. Nothing here may size to its
+   content. */
 .match {
   container-type: inline-size;
   flex: 1;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: var(--head-h) minmax(0, 1fr) auto auto;
   min-height: 0;
+  position: relative;
+  --head-h: 40px;
+  --dock-h: 128px;
+  --keys-h: 24px;
+  --dock-r1: 28px; /* pills and presets */
+  --dock-r2: 32px; /* the amount field and the slider */
+  --dock-r3: 34px; /* fold, call, raise */
+  --dock-pad: 10px;
+  --dock-gap: 6px;
 }
 
 .hand-head {
-  display: flex; justify-content: center;
-  padding: 8px var(--sp-4);
+  height: var(--head-h);
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 var(--sp-4);
   border-bottom: 1px solid var(--border-subtle);
   font-size: 12px; color: var(--text-secondary);
+  overflow: hidden;
 }
-.hand-head .bar-in { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
-.hand-head .n { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.hand-head .bar-in { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: nowrap; }
+/* Two of the header's strings change every hand and every street. They each
+   get a reserved width, so the seed and its controls never slide sideways when
+   the flop comes. */
+.hand-head .n { color: var(--text-primary); font-variant-numeric: tabular-nums; min-width: 13ch; }
+.hand-head .street { min-width: 9ch; }
 .hand-head .dot { color: var(--text-placeholder); }
 .hand-head .seed { display: inline-flex; align-items: center; gap: 6px; }
 .hand-head .seed code {
   font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary);
 }
+/* Verify is rendered in every state and disabled until the seed is published.
+   It used to appear at hand end, which moved the header on every hand. */
+.hand-head .seed [aria-disabled="true"] { opacity: 0.45; pointer-events: none; }
 
 /* One felt, two shapes. Two seats stack into three rows down the middle, the
    layout this table has always had; three to six sit on an ellipse with the
@@ -154,8 +181,8 @@
   pointer-events: auto;
   background: var(--surface-2);
   border-color: var(--border-subtle);
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-areas: "cards id ring" "cards last ring";
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  grid-template-areas: "cards av id clock" "cards av last clock";
   column-gap: var(--sp-2); row-gap: 0;
   padding: 6px var(--sp-2);
 }
@@ -172,9 +199,14 @@
 .felt[data-mode="ring"] .seat .pcard { --card-w: var(--seat-card); }
 .felt[data-mode="ring"] .board .pcard { --card-w: var(--board-card); }
 .felt[data-mode="ring"] .seat-cards { grid-area: cards; }
+.felt[data-mode="ring"] .avatar { grid-area: av; --avatar-size: 24px; }
+/* The ring seat is 252 px wide and now carries an avatar as well as cards, a
+   name, a stack and a hand name. The rating is the one thing on it that is a
+   click away on the profile the name leads to, so it goes. */
+.felt[data-mode="ring"] .seat-rating { display: none; }
 .felt[data-mode="ring"] .seat-id { grid-area: id; }
-.felt[data-mode="ring"] .seat-last { grid-area: last; min-height: 15px; }
-.felt[data-mode="ring"] .seat-right { grid-area: ring; }
+.felt[data-mode="ring"] .seat-last { grid-area: last; min-height: 1.5em; min-width: 0; text-align: left; }
+.felt[data-mode="ring"] .seat-clock { grid-area: clock; }
 
 @container (max-width: 900px) {
   .felt[data-mode="ring"] {
@@ -193,7 +225,7 @@
     --seat-card: 24px; --board-card: 26px;
   }
   .felt[data-mode="ring"][data-seats="3"], .felt[data-mode="ring"][data-seats="4"] { --ring-h: 400px; }
-  .felt[data-mode="ring"] .seat { top: var(--yt); grid-template-areas: "cards id id" "cards last ring"; }
+  .felt[data-mode="ring"] .seat { top: var(--yt); grid-template-areas: "cards av id" "cards av last"; grid-template-columns: auto auto minmax(0, 1fr); }
   .felt[data-mode="ring"] .seat-bet {
     top: var(--yt);
     inset: calc(var(--seat-h) / 2 + 12px) calc(var(--seat-w) / 2 + 30px);
@@ -204,12 +236,13 @@
   .felt[data-mode="ring"] .seat-name { font-size: 12px; }
   .felt[data-mode="ring"] .seat-stack { font-size: 14px; }
   .felt[data-mode="ring"] .seat-stack .u { display: none; }
-  .felt[data-mode="ring"] .seat-last { font-size: 10px; min-height: 13px; }
+  .felt[data-mode="ring"] .seat-last { font-size: 10px; }
   .felt[data-mode="ring"] .seat-cards { gap: 3px; }
   .felt[data-mode="ring"] .seat-line { gap: 5px; }
   .felt[data-mode="ring"] .seat-bot { font-size: 9px; padding: 0 3px; }
   .felt[data-mode="ring"] .btn-marker { width: 15px; height: 15px; font-size: 9px; }
-  .felt[data-mode="ring"] .ring, .felt[data-mode="ring"] .ring-wrap { width: 22px; height: 22px; }
+  .felt[data-mode="ring"] .avatar { --avatar-size: 20px; }
+  .felt[data-mode="ring"] .seat-clock { display: none; }
 }
 
 .middle {
@@ -221,19 +254,27 @@
   border-bottom: 1px solid var(--border-subtle);
 }
 
-.pot { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+/* A fixed box for a number that changes every action. Everything under it
+   stays where it is, and the figure is centred inside its own slot. */
+.pot { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 108px; }
 .pot .k { font-size: 11px; color: var(--text-secondary); }
-.pot .v { font-size: 19px; font-weight: 500; letter-spacing: -0.015em; font-variant-numeric: tabular-nums; }
+.pot .v number-flow-react, .stack-v number-flow-react { display: block; width: 100%; }
+.pot .v {
+  display: block; width: 100%; text-align: center;
+  font-size: 19px; font-weight: 500; letter-spacing: -0.015em; font-variant-numeric: tabular-nums;
+}
 .pot-side { font-size: 11px; color: var(--text-placeholder); font-variant-numeric: tabular-nums; }
 
 .board { display: flex; gap: 6px; }
 
-.showdown {
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  text-align: center; font-size: var(--font-size-ui);
+/* Where the pot lands. Its own row under the board, always rendered so the
+   felt does not move when a hand is awarded, and nowhere near the pot label
+   the chip used to cover. */
+.award-zone {
+  display: flex; justify-content: center; align-items: center;
+  min-height: 24px;
 }
-.showdown .w { color: var(--text-primary); }
-.showdown .d { color: var(--text-secondary); font-size: 12px; }
+.award-chip { border-color: var(--accent-fill); color: var(--text-primary); }
 
 /* --------------------------------------------------------------- playing card */
 
@@ -263,7 +304,10 @@
   border-radius: var(--radius-sm);
 }
 .pcard[data-empty] { background: transparent; border-style: dashed; box-shadow: none; opacity: 0.55; }
-.pcard[data-dim] { opacity: 0.4; }
+.pcard[data-dim] { opacity: 0.35; }
+/* The five that made the hand. The board dims around them rather than the
+   five brightening, so the felt gets quieter at a showdown, not louder. */
+.pcard[data-best] { border-color: var(--accent-fill); box-shadow: 0 0 0 1px var(--accent-fill); }
 
 /* ------------------------------------------------------------------- seat */
 
@@ -271,8 +315,9 @@
    action, then the clock. The last-action span is always rendered, empty or
    not, so the clock never shifts when a label comes and goes. */
 .seat {
+  position: relative;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
   align-items: center;
   gap: var(--sp-3);
   padding: var(--sp-2) var(--sp-3);
@@ -280,7 +325,30 @@
   border-radius: var(--radius-card);
   transition: background var(--dur-slow) var(--ease-out), border-color var(--dur-slow) var(--ease-out);
 }
-.seat[data-acting] { background: var(--fill-hover); border-color: var(--border-subtle); }
+/* Whose turn it is, said twice and quietly: the seat takes the accent border
+   and a two pixel bar across its top edge. The ring this replaced was 20 px at
+   the far corner of the seat and people missed it. */
+.seat[data-acting] { background: var(--fill-hover); border-color: var(--accent-fill); }
+
+.turn-bar {
+  position: absolute; left: 6px; right: 6px; top: -1px; height: 2px;
+  border-radius: var(--radius-full); overflow: hidden;
+  background: var(--fill-active);
+}
+.turn-bar i {
+  display: block; height: 100%; width: 100%;
+  background: var(--accent-fill);
+  transform-origin: left center;
+}
+/* No urgency theatre: one colour change, in the last five seconds. */
+.turn-bar[data-tone="low"] i { background: var(--danger-text); }
+.turn-bar[data-paused] i { background: var(--text-placeholder); }
+.turn-secs { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+.turn-secs[data-tone="low"] { color: var(--danger-text); }
+.seat-clock { display: inline-flex; align-items: center; justify-content: flex-end; min-width: 30px; }
+
+.avatar { width: var(--avatar-size, 26px); height: var(--avatar-size, 26px); overflow: hidden; }
+.avatar img { width: 100%; height: 100%; display: block; }
 .seat[data-folded] { opacity: 0.62; }
 .seat[data-out] { opacity: 0.48; }
 
@@ -292,8 +360,14 @@
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .seat-rating { font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
-.seat-stack { font-size: 17px; font-weight: 500; letter-spacing: -0.015em; font-variant-numeric: tabular-nums; }
-.seat-stack .u { font-size: 11px; color: var(--text-secondary); margin-left: 4px; font-weight: 400; }
+/* The digits and the word after them are one line, always: wrapped, the seat
+   grows a row and every ring seat moves on its own ellipse. */
+.seat-stack {
+  display: inline-flex; align-items: baseline; gap: 4px;
+  font-size: 17px; font-weight: 500; letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.seat-stack .u { font-size: 11px; color: var(--text-secondary); font-weight: 400; }
 .seat-right { display: flex; align-items: center; gap: var(--sp-3); }
 
 .btn-marker {
@@ -312,70 +386,140 @@
 }
 .seat-off { color: var(--danger-text); font-size: 11px; white-space: nowrap; }
 .seat-last {
-  font-size: 12px; color: var(--text-secondary);
-  white-space: nowrap; font-variant-numeric: tabular-nums;
+  /* Left aligned inside a reserved column on the right of the seat. Right
+     aligned, the label's start point moves every time the word changes length,
+     which the layout-shift observer counts and the eye notices. */
+  font-size: 12px; line-height: 1.5; min-height: 1.5em; min-width: 96px; text-align: left;
+  color: var(--text-secondary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
 }
+/* Room for every stack a table can hold, so the word beside the digits
+   never moves. */
+.stack-v { display: inline-block; min-width: 5ch; }
+.btn-marker[data-off] { visibility: hidden; }
 .seat-bet { display: flex; justify-content: center; min-height: 22px; }
 
-/* -------------------------------------------------------------- timer ring */
+/* ------------------------------------------------------------------- dock */
 
-.ring { display: block; flex: none; width: 26px; height: 26px; }
-.ring circle { fill: none; stroke-width: 2; }
-.ring .track { stroke: var(--border); }
-.ring .head { stroke: var(--accent-fill); stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; }
-.ring[data-tone="warn"] .head { stroke: var(--warn-text); }
-.ring[data-tone="danger"] .head { stroke: var(--danger-text); }
-.ring[data-paused] .head { stroke: var(--text-placeholder); }
-.ring-wrap { position: relative; display: inline-flex; align-items: center; justify-content: center; }
-.ring-wrap .s {
-  position: absolute; font-size: 10px; font-variant-numeric: tabular-nums;
-  color: var(--text-secondary);
-}
-
-/* ------------------------------------------------------------- action bar */
-
-.actions {
+/* The dock is the hand: one region, one height, three states rendered in the
+   same box. Waiting carries the pre-action pills so it is useful before your
+   turn; hand over keeps the three choices as inert ghosts. Contents cross-fade
+   in place, nothing slides, and the felt above never learns that any of it
+   happened. */
+.dock {
+  grid-row: 3;
   flex: none;
-  display: flex; flex-direction: column; align-items: center;
-  padding: var(--sp-3) var(--sp-4) calc(var(--sp-3) + env(safe-area-inset-bottom));
+  height: calc(var(--dock-h) + env(safe-area-inset-bottom));
+  display: grid;
+  padding: var(--dock-pad) var(--sp-4) calc(var(--dock-pad) + env(safe-area-inset-bottom));
   border-top: 1px solid var(--border-subtle);
   background: var(--surface-2);
 }
-.actions .bar-in { display: flex; flex-direction: column; gap: var(--sp-2); }
-.sizing { display: flex; align-items: center; gap: var(--sp-2); }
-.sizing .g-slider { flex: 1; min-width: 90px; }
-.sizing .input { width: 76px; flex: none; text-align: right; font-variant-numeric: tabular-nums; }
-.presets { display: flex; gap: 4px; flex-wrap: wrap; }
-.acts { display: flex; gap: var(--sp-2); }
-.acts .btn { flex: 1; }
-.act-hint { font-size: 11px; color: var(--text-placeholder); }
-.act-hint .kbd { margin: 0 2px; }
+.dock-in {
+  height: 100%; width: 100%; max-width: 680px; margin: 0 auto;
+  display: grid; gap: var(--dock-gap);
+}
+.dock-in[data-state="wait"] { grid-template-rows: var(--dock-r1) minmax(0, 1fr); }
+.dock-in[data-state="over"] { grid-template-rows: minmax(0, 1fr) var(--dock-r3); }
+.dock-turn {
+  height: 100%;
+  display: grid; gap: var(--dock-gap);
+  grid-template-rows: var(--dock-r1) var(--dock-r2) var(--dock-r3);
+}
 
-.waiting-bar {
-  flex: none;
-  display: flex; align-items: center; justify-content: center; gap: var(--sp-2);
-  padding: var(--sp-3) var(--sp-4) calc(var(--sp-3) + env(safe-area-inset-bottom));
-  border-top: 1px solid var(--border-subtle);
-  background: var(--surface-2);
+.dock-pre, .dock-presets { display: flex; gap: 5px; align-items: stretch; }
+.dock-pre .btn, .dock-presets .btn { height: 100%; }
+.dock-presets .preset { flex: 1; min-width: 0; gap: 5px; }
+.dock-presets .p-v { color: var(--text-placeholder); }
+.dock .pill { border-radius: var(--radius-full); }
+.dock .btn[data-on] {
+  border-color: var(--accent-fill);
+  color: var(--text-primary);
+  background: var(--fill-hover);
+}
+
+/* Centred by text-align rather than by shrinking to its contents: a box sized
+   to a string that changes is a box that shifts every time the string does. */
+.dock-status {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; text-align: center; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
   font-size: var(--font-size-ui); color: var(--text-secondary);
-  min-height: 52px;
+}
+
+.dock-size { display: flex; align-items: center; gap: var(--sp-3); }
+.dock-field { display: flex; align-items: center; gap: var(--sp-2); flex: none; }
+.dock-field .label { color: var(--text-secondary); font-weight: 400; white-space: nowrap; }
+.dock-field .input {
+  width: 104px; height: var(--dock-r2);
+  text-align: right; font-variant-numeric: tabular-nums;
+}
+.dock-slider { flex: 1; min-width: 80px; }
+
+.dock-acts { display: flex; gap: var(--sp-2); align-items: stretch; }
+.dock-acts > .btn { flex: 1; height: 100%; }
+.dock-acts .ghost { opacity: 0.4; pointer-events: none; }
+
+.dock-result { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.dock-result .r-line { font-size: var(--font-size-ui); color: var(--text-secondary); }
+.dock-result .r-line b { color: var(--text-primary); font-weight: 500; }
+
+/* The legend is rendered in every state and says the same thing in each: a
+   line that comes and goes is a line that moves the felt. */
+.dock-keys {
+  grid-row: 4;
+  height: var(--keys-h);
+  display: flex; align-items: center; justify-content: center; gap: var(--sp-4);
+  font-size: 11px; color: var(--text-placeholder);
+  background: var(--surface-2);
+}
+.dock-keys > span { display: inline-flex; align-items: center; gap: 5px; }
+
+/* A refused action is told over the dock, not under it. */
+.dock-error {
+  position: absolute; left: 50%; translate: -50% 0;
+  bottom: calc(var(--dock-h) + var(--keys-h) + 8px + env(safe-area-inset-bottom));
+  padding: 5px var(--sp-3);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface-1);
+  font-size: 12px; color: var(--danger-text);
 }
 
 /* ------------------------------------------------------------------ result */
 
-.result-scrim {
-  position: fixed; inset: var(--top-h) 0 0; z-index: 30;
-  display: grid; place-items: center;
-  padding: var(--sp-4);
-  background: var(--surface-1);
-}
-.result {
-  width: min(420px, 100%);
+/* The result panel lives under the felt, not over it. The table above it is
+   dimmed and still rendered: the hand that decided the match is the one thing
+   you want to look at when it ends. */
+.match[data-ended] .felt { opacity: 0.7; transition: opacity var(--dur-slow) var(--ease-out); }
+.match[data-ended] { grid-template-rows: var(--head-h) minmax(160px, 1fr); }
+
+.result-panel {
+  width: 100%; max-width: 680px; margin: var(--sp-4) auto 0;
   display: flex; flex-direction: column; gap: var(--sp-4);
 }
-.result .verdict { font-size: 22px; font-weight: 500; letter-spacing: -0.02em; }
-.result .why { font-size: var(--font-size-ui); color: var(--text-secondary); }
-.result .grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+.rp-head { display: flex; align-items: center; gap: var(--sp-3); }
+.rp-head .avatar { --avatar-size: 56px; }
+.rp-verdict { display: flex; flex-direction: column; gap: 2px; }
+.rp-verdict .rp-t { font-size: 20px; font-weight: 500; letter-spacing: -0.015em; }
+.rp-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; }
+.rp-rows li {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+  padding: 6px 8px; border-radius: var(--radius-sm);
+  font-size: var(--font-size-ui);
+}
+.rp-rows li[data-mine] { background: var(--fill-hover); }
+.rp-who { display: inline-flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.rp-who .avatar { --avatar-size: 24px; }
+.rp-who a { color: var(--text-primary); text-decoration: none; }
+.rp-who a:hover { text-decoration: underline; text-decoration-color: var(--slate-a8); }
+.rp-place { color: var(--text-secondary); min-width: 26px; }
+.rp-nums { display: inline-flex; align-items: baseline; gap: var(--sp-4); }
+.rp-stack { color: var(--text-secondary); }
+.rp-rating { display: inline-flex; align-items: baseline; gap: 6px; }
+.rp-rating .delta { transition: opacity var(--dur-base) var(--ease-out); }
+.rp-rating .delta[data-hidden] { opacity: 0; }
+
 .delta { font-variant-numeric: tabular-nums; font-size: 12px; }
 .delta[data-up] { color: var(--ok-text); }
 .delta[data-down] { color: var(--danger-text); }
@@ -393,6 +537,10 @@
 }
 
 .devnote {
+  /* Out of the flow on purpose: the dock's footprint is measured in tests and
+     a dev-only caption must not be part of it. */
+  position: fixed; left: 6px; bottom: 2px; z-index: 5;
+  max-width: 30%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 11px; color: var(--text-placeholder);
 }
@@ -412,13 +560,50 @@
   .felt { padding: var(--sp-2) var(--sp-3); }
   .seat { gap: var(--sp-2); padding: 6px var(--sp-2); }
   .seat-stack { font-size: 16px; }
-  .actions { padding: var(--sp-2) var(--sp-3) calc(var(--sp-2) + env(safe-area-inset-bottom)); }
-  .sizing .input { width: 68px; }
-  .hand-head { gap: var(--sp-2); padding: 7px var(--sp-3); }
-  .result .grid { grid-template-columns: 1fr; }
+  /* The header keeps its height and loses its width: the hash stays, Copy
+     goes (there is nowhere to paste it on a phone) and Verify stays, because
+     the whole point of the seed is that anyone can check it. */
+  .hand-head { padding: 0 var(--sp-3); font-size: 11px; }
+  .hand-head .bar-in { gap: var(--sp-2); }
+  .hand-head .bar-in > * { white-space: nowrap; }
+  .hand-head .copy-btn { display: none; }
+  .hand-head .seed code { max-width: 62px; overflow: hidden; text-overflow: clip; }
 
-  /* Six seats on a phone: smaller cards, no rating, the stack without its
-     unit word. Nothing overlaps and every seat still reads. */
+  /* The phone dock. Taller, because the thumb lives at the bottom of the
+     screen and the primary action gets the whole width of the bottom row.
+     The slider goes: presets and the field cover every size a thumb can ask
+     for, and the field opens the numeric keypad. The legend goes too. */
+  .match {
+    --head-h: 36px;
+    --dock-h: 150px;
+    --keys-h: 0px;
+    --dock-r1: 24px;
+    --dock-r2: 28px;
+    --dock-r3: 76px;
+    --dock-pad: 6px;
+    --dock-gap: 4px;
+  }
+  .dock { padding-left: var(--sp-3); padding-right: var(--sp-3); }
+  .dock-keys { display: none; }
+  .dock-slider { display: none; }
+  .dock-field { flex: 1; }
+  .dock-field .input { width: 100%; }
+  .dock-presets .p-v { display: none; }
+  .dock-presets .preset { justify-content: center; }
+
+  .dock-acts {
+    display: grid; gap: var(--dock-gap);
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: 28px 44px;
+  }
+  .dock-acts > .btn { grid-row: 1; height: 100%; }
+  .dock-acts > .btn[data-primary] { grid-row: 2; grid-column: 1 / -1; }
+
+  /* The rating is on the profile the name leads to; on a phone the seat has
+     room for the name and the stack and nothing else. */
+  .seat-rating { display: none; }
+  .seat-name { max-width: 12ch; }
+  .avatar { --avatar-size: 24px; }
 }
 
 /* pot flight layer: the chip lands over the pot without moving it */
@@ -461,7 +646,7 @@ a.btn { text-decoration: none; }
 /* ---------------------------------------------------------------- profile */
 
 .profile-head { display: flex; flex-direction: column; gap: var(--sp-4); }
-.profile-name { display: flex; align-items: baseline; gap: var(--sp-3); flex-wrap: wrap; }
+.profile-name { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
 
 .graph-card { display: flex; flex-direction: column; gap: var(--sp-2); }
 .graph { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-3); align-items: stretch; }
@@ -487,7 +672,7 @@ a.btn { text-decoration: none; }
 /* ----------------------------------------------------------------- result */
 
 /* the finishing order, one row per player */
-.who { display: inline-flex; align-items: baseline; gap: 7px; }
+.who { display: inline-flex; align-items: center; gap: 7px; }
 .rating-cell { display: inline-flex; align-items: baseline; gap: 7px; justify-content: flex-end; }
 .tags { display: inline-flex; align-items: center; gap: 6px; }
 
