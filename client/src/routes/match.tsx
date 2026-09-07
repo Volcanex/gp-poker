@@ -14,7 +14,12 @@ export function Match() {
   const [params] = useSearchParams();
   const isMock = id === 'mock' || params.get('mock') === '1';
   const mode: Mode = params.get('mode') === 'six-max' ? 'six-max' : 'heads-up';
-  return isMock ? <MockMatch step={numOrNull(params.get('step'))} mode={mode} /> : <LiveMatch id={id} />;
+  const rated = params.get('rated') !== 'casual';
+  return isMock ? (
+    <MockMatch step={numOrNull(params.get('step'))} mode={mode} rated={rated} />
+  ) : (
+    <LiveMatch id={id} />
+  );
 }
 
 function numOrNull(v: string | null): number | null {
@@ -122,8 +127,8 @@ function LiveMatch({ id }: { id: string }) {
 
 /* ----------------------------------------------------------------- mock */
 
-function MockMatch({ step, mode }: { step: number | null; mode: Mode }) {
-  const script = useMemo(() => mockScript(mode), [mode]);
+function MockMatch({ step, mode, rated }: { step: number | null; mode: Mode; rated: boolean }) {
+  const script = useMemo(() => mockScript(mode, rated), [mode, rated]);
   const start = step == null ? 0 : Math.max(0, Math.min(script.length - 1, step));
   const [i, setI] = useState(start);
   const [enteredAt, setEnteredAt] = useState(() => Date.now());

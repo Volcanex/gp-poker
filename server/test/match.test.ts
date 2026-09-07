@@ -103,6 +103,11 @@ describe('a full match', () => {
         expect(body.id).toBe(session.id);
         expect(body.rating).toBe(resultA.ratings[session.id].after);
         expect(body.ratings['heads-up'].rating).toBe(resultA.ratings[session.id].after);
+        // A first rated match always stamps peak_at, win or lose, because
+        // the rating row is created by that match.
+        const peakAt = body.ratings['heads-up'].peakAt;
+        expect(typeof peakAt).toBe('string');
+        expect(Number.isNaN(Date.parse(peakAt))).toBe(false);
         expect(body.matches).toBe(1);
       }
 

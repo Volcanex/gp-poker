@@ -78,6 +78,10 @@ export function MatchSummary({ match, meId, onAgain, againLabel }: MatchSummaryP
           {match.handsPlayed} {match.handsPlayed === 1 ? 'hand' : 'hands'}
           {match.finishedAt ? `, finished ${fmtDate(match.finishedAt)}` : ''}.
         </span>
+        {/* A casual match still comes back with a ratings map, unchanged on
+            both sides. Nothing about it reaches the screen: no rating, no
+            delta, no deviation, just the line that says why. */}
+        {!match.rated && <div className="muted">{CASUAL}</div>}
       </header>
 
       {multiway ? (
@@ -114,7 +118,6 @@ export function MatchSummary({ match, meId, onAgain, againLabel }: MatchSummaryP
               </table>
             </div>
           </div>
-          {!match.rated && <span className="muted">{CASUAL}</span>}
         </section>
       ) : (
         <div className="two">
@@ -123,7 +126,7 @@ export function MatchSummary({ match, meId, onAgain, againLabel }: MatchSummaryP
               key={r.seat.userId}
               name={r.seat.name}
               stack={r.stack}
-              rating={r.rating}
+              rating={match.rated ? r.rating : null}
               won={match.winner === r.seat.userId}
               you={mine?.seat.userId === r.seat.userId}
             />
@@ -265,9 +268,7 @@ function PlayerResult({
           <span className="delta" {...deltaTone(delta)}>{signed(delta)}</span>
           <span className="muted">deviation {int(rating.rdAfter)}</span>
         </div>
-      ) : (
-        <span className="muted">{CASUAL}</span>
-      )}
+      ) : null}
     </div>
   );
 }

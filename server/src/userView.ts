@@ -14,6 +14,7 @@ export function toModeRating(row: RatingRow): ModeRating {
     rd: Math.round(row.rd),
     provisional: isProvisional(row),
     peak: Math.round(row.peakRating),
+    peakAt: row.peakAt ? row.peakAt.toISOString() : null,
     matches: row.matches,
     wins: row.wins,
     losses: row.losses,

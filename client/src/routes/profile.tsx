@@ -6,8 +6,10 @@ import type { Profile as ProfileData } from '../net/types.ts';
 import { useSession } from '../net/session.tsx';
 import { useTitle } from '../ui/title.ts';
 import { RatingGraph } from '../ui/rating-graph.tsx';
-import { fmtDate, fmtPct, int, signed } from '../ui/format.ts';
-import { matchPlacing, matchRated, modeRating, profileAccuracy, ratingHistoryFor } from '../net/adapt.ts';
+import { fmtDate, fmtPct, fmtShortDate, int, signed } from '../ui/format.ts';
+import {
+  matchPlacing, matchRated, modePeakAt, modeRating, modeWinRate, profileAccuracy, ratingHistoryFor,
+} from '../net/adapt.ts';
 import { MODES, MODE_NAME, ModeTabs } from '../ui/mode-tabs.tsx';
 import { ordinal } from '../table/labels.ts';
 import { deltaTone } from '../ui/bits.tsx';
@@ -87,37 +89,47 @@ export function Profile() {
                   <th className="r">Rating</th>
                   <th className="r">Peak</th>
                   <th className="r">Matches</th>
-                  <th className="r">Record</th>
+                  <th className="r">Win rate</th>
                 </tr>
               </thead>
               <tbody>
-                {standings.map(({ mode, r }) => (
-                  <tr key={mode}>
-                    <td>
-                      <span className="tags">
-                        {MODE_NAME[mode]}
-                        {r.provisional && r.matches > 0 && (
-                          <span className="badge badge-warn">Provisional</span>
+                {standings.map(({ mode, r }) => {
+                  const winRate = modeWinRate(r);
+                  const peakAt = modePeakAt(data, mode);
+                  return (
+                    <tr key={mode}>
+                      <td>
+                        <span className="tags">
+                          {MODE_NAME[mode]}
+                          {r.provisional && r.matches > 0 && (
+                            <span className="badge badge-warn">Provisional</span>
+                          )}
+                        </span>
+                      </td>
+                      <td className="r">
+                        {r.matches === 0 ? (
+                          <span className="muted">unrated</span>
+                        ) : (
+                          <>
+                            {int(r.rating)}
+                            <span className="rd num">+-{int(r.rd)}</span>
+                          </>
                         )}
-                      </span>
-                    </td>
-                    <td className="r">
-                      {r.matches === 0 ? (
-                        <span className="muted">unrated</span>
-                      ) : (
-                        <>
-                          {int(r.rating)}
-                          <span className="rd num">+-{int(r.rd)}</span>
-                        </>
-                      )}
-                    </td>
-                    <td className="r num">{r.matches === 0 ? '' : int(r.peak)}</td>
-                    <td className="r num">{r.matches}</td>
-                    <td className="r num">
-                      {r.matches === 0 ? '' : `${r.wins}-${r.losses}-${r.draws}`}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="r num">
+                        {r.matches === 0 ? '' : int(r.peak)}
+                        {r.matches > 0 && peakAt && <span className="rd">{fmtShortDate(peakAt)}</span>}
+                      </td>
+                      <td className="r num">{r.matches}</td>
+                      <td className="r num">
+                        {winRate == null ? '' : fmtPct(winRate * 100, 0)}
+                        {r.matches > 0 && (
+                          <span className="rd num">{r.wins}-{r.losses}-{r.draws}</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -229,7 +241,6 @@ function RatingSection({ profile }: { profile: ProfileData }) {
       : 'heads-up',
   );
   const points = ratingHistoryFor(profile, mode);
-  const peakAt = mode === 'heads-up' && profile.peakAt ? fmtDate(profile.peakAt) : null;
 
   return (
     <section className="stack" style={{ gap: 'var(--sp-3)' }}>
@@ -243,10 +254,7 @@ function RatingSection({ profile }: { profile: ProfileData }) {
           </div>
         </div>
       ) : (
-        <>
-          <RatingGraph points={points} />
-          {peakAt && <span className="muted">Peak {int(profile.peak)} on {peakAt}.</span>}
-        </>
+        <RatingGraph points={points} />
       )}
     </section>
   );

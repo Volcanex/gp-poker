@@ -104,6 +104,7 @@ export interface ModeRating {
   rd: number;
   provisional: boolean;
   peak: number;
+  peakAt: string | null; // ISO, null until the mode has been played
   matches: number;
   wins: number;
   losses: number;

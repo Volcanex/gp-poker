@@ -32,7 +32,8 @@ decisions; this file covers what's not obvious from the code.
 - `src/routes.ts` — all REST endpoints. Protocol v2 changes:
   - `/api/me`, `/api/claim`, `/api/login` and `hi` all carry a `UserSummary`
     whose `ratings` is a mode-keyed map of `{rating, rd, provisional, peak,
-    matches, wins, losses, draws}`. The flat `rating`/`rd`/`provisional` (and
+    peakAt, matches, wins, losses, draws}` (`peakAt` is ISO, null until the
+    mode has been played). The flat `rating`/`rd`/`provisional` (and
     `/api/me`'s flat `peak`/`matches`/`wins`/`losses`/`draws`) stay as the
     heads-up values for compatibility.
   - `/api/leaderboard?mode=heads-up|six-max`, defaulting to heads-up; an

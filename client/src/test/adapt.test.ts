@@ -3,12 +3,13 @@ import { HEADS_UP_FORMAT } from '@opentable/protocol';
 import type { ModeRating } from '@opentable/protocol';
 import {
   handAccuracy, liveSeats, matchHasAccuracy, matchPlacing, matchRated,
-  modeRating, profileAccuracy, ratingHistoryFor, startStacks,
+  modePeakAt, modeRating, modeWinRate, profileAccuracy, ratingHistoryFor, startStacks,
 } from '../net/adapt.ts';
 import type { Hand, Match, MatchHandSummary, Profile, UserMatchSummary } from '../net/types.ts';
 
 const standing = (rating: number, rd: number): ModeRating => ({
-  rating, rd, provisional: rd > 110, peak: rating, matches: 0, wins: 0, losses: 0, draws: 0,
+  rating, rd, provisional: rd > 110, peak: rating, peakAt: null,
+  matches: 0, wins: 0, losses: 0, draws: 0,
 });
 
 const profile = (extra: Partial<Profile>): Profile => ({
@@ -171,6 +172,32 @@ describe('per-mode ratings', () => {
     expect(modeRating(old, 'heads-up')).toMatchObject({ rating: 1541, rd: 79, matches: 0 });
     // Any other mode reads as never played rather than borrowing heads-up.
     expect(modeRating(old, 'six-max')).toMatchObject({ rating: 1500, rd: 350, matches: 0 });
+  });
+
+  it('reads a win rate over decided matches, the way the server counts it', () => {
+    const played = { ...modeRating(summary, 'heads-up'), wins: 23, losses: 18, draws: 1 };
+    expect(modeWinRate(played)).toBeCloseTo(23 / 42);
+    // Nothing decided is not a zero per cent win rate, it is no number at all.
+    expect(modeWinRate(modeRating(summary, 'six-max'))).toBeNull();
+  });
+
+  it('takes each mode its own peak date, and the flat one for heads-up without it', () => {
+    const dated = profile({
+      summary: {
+        ...summary,
+        ratings: {
+          'heads-up': { ...standing(1541, 79), peakAt: '2026-08-30T10:00:00.000Z' },
+          'six-max': { ...standing(1574, 96), peakAt: '2026-09-02T10:00:00.000Z' },
+        },
+      },
+    });
+    expect(modePeakAt(dated, 'six-max')).toBe('2026-09-02T10:00:00.000Z');
+
+    // A standing with no date of its own: heads-up borrows the flat one, and
+    // the other mode says nothing rather than borrowing it too.
+    const flat = profile({ peakAt: '2026-08-30T10:00:00.000Z' });
+    expect(modePeakAt(flat, 'heads-up')).toBe('2026-08-30T10:00:00.000Z');
+    expect(modePeakAt(flat, 'six-max')).toBeNull();
   });
 
   it('takes one rating line per mode, and a flat one as heads-up', () => {

@@ -85,7 +85,18 @@ never played rather than borrowing the heads-up number.
 
 `ratingHistory` is one line per mode for the same reason, and
 `ratingHistoryFor()` reads a flat array as the heads-up line. `/api/leaderboard`
-takes `?mode=`, one ladder each.
+takes `?mode=`, one ladder each. `modeWinRate()` counts wins over decided
+matches with draws in the denominator, which is how the server computes the one
+flat win rate it sends, so the two can never disagree on screen.
+
+Each standing carries its own `peakAt`. `modePeakAt()` falls back to the flat
+`peakAt`, which is the heads-up one, for a server that predates the field, and
+says nothing for any other mode rather than borrowing that date.
+
+**A casual match still comes back with a ratings map**, unchanged on both
+sides. None of it reaches the result screen: no rating, no delta, no deviation,
+just one muted line under the heading saying there was no rating change. The
+gate is `match.rated`, not whether a rating happens to be there.
 
 Where the mode comes from on each screen:
 
@@ -159,7 +170,8 @@ key ever changes, `api.hand()` is the one place to change.
 `/api/users/:name`, per-seat accuracy on the hands list of `/api/matches/:id`,
 a seat's bot flag, `place`/`players`/`rated` on a profile's match history (a
 placing needs both halves before "1st of 6" can be said at all), a hand row's
-`live_seats`, and both per-mode readers (`modeRating`, `ratingHistoryFor`). That file is the single place to change when the names are
+`live_seats`, and the per-mode readers (`modeRating`, `ratingHistoryFor`,
+`modeWinRate`, `modePeakAt`). That file is the single place to change when the names are
 confirmed, and the UI above it never learns a name. Absent and null both mean
 "no number", and the caller hides its tile or column rather than printing a
 zero; a real zero (a hand scored 0% accuracy) still shows, which is why the

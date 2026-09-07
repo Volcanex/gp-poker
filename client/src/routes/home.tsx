@@ -175,10 +175,12 @@ function YourRating({ mode, me }: { mode: Mode; me: Me }) {
   const r = modeRating(me, mode);
   if (r.matches === 0) return <span className="muted">No rated matches in this mode yet.</span>;
   return (
-    <span className="muted">
-      Your rating <span className="num">{int(r.rating)}</span>
-      <span className="rd num">+-{int(r.rd)}</span>
-      {r.provisional && ' · provisional'}
+    <span className="tags muted">
+      <span>
+        Your rating <span className="num">{int(r.rating)}</span>
+        <span className="rd num">+-{int(r.rd)}</span>
+      </span>
+      {r.provisional && <span className="badge badge-warn">Provisional</span>}
     </span>
   );
 }

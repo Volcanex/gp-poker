@@ -108,8 +108,12 @@ function viewer(players: Player[], you: number, hole: Card[], format: MatchForma
   };
 }
 
-export function mockScript(mode: Mode = 'heads-up'): MockStep[] {
-  return mode === 'six-max' ? sixMaxScript() : headsUpScript();
+export function mockScript(mode: Mode = 'heads-up', rated = true): MockStep[] {
+  const steps = mode === 'six-max' ? sixMaxScript() : headsUpScript();
+  if (rated) return steps;
+  /* A casual match is rated: false with the ratings map still on it, which is
+     what the server sends and what the result screen has to ignore. */
+  return steps.map((s) => (s.end ? { ...s, end: { ...s.end, rated: false } } : s));
 }
 
 /* ------------------------------------------------------------- heads-up */

@@ -32,6 +32,7 @@ describe('auth flow', () => {
       rd: 350,
       provisional: true,
       peak: 1500,
+      peakAt: null,
       matches: 0,
       wins: 0,
       losses: 0,

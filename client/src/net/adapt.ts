@@ -38,7 +38,7 @@ function num(v: unknown): number | null {
    standing) and any other mode reads as never played. Every rating shown
    outside a match comes through here. */
 const FRESH: ModeRating = {
-  rating: 1500, rd: 350, provisional: true, peak: 1500,
+  rating: 1500, rd: 350, provisional: true, peak: 1500, peakAt: null,
   matches: 0, wins: 0, losses: 0, draws: 0,
 };
 
@@ -54,6 +54,23 @@ export function modeRating(summary: UserSummary, mode: Mode): ModeRating {
     provisional: summary.provisional,
     peak: summary.rating,
   };
+}
+
+/* Wins over decided matches, drawn matches included in the denominator, which
+   is how the server computes the one flat win rate it sends: the two can then
+   never disagree on screen. Null when nothing has been decided yet. */
+export function modeWinRate(r: ModeRating): number | null {
+  const decided = r.wins + r.losses + r.draws;
+  return decided > 0 ? r.wins / decided : null;
+}
+
+/* When a peak was set. The standing carries its own date now; the flat
+   `peakAt` on the profile is the heads-up one and is the fallback for a server
+   that predates the field. */
+export function modePeakAt(profile: Profile, mode: Mode): string | null {
+  const own = modeRating(profile.summary, mode).peakAt;
+  if (own) return own;
+  return mode === 'heads-up' ? profile.peakAt : null;
 }
 
 /* A rating line is per mode too: a six-max result is not a point on a heads-up
