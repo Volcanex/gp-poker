@@ -119,6 +119,15 @@ and `schema.sql` backfills `ratings` from them once (a plain
 `insert ... select ... on conflict do nothing`, which re-runs harmlessly on
 every boot). Delete the columns when nothing outside the server wants them.
 
+`peak_rating` and `peak_at` mean "the best this player has ever been in this
+mode, and when". Everyone starts at the default 1500, so a first match that
+went badly peaks at 1500 with a **null** `peak_at`: nothing was exceeded, so
+there is no moment to point at. Both branches of the upsert in
+`db.finishMatch` have to agree about that, and originally they did not, which
+made `peak_at` depend on whether the rating row happened to exist already
+(the schema backfill creates rows for existing users, so under a parallel
+test run it sometimes did). `peakAt` on the wire is ISO or null.
+
 Everything downstream keys off the match's mode: the queue enters a player at
 their rating *for the mode they queued for*, `MatchSeat.rating` (and so
 `SeatView.rating`) is the mode's rating, bot picks compare on the mode's
@@ -350,6 +359,15 @@ Notable pieces:
   the product, long enough for the reveal to register, and never longer than
   the decision clock so a short test clock doesn't spend four seconds on a
   finished board — and then calls `startHand` for the next number.
+- **onFail callback**: dealing the next hand and completing one are both
+  detached async work, run from a timer or after an action has already
+  returned, with nothing left to await their rejection. A failed write there
+  used to become an unhandled rejection, which Node 22 ends the process over,
+  taking every other live match down with it. Both routes now report to
+  `onFail`, and `MatchRoom.abandon` stops the room's timers and unregisters
+  it. Reproduce the old behaviour by deleting a `matches` row mid-match: the
+  next `insertHand` hits a foreign key violation from inside the hand-hold
+  timer.
 - **onChange callback**: `MatchRoom.start()` hands the hand runner a closure
   that does `broadcast(); rearmClock(); settleIfDone()`. The room calls those
   itself right after any *synchronous* `onAction`/`onTimeout`, but starting

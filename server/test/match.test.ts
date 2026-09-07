@@ -103,11 +103,18 @@ describe('a full match', () => {
         expect(body.id).toBe(session.id);
         expect(body.rating).toBe(resultA.ratings[session.id].after);
         expect(body.ratings['heads-up'].rating).toBe(resultA.ratings[session.id].after);
-        // A first rated match always stamps peak_at, win or lose, because
-        // the rating row is created by that match.
-        const peakAt = body.ratings['heads-up'].peakAt;
-        expect(typeof peakAt).toBe('string');
-        expect(Number.isNaN(Date.parse(peakAt))).toBe(false);
+        // peakAt is stamped only when a rating actually beats the 1500 both
+        // players started from, so it is an ISO string for whoever gained
+        // and null for whoever lost.
+        const standing = body.ratings['heads-up'];
+        if (standing.rating > 1500) {
+          expect(typeof standing.peakAt).toBe('string');
+          expect(Number.isNaN(Date.parse(standing.peakAt))).toBe(false);
+          expect(standing.peak).toBe(standing.rating);
+        } else {
+          expect(standing.peakAt).toBeNull();
+          expect(standing.peak).toBe(1500);
+        }
         expect(body.matches).toBe(1);
       }
 

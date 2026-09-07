@@ -73,6 +73,7 @@ export class MatchRoom {
         this.rearmClock();
         this.settleIfDone();
       },
+      onFail: (err) => this.abandon(err),
     });
     await this.hand.startHand(1);
     this.broadcast();
@@ -189,7 +190,7 @@ export class MatchRoom {
     if (streak >= TIMEOUT_STREAK_LIMIT) {
       if (this.playerIds.length === 2) {
         const opponent = this.playerIds.find((id) => id !== userId) ?? null;
-        void this.forfeit(opponent);
+        this.forfeit(opponent).catch((err) => this.abandon(err));
         return;
       }
       // Multiway: forfeiting one seat would hand the rest of the table a
@@ -212,7 +213,21 @@ export class MatchRoom {
   private settleIfDone(): void {
     if (!this.hand?.isDone()) return;
     const outcome = this.hand.matchResult();
-    if (outcome) void this.finishMatch(outcome);
+    if (outcome) this.finishMatch(outcome).catch((err) => this.abandon(err));
+  }
+
+  // Last resort for a room that cannot continue: the match row is gone, or
+  // the database refused a write from a timer nobody is awaiting. Stop every
+  // timer and drop the room from the registry rather than let the rejection
+  // reach the process. There is no wire message for this, the same as the
+  // boot-time abort: a client that comes back gets `no_match`.
+  private abandon(err: unknown): void {
+    this.clearClockTimer();
+    for (const t of this.graceTimers.values()) clearTimeout(t);
+    this.graceTimers.clear();
+    this.hand = null;
+    console.error(`match ${this.id} abandoned:`, err);
+    unregisterRoom(this.id);
   }
 
   // Disconnect/reconnect and the grace window. A player has graceMs from the

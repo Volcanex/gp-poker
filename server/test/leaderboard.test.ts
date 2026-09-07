@@ -59,3 +59,52 @@ describe('GET /api/leaderboard', () => {
     expect(bogus.json().map((r: { name: string }) => r.name)).not.toContain(player.name);
   });
 });
+
+describe('GET /api/users/:name', () => {
+  let app: FastifyInstance;
+  const createdUserIds: string[] = [];
+
+  beforeAll(async () => {
+    app = await makeApp();
+  });
+
+  afterAll(async () => {
+    for (const id of createdUserIds) await deleteUser(id);
+    await app.close();
+  });
+
+  it('carries the per-mode standings and a mode-keyed rating history', async () => {
+    const player = await mintGuestSession(app);
+    createdUserIds.push(player.id);
+
+    const res = await app.inject({ method: 'GET', url: `/api/users/${player.name}` });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+
+    expect(body.summary.id).toBe(player.id);
+    expect(Object.keys(body.summary.ratings).sort()).toEqual(['heads-up', 'six-max']);
+    for (const mode of ['heads-up', 'six-max']) {
+      const standing = body.summary.ratings[mode];
+      expect(standing.rating).toBe(1500);
+      expect(standing.provisional).toBe(true);
+      expect(standing.peak).toBe(1500);
+      expect(standing.peakAt).toBeNull();
+      expect(standing.matches).toBe(0);
+    }
+
+    // History is grouped by mode rather than one line with both spliced in.
+    expect(Object.keys(body.ratingHistory).sort()).toEqual(['heads-up', 'six-max']);
+    expect(body.ratingHistory['heads-up']).toEqual([]);
+    expect(body.ratingHistory['six-max']).toEqual([]);
+
+    // Flat fields stay heads-up for compatibility.
+    expect(body.peak).toBe(1500);
+    expect(body.peakAt).toBeNull();
+    expect(body.matches).toBe(0);
+  });
+
+  it('404s an unknown name', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/users/nobody-here' });
+    expect(res.statusCode).toBe(404);
+  });
+});

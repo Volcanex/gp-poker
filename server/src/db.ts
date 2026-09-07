@@ -1,4 +1,5 @@
 import postgres from 'postgres';
+import { DEFAULTS as RATING_DEFAULTS } from '@opentable/rating';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -490,9 +491,22 @@ export async function finishMatch(matchId: string, result: FinishMatchResult): P
       // finishes a match in that mode.
       if (p.rating) {
         const { rating, rd, volatility } = p.rating;
+        // Everyone starts at the default rating, so a first match that went
+        // badly peaked at 1500, not at the rating it ended on, and has no
+        // peak timestamp because nothing was ever exceeded. Getting this
+        // wrong made peak_at depend on whether the row happened to exist
+        // already, which is not something a caller can predict. The casts
+        // are load-bearing: greatest() over two bare bind parameters gives
+        // Postgres nothing to infer a type from and it refuses the statement.
+        const start = RATING_DEFAULTS.rating;
         await tx`
           insert into ratings (user_id, mode, rating, rd, volatility, rating_at, peak_rating, peak_at, matches, wins, losses, draws)
-          values (${p.userId}, ${result.mode}, ${rating}, ${rd}, ${volatility}, now(), ${rating}, now(), 1, ${winsInc}, ${lossesInc}, ${drawsInc})
+          values (
+            ${p.userId}, ${result.mode}, ${rating}, ${rd}, ${volatility}, now(),
+            greatest(${start}::float8, ${rating}::float8),
+            case when ${rating}::float8 > ${start}::float8 then now() else null end,
+            1, ${winsInc}, ${lossesInc}, ${drawsInc}
+          )
           on conflict (user_id, mode) do update set
             rating = excluded.rating,
             rd = excluded.rd,
