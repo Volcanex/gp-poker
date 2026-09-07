@@ -88,6 +88,7 @@ export function registerRoutes(app: FastifyInstance): void {
     const mode = modeParam(request.query.mode);
     const rows = await getLeaderboard(mode, 100);
     return rows.map((r) => ({
+      id: r.id,
       name: r.name,
       rating: Math.round(r.rating),
       rd: Math.round(r.rd),

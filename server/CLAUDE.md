@@ -34,8 +34,11 @@ decisions; this file covers what's not obvious from the code.
     whose `ratings` is a mode-keyed map of `{rating, rd, provisional, peak,
     peakAt, matches, wins, losses, draws}` (`peakAt` is ISO, null until the
     mode has been played). The flat `rating`/`rd`/`provisional` (and
-    `/api/me`'s flat `peak`/`matches`/`wins`/`losses`/`draws`) stay as the
-    heads-up values for compatibility.
+    `/api/me`'s and `/api/users/:name`'s flat `peak`/`peakAt`/`matches`/
+    `wins`/`losses`/`draws`) stay as the heads-up values for compatibility.
+    Every flat field is read straight off the heads-up standing rather than
+    recomputed beside it, so a client that falls back from a null per-mode
+    value to the flat one can never be handed a different answer.
   - `/api/leaderboard?mode=heads-up|six-max`, defaulting to heads-up; an
     unrecognised mode falls back rather than erroring. The response is still
     a bare array.
@@ -89,8 +92,12 @@ A guest is minted on any request that lacks a valid `ot_session` cookie
 (`auth.requireUser`, used by `/api/me` and anything else that should always
 have a "current user"). The cookie is httpOnly, `SameSite=Lax`, 90 days, and
 `secure` when `X-Forwarded-Proto: https` (nginx terminates TLS) or the
-request itself is https. Guest names are `guest-` + 4 random base32-ish
-chars, retried on the (rare) unique collision. Claiming sets `name` and
+request itself is https. Guest names come from `@opentable/identity`'s
+`generateName`: a two-word CamelCase name (`RedTiger`), retried up to 4
+times on collision, then three-word names until one is unique. Guests are
+identified by the `guest` boolean column, not a name prefix — `guest-` stays
+reserved (see `validateName`) so nobody can claim a name that looks like the
+old convention. Claiming sets `name` and
 `password_hash` on the *same* row (`guard: guest = true`), so rating and
 history carry over. Password hashing is `crypto.scrypt`, stored as
 `salt:hash` hex. The websocket path uses `resolveSessionUser` instead — it
@@ -222,11 +229,16 @@ against a short clock and a small stack.
 
 ## Bots
 `src/bots/` exists so one human can play right now. A bot is an ordinary
-`users` row with `bot = true`: a real name (`bot-otter`, `bot-heron`, ...
-from a fixed list of eight), a real Glicko-2 rating and real match history,
-no password, never a guest. `ensureBots()` runs once in `buildApp` and keeps
-`BOT_COUNT` (default 6) of them alive; the insert is `on conflict do nothing`
-so parallel boots are safe.
+`users` row with `bot = true`: a real name (a fixed list of eight CamelCase
+names from `@opentable/identity`, generated once with a seeded rng so the
+roster is stable across boots), a real Glicko-2 rating and real match
+history, no password, never a guest. `ensureBots()` runs once in `buildApp`
+and keeps `BOT_COUNT` (default 6) of them alive; the insert is
+`on conflict do nothing` so parallel boots are safe. `migrateBotRoster()`
+(backed by `db.migrateLegacyBotNames`, advisory-locked so concurrent boots
+can't race renaming the same row) runs first and one-time-renames any
+pre-identity-package `bot-otter` style row into the new roster, in the same
+`name_lower` order the old roster was read.
 
 A bot has no socket. It registers a **virtual connection** with the hub
 (`hub.attachVirtual`), and `hub.send` routes to that handler before it looks

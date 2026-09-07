@@ -1,6 +1,7 @@
 import type { ClientMsg, Mode } from '@opentable/protocol';
+import { generateName, seededRng } from '@opentable/identity';
 import { config } from '../config.js';
-import { ensureBotUser, getBotUsers, getRatingsForUsers, type UserRow } from '../db.js';
+import { ensureBotUser, getBotUsers, getRatingsForUsers, migrateLegacyBotNames, type UserRow } from '../db.js';
 import { hub } from '../ws/hub.js';
 import { roomForPlayer } from '../match/rooms.js';
 import { BotPlayer, type Dispatch } from './player.js';
@@ -17,16 +18,16 @@ import { BotPlayer, type Dispatch } from './player.js';
    forever with nothing to calibrate against. Revisit once real humans are
    pairing with each other. */
 
-const BOT_NAMES = [
-  'bot-otter',
-  'bot-heron',
-  'bot-pike',
-  'bot-vole',
-  'bot-wren',
-  'bot-marten',
-  'bot-kestrel',
-  'bot-dunlin',
-];
+// A fixed roster, generated once from a fixed seed so the names are the
+// same on every boot rather than reshuffling each restart.
+function generateBotNames(count: number): string[] {
+  const rng = seededRng('opentable-bots');
+  const names = new Set<string>();
+  while (names.size < count) names.add(generateName(rng, 2));
+  return [...names];
+}
+
+const BOT_NAMES = generateBotNames(8);
 
 const players = new Map<string, BotPlayer>();
 
@@ -39,7 +40,17 @@ export function setBotDispatch(fn: Dispatch): void {
   dispatch = fn;
 }
 
+// One-time migration from the old `bot-otter` style names to the generated
+// roster, in the same order the old roster was read (name_lower asc). A
+// database with no legacy rows left (the common case, after the first boot
+// that runs this) does nothing. Exported with an overridable name list so
+// tests can exercise it without touching the real roster.
+export function migrateBotRoster(names: string[] = BOT_NAMES): Promise<void> {
+  return migrateLegacyBotNames(names);
+}
+
 export async function ensureBots(count = config.botCount): Promise<void> {
+  await migrateBotRoster();
   for (const name of BOT_NAMES.slice(0, Math.max(0, count))) {
     const user = await ensureBotUser(name);
     if (!user || players.has(user.id)) continue;

@@ -1,6 +1,7 @@
 import { randomBytes, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { generateName } from '@opentable/identity';
 import {
   claimGuestUser,
   getSessionUser,
@@ -28,7 +29,6 @@ declare module 'fastify' {
 export const SESSION_COOKIE = 'ot_session';
 const SESSION_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 const NAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
-const GUEST_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789'; // no ambiguous chars
 
 export function validateName(name: string): string | null {
   if (!NAME_RE.test(name)) {
@@ -40,21 +40,25 @@ export function validateName(name: string): string | null {
   return null;
 }
 
-function randomGuestSuffix(): string {
-  let s = '';
-  const bytes = randomBytes(4);
-  for (const b of bytes) s += GUEST_ALPHABET[b % GUEST_ALPHABET.length];
-  return s;
-}
-
+// Guests are identified by the `guest` column, not by a name prefix.
+// `guest-` stays reserved (see validateName above) so nobody can claim a
+// name that looks like the old convention. A two-word generated name
+// collides rarely enough that four tries covers it in practice; the
+// three-word space is over 10 million, so it is the fallback that actually
+// guarantees termination.
 export async function mintGuest(): Promise<UserRow> {
-  for (let attempt = 0; attempt < 10; attempt++) {
-    const name = `guest-${randomGuestSuffix()}`;
+  for (let attempt = 0; attempt < 4; attempt++) {
     try {
-      return await insertGuestUser(name);
+      return await insertGuestUser(generateName(Math.random, 2));
     } catch (err) {
-      if (isUniqueViolation(err)) continue;
-      throw err;
+      if (!isUniqueViolation(err)) throw err;
+    }
+  }
+  for (let attempt = 0; attempt < 20; attempt++) {
+    try {
+      return await insertGuestUser(generateName(Math.random, 3));
+    } catch (err) {
+      if (!isUniqueViolation(err)) throw err;
     }
   }
   throw new Error('could not mint a unique guest name');

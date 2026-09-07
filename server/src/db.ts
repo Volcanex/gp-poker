@@ -237,11 +237,34 @@ export async function getBotUsers(): Promise<UserRow[]> {
   return sql<UserRow[]>`select * from users where bot = true order by name_lower asc`;
 }
 
+// Advisory-locked so two concurrent boots (a rolling deploy, or several
+// test workers) can't both read the pre-identity-package `bot-otter` style
+// rows and race to rename them into the same new names. Whichever
+// transaction gets the lock first does the whole rename; by the time the
+// second one gets it, there are no legacy rows left and it does nothing.
+const BOT_MIGRATION_LOCK_KEY = 727101;
+
+export async function migrateLegacyBotNames(names: string[]): Promise<void> {
+  await sql.begin(async (tx) => {
+    await tx`select pg_advisory_xact_lock(${BOT_MIGRATION_LOCK_KEY})`;
+    const legacy = await tx<UserRow[]>`
+      select * from users where bot = true and name_lower like 'bot-%' order by name_lower asc
+    `;
+    for (let i = 0; i < legacy.length && i < names.length; i++) {
+      await tx`
+        update users set name = ${names[i]}, name_lower = ${names[i].toLowerCase()}
+        where id = ${legacy[i].id}
+      `;
+    }
+  });
+}
+
 export async function touchLastSeen(id: string): Promise<void> {
   await sql`update users set last_seen_at = now() where id = ${id}`;
 }
 
 export interface LeaderboardRow {
+  id: string;
   name: string;
   rating: number;
   rd: number;
@@ -253,7 +276,7 @@ export async function getLeaderboard(mode: Mode, limit = 100): Promise<Leaderboa
   // 110 mirrors @opentable/rating's isProvisional threshold (see userView.ts);
   // it's duplicated here only because SQL can't call into that package.
   return sql<LeaderboardRow[]>`
-    select u.name, r.rating, r.rd, r.matches, r.peak_rating
+    select u.id, u.name, r.rating, r.rd, r.matches, r.peak_rating
     from ratings r
     join users u on u.id = r.user_id
     where r.mode = ${mode} and r.rd <= 110 and u.bot = false
@@ -399,6 +422,7 @@ export interface UserMatchSummary {
   id: string;
   mode: MatchFormat['mode'];
   opponent: string; // the other seat heads-up, the next seat along multiway
+  opponentId: string | null;
   players: number; // seats in the match, so a client can render "3rd of 6"
   place: number | null;
   result: 'win' | 'loss' | 'draw';
@@ -434,6 +458,7 @@ export async function getMatchesForUser(userId: string, limit = 20): Promise<Use
       id: m.id,
       mode: m.format.mode,
       opponent: opponentSeat?.name ?? 'unknown',
+      opponentId: opponentSeat?.userId ?? null,
       players: m.seats.length,
       place,
       result,

@@ -11,7 +11,7 @@ import {
   type HandState,
 } from '@opentable/engine';
 import { extractDecisions, handStats, summarise } from '@opentable/preflop';
-import { blindsAt } from '@opentable/protocol';
+import { HAND_HOLD_MS, blindsAt } from '@opentable/protocol';
 import type {
   ActionKind,
   Card,
@@ -28,11 +28,10 @@ import { hub } from '../ws/hub.js';
 import { computeMatchRatings } from './rating.js';
 import type { HandRunner, MatchOutcome, RoomClock } from './types.js';
 
-// How long a completed hand's result stays on screen before the next hand
-// deals (or the match ends), long enough for the reveal to actually settle.
-// Capped at the decision clock so a test running a 300ms clock doesn't spend
-// four seconds per hand staring at a finished board.
-export const HAND_HOLD_MS = 4_000;
+// The hold a completed hand's result stays on screen for. It lives in the
+// protocol because the client counts the same number down in the dock, and two
+// copies of it drift.
+export { HAND_HOLD_MS };
 
 export interface HandRunnerDeps {
   matchId: string;

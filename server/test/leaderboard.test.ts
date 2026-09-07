@@ -31,10 +31,12 @@ describe('GET /api/leaderboard', () => {
 
     const res = await app.inject({ method: 'GET', url: '/api/leaderboard' });
     expect(res.statusCode).toBe(200);
-    const names: string[] = res.json().map((r: { name: string }) => r.name);
+    const rows: { id: string; name: string }[] = res.json();
 
-    expect(names).toContain(settled.name);
-    expect(names).not.toContain(provisional.name);
+    const settledRow = rows.find((r) => r.name === settled.name);
+    expect(settledRow).toBeDefined();
+    expect(settledRow!.id).toBe(settled.id);
+    expect(rows.map((r) => r.name)).not.toContain(provisional.name);
   });
 
   it('is per mode: a six-max standing does not appear on the heads-up board', async () => {

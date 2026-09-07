@@ -9,20 +9,23 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@opentable/protocol": "*",
-    "@opentable/engine": "*",
-    "@opentable/preflop": "*",
     "@number-flow/react": "^0.6.2",
+    "@opentable/engine": "*",
+    "@opentable/identity": "*",
+    "@opentable/preflop": "*",
+    "@opentable/protocol": "*",
     "motion": "^13.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.9.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.63.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^6.1.1",
-    "vite": "^8.2.2",
-    "jsdom": "^30.0.1"
+    "jsdom": "^30.0.1",
+    "vite": "^8.2.2"
   }
 }

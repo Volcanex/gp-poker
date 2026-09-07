@@ -33,6 +33,8 @@ boot, unrated.
   function (pure, ticked by the server).
 - `packages/preflop` — cached baseline HU charts by stack depth and the
   EV-lost scorer. Preflop only, no solver at runtime.
+- `packages/identity` — generated CamelCase names (guests, bots) and
+  deterministic geometric avatars from a user id. Pure, no dependencies.
 - `server` — Fastify REST + `ws` WebSocket + `postgres` driver. Owns
   sessions, matchmaking queue, match orchestration, clocks, persistence,
   serving `client/dist`.
@@ -64,8 +66,10 @@ boot, unrated.
   compare to the recorded board and holes.
 - Replay = `engine.replay(config, actions)`; the stored hand row holds
   seed, stacks, button and the action log, nothing derived is trusted.
-- Auth: a guest user is minted on first visit (cookie session). Claiming
-  sets a name and password on the same row so rating carries over.
+- Auth: a guest user is minted on first visit (cookie session), named by
+  `@opentable/identity`'s `generateName` (`guest` boolean column, not a name
+  prefix). Claiming sets a name and password on the same row so rating
+  carries over.
 
 ## Gotchas
 - g-system tokens: `--surface-1/-2`, `--bg`, `--text-primary/-secondary`,

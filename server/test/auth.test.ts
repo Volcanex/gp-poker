@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
+import { isGeneratedName } from '@opentable/identity';
 import { makeApp, deleteUser } from './helpers.js';
 
 describe('auth flow', () => {
@@ -20,7 +21,7 @@ describe('auth flow', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.guest).toBe(true);
-    expect(body.name).toMatch(/^guest-/);
+    expect(isGeneratedName(body.name)).toBe(true);
     expect(body.rating).toBe(1500);
     // Session-scoped and always changing: never cacheable.
     expect(res.headers['cache-control']).toBe('no-store');
