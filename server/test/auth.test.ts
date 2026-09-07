@@ -39,6 +39,11 @@ describe('auth flow', () => {
       draws: 0,
     });
     expect(body.ratings['six-max'].rating).toBe(1500);
+    // The flat fields are the heads-up standing's own values, so a client
+    // falling back from a null standing to a flat field gets the same answer.
+    expect(body.peak).toBe(body.ratings['heads-up'].peak);
+    expect(body.peakAt).toBe(body.ratings['heads-up'].peakAt);
+    expect(body.rating).toBe(body.ratings['heads-up'].rating);
     createdUserIds.push(body.id);
   });
 

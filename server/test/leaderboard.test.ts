@@ -97,10 +97,14 @@ describe('GET /api/users/:name', () => {
     expect(body.ratingHistory['heads-up']).toEqual([]);
     expect(body.ratingHistory['six-max']).toEqual([]);
 
-    // Flat fields stay heads-up for compatibility.
-    expect(body.peak).toBe(1500);
+    // Flat fields stay heads-up for compatibility, and are read off the
+    // heads-up standing so the two can never disagree.
+    const headsUp = body.summary.ratings['heads-up'];
+    expect(body.peak).toBe(headsUp.peak);
+    expect(body.peakAt).toBe(headsUp.peakAt);
+    expect(body.provisional).toBe(headsUp.provisional);
+    expect(body.matches).toBe(headsUp.matches);
     expect(body.peakAt).toBeNull();
-    expect(body.matches).toBe(0);
   });
 
   it('404s an unknown name', async () => {

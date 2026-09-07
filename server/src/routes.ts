@@ -20,7 +20,7 @@ import {
   deleteSession,
 } from './db.js';
 import { claimGuest, login, requireUser, setSessionCookie, clearSessionCookie, createSessionForUser, SESSION_COOKIE } from './auth.js';
-import { isProvisional, roundRatings, toModeRating, toUserSummary } from './userView.js';
+import { roundRatings, toModeRating, toUserSummary } from './userView.js';
 
 function err(reply: { code: (n: number) => { send: (b: unknown) => unknown } }, status: number, message: string) {
   return reply.code(status).send({ error: message });
@@ -40,11 +40,15 @@ export function registerRoutes(app: FastifyInstance): void {
     const user = await requireUser(request, reply);
     const summary = toUserSummary(user, await getRatingsFor(user.id));
     const headsUp = summary.ratings['heads-up'];
-    // The flat peak/matches/wins/losses/draws are the heads-up ones, same
-    // compatibility bargain as the flat rating fields on UserSummary.
+    // The flat peak/peakAt/matches/wins/losses/draws are the heads-up ones,
+    // same compatibility bargain as the flat rating fields on UserSummary.
+    // They are read straight off the heads-up standing rather than recomputed,
+    // so a caller falling back from a null standing to the flat field can
+    // never be handed a different answer than the standing already gave it.
     return {
       ...summary,
       peak: headsUp.peak,
+      peakAt: headsUp.peakAt,
       matches: headsUp.matches,
       wins: headsUp.wins,
       losses: headsUp.losses,
@@ -103,6 +107,9 @@ export function registerRoutes(app: FastifyInstance): void {
     const lastMatches = await getMatchesForUser(user.id, 20);
 
     const headsUp = ratings['heads-up'];
+    // The one heads-up standing every flat field on this route is read from,
+    // so they cannot disagree with summary.ratings['heads-up'].
+    const headsUpStanding = toModeRating(headsUp);
     const totalOutcomes = headsUp.wins + headsUp.losses + headsUp.draws;
     const winRate = totalOutcomes > 0 ? headsUp.wins / totalOutcomes : 0;
 
@@ -125,10 +132,10 @@ export function registerRoutes(app: FastifyInstance): void {
       summary: toUserSummary(user, ratings),
       // Flat fields stay heads-up for compatibility; summary.ratings has the
       // per-mode standings including peak and the counters.
-      peak: toModeRating(headsUp).peak,
-      peakAt: headsUp.peakAt,
-      provisional: isProvisional(headsUp),
-      matches: headsUp.matches,
+      peak: headsUpStanding.peak,
+      peakAt: headsUpStanding.peakAt,
+      provisional: headsUpStanding.provisional,
+      matches: headsUpStanding.matches,
       winRate,
       accuracy,
       ratingHistory,
