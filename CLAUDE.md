@@ -1,8 +1,9 @@
 # opentable
 
 **Owner:** Gabriel Penman
-**What:** Open Table, free ranked heads-up no-limit hold'em at
-poker.gabrielpenman.com. Lichess for poker: no money, no chips to buy, no
+**What:** Open Table, free ranked no-limit hold'em at
+poker.gabrielpenman.com: heads-up (best of 25) and six-max sit-and-go,
+each rated or casual, with bots filling empty seats. Lichess for poker: no money, no chips to buy, no
 rake, no ads. Chips are table units that reset every match; the scarce
 currency is Glicko-2 rating. Instant play as a guest, claim the account
 later. Every match has a permanent public URL with hand histories, a
@@ -39,10 +40,20 @@ boot, unrated.
   `client/public/g/` (never hand-edited; re-vendor from the g-system repo).
 
 ## Decisions
-- Rated format: heads-up, 200 units each, blinds 1/2, best-of-25 hands or
-  bust; higher stack after 25 wins, equal stacks is a draw (Glicko 0.5).
-  Blinds never escalate. 20s decision clock, 15s reconnect grace, three
-  consecutive timeouts forfeits the match.
+- Modes: heads-up (200 units, blinds 1/2 flat, best of 25 hands or bust,
+  equal stacks is a draw) and six-max (6 seats, blind levels every 8 hands,
+  last player standing, places by elimination order). Each rated or casual.
+  20s decision clock, 15s reconnect grace; three consecutive timeouts
+  forfeit heads-up but only sit a player out in six-max.
+- Ratings are per mode (`ratings` table), like chess time controls. Six-max
+  gives each player one Glicko-2 period against every other seat by place.
+- Bots (`users.bot`) fill a heads-up seat after 5s and a six-max table after
+  20s of waiting, never a table with no human. Bot matches are rated for
+  now: a bootstrap choice to revisit once there are users.
+- The engine only sees seats with chips; `hands.live_seats` maps engine
+  seat to table seat and every stored log is in table seats.
+- Tests run against `TEST_DATABASE_URL` (opentable_test), never the live
+  database. Restarting the service aborts live matches (unrated).
 - Server authoritative. Clients send `act` with the hand number and action
   seq they believe they are acting at; stale or illegal actions are refused
   with `err`. Hole cards are stripped in `toView(state, viewerSeat)` on the
