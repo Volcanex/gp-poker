@@ -38,6 +38,12 @@ export interface HandRunnerDeps {
   matchId: string;
   match: MatchRow;
   onChange: () => void;
+  // Dealing and hand completion are detached async work: they run from a
+  // timer or after an action has already returned, so nothing is left to
+  // await their rejection. Without somewhere to send it a failed insert
+  // becomes an unhandled rejection, which Node ends the process over,
+  // killing every other live match with it.
+  onFail: (err: unknown) => void;
 }
 
 /* Runs the hands of one match over @opentable/engine.
@@ -55,6 +61,7 @@ export class EngineHandRunner implements HandRunner {
   private matchId: string;
   private match: MatchRow;
   private onChange: () => void;
+  private onFail: (err: unknown) => void;
   private seatsInfo: MatchSeat[];
   private playerIds: string[];
   private stacks: number[];
@@ -76,6 +83,7 @@ export class EngineHandRunner implements HandRunner {
     this.matchId = deps.matchId;
     this.match = deps.match;
     this.onChange = deps.onChange;
+    this.onFail = deps.onFail;
     this.seatsInfo = [...deps.match.seats].sort((a, b) => a.seat - b.seat);
     this.playerIds = this.seatsInfo.map((s) => s.userId);
     this.stacks = this.seatsInfo.map(() => deps.match.format.stack);
@@ -162,7 +170,7 @@ export class EngineHandRunner implements HandRunner {
     // Everyone left could already be all-in from the blinds alone (extreme
     // short stacks): the engine resolves straight to showdown inside
     // createHand, with nothing for anyone to act on.
-    if (this.state.street === 'done') void this.completeHand();
+    if (this.state.street === 'done') this.complete();
   }
 
   onAction(userId: string, msg: Extract<ClientMsg, { t: 'act' }>): boolean {
@@ -191,7 +199,7 @@ export class EngineHandRunner implements HandRunner {
     this.stampLastAction(next);
     this.lastEvent = this.classifyTransition(this.state, next, false);
     this.state = next;
-    if (next.street === 'done') void this.completeHand();
+    if (next.street === 'done') this.complete();
     return true;
   }
 
@@ -204,7 +212,13 @@ export class EngineHandRunner implements HandRunner {
     this.stampLastAction(next, true);
     this.lastEvent = this.classifyTransition(this.state, next, true);
     this.state = next;
-    if (next.street === 'done') void this.completeHand();
+    if (next.street === 'done') this.complete();
+  }
+
+  // The one place hand completion is kicked off from, so its failure has
+  // exactly one route out.
+  private complete(): void {
+    this.completeHand().catch(this.onFail);
   }
 
   private stampLastAction(state: HandState, timedOut = false): void {
@@ -404,6 +418,10 @@ export class EngineHandRunner implements HandRunner {
     this.handsPlayed += 1;
     await updateMatchHandsPlayed(this.matchId, this.handsPlayed);
 
+    if (this.matchWouldFinish()) {
+      // The last hand is held on screen like any other before the result.
+      await new Promise((r) => setTimeout(r, Math.min(HAND_HOLD_MS, this.match.format.clockMs)));
+    }
     const finished = this.headsUp ? await this.settleHeadsUp() : await this.settleMultiway();
     if (finished) {
       this.onChange();
@@ -412,10 +430,19 @@ export class EngineHandRunner implements HandRunner {
 
     setTimeout(
       () => {
-        void this.startHand(this.handNumber + 1).then(() => this.onChange());
+        this.startHand(this.handNumber + 1).then(() => this.onChange(), this.onFail);
       },
       Math.min(HAND_HOLD_MS, this.match.format.clockMs)
     );
+  }
+
+  private matchWouldFinish(): boolean {
+    const alive = this.stacks.filter((x) => x > 0).length;
+    if (this.headsUp) {
+      const exhausted = this.match.format.hands !== null && this.handsPlayed >= this.match.format.hands;
+      return alive < 2 || exhausted;
+    }
+    return alive < 2;
   }
 
   private async settleHeadsUp(): Promise<boolean> {
