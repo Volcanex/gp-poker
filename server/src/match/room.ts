@@ -122,7 +122,10 @@ export class MatchRoom {
       return;
     }
     const userId = this.playerIds[seat];
-    const paused = userId !== undefined && this.disconnected.has(userId);
+    // Paused only while the grace window is still open. Once grace has
+    // expired the clock runs against a disconnected player, otherwise a
+    // player who never comes back would freeze the match on their turn.
+    const paused = userId !== undefined && this.disconnected.has(userId) && this.graceTimers.has(userId);
     const deadline = Date.now() + this.match.format.clockMs;
     this.clock = { seat, deadline, paused };
     if (!paused) this.armTimer(deadline, seat);
