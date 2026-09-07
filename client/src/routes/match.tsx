@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import type { ActionKind, MatchResult, TableView } from '@opentable/protocol';
+import type { ActionKind, TableView } from '@opentable/protocol';
 import { Table } from '../table/table.tsx';
-import { ResultScreen } from '../table/result.tsx';
+import { MatchSummary, matchFromEnd } from '../table/match-summary.tsx';
+import type { Match as MatchData } from '../net/types.ts';
+import { api } from '../net/api.ts';
 import { useServerMsg, useSession } from '../net/session.tsx';
+import { useTitle } from '../ui/title.ts';
 import { mockScript } from '../dev/mock.ts';
 
 export function Match() {
@@ -25,16 +28,38 @@ function LiveMatch({ id }: { id: string }) {
   const { send, me, offline, conn, startQueue } = useSession();
   const nav = useNavigate();
   const [view, setView] = useState<TableView | null>(null);
-  const [result, setResult] = useState<MatchResult | null>(null);
+  const [finished, setFinished] = useState<MatchData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const pending = useRef<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const pending = useRef<string | null>(null);
+  useTitle(`Match ${id}`);
 
+  /* The match row decides which of the two pages this is. A finished match
+     never opens a socket subscription; a playing one never waits on REST. */
   useEffect(() => {
-    if (offline) return;
-    send({ t: 'join', m: id });
-    return () => send({ t: 'leave', m: id });
-  }, [id, send, offline]);
+    let live = true;
+    setFinished(null);
+    setLoadError(null);
+    api
+      .match(id)
+      .then((m) => {
+        if (!live) return;
+        if (m.status === 'playing') send({ t: 'join', m: id });
+        else setFinished(m);
+      })
+      .catch((e: Error) => {
+        if (!live) return;
+        /* An unreachable match endpoint is not a reason to refuse to play: the
+           socket is the authority while a match is live. */
+        setLoadError(e.message);
+        send({ t: 'join', m: id });
+      });
+    return () => {
+      live = false;
+      send({ t: 'leave', m: id });
+    };
+  }, [id, send]);
 
   useServerMsg((m) => {
     if (m.t === 'state' && m.s.m === id) {
@@ -46,7 +71,11 @@ function LiveMatch({ id }: { id: string }) {
       setView(m.s);
       setError(null);
     } else if (m.t === 'end' && m.m === id) {
-      setResult(m.r);
+      const fallback = view ? matchFromEnd(view, m.r) : null;
+      api
+        .match(id)
+        .then((full) => setFinished(full.status === 'playing' ? (fallback ?? full) : full))
+        .catch(() => fallback && setFinished(fallback));
     } else if (m.t === 'err') {
       pending.current = null;
       setSending(false);
@@ -65,16 +94,17 @@ function LiveMatch({ id }: { id: string }) {
   );
 
   const playAgain = useCallback(() => {
-    setResult(null);
     startQueue();
     nav('/');
   }, [startQueue, nav]);
 
-  if (offline) return <Pending text="The table server is not answering. Reload once it is back." />;
+  if (finished) return <MatchSummary match={finished} meId={me?.id ?? null} onAgain={playAgain} />;
+
+  if (offline && !view) return <Pending text="The table server is not answering. Reload once it is back." />;
   if (!view) {
     return (
       <Pending
-        text={conn === 'open' ? 'Joining the match' : 'Connecting to the table'}
+        text={loadError ? 'Joining the match' : conn === 'open' ? 'Joining the match' : 'Connecting to the table'}
         spinner
       />
     );
@@ -84,7 +114,6 @@ function LiveMatch({ id }: { id: string }) {
     <>
       <Table view={view} onAct={onAct} sending={sending} />
       {error && <div className="waiting-bar" role="alert">{error}</div>}
-      {result && me && <ResultScreen result={result} meId={me.id} view={view} onAgain={playAgain} />}
     </>
   );
 }
@@ -97,6 +126,7 @@ function MockMatch({ step }: { step: number | null }) {
   const [i, setI] = useState(start);
   const [enteredAt, setEnteredAt] = useState(() => Date.now());
   const nav = useNavigate();
+  useTitle('Mock table');
 
   useEffect(() => {
     if (step != null) return;
@@ -122,8 +152,8 @@ function MockMatch({ step }: { step: number | null }) {
   }
   const end = script[i].end ?? null;
 
-  /* The script is authored with a clock offset, not an absolute deadline, so a
-     step looks the same whenever it is entered. */
+  /* The script carries a clock offset, not an absolute deadline, so a step
+     looks the same whenever it is entered. */
   const view = useMemo(() => {
     if (!base) return null;
     if (!base.clock) return base;
@@ -132,22 +162,24 @@ function MockMatch({ step }: { step: number | null }) {
 
   if (!view) return <Pending text="Loading the mock table" />;
 
+  if (end) {
+    return (
+      <MatchSummary
+        match={matchFromEnd(view, end)}
+        meId="u-you"
+        againLabel="Replay the script"
+        onAgain={() => {
+          setI(0);
+          setEnteredAt(Date.now());
+          nav('/m/mock');
+        }}
+      />
+    );
+  }
+
   return (
     <>
       <Table view={view} onAct={advance} sending={false} />
-      {end && (
-        <ResultScreen
-          result={end}
-          meId="u-you"
-          view={view}
-          onAgain={() => {
-            setI(0);
-            setEnteredAt(Date.now());
-            nav('/m/mock');
-          }}
-          againLabel="Replay the script"
-        />
-      )}
       <span className="devnote" style={{ padding: '4px var(--sp-4)' }}>
         Mock table, no server. Step {i + 1} of {script.length}: {script[i].label}
       </span>

@@ -1,9 +1,16 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Link, NavLink, Route, Routes } from 'react-router-dom';
-import { SessionProvider, useSession } from './net/session.tsx';
+import { SessionProvider } from './net/session.tsx';
 import { Home } from './routes/home.tsx';
 import { Match } from './routes/match.tsx';
-import { HandReplay, Profile } from './routes/raw.tsx';
+import { Leaderboard } from './routes/leaderboard.tsx';
+import { Profile } from './routes/profile.tsx';
+import { AccountMenu } from './ui/auth.tsx';
+
+/* The replay is the only page that runs the engine, and the engine carries a
+   hand evaluator with a large lookup table. Splitting it here keeps that table
+   out of the bundle everyone loads to play. */
+const Replay = lazy(() => import('./routes/replay.tsx').then((m) => ({ default: m.Replay })));
 import './app.css';
 
 type Theme = 'dark' | 'light' | 'system';
@@ -37,21 +44,15 @@ function ThemeButton() {
 }
 
 function TopBar() {
-  const { me } = useSession();
   return (
     <header className="top">
       <Link className="wordmark" to="/">Open Table</Link>
       <nav>
         <NavLink to="/" end>Play</NavLink>
-        <NavLink to="/#leaderboard">Leaderboard</NavLink>
+        <NavLink to="/leaderboard">Leaderboard</NavLink>
       </nav>
       <span className="spacer" />
-      {me && (
-        <Link className="whoami" to={`/u/${encodeURIComponent(me.name)}`}>
-          <span>{me.name}</span>
-          <span className="r num">{me.rating}{me.provisional ? '?' : ''}</span>
-        </Link>
-      )}
+      <AccountMenu />
       <ThemeButton />
     </header>
   );
@@ -64,8 +65,16 @@ export function App() {
         <TopBar />
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/m/:id" element={<Match />} />
-          <Route path="/m/:id/h/:n" element={<HandReplay />} />
+          <Route
+            path="/m/:id/h/:n"
+            element={
+              <Suspense fallback={<main className="page"><span className="muted">Loading the replay</span></main>}>
+                <Replay />
+              </Suspense>
+            }
+          />
           <Route path="/u/:name" element={<Profile />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

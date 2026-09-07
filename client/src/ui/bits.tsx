@@ -42,6 +42,20 @@ export function useFading<T>(value: T | null, key: string, ms = 2400): T | null 
   return shown;
 }
 
+/* A keyboard shortcut must not fire while someone is typing, but a checkbox or
+   a button is not typing: arrow keys mean nothing to them, and swallowing the
+   shortcut there only makes the page feel broken after a click. */
+export function isTextEntry(el: EventTarget | null): boolean {
+  const node = el as HTMLElement | null;
+  if (!node || !node.tagName) return false;
+  const tag = node.tagName.toUpperCase();
+  if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  if (node.isContentEditable) return true;
+  if (tag !== 'INPUT') return false;
+  const type = (node as HTMLInputElement).type;
+  return !['checkbox', 'radio', 'button', 'submit', 'reset', 'range'].includes(type);
+}
+
 export function useNow(active: boolean, everyMs = 1000): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {

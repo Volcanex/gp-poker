@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ActionKind, LegalActions } from '@opentable/protocol';
-import { useGInit } from '../ui/bits.tsx';
+import { isTextEntry, useGInit } from '../ui/bits.tsx';
 import { clamp, raisePresets } from './sizing.ts';
 
 export interface ActionBarProps {
@@ -48,8 +48,7 @@ export function ActionBar({ legal, pot, myBet, disabled, onAct }: ActionBarProps
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (disabled) return;
-      const target = e.target as HTMLElement | null;
-      if (target && /^(input|textarea|select)$/i.test(target.tagName)) return;
+      if (isTextEntry(e.target)) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const k = e.key.toLowerCase();
       if (k === 'f' && actions.includes('f')) { e.preventDefault(); onAct('f'); }

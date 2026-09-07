@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, rows } from '../net/api.ts';
-import type { LeaderboardRow } from '../net/api.ts';
+import { api } from '../net/api.ts';
+import type { LeaderboardRow } from '../net/types.ts';
 import { useSession } from '../net/session.tsx';
 import { elapsed, useNow } from '../ui/bits.tsx';
-import { useLocation } from 'react-router-dom';
+import { useTitle } from '../ui/title.ts';
+import { Link, useLocation } from 'react-router-dom';
 
 export function Home() {
-  const { queue, startQueue, cancelQueue, offline, ready, conn } = useSession();
+  const { queue, startQueue, cancelQueue, offline, ready, conn, liveMatch } = useSession();
   const nav = useNavigate();
   const searching = queue.s === 'searching';
   const { hash } = useLocation();
+  useTitle(null);
   const now = useNow(searching, 250);
 
   useEffect(() => {
@@ -69,6 +71,12 @@ export function Home() {
           </div>
         )}
 
+        {liveMatch && (
+          <Link className="btn btn-secondary" to={`/m/${liveMatch}`}>
+            Return to your match
+          </Link>
+        )}
+
         {!offline && conn === 'waiting' && (
           <span className="muted">Connection dropped. Reconnecting.</span>
         )}
@@ -105,7 +113,7 @@ function Leaderboard() {
     let live = true;
     api
       .leaderboard()
-      .then((p) => live && setList(rows(p).slice(0, 10)))
+      .then((p) => live && setList(p.slice(0, 10)))
       .catch(() => live && setFailed(true));
     return () => {
       live = false;
@@ -117,6 +125,8 @@ function Leaderboard() {
       <div className="lb-head">
         <span className="h2">Top ten</span>
         <span className="muted">Rating, with the deviation beside it</span>
+        <span style={{ flex: 1 }} />
+        <Link className="btn btn-tertiary btn-sm" to="/leaderboard">See all</Link>
       </div>
       <div className="card lb-card">
         {failed || (list && list.length === 0) ? (
@@ -139,7 +149,11 @@ function Leaderboard() {
                   <tr key={r.name || i}>
                     <td className="r">{i + 1}</td>
                     <td>
-                      {list ? r.name : <span className="skeleton skeleton-text" style={{ width: 96 }} />}
+                      {list ? (
+                        <Link to={`/u/${encodeURIComponent(r.name)}`}>{r.name}</Link>
+                      ) : (
+                        <span className="skeleton skeleton-text" style={{ width: 96 }} />
+                      )}
                     </td>
                     <td className="r">
                       {list ? (
@@ -166,4 +180,6 @@ const placeholder: LeaderboardRow[] = Array.from({ length: 5 }, (_, i) => ({
   name: `row-${i}`,
   rating: 0,
   rd: 0,
+  matches: 0,
+  peak: 0,
 }));

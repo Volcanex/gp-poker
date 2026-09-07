@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { ReactNode } from 'react';
 import type { ClientMsg, ServerMsg, UserSummary } from '@opentable/protocol';
 import { api } from './api.ts';
+import type { Me } from './types.ts';
 import { socket } from './socket.ts';
 import type { ConnState } from './socket.ts';
 
@@ -13,8 +14,34 @@ export interface QueueState {
   m?: string;
 }
 
+/* The match this browser last saw itself seated at. Remembered so a reload
+   can offer the way back; verified against the server before it is trusted,
+   because a match that finished while the tab was closed is not a match to
+   return to. */
+const LIVE_MATCH_KEY = 'ot-live-match';
+
+function readLiveMatch(): string | null {
+  try {
+    return localStorage.getItem(LIVE_MATCH_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeLiveMatch(id: string | null) {
+  try {
+    if (id) localStorage.setItem(LIVE_MATCH_KEY, id);
+    else localStorage.removeItem(LIVE_MATCH_KEY);
+  } catch {
+    /* private mode: the offer is a convenience, not state worth failing over */
+  }
+}
+
 interface Session {
-  me: UserSummary | null;
+  me: Me | null;
+  setMe: (u: UserSummary) => void;
+  refreshMe: () => Promise<void>;
+  liveMatch: string | null;
   ready: boolean;
   offline: boolean;
   conn: ConnState;
@@ -28,7 +55,8 @@ interface Session {
 const Ctx = createContext<Session | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [me, setMe] = useState<UserSummary | null>(null);
+  const [me, setMeState] = useState<Me | null>(null);
+  const [liveMatch, setLiveMatch] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [offline, setOffline] = useState(false);
   const [conn, setConn] = useState<ConnState>('idle');
@@ -40,7 +68,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       .me()
       .then((u) => {
         if (!live) return;
-        setMe(u);
+        setMeState(u);
         setOffline(false);
         socket.open();
       })
@@ -57,11 +85,36 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => socket.onState(setConn), []);
 
+  /* A remembered match is only offered once the server confirms it is still
+     playing. */
+  useEffect(() => {
+    const id = readLiveMatch();
+    if (!id) return;
+    let live = true;
+    api
+      .match(id)
+      .then((m) => {
+        if (!live) return;
+        if (m.status === 'playing') setLiveMatch(id);
+        else writeLiveMatch(null);
+      })
+      .catch(() => writeLiveMatch(null));
+    return () => {
+      live = false;
+    };
+  }, []);
+
   useEffect(
     () =>
       socket.onMessage((m: ServerMsg) => {
-        if (m.t === 'hi') setMe(m.u);
-        else if (m.t === 'q') {
+        if (m.t === 'hi') setMeState((prev) => (prev ? { ...prev, ...m.u } : null));
+        else if (m.t === 'state' && m.s.you != null) {
+          writeLiveMatch(m.s.m);
+          setLiveMatch(m.s.m);
+        } else if (m.t === 'end') {
+          writeLiveMatch(null);
+          setLiveMatch(null);
+        } else if (m.t === 'q') {
           setQueue((prev) => ({
             s: m.s,
             since: m.s === 'searching' && prev.s === 'searching' ? prev.since : Date.now(),
@@ -88,9 +141,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const clearFound = useCallback(() => setQueue({ s: 'idle', since: 0 }), []);
 
+  /* Claim and login return a UserSummary; the counts on Me are unchanged by
+     either, so the summary is merged over what is already there. */
+  const setMe = useCallback((u: UserSummary) => {
+    setMeState((prev) => (prev ? { ...prev, ...u } : { ...u, peak: u.rating, matches: 0, wins: 0, losses: 0, draws: 0 }));
+  }, []);
+
+  const refreshMe = useCallback(async () => {
+    const u = await api.me();
+    setMeState(u);
+  }, []);
+
   const value = useMemo(
-    () => ({ me, ready, offline, conn, queue, send, startQueue, cancelQueue, clearFound }),
-    [me, ready, offline, conn, queue, send, startQueue, cancelQueue, clearFound],
+    () => ({ me, setMe, refreshMe, liveMatch, ready, offline, conn, queue, send, startQueue, cancelQueue, clearFound }),
+    [me, setMe, refreshMe, liveMatch, ready, offline, conn, queue, send, startQueue, cancelQueue, clearFound],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

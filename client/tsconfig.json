@@ -1,1 +1,1 @@
-{ "extends": "../tsconfig.base.json", "compilerOptions": { "noEmit": true, "jsx": "react-jsx", "module": "ESNext", "moduleResolution": "Bundler", "lib": ["ES2022", "DOM", "DOM.Iterable"], "allowImportingTsExtensions": true }, "include": ["src"] }
+{ "extends": "../tsconfig.base.json", "compilerOptions": { "noEmit": true, "jsx": "react-jsx", "module": "ESNext", "moduleResolution": "Bundler", "lib": ["ES2022", "DOM", "DOM.Iterable"], "allowImportingTsExtensions": true }, "include": ["src", "../packages/engine/src/vendor.d.ts"] }

@@ -9,6 +9,7 @@
 .stat { display: flex; flex-direction: column; gap: 4px; }
 .stat .v { font-size: 22px; font-weight: 500; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .stat .k { font-size: 12px; color: var(--text-secondary); }
+.stat .d { font-size: 12px; color: var(--text-secondary); }
 
 /* ------------------------------------------------------------------ shell */
 
@@ -145,8 +146,8 @@
 }
 .pcard .rank { font-size: calc(var(--card-w) * 0.41); font-weight: 500; letter-spacing: -0.02em; line-height: 1; }
 .pcard .suit { font-size: calc(var(--card-w) * 0.29); line-height: 1; }
-.pcard[data-suit="h"], .pcard[data-suit="d"] { color: var(--danger-text); }
-.pcard[data-suit="s"], .pcard[data-suit="c"] { color: var(--text-primary); }
+[data-suit="h"], [data-suit="d"] { color: var(--danger-text); }
+[data-suit="s"], [data-suit="c"] { color: var(--text-primary); }
 .pcard[data-back] { background: var(--well-bg); box-shadow: none; }
 .pcard[data-back]::after {
   content: ""; position: absolute; inset: 5px;
@@ -316,3 +317,152 @@
 
 /* a link styled as a button keeps the button's affordance, not a link's rule */
 a.btn { text-decoration: none; }
+
+/* =================================================================== phase 3 */
+
+/* .switch-row is the docs app's label-and-control row, not a g.css component.
+   Same note as .stat: delete when g-system ships it. */
+.switch-row { display: flex; align-items: center; gap: var(--sp-3); }
+.switch-row .label { white-space: nowrap; }
+
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); align-items: start; }
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-3); }
+.kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px var(--sp-4); margin: 0; font-size: 12px; }
+.kv dt { color: var(--text-secondary); }
+.kv dd { margin: 0; overflow-wrap: anywhere; }
+
+.ctext { display: inline-flex; gap: 7px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ctext > span { display: inline-flex; gap: 1px; }
+
+/* ---------------------------------------------------------------- account */
+
+.account { display: flex; flex: none; }
+.account .btn .r { color: var(--text-secondary); margin-left: 6px; }
+.menu a.menu-item { text-decoration: none; }
+
+/* ---------------------------------------------------------------- profile */
+
+.profile-head { display: flex; flex-direction: column; gap: var(--sp-4); }
+.profile-name { display: flex; align-items: baseline; gap: var(--sp-3); flex-wrap: wrap; }
+.profile-rating { font-size: 15px; color: var(--text-secondary); }
+.facts { display: flex; gap: var(--sp-6); flex-wrap: wrap; }
+.fact { display: flex; flex-direction: column; gap: 1px; }
+.fact .k { font-size: 12px; color: var(--text-secondary); }
+.fact .v { font-size: 19px; font-weight: 500; letter-spacing: -0.015em; }
+.fact .d { font-size: 11px; color: var(--text-placeholder); }
+
+.graph-card { display: flex; flex-direction: column; gap: var(--sp-2); }
+.graph { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-3); align-items: stretch; }
+.graph-y {
+  display: flex; flex-direction: column; justify-content: space-between;
+  font-size: 11px; color: var(--text-secondary);
+}
+.graph svg { width: 100%; height: 132px; display: block; overflow: visible; }
+.graph-line { fill: none; stroke: var(--chart-1); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.graph-x {
+  display: flex; justify-content: space-between; gap: var(--sp-3);
+  font-size: 11px; color: var(--text-placeholder);
+}
+
+.claim { display: flex; flex-direction: column; gap: var(--sp-4); }
+.claim-copy { display: flex; flex-direction: column; gap: 4px; }
+.claim-fields { display: flex; align-items: flex-end; gap: var(--sp-3); flex-wrap: wrap; }
+.claim-fields .field { flex: 1; min-width: 160px; }
+
+.table tr[data-mine] td { background: var(--fill-hover); }
+.table tr[data-mine] td:first-child { box-shadow: inset 2px 0 0 var(--accent-fill); }
+
+/* ----------------------------------------------------------------- result */
+
+.player-result { display: flex; flex-direction: column; gap: var(--sp-2); }
+.pr-head { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.pr-name { font-size: var(--font-size-ui); font-weight: 500; text-decoration: none; }
+.pr-name:hover { text-decoration: underline; text-decoration-color: var(--slate-a8); }
+.pr-stack { font-size: 22px; font-weight: 500; letter-spacing: -0.02em; }
+.pr-stack .u { font-size: 11px; color: var(--text-secondary); margin-left: 6px; font-weight: 400; }
+.pr-rating { display: flex; align-items: baseline; gap: var(--sp-3); }
+.pr-rating .v { font-size: 15px; font-weight: 500; }
+
+/* ----------------------------------------------------------------- replay */
+
+.replay-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
+.replay-links { display: flex; gap: var(--sp-2); }
+.replay { display: grid; grid-template-columns: minmax(0, 1fr) 268px; gap: var(--sp-4); align-items: start; }
+.replay-main { display: flex; flex-direction: column; gap: var(--sp-3); }
+.replay-felt { padding: var(--sp-3); }
+.match[data-bare] { display: block; min-height: 0; }
+.match[data-bare] .felt { padding: 0; gap: var(--sp-3); overflow: visible; }
+.match[data-bare] .felt > * { max-width: none; }
+
+.scrubber { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.scrubber .counter { font-size: var(--font-size-ui); color: var(--text-secondary); }
+.scrubber .spacer { flex: 1; }
+.scrub-hint { font-size: 11px; color: var(--text-placeholder); }
+.scrub-hint .kbd { margin-right: 2px; }
+
+.replay-side { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.acts-list {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 1px;
+  max-height: 420px; overflow: auto;
+}
+.act-street {
+  display: block; padding: var(--sp-3) 6px 4px;
+  font-size: 11px; color: var(--text-placeholder);
+}
+.act-row {
+  display: flex; flex-direction: column; gap: 1px;
+  width: 100%; padding: 5px 7px;
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  background: none; text-align: left; cursor: pointer;
+  font-family: var(--font-ui); font-size: var(--font-size-ui); color: var(--text-primary);
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.act-row:hover { background: var(--fill-hover); }
+.act-row[data-current] { background: var(--fill-hover); border-color: var(--border-subtle); }
+.act-seat { font-size: 11px; color: var(--text-secondary); }
+.act-what { font-variant-numeric: tabular-nums; }
+.act-note { font-size: 11px; color: var(--text-placeholder); font-variant-numeric: tabular-nums; }
+
+.fairness { display: flex; flex-direction: column; gap: var(--sp-3); }
+.checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+.checks li { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 2px var(--sp-3); font-size: var(--font-size-ui); }
+.check-state { grid-row: span 2; color: var(--danger-text); font-variant-numeric: tabular-nums; }
+.checks li[data-ok] .check-state { color: var(--ok-text); }
+.check-label { color: var(--text-primary); }
+.check-detail { font-size: 11px; color: var(--text-secondary); overflow-wrap: anywhere; }
+
+@media (max-width: 900px) {
+  .replay { grid-template-columns: minmax(0, 1fr); }
+  .acts-list { max-height: 280px; }
+  .tiles { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 560px) {
+  .two { grid-template-columns: 1fr; }
+  .facts { gap: var(--sp-4); }
+  .claim-fields { flex-direction: column; align-items: stretch; }
+  .claim-fields .btn { width: 100%; }
+  .kv { grid-template-columns: minmax(0, 1fr); gap: 1px; }
+  .kv dd { margin-bottom: 6px; }
+}
+
+/* A page's own button row: natural widths, unlike the table's action bar where
+   the three choices share the width evenly. */
+.row-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+
+/* Data tables carry short cells; letting them wrap costs more height than the
+   sideways scroll the wrapper already provides. */
+.lb-card .table th, .lb-card .table td { white-space: nowrap; }
+
+@media (max-width: 900px) {
+  /* On one column the page is the scroller; a second scrolling box inside it
+     only clips the list halfway through a line. */
+  .acts-list { max-height: none; overflow: visible; }
+}
+
+@media (max-width: 560px) {
+  /* The rating is on the profile the button leads to; the name is what has to
+     stay on screen next to the theme control. */
+  .account .btn .r { display: none; }
+}

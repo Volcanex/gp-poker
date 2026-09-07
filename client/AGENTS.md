@@ -10,22 +10,43 @@ Never hand-edit those; re-run `node scripts/vendor.mjs` from the g-system repo.
 
 ## Run
 - `npm run dev -w client` (port 5180, proxies to the server on 8130)
-- `npm run build -w client` then `npx vite preview --port 4173` for the
-  built bundle
+- `npm run build -w client`, then `npx vite preview --port 4173` for the bundle
 - `npx tsc -p client/tsconfig.json` typechecks; `npm test -w client` runs the
-  unit tests for the pure sizing and label logic
+  unit tests for the pure logic (sizing, labels, replay stepping, fairness)
+
+`tsconfig.json` includes `../packages/engine/src/vendor.d.ts`: the client
+compiles the engine's TypeScript source directly, so it needs the same ambient
+declaration for `phe` that the engine's own tsconfig provides.
 
 ## Shape
-- `src/net/` — the wire. `api.ts` is fetch helpers (same-origin, credentialed);
-  `socket.ts` is the single WebSocket; `session.tsx` is the provider that owns
-  the session, the connection state and the matchmaking queue.
-- `src/routes/` — `home.tsx` (queue + leaderboard), `match.tsx` (live and mock
-  tables), `raw.tsx` (the profile and hand-replay placeholders).
-- `src/table/` — the table itself. `table.tsx` renders one `TableView`;
-  `seat.tsx`, `playing-card.tsx`, `timer-ring.tsx`, `action-bar.tsx`,
-  `result.tsx` are its parts. `sizing.ts` and `labels.ts` are pure.
-- `src/dev/mock.ts` — the scripted table, dev only.
+- `src/net/` — the wire. `types.ts` mirrors the REST payloads, `api.ts` is the
+  fetch layer, `socket.ts` is the single WebSocket, `session.tsx` owns the
+  session, the connection state, the queue and the match to return to.
+- `src/routes/` — `home.tsx`, `leaderboard.tsx`, `profile.tsx`, `match.tsx`
+  (live table, finished summary and the mock), `replay.tsx`.
+- `src/table/` — the table. `table.tsx` renders one `TableView`; `seat.tsx`,
+  `playing-card.tsx`, `timer-ring.tsx`, `action-bar.tsx` are its parts.
+  `match-summary.tsx` is the finished-match page. `sizing.ts` and `labels.ts`
+  are pure.
+- `src/replay/` — `to-view.ts` turns an engine `HandState` into a `TableView`;
+  `fairness.ts` re-derives the deck and rehashes the commitment.
+- `src/ui/` — `auth.tsx` (claim, log in, account menu), `rating-graph.tsx`,
+  `board-text.tsx`, `bits.tsx`, `format.ts`, `title.ts`.
+- `src/dev/mock.ts` — the scripted live table, dev only.
 - `src/app.css` — page layout plus the poker-specific pieces. Tokens only.
+
+## Routes
+| Path | Page |
+| --- | --- |
+| `/` | queue, how it works, top ten |
+| `/leaderboard` | top 100 |
+| `/u/:name` | profile |
+| `/m/:id` | live table while playing, result summary once finished |
+| `/m/:id/h/:n` | hand replay, scrubber and fairness checks |
+| `/m/mock` | the scripted table, dev only (`?step=N` freezes one moment) |
+
+`useTitle` (`src/ui/title.ts`) sets the document title per route and appends
+the product name, so it is spelled in one place.
 
 ## Socket contract
 The session is a cookie the server sets on the first `GET /api/me`, so the
@@ -42,68 +63,128 @@ Acting sends `{t:'act', m, h: view.h, n: view.n, a, v}` and disables the bar
 until a state with a different `h:n` arrives. The server refuses a stale action
 with `err`, so a replayed act is rejected rather than misapplied.
 
-## The mock table
-`/m/mock` (or any match URL with `?mock=1`) feeds a scripted sequence of
-`TableView` states through the same renderer as a live match: deal, bets, three
-streets, a showdown, an award, the next hand, then the `end` result. It exists
-so the table can be looked at and screenshotted without a server.
+**The match to return to** is remembered in `localStorage` whenever a `state`
+arrives with a seat for you, and cleared on `end`. On load it is offered only
+after `GET /api/matches/:id` confirms the match is still playing: a match that
+finished while the tab was closed is not a match to return to.
 
-- `?step=N` freezes on one step instead of playing. Screenshots use this.
-- Clicking any action button advances the script rather than sending.
-- Clock deadlines are recomputed when a step is entered, so a step looks the
-  same whenever it is reached.
+## REST contract
+Shapes mirror `server/src/routes.ts` exactly; `src/net/types.ts` is the
+mirror, and dates are strings there because JSON has no Date.
+
+**A hand's primary key is `<match id>-<number>`** (`server/db/schema.sql`), so
+`/m/:id/h/:n` addresses `GET /api/hands/<id>-<n>` with no lookup step. If that
+key ever changes, `api.hand()` is the one place to change.
+
+Three things the endpoints do not carry, left out rather than invented:
+- **Preflop accuracy on the profile.** `/api/users/:name` returns vpip, pfr,
+  aggression frequency and fold-to-3bet, not a mean study accuracy. The tile is
+  absent, not zero.
+- **Per-hand accuracy in the match hand list.** `/api/matches/:id` does not
+  include each hand's study, and fetching every hand to fill a column is not
+  worth it. Accuracy lives on the replay page, which has the hand row.
+- **A total match count for another player.** The profile carries the last
+  twenty matches, not a count. The Matches fact is shown on your own profile
+  (from `/api/me`) and omitted on everyone else's, rather than passing a capped
+  list off as a total.
+
+## The replay
+`replay(config, actions)` from the engine returns one `HandState` per step, and
+`stateToView` renders each through the same table components a live match uses.
+Step 0 is the deal; step k is after k actions. The engine ships pure-JS hashing
+(`@noble/hashes`), so all of this runs in the browser.
+
+**The replay route is lazy-loaded** (`React.lazy` in `app.tsx`). The engine
+pulls in `phe`, whose hand evaluator carries a large lookup table; splitting it
+keeps roughly 80 kB gzipped out of the bundle everyone loads to play. Keep the
+engine out of the eagerly loaded routes: importing it from, say, the table or
+the match summary would undo this silently.
+
+**Baseline verdicts** beside preflop actions come from the hand row's `study`,
+which the server writes as `{seat: {decisions, evLost, accuracy}}`. Each of a
+seat's preflop actions is paired with that seat's decisions **in order**. That
+is sound because the scorer walks the same actions in the same order and only
+ever drops decisions off the end (a spot stops being a named spot once the
+raises stack past a 3bet), never from the middle. Actions past the last scored
+decision simply carry no verdict, which is why deep 4bet wars annotate their
+first few actions and then stop.
+
+**The fairness panel** runs both checks in the browser on the published seed:
+`sha256(seed)` against the commitment, and `deckFromSeed(seed)` dealt in engine
+order against the recorded holes and board. Nothing is taken on trust from the
+server. The deal order is round robin from the seat left of the button, one
+card each then the second card each, board straight after with no burns
+(`packages/engine/CLAUDE.md`); `dealFromDeck` in `src/replay/fairness.ts` is
+that rule and the unit test pins it.
 
 ## g-system usage
-Everything that g ships is used as it ships: `.btn` and its variants, `.input`,
-`.g-slider`, `.table`, `.card`, `.badge`, `.empty`, `.skeleton`, `.kbd`,
-`.prose`, `.spinner`, `.copy-btn`, and `g.theme()` behind the theme button.
-Bet chips are `.badge` with `.num`, not a bespoke chip.
+Everything g ships is used as it ships: `.btn` and its variants, `.input`,
+`.switch`, `.g-slider`, `.table`, `.card`, `.badge`, `.empty`, `.skeleton`,
+`.kbd`, `.prose`, `.spinner`, `.copy-btn`, `.menu[popover]`, `dialog.dlg`, and
+`g.theme()` behind the theme button. Bet chips are `.badge` with `.num`, not a
+bespoke chip.
 
-Three things to know:
+Four things to know:
 
 1. **`g.init` and React.** g-ui.js wires its behaviour layer at load; React
-   mounts later. `useGInit` (in `src/ui/bits.tsx`) asks for a pass over a
-   subtree and stamps it so a second pass is a no-op. `.copy-btn` in the hand
-   header is the one node g and React co-own: g inserts icons into it and
-   rewrites its label on click. Its React children are constant, so React never
-   diffs over g's changes. Keep them constant.
+   mounts later. `useGInit` (`src/ui/bits.tsx`) asks for a pass over a subtree
+   and stamps it so a second pass is a no-op. Two nodes are co-owned: the
+   `.copy-btn` in the hand header (g inserts icons and rewrites the label on
+   click) and the account `.menu` (g positions it and binds its items). Their
+   React children must stay constant, and the menu handlers call
+   `hidePopover()` themselves so a re-rendered item still closes the menu.
 2. **The slider.** g owns the fill and the readout and syncs them on the input
-   event. The action bar keeps the range input React-controlled and replays a
-   native input event after a programmatic change, so g stays the only thing
-   that computes the fill. React bails on a set to the same value, so it cannot
-   loop.
-3. **`.stat` is copied into `app.css`.** The stat tile ships as markup
-   (`.card.stat` with `.k`/`.v`) and as a React component, but its CSS rules
-   live in the g-system docs app rather than in `g.css`. The three rules at the
-   top of `app.css` are that definition verbatim. **Delete them when g-system
-   ships `.stat` in `g.css`.**
+   event. The action bar keeps the range React-controlled and replays a native
+   input event after a programmatic change, so g stays the only thing that
+   computes the fill. React bails on a set to the same value, so it cannot loop.
+3. **Two docs-app rules are copied into `app.css`.** `.stat` (the stat tile)
+   and `.switch-row` ship as markup and as React components, but their CSS
+   lives in the g-system docs app rather than in `g.css`. Both copies are
+   marked in `app.css`. **Delete them when g-system ships those rules.**
+4. **Keyboard shortcuts and typing.** `isTextEntry` in `src/ui/bits.tsx` is the
+   one guard: it treats text fields, textareas, selects and contenteditable as
+   typing, but not checkboxes, radios, buttons or ranges. Arrow keys stepping a
+   replay must still work right after someone clicks the "show all cards"
+   switch, which is what a blanket "is it an input" test got wrong.
 
 The accent slot is not overridden. g's default accent is the far end of the
-neutral scale, which is the one accent this app uses: the acting seat's timer
-ring, the primary action, the raise button. A rebrand would set
-`--accent-fill/-hover/-fg/-edge` and nothing else.
+neutral scale, and that is the one accent this app uses: the acting seat's
+timer ring, the primary action, your own row on the leaderboard. A rebrand
+would set `--accent-fill/-hover/-fg/-edge` and nothing else.
+
+## Keyboard
+| Key | Where | Does |
+| --- | --- | --- |
+| `f` | your turn | fold |
+| `c` | your turn | check, or call |
+| `r` | your turn | focus the raise amount |
+| left, right | replay | step back, step forward |
 
 ## Bespoke components (promotion candidates for g-system)
-These four are poker-specific and live here only because g has nothing close.
-If any of them stops being poker-specific, build it in g-system, not here.
+Poker-specific pieces live here only because g has nothing close. If one stops
+being poker-specific, build it in g-system, not here.
 
-- **`playing-card.tsx`** — a rank and suit on a surface, plus a face-down and an
-  empty-slot state. The empty slot holds the board's width so nothing shifts as
-  streets arrive. Red suits use `--danger-text` as the palette's red; nothing
-  destructive in this app is red (Fold is `btn-tertiary`), so the meaning colour
-  is not overloaded. **Promotion candidate:** no, this is poker.
-- **`timer-ring.tsx`** — a countdown ring driven by a server deadline rather
-  than a local duration, so a reconnecting client lands on the right remaining
-  time. Steps through `--warn-text` and `--danger-text`, holds and greys when
-  `clock.paused`. **Promotion candidate: yes.** A deadline-driven ring is
-  generic; g ships `.g-progress` and `.g-meter` but nothing that counts down.
-- **`seat.tsx`** — name, rating, stack, cards, button marker, last action and
-  the ring in one row. **Promotion candidate:** no.
-- **`action-bar.tsx`** — fold, check or call, and a raise with presets, a
-  slider and a number input, clamped to `legal.min..legal.max`.
-  **Promotion candidate: partly.** The "bounded number with presets, a slider
-  and a typed input, all clamped to one range" pattern is generic; the poker
-  words around it are not.
+- **`playing-card.tsx`** — rank and suit on a surface, plus face-down and
+  empty-slot states. The empty slot holds the board's width so nothing shifts
+  as streets arrive. Red suits use `--danger-text` as the palette's red;
+  nothing destructive in this app is red (Fold is `btn-tertiary`), so the
+  meaning colour is not overloaded. **Promotion: no, this is poker.**
+- **`timer-ring.tsx`** — a countdown driven by a server deadline rather than a
+  local duration, so a reconnecting client lands on the right remaining time.
+  **Promotion: yes.** g ships `.g-progress` and `.g-meter` but nothing that
+  counts down.
+- **`seat.tsx`**, **`action-bar.tsx`** — poker furniture. The action bar's
+  "bounded number with presets, a slider and a typed input, all clamped to one
+  range" is the generic half; the poker words are not. **Promotion: partly.**
+- **`rating-graph.tsx`** — a single line over time. g ships `g.chart`, but it
+  draws into a node it owns and re-renders by being called again, which fights
+  React. **Promotion: yes**, as a React-friendly sparkline. Note the line
+  stretches to its box (`preserveAspectRatio="none"`) and holds its width with
+  `vector-effect`, which is why it has no marker: a circle would stretch into
+  an ellipse.
+- **`board-text.tsx`** — cards as text for dense tables. **Promotion: no.**
+- The replay scrubber, action list and fairness panel are page furniture, not
+  components. **Promotion: no.**
 
 ## Gotchas
 - There is no `--surface` token. Use `--surface-1` (page) and `--surface-2`
@@ -111,10 +192,16 @@ If any of them stops being poker-specific, build it in g-system, not here.
 - `TableView.pot` **includes the current street's bets**. `raisePresets` in
   `sizing.ts` depends on that: a pot-sized raise is `myBet + call + (pot +
   call)`. The unit test pins it.
-- The felt caps its column at 680 px and centres it. The table has to read in
-  one glance, so it never spreads to the width of the window.
+- The engine's hand descriptions come from `phe` in Title Case ("One Pair").
+  They are lowercased at the display site to match the house voice.
+- With no viewer seat (spectating, or a replay) the last seat still takes the
+  bottom slot, so the table reads as a table rather than a stack of seats with
+  an empty half below. `bottom` and `you` are separate in `table.tsx` for that
+  reason: only a real `view.you` gets an action bar.
+- The felt caps its column at 680 px and centres it, except in `bare` mode
+  (the replay), which fills the card it sits in.
 - Reduced motion is respected everywhere: cards stop dealing, chips stop flying
-  and the rating stops counting, but every state change is still legible.
-  NumberFlow does this itself through `respectMotionPreference`.
-- `.result-scrim` sits below the top bar via `--top-h`. If the bar's height
-  changes, change that variable, not the scrim.
+  and ratings stop counting, but every state change stays legible. NumberFlow
+  does this itself through `respectMotionPreference`.
+- Data tables scroll inside their own `.table-wrap`; the page never scrolls
+  horizontally, including at 390 px.

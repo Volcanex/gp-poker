@@ -13,19 +13,27 @@ export interface TableProps {
   view: TableView;
   onAct: (a: ActionKind, v?: number) => void;
   sending: boolean;
+  /* The replay supplies its own hand header and its own controls, so it asks
+     for the felt on its own. */
+  bare?: boolean;
 }
 
 interface Flight { id: number; seat: number; amount: number }
 
 const BOARD_SLOTS = 5;
 
-export function Table({ view, onAct, sending }: TableProps) {
+export function Table({ view, onAct, sending, bare }: TableProps) {
   const reduced = useReducedMotion();
   const headRef = useRef<HTMLDivElement>(null);
   useGInit(headRef);
 
-  const you = view.you == null ? null : view.seats.find((s) => s.i === view.you) ?? null;
-  const others = view.seats.filter((s) => s.i !== view.you);
+  /* The bottom slot is yours when you are seated. Watching (a spectator or a
+     replay), the last seat takes it, so the table still reads as a table
+     rather than a stack of seats with an empty half below. */
+  const seated = view.you == null ? null : view.seats.find((s) => s.i === view.you) ?? null;
+  const bottom = seated ?? (view.seats.length > 1 ? view.seats[view.seats.length - 1] : null);
+  const others = view.seats.filter((s) => s.i !== bottom?.i);
+  const you = seated;
 
   /* Chips fly to the pot when the street's bets are collected: the seat's chip
      unmounts and one with the same layoutId mounts over the pot, so the move is
@@ -58,7 +66,8 @@ export function Table({ view, onAct, sending }: TableProps) {
   const canAct = view.legal != null && you != null;
 
   return (
-    <div className="match">
+    <div className="match" data-bare={bare ? '' : undefined}>
+      {!bare && (
       <div className="hand-head" ref={headRef}>
        <div className="bar-in">
         <span className="n">Hand {view.h} of {view.format.hands}</span>
@@ -85,6 +94,7 @@ export function Table({ view, onAct, sending }: TableProps) {
         </span>
        </div>
       </div>
+      )}
 
       <div className="felt">
         <div className="side">
@@ -147,7 +157,7 @@ export function Table({ view, onAct, sending }: TableProps) {
                 return (
                   <span className="w" key={`${a.seat}-${a.amount}`}>
                     {seat?.name ?? `Seat ${a.seat}`} wins <span className="num">{a.amount}</span>
-                    {a.hand ? ` with ${a.hand}` : ''}
+                    {a.hand ? ` with ${a.hand.toLowerCase()}` : ''}
                   </span>
                 );
               })}
@@ -157,19 +167,19 @@ export function Table({ view, onAct, sending }: TableProps) {
         </div>
 
         <div className="side you">
-          {you && (
+          {bottom && (
             <>
               <div className="seat-bet">
-                {you.bet > 0 && (
-                  <motion.span layoutId={`bet-${you.i}`} className="badge num">{you.bet}</motion.span>
+                {bottom.bet > 0 && (
+                  <motion.span layoutId={`bet-${bottom.i}`} className="badge num">{bottom.bet}</motion.span>
                 )}
               </div>
               <Seat
-                seat={you}
-                you
+                seat={bottom}
+                you={bottom.i === view.you}
                 clock={view.clock}
                 format={view.format}
-                reveal={cardsOf(result?.shown, you.i)}
+                reveal={cardsOf(result?.shown, bottom.i)}
                 n={view.n}
                 handNo={view.h}
               />
@@ -178,7 +188,7 @@ export function Table({ view, onAct, sending }: TableProps) {
         </div>
       </div>
 
-      {canAct && view.legal ? (
+      {bare ? null : canAct && view.legal ? (
         <ActionBar
           legal={view.legal}
           pot={view.pot}
