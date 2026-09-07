@@ -10,12 +10,14 @@ later. Every match has a permanent public URL with hand histories, a
 provably fair shuffle and preflop accuracy scoring.
 
 ## Run
-systemd unit `opentable`, port 8130, `node server/dist/index.js`. nginx
+systemd unit `opentable`, port 8130, `node release/server/index.js`. nginx
 vhost proxies `/` and upgrades `/ws`. Local: Postgres on 5432 (`docker
 compose up -d db` if there is none), copy `.env.example` to `.env`, then
 `npm install && npm run dev` (builds the client, starts the server with
 tsx, serves everything on one port). Tests: `npm test` (vitest in every
-workspace). Deploy on h: `npm run build && systemctl restart opentable`.
+workspace). Deploy on h: `scripts/deploy.sh` (builds committed HEAD in a clean
+worktree into `release/`, which the service serves via `CLIENT_DIST`;
+never deploy the working tree, agents build in it while the site is live).
 Schema in `server/db/schema.sql` is applied idempotently at start.
 The server build is an esbuild bundle (`server/build.mjs`) because the
 workspace packages ship TypeScript source only; `server/tsconfig.json` is

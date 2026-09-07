@@ -13,7 +13,9 @@ import { routeClientMessage, routeConnect, routeDisconnect } from './ws/router.j
 import { ensureBots, setBotDispatch } from './bots/index.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const clientDist = path.resolve(here, '..', '..', 'client', 'dist');
+const clientDist = process.env.CLIENT_DIST
+  ? path.resolve(process.env.CLIENT_DIST)
+  : path.resolve(here, '..', '..', 'client', 'dist');
 
 // Builds the Fastify instance without listening or starting matchmaking's
 // tick, so tests can exercise it with app.inject()/app.injectWS() and
