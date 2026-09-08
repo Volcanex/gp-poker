@@ -63,7 +63,10 @@ export function MatchFoundAlert() {
   useServerMsg((m: ServerMsg) => {
     if (m.t !== 'q' || m.s !== 'found' || !m.m) return;
     void sound.play('yourTurn');
-    if (pathname === '/' || pathname === `/m/${m.m}`) return;
+    /* Pages that walk to the table by themselves get no toast: home, the
+       table, and the two lobbies (a challenge or a home game link), which
+       would otherwise leave the toast lying on the felt after they moved. */
+    if (pathname === '/' || pathname === `/m/${m.m}` || pathname.startsWith('/c/') || pathname.startsWith('/g/')) return;
     void announce(m.m);
   });
 
