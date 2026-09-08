@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { blindsAt, type MatchFormat, type Mode } from '@opentable/protocol';
+import { type MatchFormat, type Mode } from '@opentable/protocol';
 import { bucketFor, effectiveStackBb, handClass, spotFor, walkPreflop } from '@opentable/preflop';
 
 function modeParam(raw: unknown): Mode {
@@ -28,6 +28,7 @@ import {
   getSiteStats,
   deleteSession,
   getUserAvatar,
+  handBlinds,
   setUserAvatar,
   clearUserAvatar,
   updateUserCountry,
@@ -39,7 +40,7 @@ import {
 import { readCountry } from './countries.js';
 import { config } from './config.js';
 import { hub } from './ws/hub.js';
-import { queueSize } from './matchmaking.js';
+import { queueSize, rankedUnlocked } from './matchmaking.js';
 import { getRoom } from './match/rooms.js';
 import { claimGuest, login, requireUser, setSessionCookie, clearSessionCookie, createSessionForUser, SESSION_COOKIE } from './auth.js';
 import { rosterSummary } from './bots/index.js';
@@ -75,7 +76,7 @@ export function registerRoutes(app: FastifyInstance): void {
 
   app.get('/api/me', async (request, reply) => {
     const user = await requireUser(request, reply);
-    return meBody(user, await getRatingsFor(user.id));
+    return meBody(user, await getRatingsFor(user.id), await rankedUnlocked(user.id));
   });
 
   /* The one thing a player can change about themselves without claiming an
@@ -90,7 +91,7 @@ export function registerRoutes(app: FastifyInstance): void {
     if (country === undefined) return err(reply, 400, 'Country must be a two-letter country code, or null');
     const updated = await updateUserCountry(user.id, country);
     if (!updated) return err(reply, 404, 'No such user');
-    return meBody(updated, await getRatingsFor(updated.id));
+    return meBody(updated, await getRatingsFor(updated.id), await rankedUnlocked(updated.id));
   });
 
   app.post<{ Body: { name?: string; password?: string } }>('/api/claim', async (request, reply) => {
@@ -316,7 +317,7 @@ export function registerRoutes(app: FastifyInstance): void {
       seats: match.seats,
       button: hand.button, // table seat
       liveSeats: hand.liveSeats, // engine-seat order; null on pre-v2 hands
-      ...blindsAt(match.format, hand.number),
+      ...handBlinds(hand, match.format),
       stacksStart: hand.stacksStart,
       seedHash: hand.seedHash,
       seed: completed ? hand.seed : null,
@@ -343,7 +344,7 @@ export function registerRoutes(app: FastifyInstance): void {
 
       // Heads-up hands are stored in table seats and the two are the same
       // index space, which is what lets the row be walked as it stands.
-      const config = { seats: hand.stacksStart.map((stack) => ({ stack })), button: hand.button, bb: blindsAt(match.format, hand.number).bb };
+      const config = { seats: hand.stacksStart.map((stack) => ({ stack })), button: hand.button, bb: handBlinds(hand, match.format).bb };
       const bucket = bucketFor(effectiveStackBb(config));
       const steps = walkPreflop(config, hand.actions);
       const graded = steps
@@ -353,7 +354,7 @@ export function registerRoutes(app: FastifyInstance): void {
 
       const chosen = graded[Math.floor(Math.random() * graded.length)];
       const hole = hand.holes[chosen.step.seat];
-      const { sb, bb } = blindsAt(match.format, hand.number);
+      const { sb, bb } = handBlinds(hand, match.format);
       return {
         handId: hand.id,
         matchId: hand.matchId,
@@ -651,7 +652,7 @@ export function registerRoutes(app: FastifyInstance): void {
    compatibility bargain as the flat rating fields on UserSummary, and every
    one is read straight off the heads-up standing rather than recomputed
    beside it. */
-function meBody(user: UserRow, ratings: Record<Mode, RatingRow>) {
+function meBody(user: UserRow, ratings: Record<Mode, RatingRow>, unlocked: boolean) {
   const summary = toUserSummary(user, ratings);
   const headsUp = summary.ratings['heads-up'];
   // The flat peak/peakAt/matches/wins/losses/draws are the heads-up ones,
@@ -661,6 +662,13 @@ function meBody(user: UserRow, ratings: Record<Mode, RatingRow>) {
     // Only ever true for an admin. The key is absent for everybody else, so
     // nothing about the admin layer is on the wire for a player at all.
     ...(user.admin ? { admin: true } : {}),
+    /* Whether rated play is open yet: one finished casual or practice match
+       is what opens it. Sent rather than derived on the client, because the
+       counters on `ratings` do not say which matches were rated and the
+       answer is a query over the match rows. The client refreshes /api/me on
+       every `end`, so the control flips the moment the first game finishes
+       without anything having to push it. */
+    rankedUnlocked: unlocked,
     peak: headsUp.peak,
     peakAt: headsUp.peakAt,
     matches: headsUp.matches,
