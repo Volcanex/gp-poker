@@ -32,6 +32,18 @@
   --act-call: var(--ok); --act-call-text: var(--ok-text);
   --act-fold: var(--danger-fill); --act-fold-text: var(--danger-text);
 }
+/* On a light ground g's amber and green text sit just under 4.5:1 on the
+   square's 18% tint, so they are deepened a step there. */
+[data-theme="light"] {
+  --act-bet-text: color-mix(in oklab, var(--warn-text) 80%, black);
+  --act-call-text: color-mix(in oklab, var(--ok-text) 80%, black);
+}
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] {
+    --act-bet-text: color-mix(in oklab, var(--warn-text) 80%, black);
+    --act-call-text: color-mix(in oklab, var(--ok-text) 80%, black);
+  }
+}
 
 /* .stat is the shipped stat tile, but g.css does not carry its rules (they
    live in the g-system docs app). Copied verbatim until g-system ships them. */
@@ -745,7 +757,10 @@
   border-radius: var(--radius-sm);
 }
 .pcard[data-empty] { background: transparent; border-style: dashed; box-shadow: none; opacity: 0.55; }
-.pcard[data-dim] { opacity: 0.35; }
+/* Dimmed by a filter rather than an opacity: a card that is not part of the
+   winning hand is still a card, its rank readable against its own paper, and
+   axe reads a 35% opacity as ink at 35% against the felt. */
+.pcard[data-dim] { filter: brightness(0.55) saturate(0.7); }
 /* The five that made the hand. The board dims around them rather than the
    five brightening, so the felt gets quieter at a showdown, not louder. */
 .pcard[data-best] { border-color: var(--accent-fill); box-shadow: 0 0 0 1px var(--accent-fill); }
@@ -809,7 +824,7 @@
    a busted seat's row is rebuilt anyway. */
 .seat-stack { position: relative; }
 .seat-stack .u { font-size: 11px; line-height: 16px; color: var(--text-secondary); font-weight: 400; }
-.seat-stack .u[data-allin] { position: absolute; right: calc(4ch + 6px); bottom: 0; }
+.seat-stack .u-allin { position: absolute; right: calc(4ch + 6px); bottom: 0; }
 .stack-chips { margin-right: calc(5ch + 6px); }
 /* Room for every stack a table can hold, so the chips beside the digits never
    move when the figure gains one. */

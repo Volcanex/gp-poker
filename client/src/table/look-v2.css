@@ -92,7 +92,7 @@
 .match[data-look="v2"] .pc[data-suit="d"] { color: var(--pip-d); }
 .match[data-look="v2"] .pc[data-suit="c"] { color: var(--pip-c); }
 
-.match[data-look="v2"] .pc[data-dim] { opacity: 0.4; }
+.match[data-look="v2"] .pc[data-dim] { filter: brightness(0.55) saturate(0.7); }
 .match[data-look="v2"] .pc[data-best] { box-shadow: none; }
 .match[data-look="v2"] .pc[data-best] .pc-face .pc-paper { stroke: var(--accent-fill); stroke-width: 2.5; }
 

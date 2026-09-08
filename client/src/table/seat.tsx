@@ -86,24 +86,32 @@ export function Seat({
           {!seat.connected && <span className="seat-off">Disconnected</span>}
         </span>
         {seat.out ? (
-          <span className="seat-stack num">
-            <span className="u">{seat.place == null ? '' : 'out'}</span>
+          <span className="seat-stack num" key="out">
+            {/* Keyed apart from the live row, so busting out remounts the
+                row rather than retyping a live figure into a placing; a
+                retyped node is one the layout-shift observer can measure.
+                The same row as a live seat's, chip slot included: an empty
+                stack is the height of a full one, so a seat busting out
+                keeps its box, which is what held the last shift on the
+                six-max footprint. */}
+            <span className="stack-chips"><ChipStack amount={0} /></span>
+            <span className="u u-allin">{seat.place == null ? '' : 'out'}</span>
             {/* The same reserved slot the digits use, so a seat busting out
                 does not move the word beside it. */}
             <span className="stack-v">{seat.place == null ? 'Out' : ordinal(seat.place)}</span>
           </span>
         ) : (
-          <span className="seat-stack num">
+          <span className="seat-stack num" key="live">
             <span className="stack-chips"><ChipStack amount={seat.stack} /></span>
             {/* The badge is drawn twice and CSS keeps one: on a phone the name
                 line has no room for it and the stack line has plenty. */}
             {seat.bot && <span className="seat-bot seat-bot-stack">Bot</span>}
-            {/* Out of the flow, in a slot the chips leave open: Chrome's
-                layout-shift observer gives a box that has never painted a
-                stale rect and reports it moving when its word arrives, so
-                the word is a new node when it arrives and nothing is
-                measured before it. */}
-            {seat.allin && <span className="u" data-allin="">all in</span>}
+            {/* Out of the flow, in a slot the chips leave open, and always
+                rendered: a node that mounts when the word arrives is a node
+                Chrome's layout-shift observer can give a stale rect, and it
+                did, on six-max at 1280. An empty box that was always there
+                has nothing to move from. */}
+            <span className="u u-allin">{seat.allin ? 'all in' : ''}</span>
             {/* The digits get a fixed slot so the chips beside them do not
                 slide every time a stack changes size. */}
             <span className="stack-v" key={seat.stack}>{seat.stack}</span>
