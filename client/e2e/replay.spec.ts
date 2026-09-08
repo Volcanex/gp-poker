@@ -36,15 +36,14 @@ async function stubReplay(page: import('@playwright/test').Page) {
 async function loose(page: import('@playwright/test').Page) {
   return page.evaluate(() => {
     const felt = document.querySelector('.felt');
-    if (!felt) return { chips: -1, outside: -1, flights: -1 };
+    if (!felt) return { pot: -1, outside: -1 };
     const box = felt.getBoundingClientRect();
-    /* Bets, and every chip stack on the page: a leftover flight is a bet chip,
-       and anything drawn outside the felt is what the bug looked like. */
-    const bets = [...document.querySelectorAll('.bet-chip')];
-    const chips = [...document.querySelectorAll('.bet-chip, .chips')];
+    /* Every chip stack on the page: anything drawn outside the felt is what
+       the bug looked like, back when chips flew and a flight could be left
+       behind. */
+    const chips = [...document.querySelectorAll('.chips')];
     return {
-      bets: bets.length,
-      flights: document.querySelectorAll('.flights .bet-chip').length,
+      pot: document.querySelectorAll('.pot-chips .chip').length,
       outside: chips.filter((el) => {
         const r = el.getBoundingClientRect();
         return r.height > 0 && (r.bottom > box.bottom + 1 || r.top < box.top - 1
@@ -72,10 +71,9 @@ test('stepping a hand back and forth leaves nothing behind', async ({ page }) =>
   await page.waitForTimeout(900);
 
   const after = await loose(page);
-  expect(after.flights, 'chips left over the pot').toBe(0);
   expect(after.outside, 'anything drawn outside the felt').toBe(0);
-  /* Back at the deal there are two bets on the table, the two blinds. */
-  expect(after.bets, 'bets on the table at the deal').toBe(2);
+  /* Back at the deal the two blinds are in the pot. */
+  expect(after.pot, 'chips in the pot at the deal').toBeGreaterThan(0);
 });
 
 test('a recorded hand still replays and verifies', async ({ page }) => {

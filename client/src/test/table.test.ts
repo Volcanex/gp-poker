@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatFor, HEADS_UP_FORMAT, SIX_MAX_FORMAT } from '@opentable/protocol';
-import { dealOrder, layoutMode, portraitSlot, seatOrder, slotAt } from '../table/layout.ts';
+import { COLUMN_ROWS, columnSizes, dealFrom, dealOrder, layoutMode, placeOf, seatOrder } from '../table/layout.ts';
 import { blindText, handText, ordinal } from '../table/labels.ts';
 import { rankSeats } from '../table/results.ts';
 import type { Match } from '../net/types.ts';
@@ -30,88 +30,59 @@ describe('seat rotation', () => {
   });
 });
 
-describe('seat slots', () => {
-  it('sits the first seat at the bottom centre and the opposite one at the top', () => {
-    const bottom = slotAt(0, 6);
-    expect(Math.round(bottom.x)).toBe(50);
-    expect(Math.round(bottom.y)).toBe(100);
-    expect(bottom.half).toBe('bottom');
-
-    const top = slotAt(3, 6);
-    expect(Math.round(top.x)).toBe(50);
-    expect(Math.round(top.y)).toBe(0);
-    expect(top.half).toBe('top');
+/* The two columns: opponents go round the table from your left, up the left
+   column, across the top and down the right one, and the band along the
+   bottom is your seat. */
+describe('seat places', () => {
+  it('divides the opponents left-heavy, so heads-up sits on the left', () => {
+    expect(columnSizes(2)).toEqual({ left: 1, right: 0 });
+    expect(columnSizes(3)).toEqual({ left: 1, right: 1 });
+    expect(columnSizes(4)).toEqual({ left: 2, right: 1 });
+    expect(columnSizes(6)).toEqual({ left: 3, right: 2 });
   });
 
-  it('runs round to the left, the way the action does', () => {
-    const next = slotAt(1, 6);
-    expect(next.x).toBeLessThan(50);
-    expect(next.y).toBeGreaterThan(50);
-    expect(slotAt(5, 6).x).toBeGreaterThan(50);
+  it('puts the one heads-up opponent at the top of the left column', () => {
+    expect(placeOf(1, 2)).toEqual({ col: 'left', row: 1 });
   });
 
-  it('keeps two seats stacked, which is the heads-up felt', () => {
-    expect(slotAt(0, 2).y).toBe(100);
-    expect(slotAt(1, 2).y).toBe(0);
+  it('climbs the left column from your left and descends the right one', () => {
+    expect([1, 2, 3].map((k) => placeOf(k, 6))).toEqual([
+      { col: 'left', row: 3 }, { col: 'left', row: 2 }, { col: 'left', row: 1 },
+    ]);
+    expect([4, 5].map((k) => placeOf(k, 6))).toEqual([
+      { col: 'right', row: 1 }, { col: 'right', row: 2 },
+    ]);
   });
 
-  /* Which way a seat faces the middle, so its bet can hang over its own outer
-     half. The board and two seats fill the whole felt at the narrower ring, so
-     a chip centred on a side seat reaches back onto the board. */
-  it('says which side of the ring a seat is on', () => {
-    expect(slotAt(0, 6).side).toBe('centre');
-    expect(slotAt(3, 6).side).toBe('centre');
-    expect([1, 2].map((k) => slotAt(k, 6).side)).toEqual(['left', 'left']);
-    expect([4, 5].map((k) => slotAt(k, 6).side)).toEqual(['right', 'right']);
+  it('packs a short column to its top, level with the board', () => {
+    expect([1, 2, 3].map((k) => placeOf(k, 4))).toEqual([
+      { col: 'left', row: 2 }, { col: 'left', row: 1 }, { col: 'right', row: 1 },
+    ]);
   });
 
-  it('gives a two seat table no sides at all, because it is not a ring', () => {
-    expect([slotAt(0, 2).side, slotAt(1, 2).side]).toEqual(['centre', 'centre']);
-  });
-
-  it('deals a seat its cards from the middle of the table', () => {
-    const bottom = slotAt(0, 6);
-    expect(bottom.ox).toBe(0);
-    expect(bottom.oy).toBeLessThan(0); // the bottom seat's cards start above it, at the board
-    expect(slotAt(1, 6).ox).toBeGreaterThan(0); // a seat on the left starts to its right
-  });
-});
-
-/* The phone's layout: four rows, your own seat across the bottom, the board
-   above it, your two neighbours either side and everyone else along the top.
-   Same order round the table as the ellipse, k growing to your left. */
-describe('portrait slots', () => {
-  it('gives you the whole bottom row', () => {
-    for (const n of [3, 4, 5, 6]) {
-      expect(portraitSlot(0, n)).toEqual({ row: 4, col: 1, span: 3 });
+  it('never needs more rows than a column has', () => {
+    for (const n of [2, 3, 4, 5, 6]) {
+      for (let k = 1; k < n; k += 1) expect(placeOf(k, n)!.row).toBeLessThanOrEqual(COLUMN_ROWS);
     }
-  });
-
-  it('puts the two players either side of you nearest the board', () => {
-    expect(portraitSlot(1, 6)).toEqual({ row: 2, col: 1, span: 1 });
-    expect(portraitSlot(5, 6)).toEqual({ row: 2, col: 3, span: 1 });
-  });
-
-  it('spreads the rest along the top row', () => {
-    expect([2, 3, 4].map((k) => portraitSlot(k, 6).col)).toEqual([1, 2, 3]);
-    expect([2, 3, 4].every((k) => portraitSlot(k, 6).row === 1)).toBe(true);
-  });
-
-  it('centres a lone far seat and pairs two of them on the outside', () => {
-    expect(portraitSlot(2, 4)).toEqual({ row: 1, col: 2, span: 1 });
-    expect([2, 3].map((k) => portraitSlot(k, 5).col)).toEqual([1, 3]);
-  });
-
-  it('leaves the top row empty when there is nobody to put in it', () => {
-    expect([1, 2].map((k) => portraitSlot(k, 3).row)).toEqual([2, 2]);
   });
 
   it('never puts two seats in one cell', () => {
-    for (const n of [3, 4, 5, 6]) {
-      const cells = Array.from({ length: n }, (_, k) => portraitSlot(k, n))
-        .map((c) => `${c.row}:${c.col}`);
-      expect(new Set(cells).size).toBe(n);
+    for (const n of [2, 3, 4, 5, 6]) {
+      const cells = Array.from({ length: n - 1 }, (_, k) => placeOf(k + 1, n)!)
+        .map((c) => `${c.col}:${c.row}`);
+      expect(new Set(cells).size).toBe(n - 1);
     }
+  });
+
+  it('gives you no place, because the band is your seat', () => {
+    expect(placeOf(0, 6)).toBeNull();
+    expect(placeOf(6, 6)).toBeNull();
+  });
+
+  it('deals every seat its cards from the middle of the table', () => {
+    expect(dealFrom(placeOf(1, 6)).x).toBeGreaterThan(0);
+    expect(dealFrom(placeOf(5, 6)).x).toBeLessThan(0);
+    expect(dealFrom(null).y).toBeLessThan(0);
   });
 });
 

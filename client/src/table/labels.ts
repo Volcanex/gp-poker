@@ -11,6 +11,36 @@ export function actionText(a: ActionKind, v?: number): string {
   }
 }
 
+/* The seat's action square: what the player just did, as a verb and the
+   figure it carries on a line of its own, and which of the three colours it
+   takes. Bet, raise and all in are one colour because they all put money in;
+   check and call are the quiet colour; fold is its own. */
+export type ActionTone = 'bet' | 'call' | 'fold';
+
+export function actionWords(a: ActionKind, v?: number): { word: string; amount: number | null; tone: ActionTone } {
+  switch (a) {
+    case 'f': return { word: 'Folds', amount: null, tone: 'fold' };
+    case 'x': return { word: 'Checks', amount: null, tone: 'call' };
+    case 'c': return { word: 'Calls', amount: v ?? null, tone: 'call' };
+    case 'b': return { word: 'Bets', amount: v ?? null, tone: 'bet' };
+    case 'r': return { word: 'Raises to', amount: v ?? null, tone: 'bet' };
+    case 'a': return { word: 'All in', amount: v ?? null, tone: 'bet' };
+  }
+}
+
+/* The stats box under the board: the blinds in play and, when they climb,
+   how far off the next level is. `blindText` is the same fact as one line for
+   the band's result and the summary. */
+export function blindsRow(format: MatchFormat, blinds: { sb: number; bb: number }, hand: number): { blinds: string; next: string | null } {
+  const stakes = `${blinds.sb}/${blinds.bb}`;
+  if (format.levels.length <= 1) return { blinds: stakes, next: null };
+  const per = Math.max(1, format.levelHands);
+  const level = Math.min(format.levels.length - 1, Math.floor((hand - 1) / per));
+  if (level >= format.levels.length - 1) return { blinds: `${stakes}, level ${level + 1}`, next: 'Top level' };
+  const left = per - ((hand - 1) % per);
+  return { blinds: `${stakes}, level ${level + 1}`, next: `In ${left} ${left === 1 ? 'hand' : 'hands'}` };
+}
+
 export function streetText(s: string): string {
   switch (s) {
     case 'pre': return 'Preflop';

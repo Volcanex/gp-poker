@@ -15,8 +15,8 @@ test('v2 draws every card from the sprite and every chip from the chip symbol', 
   const pips = await page.locator('.pc-face use').evaluateAll((els) => els.map((e) => e.getAttribute('href')));
   expect(new Set(pips)).toEqual(new Set(['#pip-h', '#pip-c']));
   await expect(page.locator('.pot-chips .chip').first()).toBeVisible();
-  /* No stack drawn beside a player's own number: chips only where they move. */
-  const stacks = page.locator('.stack-chips');
-  await expect(stacks).toHaveCount(2);
-  for (const stack of await stacks.all()) await expect(stack).toBeHidden();
+  /* And a stack beside the opponent's number, which is where a bet leaves
+     from: chips tick between the two stacks, nothing flies. */
+  await expect(page.locator('.pos[data-k="1"] .stack-chips .chip').first()).toBeVisible();
+  await expect(page.locator('.chip-flights')).toHaveCount(0);
 });

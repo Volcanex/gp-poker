@@ -525,324 +525,144 @@
   overflow: hidden;
 }
 .hand-head .bar-in { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: nowrap; }
-/* Two of the header's strings change every hand and every street. They each
-   get a reserved width, so the seed and its controls never slide sideways when
-   the flop comes. */
-.hand-head .n { color: var(--text-primary); font-variant-numeric: tabular-nums; min-width: 13ch; }
-.hand-head .street { min-width: 9ch; }
-.hand-head .narrow { display: none; }
-.hand-head .dot { color: var(--text-secondary); }
-.hand-head .seed { display: inline-flex; align-items: center; gap: 6px; }
-.hand-head .seed code {
-  font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary);
-}
+.hand-head .head-acts { display: inline-flex; align-items: center; gap: 6px; }
 /* Verify is rendered in every state and disabled until the seed is published.
    It used to appear at hand end, which moved the header on every hand. */
-.hand-head .seed [aria-disabled="true"] { opacity: 0.45; pointer-events: none; }
+.hand-head .head-acts [aria-disabled="true"] { opacity: 0.45; pointer-events: none; }
 
-/* One felt, two shapes. Two seats stack into three rows down the middle, the
-   layout this table has always had; three to six sit on an ellipse with the
-   viewer at the bottom. Both come out of the same markup, so a seat, a bet and
-   a chip flight are the same elements either way. */
+/* One felt, one geometry. The opponents sit in two columns either side of the
+   board, going round the table from your left: up the left column, across the
+   top and down the right one. The board is split round the pot, the flop on
+   the left and the turn and river on the right, and the stats box sits under
+   it between the columns. The band along the bottom is your seat; v1, a
+   replay and a spectator draw the bottom seat as a row of its own instead.
+
+   Every row and column is a fixed track, so the felt's footprint is settled
+   before the first card: three seat rows a column whether or not there is a
+   seat in them, and a middle that is the board, the award line and the box,
+   each a fixed height. */
 .felt {
-  display: flex; flex-direction: column; justify-content: center;
+  display: flex; flex-direction: column; justify-content: flex-start;
   padding: var(--sp-4);
   min-height: 0;
   overflow: auto;
+  --seat-h: 60px;
+  --seat-w: 372px;
+  --seat-card: 28px;
+  --board-card: 40px;
+  --pot-w: 108px; /* five chips of the pot's size and their gaps */
+  --box-h: 100px; /* the stats box: five rows of 16 px, their gaps, the padding */
 }
-.felt .felt-in { width: 100%; max-width: var(--felt-w); margin: 0 auto; }
-.bar-in { width: 100%; max-width: 680px; margin: 0 auto; }
+/* Centred with auto margins rather than `justify-content`, because a centred
+   flex item that overflows its container clips at the top and cannot be
+   scrolled back to. Auto margins collapse when there is nothing spare. */
+.felt .felt-in { width: 100%; max-width: var(--felt-w); margin: auto; }
+/* The header, the felt and the band are one column: the felt's width is
+   declared on `.match` because the band is the felt's sibling and reads it
+   from there, and the header's actions end on the same edge. */
+.match { --felt-w: 1120px; }
+.bar-in { width: 100%; max-width: var(--felt-w); margin: 0 auto; }
 
-/* Capped: the whole table has to read in a single glance, so the felt never
-   spreads to the width of the window.
-
-   **The cap is declared on `.match`, not on the felt**, because the hero band
-   is the felt's sibling and sits on the felt's column: it reads `--felt-w` to
-   know where that column's edges are, and a value declared on the felt is a
-   value the band cannot see. `table.tsx` stamps the mode on both. */
-.felt[data-mode="stack"] { --felt-w: 680px; }
-.felt[data-mode="stack"] .felt-in { display: grid; grid-template-rows: auto auto auto; gap: var(--sp-4); }
-.felt[data-mode="stack"] .pos { display: flex; flex-direction: column; gap: 2px; }
-.felt[data-mode="stack"] .pos[data-half="top"] { grid-row: 1; flex-direction: column-reverse; }
-.felt[data-mode="stack"] .middle { grid-row: 2; }
-.felt[data-mode="stack"] .pos[data-half="bottom"] { grid-row: 3; }
-
-/* The felt sizes its own seats: the replay draws the same table in a narrow
-   column beside its action list, so the question is how wide this felt is, not
-   how wide the window is. */
-.felt[data-mode="ring"] {
-  --felt-w: 960px; --seat-w: 300px; --seat-h: 78px; --ring-h: 404px;
-  --seat-card: 30px; --board-card: 40px;
+/* Named lines, so a seat is placed by two custom idents from layout.ts (`--r`
+   is s1, s2 or s3 from the top, `--c` is l or r) and the two arrangements
+   below only redefine the tracks. */
+.felt-in {
+  display: grid;
+  grid-template-columns: [l] minmax(0, 1fr) [m] auto [r] minmax(0, 1fr) [end];
+  grid-template-rows: [s1] var(--seat-h) [s2] var(--seat-h) [s3] var(--seat-h) [hero] auto [end];
+  column-gap: var(--sp-4); row-gap: var(--sp-2);
+  align-items: start;
 }
-/* The same two numbers, on the element the band can read them from. */
-.match[data-mode="stack"] { --felt-w: 680px; }
-.match[data-mode="ring"] { --felt-w: 960px; }
-.felt[data-mode="ring"][data-seats="3"], .felt[data-mode="ring"][data-seats="4"] { --ring-h: 340px; }
-.felt[data-mode="ring"] .felt-in { position: relative; height: var(--ring-h); }
-/* Each seat owns a full-size layer inset by half a seat box, so a seat placed
-   at the far edge of the ellipse still sits inside the felt. The bet gets the
-   same layer inset further by that box plus a margin: the same ellipse, shrunk
-   by exactly the room a seat takes up, which puts every chip on the line from
-   its seat to the pot and clear of both. */
-.felt[data-mode="ring"] .pos {
-  position: absolute; inset: calc(var(--seat-h) / 2) calc(var(--seat-w) / 2);
-  pointer-events: none;
+.pos { grid-row: var(--r); grid-column: var(--c); display: flex; min-width: 0; }
+/* Both columns hug the middle, so the table gathers round the board rather
+   than spreading to the felt's edges. */
+.pos[data-col="left"] { justify-content: flex-end; }
+.pos[data-col="right"] { justify-content: flex-start; }
+/* The bottom row: yours on v1, seat 0's when you are watching. The band is
+   your seat on v2, so there the row is not drawn and not reserved. */
+.pos[data-k="0"] { grid-column: l / end; justify-content: center; }
+.match[data-band] .pos[data-k="0"] { display: none; }
+.match[data-band] .felt-in {
+  grid-template-rows: [s1] var(--seat-h) [s2] var(--seat-h) [s3] var(--seat-h) [hero end];
 }
-.felt[data-mode="ring"] .seat {
-  position: absolute; left: var(--x); top: var(--y); width: var(--seat-w);
-  translate: -50% -50%;
-  pointer-events: auto;
-  background: var(--surface-2);
-  border-color: var(--border-subtle);
-  grid-template-columns: auto auto minmax(0, 1fr) auto;
-  /* The name row runs the width of the seat, over the clock's column as well:
-     a generated name is two CamelCase words and can be sixteen characters, and
-     the clock is a five character label that only the acting seat shows. The
-     seconds go beside the last action instead, on the row below. */
-  grid-template-areas: "cards av id id" "cards av last clock";
-  column-gap: var(--sp-2); row-gap: 0;
-  padding: 6px var(--sp-2);
-}
-.felt[data-mode="ring"] .seat[data-acting] { background: var(--fill-hover); border-color: var(--border); }
-/* The bet hangs off its own seat, on the edge facing the middle: the same layer
-   as the seat, the same --x and --y, offset by half a seat and a gap.
-
-   It used to ride a second ellipse inset between the seats and the pot, which
-   read beautifully and only worked while the seats were narrow. Widening them
-   so a name would fit left a band a few pixels across for that ellipse to sit
-   in, and the chips ended up on the seats' own cards and on the pot figure.
-   Anchored to a seat, a chip cannot reach either: it moves with the thing whose
-   money it is, and the flight to the pot still carries it because that is one
-   element with one layout id, not a position. */
-.felt[data-mode="ring"] .seat-bet {
-  position: absolute;
-  inset: calc(var(--seat-h) / 2) calc(var(--seat-w) / 2);
-  min-height: 0;
-  /* Smaller chips than the felt uses elsewhere. A ring seat is a compact card
-     with 68 px between its inner edge and the board, and the full size stack is
-     wider than that on its own. */
-  --chip: 10px;
-}
-.felt[data-mode="ring"] .seat-bet .chips { gap: 2px; }
-.felt[data-mode="ring"] .bet-chip { gap: 4px; font-size: 12px; }
-/* Hugging its own seat, not reaching for the middle: the gap between the two
-   seats on one side is 84 px and two chips reaching into it meet. */
-.felt[data-mode="ring"] .seat-bet > * {
-  position: absolute; left: var(--x); top: var(--y); translate: -50% -50%;
-  margin-top: calc(var(--seat-h) / 2 + 6px);
-}
-/* A seat below the middle hangs its bet above itself, so every chip on the felt
-   points the same way: inwards. */
-.felt[data-mode="ring"] .pos[data-half="bottom"] .seat-bet > * {
-  margin-top: calc(-1 * (var(--seat-h) / 2 + 6px));
-}
-/* A seat down one side keeps its chip over its own outer half. Centred, the
-   chip reaches back towards the board, and on the narrower ring the board and
-   two seats fill the felt with nothing in between. */
-.felt[data-mode="ring"] .pos[data-side="left"] .seat-bet > * {
-  translate: 0 -50%; margin-left: calc(-1 * var(--seat-w) / 2);
-}
-.felt[data-mode="ring"] .pos[data-side="right"] .seat-bet > * {
-  translate: -100% -50%; margin-left: calc(var(--seat-w) / 2);
-}
-.felt[data-mode="ring"] .middle { position: absolute; inset: 0; padding: 0; border: none; }
-.felt[data-mode="ring"] .seat .pcard { --card-w: var(--seat-card); }
-.felt[data-mode="ring"] .board .pcard { --card-w: var(--board-card); }
-.felt[data-mode="ring"] .seat-cards { grid-area: cards; }
-.felt[data-mode="ring"] .avatar { grid-area: av; --avatar-size: 24px; }
-/* A ring seat is 264 px and carries cards, an avatar, a name with its badges, a
-   stack, a hand name and a clock. Two things go: the rating, which is a click
-   away on the profile the name leads to, and the word "units", because every
-   number on this felt is in units. "All in" stays: that one is a fact about the
-   seat. */
-.felt[data-mode="ring"] .seat-rating { display: none; }
-/* Tighter gaps on the name line, because the reserved button marker and the bot
-   badge together are most of a ring seat's width. */
-.felt[data-mode="ring"] .seat-line { gap: 5px; }
-.felt[data-mode="ring"] .seat-stack .u:not([data-allin]) { display: none; }
-/* And the mini stack goes with it. Forty two pixels is a name on a ring seat,
-   and the chips on the line to the pot already say what is at stake. */
-.felt[data-mode="ring"] .stack-chips { display: none; }
-.felt[data-mode="ring"] .seat-id { grid-area: id; }
-.felt[data-mode="ring"] .seat-last { grid-area: last; min-height: 1.5em; min-width: 0; text-align: left; }
-.felt[data-mode="ring"] .seat-clock { grid-area: clock; }
-
-@container (max-width: 900px) {
-  .felt[data-mode="ring"] {
-    /* A wider seat reaches further in, so the ring gets taller to keep the two
-       lower seats off the board's corners. The felt has the height to spare at
-       this width and a name is worth more than 48 px of felt. */
-    --seat-w: 268px; --seat-h: 76px; --ring-h: 448px;
-    --seat-card: 28px; --board-card: 34px;
-  }
-  /* The avatar leaves the name line and hangs off the seat's corner, which is
-     what the phone ring already does with it and for the same reason. A 268 px
-     seat had exactly nothing left over once the name line grew a flag, and of
-     the two the avatar is the one that is decorative: it is aria-hidden and
-     sits beside the name it draws, while a flag is a thing the player chose to
-     say. Out of the flow it costs no width and cannot shift anything by
-     arriving. The seat could not simply be widened instead: a wider seat
-     reaches further in, and at this width the two upper seats meet the pot. */
-  .felt[data-mode="ring"] .seat {
-    grid-template-areas: "cards id id" "cards last clock";
-    grid-template-columns: auto minmax(0, 1fr) auto;
-  }
-  .felt[data-mode="ring"] .avatar {
-    position: absolute; top: -6px; left: -6px; z-index: 1;
-    --avatar-size: 20px;
-    box-shadow: 0 0 0 2px var(--surface-1);
-  }
-  .felt[data-mode="ring"][data-seats="3"], .felt[data-mode="ring"][data-seats="4"] { --ring-h: 336px; }
-}
-
-/* Narrow: a phone, or the replay's column. Three rows to a seat so the name
-   has the width of the box, the rating goes (it is on the profile the name
-   leads to), and the ellipse pinches so no seat sits level with the board. */
-/* Narrow: a phone, the replay's column, or a window too small for a ring. The
-   ellipse gives up at 740, which is measured rather than chosen: below it the
-   two lower seats reach far enough in to sit on the pot, and a seat narrow
-   enough to clear it is too narrow to hold a name. Six seats
-   across a 366 px felt leave 120 px each, which is not a seat: it was
-   truncating every name and the avatar had been dropped to buy room. So the
-   felt becomes four rows instead, the way a phone poker client has always done
-   it. `layout.ts` says which cell each seat takes; everything below is undoing
-   the ellipse's absolute positioning. */
-@container (max-width: 740px) {
-  .felt[data-mode="ring"] .felt-in {
-    position: static;
-    height: auto;
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-template-rows: auto auto auto auto;
-    gap: 5px;
-  }
-
-  /* The bet sits on the seat's own inner edge, facing the board, rather than
-     being flown toward the middle: on a felt this narrow every seat is already
-     nearly touching the pot, and a chip aimed at it landed on the label. */
-  .felt[data-mode="ring"] .pos {
-    position: static; inset: auto;
-    grid-row: var(--gr);
-    grid-column: var(--gc) / span var(--gs);
-    display: flex; flex-direction: column-reverse; gap: 2px;
-    min-width: 0;
-  }
-  .felt[data-mode="ring"] .pos[data-k="0"] { flex-direction: column; }
-
-  .felt[data-mode="ring"] .seat-bet {
-    position: static; inset: auto;
-    display: flex; justify-content: center;
-    /* Smaller chips than the rest of the felt: five denominations and a figure
-       have to fit a third of a phone. */
-    --chip: 10px;
-    min-height: calc(var(--chip) + (var(--chip-rows) - 1) * 3px);
-  }
-  .felt[data-mode="ring"] .seat-bet .chips { gap: 2px; }
-  .felt[data-mode="ring"] .bet-chip { gap: 4px; font-size: 11px; }
-  .felt[data-mode="ring"] .seat-bet > * { position: static; left: auto; top: auto; translate: none; }
-  /* Portrait puts the bet in its seat's own column, so the ellipse's outer edge
-     alignment has to be undone at the same specificity it was set with. */
-  .felt[data-mode="ring"] .pos[data-side] .seat-bet > * { translate: none; margin: 0; }
-
-  .felt[data-mode="ring"] .middle {
-    position: static;
-    grid-row: 3; grid-column: 1 / -1;
-    padding: var(--sp-2) 0;
-  }
-
-  /* An opponent's seat is a third of the felt: cards, then a name over a
-     stack. Your own is the full width and keeps the seat every other table
-     draws, because your two cards are the ones you have to read. */
-  .felt[data-mode="ring"] .seat {
-    /* Relative, not static, because the dealer button hangs off the corner.
-       The ellipse's own offsets have to go with it: a relatively positioned
-       element still reads left and top. */
-    position: relative; left: auto; top: auto; translate: none;
-    width: auto;
-    padding: 4px 5px;
-    grid-template-areas: "cards id" "cards stack";
-    grid-template-columns: auto minmax(0, 1fr);
-    column-gap: 5px;
-  }
-  .felt[data-mode="ring"] .seat .pcard { --card-w: 16px; }
-  .felt[data-mode="ring"] .board .pcard { --card-w: 30px; }
-  .felt[data-mode="ring"] .seat-cards { grid-area: cards; gap: 2px; }
-  .felt[data-mode="ring"] .seat-id { grid-area: id; }
-  .felt[data-mode="ring"] .seat-stack { grid-area: stack; font-size: 13px; }
-  /* The avatar is pinned to the corner of the seat rather than dropped. A
-     third of a phone has no room for it in the name line, but it is decorative
-     and out of the flow it costs nothing and cannot shift anything by
-     arriving. */
-  .felt[data-mode="ring"] .avatar {
-    position: absolute; top: -6px; left: -6px; z-index: 1;
-    --avatar-size: 18px;
-    box-shadow: 0 0 0 2px var(--surface-1);
-  }
-  .felt[data-mode="ring"] .seat-last, .felt[data-mode="ring"] .seat-clock { display: none; }
-  .felt[data-mode="ring"] .seat-name { font-size: 11px; }
-  .felt[data-mode="ring"] .seat-line { gap: 4px; flex-wrap: nowrap; }
-  .felt[data-mode="ring"] .seat-bot { font-size: 9px; padding: 0 3px; }
-  /* The dealer button leaves the name line and sits on the corner of the seat,
-     where it costs no width and reads like the button on a real table. It is
-     out of the flow, so it still cannot move anything by arriving. */
-  /* Bottom right, not top right: the top right of a portrait seat is where the
-     name line ends, and a bot badge and a dealer button were landing on each
-     other there. The stack row's right side is empty on every seat. */
-  .felt[data-mode="ring"] .btn-marker {
-    position: absolute; bottom: 3px; right: 4px; z-index: 1;
-    width: 14px; height: 14px; font-size: 9px;
-  }
-  .felt[data-mode="ring"] .seat-stack .u { display: none; }
-
-  /* Your own row, across the bottom: the seat every other table draws. */
-  .felt[data-mode="ring"] .pos[data-k="0"] .seat {
-    grid-template-areas: "cards av id last clock";
-    grid-template-columns: auto auto minmax(0, 1fr) auto auto;
-    padding: 6px var(--sp-2);
-  }
-  .felt[data-mode="ring"] .pos[data-k="0"] .seat .pcard { --card-w: 30px; }
-  .felt[data-mode="ring"] .pos[data-k="0"] .btn-marker { position: static; }
-  .felt[data-mode="ring"] .pos[data-k="0"] .avatar {
-    position: static; grid-area: av; --avatar-size: 24px; box-shadow: none;
-  }
-  .felt[data-mode="ring"] .pos[data-k="0"] .seat-stack { grid-area: stack; font-size: 16px; }
-  .felt[data-mode="ring"] .pos[data-k="0"] .seat-id { grid-area: id; }
-  .felt[data-mode="ring"] .pos[data-k="0"] .seat-last { display: block; grid-area: last; }
-  .felt[data-mode="ring"] .pos[data-k="0"] .seat-clock { display: inline-flex; grid-area: clock; }
-  .felt[data-mode="ring"] .pos[data-k="0"] .seat-name { font-size: 13px; }
-}
-
-
 .middle {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: var(--sp-3);
-  min-height: 0;
-  padding: var(--sp-4) 0;
-  border-top: 1px solid var(--border-subtle);
-  border-bottom: 1px solid var(--border-subtle);
+  grid-column: m; grid-row: s1 / hero;
+  display: flex; flex-direction: column; align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
 }
 
-/* A fixed box for a number that changes every action. Everything under it
-   stays where it is, and the figure is centred inside its own slot. */
-.pot { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 108px; }
-.pot .k { font-size: 11px; color: var(--text-secondary); }
-.pot .v number-flow-react, .stack-v number-flow-react { display: block; width: 100%; }
+/* Below 1060 the middle cannot fit between two seats that hold a name, so it
+   goes across the top and the columns start under it. The same lines, the
+   same elements, one extra row. */
+@container (max-width: 1060px) {
+  .felt-in {
+    grid-template-columns: [l] minmax(0, 1fr) [r] minmax(0, 1fr) [end];
+    grid-template-rows: [top] auto [s1] var(--seat-h) [s2] var(--seat-h) [s3] var(--seat-h) [hero] auto [end];
+  }
+  .match[data-band] .felt-in {
+    grid-template-rows: [top] auto [s1] var(--seat-h) [s2] var(--seat-h) [s3] var(--seat-h) [hero end];
+  }
+  .middle { grid-column: l / end; grid-row: top; width: 100%; max-width: 440px; justify-self: center; }
+}
+
+/* ----------------------------------------------------------------- board */
+
+.board { display: flex; align-items: center; gap: var(--sp-3); height: calc(var(--board-card) * 1.4); }
+.board-flop, .board-turn { display: flex; gap: 4px; }
+.board .pcard { --card-w: var(--board-card); }
+
+/* The pot: its chips, standing on the same floor in every street, and the
+   figure under them. No label. A fixed width, so a figure changing length
+   moves neither half of the board. */
+.pot {
+  width: var(--pot-w); height: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+  gap: 2px;
+}
+.pot-chips {
+  position: relative; display: flex; justify-content: center; align-items: flex-end;
+  width: 100%;
+  height: calc(var(--chip) + (var(--chip-rows) - 1) * 3px + 2px);
+}
 .pot .v {
   display: block; width: 100%; text-align: center;
-  font-size: 19px; font-weight: 500; letter-spacing: -0.015em; font-variant-numeric: tabular-nums;
+  font-size: 15px; line-height: 20px; font-weight: 500; letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums;
 }
-.pot-side { font-size: 11px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.pot-side { font-size: 11px; line-height: 14px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 
-.board { display: flex; gap: 6px; }
-
-/* Where the pot lands. Its own row under the board, always rendered so the
-   felt does not move when a hand is awarded, and nowhere near the pot label
-   the chip used to cover. */
+/* The award line under the board. Always this tall, so a hand being paid
+   moves nothing. */
 .award-zone {
-  display: flex; justify-content: center; align-items: center;
-  min-height: 24px;
+  display: flex; justify-content: center; align-items: center; gap: var(--sp-2);
+  width: 100%; height: 24px;
 }
 .award-chip { border-color: var(--accent-fill); color: var(--text-primary); }
+/* The line is revealed, not faded: a mask that opens from its leading edge,
+   the way a line is written. `--wipe` is how much of it is still covered and
+   is the only thing animated; the pill's own radius is carried in the clip so
+   what grows is a pill and not a rectangle. It is paint, not layout, so the
+   zone's reserved height still holds the felt still. */
+.award-chip { clip-path: inset(0 var(--wipe, 0%) 0 0 round var(--radius-full)); }
+
+/* The facts about the hand, in one box: labels left, values right, tabular,
+   one type size. Fixed height, and the rows fill it. */
+.stats {
+  margin: 0; width: 100%; height: var(--box-h); box-sizing: border-box;
+  display: grid; grid-template-columns: auto minmax(0, 1fr);
+  column-gap: var(--sp-4); row-gap: 2px; align-content: start;
+  padding: 4px var(--sp-3);
+  border: 1px solid var(--border-subtle); border-radius: var(--radius);
+  background: var(--surface-1);
+  font-size: 12px; line-height: 16px;
+  overflow: hidden;
+}
+.stats dt { color: var(--text-secondary); white-space: nowrap; }
+.stats dd {
+  margin: 0; text-align: right; color: var(--text-primary);
+  font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 
 /* ------------------------------------------------------------------ chips */
 
@@ -874,18 +694,12 @@
   font-size: 9px; color: var(--text-secondary);
 }
 
-/* The bet on the line between a seat and the pot: the chips, then the figure.
-   The row reserves five chips of height whether or not anybody has bet, which
-   is what keeps the felt still when one appears. */
-.bet-chip { display: inline-flex; align-items: center; gap: 6px; }
-
-/* Beside a player's own number, the big chips only and no animation: it says
-   deep or short at a glance and is not the thing being watched. */
-.stack-chips { --chip: 12px; --chip-rows: 3; margin-left: 6px; display: inline-flex; align-items: flex-end; }
-
-/* At the end of a hand the pot counts to zero and its chips leave. The row
-   they leave behind is the same size, so the board under it does not move. */
-.pot .chips { margin-bottom: 2px; }
+/* Beside a player's own number, small: every denomination, so a bet of any
+   size is seen leaving. It is the same component as the pot's stack and ticks
+   on the same clock, which is what makes a bet read as chips moving from one
+   place to the other. */
+.stack-chips { --chip: 10px; display: inline-flex; align-items: flex-end; }
+.stack-chips .chips { gap: 2px; }
 
 
 
@@ -926,24 +740,122 @@
 
 /* ------------------------------------------------------------------- seat */
 
-/* Four columns, right packed: cards, who and what they hold, their last
-   action, then the clock. The last-action span is always rendered, empty or
-   not, so the clock never shifts when a label comes and goes. */
+/* One card, one row, one edge: the avatar, the two cards, the identity block
+   right-aligned against the action square, and the square on the seat's own
+   right edge. The seat is a fixed height and at most a fixed width; the
+   square is that height on a side and always drawn, so a word arriving in it
+   moves nothing. Nothing here transitions: one thing moves at a time on this
+   felt, and a seat changing colour is not it. */
 .seat {
   position: relative;
+  box-sizing: border-box;
+  width: 100%; max-width: var(--seat-w); height: var(--seat-h);
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto auto minmax(0, 1fr) calc(var(--seat-h) - 2px);
   align-items: center;
-  gap: var(--sp-3);
-  padding: var(--sp-2) var(--sp-3);
-  border: 1px solid transparent;
+  column-gap: var(--sp-2);
+  padding-left: var(--sp-2);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-card);
-  transition: background var(--dur-slow) var(--ease-out), border-color var(--dur-slow) var(--ease-out);
+  background: var(--surface-2);
+  overflow: hidden;
 }
-/* Whose turn it is, said twice and quietly: the seat takes the accent border
-   and a two pixel bar across its top edge. The ring this replaced was 20 px at
-   the far corner of the seat and people missed it. */
-.seat[data-acting] { background: var(--fill-hover); border-color: var(--accent-fill); }
+.seat[data-acting] { border-color: var(--accent-fill); }
+.seat[data-folded] { opacity: 0.62; }
+.seat[data-out] { opacity: 0.45; }
+
+.avatar { width: var(--avatar-size, 26px); height: var(--avatar-size, 26px); overflow: hidden; flex: none; }
+.avatar img { width: 100%; height: 100%; display: block; }
+/* An uploaded picture is already a 256 square, so cover only matters for the
+   moment a browser is handed one that is not: it crops rather than squashing a
+   face. The generated SVG sits behind it as the element's background, which is
+   what a picture still decoding, and a picture that has been removed, both
+   fall back to. */
+.avatar .avatar-photo { object-fit: cover; }
+.avatar[data-size="24"] { --avatar-size: 24px; }
+.avatar[data-size="28"] { --avatar-size: 28px; }
+.avatar[data-size="56"] { --avatar-size: 56px; }
+
+.seat-cards { display: flex; gap: 4px; }
+.seat .pcard { --card-w: var(--seat-card); }
+.seat-id { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; min-width: 0; }
+/* Both lines span the block, whatever is in them: a box that shrinks to its
+   content is a box the observer sees move when the content does. */
+.seat-line { display: flex; align-items: center; justify-content: flex-end; gap: 6px; min-width: 0; width: 100%; }
+.seat-name {
+  font-size: 13px; line-height: 16px; font-weight: 500; color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+}
+/* The figure and the chips beside it on one line, always. */
+.seat-stack {
+  display: flex; align-items: flex-end; justify-content: flex-end; gap: 6px; width: 100%;
+  font-size: 15px; line-height: 16px; font-weight: 500; letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+/* "all in" lands in a slot the chips always leave open, out of the flow, so
+   nothing moves when it does. "out" takes the same slot in the flow, because
+   a busted seat's row is rebuilt anyway. */
+.seat-stack { position: relative; }
+.seat-stack .u { font-size: 11px; line-height: 16px; color: var(--text-secondary); font-weight: 400; }
+.seat-stack .u[data-allin] { position: absolute; right: calc(4ch + 6px); bottom: 0; }
+.stack-chips { margin-right: calc(5ch + 6px); }
+/* Room for every stack a table can hold, so the chips beside the digits never
+   move when the figure gains one. */
+.stack-v { display: inline-block; min-width: 4ch; text-align: right; }
+
+.btn-marker {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; flex: none;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: 10px; font-weight: 600; line-height: 1;
+}
+.btn-marker[data-off] { visibility: hidden; }
+/* Every badge on the line is shorter than the name's 16 px line, so a seat
+   with a badge and a seat without are one height. */
+.seat-you { color: var(--text-secondary); font-size: 11px; line-height: 16px; }
+.seat-bot {
+  color: var(--text-secondary); font-size: 10px; line-height: 14px;
+  padding: 0 4px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+}
+.seat-off { color: var(--danger-text); font-size: 11px; line-height: 16px; white-space: nowrap; }
+.seat-bot-stack { display: none; }
+
+/* The action square. Empty it is a quiet outline; with a word in it, the
+   word's colour on a tint of the same, the three colours every action has
+   (`--act-*` at the top of this file). Acting, it holds the countdown and the
+   clock's bar runs along its bottom edge. */
+.seat-act {
+  position: relative;
+  /* The seat's inner height: its box less the two borders, so the square is
+     one. */
+  width: calc(var(--seat-h) - 2px); height: 100%; box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1px;
+  border-left: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 11px; line-height: 14px; font-weight: 500; text-align: center;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+}
+/* Full width boxes, so a word changing length changes nothing the layout
+   shift observer can see: a centred box sized to its text moves when the
+   text does. */
+.seat-act .act-w, .seat-act .act-v, .seat-act .turn-secs { display: block; width: 100%; text-align: center; overflow: hidden; }
+.seat-act .act-w { font-weight: 400; }
+.seat-act .act-v { font-size: 13px; line-height: 16px; min-height: 16px; }
+.seat-act[data-tone="bet"] { color: var(--act-bet-text); background: color-mix(in oklab, var(--act-bet) 18%, transparent); }
+.seat-act[data-tone="call"] { color: var(--act-call-text); background: color-mix(in oklab, var(--act-call) 18%, transparent); }
+.seat-act[data-tone="fold"] { color: var(--act-fold-text); background: color-mix(in oklab, var(--act-fold) 18%, transparent); }
+.seat-act[data-tone="clock"] { background: var(--fill-hover); }
+/* The seconds are left-aligned in a box of their own width: "10 s" becoming
+   "9 s" in a centred box moves the ink. */
+.seat-act .turn-secs { font-size: 13px; line-height: 16px; color: var(--text-primary); width: 4ch; text-align: left; margin: 0 auto; }
+.seat-act .turn-secs[data-tone="low"] { color: var(--danger-text); }
+/* The bar is the square's, not the seat's: along its bottom edge. */
+.seat-act .turn-bar { top: auto; bottom: 0; left: 0; right: 0; border-radius: 0; }
 
 .turn-bar {
   position: absolute; left: 6px; right: 6px; top: -1px; height: 2px;
@@ -964,71 +876,55 @@
 .turn-bar[data-paused] i { background: var(--text-placeholder); }
 .turn-secs { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
 .turn-secs[data-tone="low"] { color: var(--danger-text); }
-.seat-clock { display: inline-flex; align-items: center; justify-content: flex-end; min-width: 30px; }
 
-.avatar { width: var(--avatar-size, 26px); height: var(--avatar-size, 26px); overflow: hidden; }
-.avatar img { width: 100%; height: 100%; display: block; }
-/* An uploaded picture is already a 256 square, so cover only matters for the
-   moment a browser is handed one that is not: it crops rather than squashing a
-   face. The generated SVG sits behind it as the element's background, which is
-   what a picture still decoding, and a picture that has been removed, both
-   fall back to. */
-.avatar .avatar-photo { object-fit: cover; }
-.avatar[data-size="24"] { --avatar-size: 24px; }
-.avatar[data-size="28"] { --avatar-size: 28px; }
-.avatar[data-size="56"] { --avatar-size: 56px; }
-.seat[data-folded] { opacity: 0.62; }
-.seat[data-out] { opacity: 0.45; }
-
-.seat-cards { display: flex; gap: 5px; }
-.seat-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.seat-line { display: flex; align-items: center; gap: 7px; min-width: 0; }
-.seat-name {
-  font-size: var(--font-size-ui); font-weight: 500; color: var(--text-primary);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.seat-rating { font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
-/* The digits and the word after them are one line, always: wrapped, the seat
-   grows a row and every ring seat moves on its own ellipse. */
-.seat-stack {
-  display: inline-flex; align-items: baseline; gap: 4px;
-  font-size: 17px; font-weight: 500; letter-spacing: -0.015em;
-  font-variant-numeric: tabular-nums; white-space: nowrap;
-}
-.seat-stack .u { font-size: 11px; color: var(--text-secondary); font-weight: 400; }
-.seat-right { display: flex; align-items: center; gap: var(--sp-3); }
-
-.btn-marker {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 17px; height: 17px; flex: none;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-  color: var(--text-secondary);
-  font-size: 10px; font-weight: 600; line-height: 1;
-}
-.seat-you { color: var(--text-secondary); font-size: 11px; }
-.seat-bot {
-  color: var(--text-secondary); font-size: 10px;
-  padding: 0 4px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
-}
-.seat-off { color: var(--danger-text); font-size: 11px; white-space: nowrap; }
-.seat-last {
-  /* Left aligned inside a reserved column on the right of the seat. Right
-     aligned, the label's start point moves every time the word changes length,
-     which the layout-shift observer counts and the eye notices. */
-  font-size: 12px; line-height: 1.5; min-height: 1.5em; min-width: 96px; text-align: left;
-  color: var(--text-secondary);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  font-variant-numeric: tabular-nums;
-}
-/* Room for every stack a table can hold, so the word beside the digits
-   never moves. */
-.stack-v { display: inline-block; min-width: 4ch; }
-.btn-marker[data-off] { visibility: hidden; }
-.seat-bet {
-  display: flex; justify-content: center; align-items: flex-end;
-  min-height: calc(var(--chip, 18px) + (var(--chip-rows) - 1) * 3px);
+/* The phone: the same two columns under the same split board, at the sizes a
+   half of a phone can hold. The avatar goes, the button goes to the seat's
+   corner, the stats box becomes one row. Container queries rather than media
+   queries, because the replay draws this felt in a column of its own. */
+@container (max-width: 560px) {
+  .felt {
+    padding: var(--sp-2) var(--sp-3);
+    --seat-h: 44px; --seat-card: 16px; --board-card: 30px;
+    --chip: 14px; --pot-w: 78px; --box-h: 24px;
+  }
+  .felt-in { column-gap: var(--sp-2); row-gap: 6px; }
+  .middle { gap: 4px; }
+  .board { gap: var(--sp-2); }
+  /* Half a phone is 179 px, and a name is what a seat is read by, so the
+     line gives everything else up: the avatar goes, the empty flag slot goes
+     (a seat's flag cannot change mid-match, so hiding the empty box moves
+     nothing), the bot badge drops to the stack line and the button goes to
+     the seat's corner, with the cards set in past it. */
+  .seat { grid-template-columns: auto minmax(0, 1fr) calc(var(--seat-h) - 2px); column-gap: 5px; padding-left: 15px; }
+  .seat > .avatar { display: none; }
+  .seat-cards { gap: 3px; }
+  .seat-name { font-size: 11px; line-height: 14px; }
+  .seat-line { gap: 4px; }
+  .seat-line .flag-empty { display: none; }
+  .seat-stack { font-size: 12px; line-height: 14px; gap: 4px; }
+  .stack-chips { display: none; }
+  .seat-bot { font-size: 9px; padding: 0 3px; line-height: 12px; }
+  .seat-bot-line { display: none; }
+  .seat-bot-stack { display: inline; }
+  .btn-marker { position: absolute; top: 1px; left: 1px; z-index: 1; width: 13px; height: 13px; font-size: 8px; }
+  .seat-act { font-size: 10px; line-height: 12px; }
+  .seat-act .act-v, .seat-act .turn-secs { font-size: 11px; line-height: 14px; }
+  .pot .v { font-size: 13px; line-height: 16px; }
+  .award-zone { height: 20px; }
+  .stats {
+    display: flex; align-items: center; justify-content: center; gap: 4px;
+    padding: 0 var(--sp-2); font-size: 11px; line-height: 14px;
+  }
+  /* One row of fixed cells, left-aligned inside, so a street or a figure
+     changing length moves nothing after it. The street and the blinds lose
+     their labels: "Turn" and "1/2, level 1" say what they are. */
+  .stats dd { margin-right: var(--sp-3); text-align: left; flex: none; }
+  .stats dd:nth-of-type(1) { width: 7ch; }
+  .stats dd:nth-of-type(2) { width: 9ch; }
+  .stats dd:nth-of-type(3) { width: 12ch; }
+  .stats dd:last-of-type { width: 4ch; margin-right: 0; }
+  .stats dt:nth-of-type(2), .stats dt:nth-of-type(3) { display: none; }
+  .stats .stats-next { display: none; }
 }
 
 /* ------------------------------------------------------------------- dock */
@@ -1183,24 +1079,10 @@
   font-size: 11px; color: var(--text-secondary);
 }
 
-/* The hand header has a breakpoint of its own, wider than the page's, because
-   it is the one row on the site that cannot wrap and cannot scroll: it keeps
-   its height and loses its width. It gives up, in this order, the long form of
-   its labels, Copy (there is nowhere to paste a hash on a phone) and the hash
-   itself, which is truncated to ten characters and leads nowhere. Verify stays
-   at every width, because the whole point of the seed is that anyone can check
-   it, and so does the chat toggle. 680px is where everything fits again with
-   the long labels back. */
 @media (max-width: 680px) {
   .hand-head { padding: 0 var(--sp-3); font-size: 11px; }
   .hand-head .bar-in { gap: var(--sp-2); }
   .hand-head .bar-in > * { white-space: nowrap; }
-  .hand-head .copy-btn { display: none; }
-  .hand-head .seed code { display: none; }
-  .hand-head .wide { display: none; }
-  .hand-head .narrow { display: inline; }
-  .hand-head .n { min-width: 5ch; }
-  .hand-head .street { min-width: 9ch; }
 }
 
 /* ------------------------------------------------------------------- phone */
@@ -1220,21 +1102,6 @@
   .page { padding: var(--sp-5) var(--sp-3) var(--sp-6); }
   .how { grid-template-columns: 1fr; }
   .modes { grid-template-columns: 1fr; }
-  .pcard { --card-w: 38px; }
-  .felt { padding: var(--sp-2) var(--sp-3); }
-  .seat { gap: var(--sp-2); padding: 6px var(--sp-2); }
-  .seat-stack { font-size: 16px; }
-  /* The wireframe's phone card sizes: the seat's cards are smaller than the
-     board's, which is what buys the name its room back. */
-  .match { --chip: 14px; }
-  .stack-chips { display: none; }
-  .seat .pcard { --card-w: 30px; }
-  .board .pcard { --card-w: 34px; }
-  /* A fixed slot, not a minimum: on a phone the seat has no spare width to
-     lend a long label, and a label that borrows it moves the name. A hand name
-     that does not fit is truncated here and printed in full in the dock. */
-  .seat-last { width: 88px; min-width: 0; font-size: 11px; }
-  .hand-head .seed code { max-width: 62px; overflow: hidden; text-overflow: clip; }
 
   /* The phone dock. Taller, because the thumb lives at the bottom of the
      screen and the primary action gets the whole width of the bottom row.
@@ -1267,29 +1134,7 @@
   .dock-acts > .btn { grid-row: 1; height: 100%; }
   .dock-acts > .btn[data-primary] { grid-row: 2; grid-column: 1 / -1; }
 
-  /* The rating is on the profile the name leads to; on a phone the seat has
-     room for the name and the stack and nothing else. */
-  .seat-rating { display: none; }
-  .seat-name { max-width: 12ch; }
-  .avatar { --avatar-size: 24px; }
-  /* The dealer button leaves the name line for the seat's corner, which is
-     what the phone ring already does with it and for the same reason: it costs
-     no width there, it still cannot move anything by arriving, and it reads
-     like the button on a real table. The line had nothing spare once it grew a
-     flag, and of the two the name is what somebody reads a seat by. Top right
-     rather than the ring's bottom right, because a stack seat is a wide row
-     whose bottom right is where its stack figure ends. */
-  .felt[data-mode="stack"] .btn-marker {
-    position: absolute; top: 5px; right: 5px; z-index: 1;
-    width: 15px; height: 15px; font-size: 9px;
-  }
-  /* And the clock drops to the bottom of that column, out from under it. */
-  .felt[data-mode="stack"] .seat-clock { align-self: end; }
 }
-
-/* pot flight layer: the chip lands over the pot without moving it */
-.pot { position: relative; }
-.flights { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
 
 .whoami { text-decoration: none; }
 .whoami:hover { text-decoration: underline; text-decoration-color: var(--slate-a8); }

@@ -143,18 +143,18 @@ test('the dock is the same height in all three of its states', async ({ page }) 
   expect([...heights]).toHaveLength(1);
 });
 
-test('the header carries copy and verify before the seed exists', async ({ page }) => {
+test('the header carries copy link and verify before the seed exists', async ({ page }) => {
   await stubApi(page);
   await page.goto('/m/mock?step=0');
 
-  const verify = page.locator('.hand-head .seed >> text=Verify');
+  const verify = page.locator('.hand-head .head-acts >> text=Verify');
   await expect(verify).toBeVisible();
   await expect(verify).toHaveAttribute('aria-disabled', 'true');
   const before = await page.locator('.hand-head').boundingBox();
 
   /* The same header once the hand is over and the seed is published. */
   await page.goto('/m/mock?step=13');
-  await expect(page.locator('.hand-head .seed >> text=Verify')).toBeVisible();
+  await expect(page.locator('.hand-head .head-acts >> text=Verify')).toBeVisible();
   const after = await page.locator('.hand-head').boundingBox();
   expect(Math.round(after!.height)).toBe(Math.round(before!.height));
 });
