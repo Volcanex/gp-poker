@@ -53,12 +53,15 @@ describe('link previews and crawl basics', () => {
   const userIds: string[] = [];
   const matchIds: string[] = [];
   const challengeIds: string[] = [];
+  const gameIds: string[] = [];
   let winner: { id: string; name: string };
   let loser: { id: string; name: string };
   let sharp: { id: string; name: string };
   const finished = id('meta-finished');
   const live = id('meta-live');
   const challenge = id('meta-challenge');
+  const lobby = id('meta-lobby');
+  const cancelled = id('meta-cancelled');
   // Names are validated to letters, digits and underscore on the way in, so
   // this row can only be made here. The escaping is what stops a name that
   // got in another way (a migration, a fixture, a future rule) from writing
@@ -121,6 +124,17 @@ describe('link previews and crawl basics', () => {
       )
     `;
 
+    gameIds.push(lobby, cancelled);
+    for (const [gameId, status] of [[lobby, 'open'], [cancelled, 'cancelled']] as const) {
+      await sql`
+        insert into home_games (id, host_id, rated, bot_level, status, expires_at)
+        values (${gameId}, ${winner.id}, true, 3, ${status}, now() + interval '1 day')
+      `;
+    }
+    for (const seated of [winner.id, loser.id]) {
+      await sql`insert into home_game_seats (game_id, user_id) values (${lobby}, ${seated})`;
+    }
+
     challengeIds.push(challenge);
     await sql`
       insert into challenges (id, creator_id, mode, rated, expires_at)
@@ -132,6 +146,7 @@ describe('link previews and crawl basics', () => {
   });
 
   afterAll(async () => {
+    for (const g of gameIds) await sql`delete from home_games where id = ${g}`;
     for (const c of challengeIds) await sql`delete from challenges where id = ${c}`;
     for (const m of matchIds) await sql`delete from matches where id = ${m}`;
     for (const u of userIds) await deleteUser(u);
@@ -230,6 +245,21 @@ describe('link previews and crawl basics', () => {
     );
   });
 
+  it('invites you to a home game, and says when the table is gone', async () => {
+    // The possessive comes back as an entity, which is what escaping the head
+    // means: every reader of a title decodes it, and nothing else has to know
+    // which characters a name may hold.
+    const own = `Join ${escapeHtml(`${winner.name}'s`)} home game, Open Table`;
+    const open = await shell(`/g/${lobby}`);
+    expect(title(open.html)).toBe(own);
+    expect(meta(open.html, 'name', 'description')).toBe(
+      'Six-max, rated. 2 of 6 seats taken, empty seats filled by level 3 bots.'
+    );
+    const gone = await shell(`/g/${cancelled}`);
+    expect(title(gone.html)).toBe(own);
+    expect(meta(gone.html, 'name', 'description')).toBe('This table was cancelled.');
+  });
+
   it('gives a static page its own title', async () => {
     const { html } = await shell('/learn/rules');
     expect(title(html)).toBe('How a hand plays, Open Table');
@@ -240,7 +270,7 @@ describe('link previews and crawl basics', () => {
   });
 
   it('falls back to the plain shell for an id nobody has, still 200', async () => {
-    for (const url of ['/m/no-such-match', '/m/no-such-match/h/3', '/u/nobody', '/c/no-such-link', '/nothing/here']) {
+    for (const url of ['/m/no-such-match', '/m/no-such-match/h/3', '/u/nobody', '/c/no-such-link', '/g/no-such-table', '/nothing/here']) {
       const { status, html } = await shell(url);
       expect(status).toBe(200);
       expect(title(html)).toBe('Open Table');

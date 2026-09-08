@@ -14,6 +14,7 @@ import {
   type RatingRow,
 } from './db.js';
 import { statusOf } from './challenges.js';
+import { homeGameView } from './home-games.js';
 
 /* What a pasted link shows.
 
@@ -243,6 +244,10 @@ export async function metaForPath(pathname: string): Promise<PageMeta> {
     return cached(`h:${seg[1]}:${number}`, () => handMeta(seg[1], number));
   }
   if (seg[0] === 'u' && seg.length === 2) return cached(`u:${seg[1].toLowerCase()}`, () => userMeta(seg[1]));
+  // The vendored design assets sit under /g/ too (g.css, g-ui.js, fonts/).
+  // They are real files with routes of their own, so only a /g/<id> that is
+  // not one of them ever reaches here.
+  if (seg[0] === 'g' && seg.length === 2) return cached(`g:${seg[1]}`, () => homeGameMeta(seg[1]));
   if (seg[0] === 'c' && seg.length === 2) return cached(`c:${seg[1]}`, () => challengeMeta(seg[1]));
   return DEFAULT_META;
 }
@@ -374,6 +379,24 @@ async function challengeMeta(id: string): Promise<PageMeta | null> {
           ? `${creator.name} sent this link and it has expired. Links last a day.`
           : `${creator.name} sent this link and then cancelled it.`;
   return { title: `Play ${creator.name}`, description, type: 'website' };
+}
+
+/* A home game link is sent to five people at once, so the preview is the
+   invitation: who is gathering the table, what it is, and how much of it is
+   already spoken for. A lobby that is no longer open says so rather than
+   inviting somebody to a table they cannot sit at. */
+async function homeGameMeta(id: string): Promise<PageMeta | null> {
+  const game = await homeGameView(id);
+  if (!game) return null;
+  const description =
+    game.status === 'open'
+      ? `Six-max, ${game.rated ? 'rated' : 'casual'}. ${game.seats.length} of ${game.players} seats taken, empty seats filled by level ${game.botLevel} bots.`
+      : game.status === 'started'
+        ? 'This table has started.'
+        : game.status === 'cancelled'
+          ? 'This table was cancelled.'
+          : 'This link has expired.';
+  return { title: `Join ${game.host.name}'s home game`, description, type: 'website' };
 }
 
 // ---- crawl basics ----
