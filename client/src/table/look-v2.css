@@ -157,22 +157,34 @@
   height: calc(var(--chip) * (0.72 + (var(--chip-rows) - 1) * 0.14) + 2px);
   width: 100%;
 }
-.match[data-look="v2"] .pot-chips > * { position: absolute; bottom: 0; }
-/* The winnings, on their way to the seat. */
-.match[data-look="v2"] .award-flight { display: inline-flex; }
+/* The stack is the slot's only child and stands on the slot's floor, because
+   that floor is the point a flight is measured to. It took two goes: a wrapper
+   round it carried a line box's descender, and v1's 2px lift off the row was
+   still there under that. The slot keeps the height it had. */
+.match[data-look="v2"] .pot-chips > * { position: absolute; bottom: 0; margin: 0; }
 
-/* The winnings land in the winner's bet slot while that seat's last bet may
-   still be drawn there (a showdown collects nothing until the hand is
-   settled), so the flight is out of the flow: in it, it pushed the bet chip
-   sideways, and the observer counted the push. On the ring the slot's
-   children are already absolute. */
-.match[data-look="v2"] .felt[data-mode="stack"] .seat-bet { position: relative; }
-.match[data-look="v2"] .felt[data-mode="stack"] .award-flight {
-  position: absolute; left: 50%; bottom: 0; translate: -50% 0;
+/* --------------------------------------------------------------- flights */
+
+/* Chips in the air. One layer over the whole felt, out of the flow entirely:
+   a stack on its way to the middle cannot move anything underneath it, which
+   is what keeps the felt's footprint at nought through a street being
+   collected and a pot being awarded. The layer is the frame both ends of a
+   flight are measured in, so the felt has to be its containing block in all
+   three geometries, the ring included, where it already is. */
+.match[data-look="v2"] .felt > .felt-in { position: relative; }
+.match[data-look="v2"] .chip-flights {
+  position: absolute; inset: 0;
+  z-index: 3;
+  pointer-events: none;
 }
-@container (max-width: 740px) {
-  .match[data-look="v2"] .felt[data-mode="ring"] .seat-bet { position: relative; }
-  .match[data-look="v2"] .felt[data-mode="ring"] .seat-bet > .award-flight {
-    position: absolute; left: 50%; bottom: 0; translate: -50% 0;
-  }
+
+/* A flight is placed by the middle of its bottom edge, the point a stack
+   stands on, and carries the chip size it left at, so it lines up with the
+   stack it came from and scales into the size of the one it joins. Nothing
+   here has an opacity: the stack is solid from the first frame to the last. */
+.match[data-look="v2"] .chip-flight {
+  position: absolute;
+  display: inline-flex; align-items: flex-end;
+  translate: -50% -100%;
+  transform-origin: bottom center;
 }

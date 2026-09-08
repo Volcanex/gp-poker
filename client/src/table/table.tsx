@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import NumberFlow from '@number-flow/react';
@@ -43,6 +43,25 @@ export interface TableProps {
 
 interface Flight { id: number; seat: number; amount: number }
 
+/* Where a stack of chips stands, in the felt's own coordinates: the middle of
+   its bottom edge, plus the chip size in force there. A ring bet draws 14px
+   chips and the middle draws 24px, so a flight scales as it travels and lands
+   the size of the stack it is joining. */
+interface Anchor { x: number; y: number; chip: number }
+
+/* One stack in the air. v2 moves chips instead of dissolving them: an opaque
+   element in a layer over the felt, from the measured place it left to the
+   measured place it is going, moved on a transform. No opacity is touched at
+   any point, and the two stacks are never on screen pretending to be one. */
+interface Move {
+  id: number;
+  amount: number;
+  from: Anchor;
+  to: Anchor;
+  delay: number; // seconds
+  seat: number | null; // the seat an award is paid to, null on the way in
+}
+
 const BOARD_SLOTS = 5;
 
 /* The hand-end sequence, in the order the eye needs it: the cards turn over,
@@ -51,6 +70,15 @@ const BOARD_SLOTS = 5;
 const REVEAL_MS = 0;
 const HIGHLIGHT_MS = 400;
 const SETTLE_MS = 700;
+
+/* How a chip travels on v2. One stack a seat, in the order a dealer collects
+   them, on the house ease-out. Long enough to follow across the felt and short
+   enough that the next street is not waiting on it. */
+const FLIGHT_MS = 380;
+const STAGGER_MS = 40;
+const EASE_OUT = [0.2, 0, 0, 1] as const;
+
+const NOBODY: ReadonlySet<number> = new Set();
 
 export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: TableProps) {
   const reduced = useReducedMotion();
@@ -84,6 +112,20 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
   const flightId = useRef(0);
   const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
 
+  /* v2's flights, and the two things that wait for one to land: the middle's
+     stack, held at what it held before the bets were collected, and the seats
+     whose winnings have arrived. Positions are read off the DOM because the
+     felt has three geometries (the heads-up stack, the ring, the phone's
+     portrait grid) and only the browser knows which is in force. */
+  const [moves, setMoves] = useState<Move[]>([]);
+  const [potHeld, setPotHeld] = useState<number | null>(null);
+  const [paid, setPaid] = useState<ReadonlySet<number>>(NOBODY);
+  const feltRef = useRef<HTMLDivElement>(null);
+  const chipAt = useRef(new Map<number, Anchor>());
+  const prevV2 = useRef<TableView | null>(null);
+  const awardDone = useRef<string | null>(null);
+  const flying = look === 'v2' && !bare && !reduced;
+
   useEffect(() => () => {
     timers.current.forEach(clearTimeout);
     timers.current.clear();
@@ -95,7 +137,7 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
     /* A replay steps in both directions. Chips that fly to the pot when you
        step forward would have to fly back out of it when you step back, and a
        recorded hand is read, not watched: it has no flights at all. */
-    if (!before || reduced || bare) return;
+    if (!before || reduced || bare || look === 'v2') return;
     if (before.h !== view.h) {
       setFlights([]);
       return;
@@ -112,7 +154,61 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
       setFlights((f) => f.filter((x) => !ids.has(x.id)));
     }, 480);
     timers.current.add(timer);
-  }, [view, reduced, bare]);
+  }, [view, reduced, bare, look]);
+
+  /* v2: the bets travel to the middle. Measured before the recorder below
+     refreshes, so `chipAt` still holds the felt as it was drawn a moment ago,
+     which is the only place the chips that have just been collected exist. */
+  useLayoutEffect(() => {
+    const before = prevV2.current;
+    prevV2.current = view;
+    const root = feltRef.current;
+    if (!flying || !root || !before) return;
+    if (before.h !== view.h) {
+      setMoves([]);
+      setPotHeld(null);
+      setPaid(NOBODY);
+      return;
+    }
+    const moved = before.seats.filter(
+      (s) => s.bet > 0 && (view.seats.find((t) => t.i === s.i)?.bet ?? 0) === 0,
+    );
+    if (moved.length === 0) return;
+    const slot = root.querySelector('.pot-chips');
+    if (!slot) return;
+    const base = root.getBoundingClientRect();
+    const to = anchorOf(slot, base);
+    /* In the order a dealer collects: from the seat left of the button round
+       to it, one stack every 40ms, so four bets read as four stacks. */
+    const n = Math.max(1, before.seats.length);
+    const round = (i: number) => (i - button - 1 + n * 2) % n;
+    const batch = [...moved]
+      .sort((a, b) => round(a.i) - round(b.i))
+      .map((s) => ({ amount: s.bet, from: chipAt.current.get(s.i) }))
+      .filter((m): m is { amount: number; from: Anchor } => m.from != null)
+      .map((m, k): Move => ({
+        id: (flightId.current += 1),
+        amount: m.amount,
+        from: m.from,
+        to,
+        delay: (k * STAGGER_MS) / 1000,
+        seat: null,
+      }));
+    if (batch.length === 0) return;
+    setMoves((m) => [...m, ...batch]);
+    setPotHeld(collectedOf(before));
+    batch.forEach((f, k) => {
+      const last = k === batch.length - 1;
+      const t = setTimeout(() => {
+        timers.current.delete(t);
+        /* The flight is taken off the felt in the same tick the middle's stack
+           grows by what it carried, at the same place: a swap, not a fade. */
+        setMoves((m) => m.filter((x) => x.id !== f.id));
+        setPotHeld((held) => (last || held == null ? null : held + f.amount));
+      }, f.delay * 1000 + FLIGHT_MS);
+      timers.current.add(t);
+    });
+  }, [view, flying, button]);
 
   const board = Array.from({ length: BOARD_SLOTS }, (_, i) => view.board[i] ?? null);
   /* Practice tables carry the analysis strip. It is a row of the same grid as
@@ -144,13 +240,79 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
 
   const potShown = phase >= 2 ? 0 : view.pot;
   const settled = phase >= 2;
-  /* v2: the pot's chips leave for the winner's seat. The pot's stack and the
-     flight share one layout id, so the stack that was in the middle is the
-     one that lands on the seat, then fades. A split pot flies to its first
-     winner; the award line under the board still names them all. */
-  const awardTo = look === 'v2' && settled && !reduced && !bare && show.awards.length > 0
-    ? show.awards[0]
-    : null;
+  /* The figure is the protocol's pot, the total including the bets still in
+     front of players. v2 draws those bets as chips at their seats, so the
+     middle's stack is the total less what is still on the line, and a bet's
+     stack landing is what makes it grow. Held at its old value while the
+     chips are in the air. */
+  const potChips = look === 'v2' ? (phase >= 2 ? 0 : potHeld ?? collectedOf(view)) : potShown;
+
+  /* v2: the middle leaves for the winner, one opaque stack a seat, and the
+     chips stay in front of them until the next hand deals. A split pot flies
+     to every winner in turn; the award line under the board names them all.
+
+     The key is the hand rather than the awards, because the view arrives with
+     a fresh board array on every message and the showdown memo behind it
+     rebuilds; without the guard the same pot would fly on every tick. */
+  const awardAt = flying && settled && show.awards.length > 0 ? `${view.m}:${view.h}` : null;
+  useLayoutEffect(() => {
+    const root = feltRef.current;
+    if (awardAt == null || !root || awardDone.current === awardAt) return;
+    const slot = root.querySelector('.pot-chips');
+    if (!slot) return;
+    awardDone.current = awardAt;
+    const base = root.getBoundingClientRect();
+    const from = anchorOf(slot, base);
+    const batch: Move[] = [];
+    const straight: number[] = [];
+    show.awards.forEach((a, k) => {
+      const to = chipAt.current.get(a.seat);
+      /* A seat that has never had a chip drawn in front of it has nowhere to
+         fly to. It is paid where it stands instead. */
+      if (!to) {
+        straight.push(a.seat);
+        return;
+      }
+      batch.push({
+        id: (flightId.current += 1),
+        amount: a.amount,
+        from,
+        to,
+        delay: (k * STAGGER_MS) / 1000,
+        seat: a.seat,
+      });
+    });
+    if (straight.length > 0) setPaid((p) => new Set([...p, ...straight]));
+    if (batch.length === 0) return;
+    setMoves((m) => [...m, ...batch]);
+    for (const f of batch) {
+      const t = setTimeout(() => {
+        timers.current.delete(t);
+        setPaid((p) => new Set([...p, f.seat as number]));
+      }, f.delay * 1000 + FLIGHT_MS);
+      timers.current.add(t);
+    }
+  }, [awardAt, show.awards]);
+
+  /* Where every seat's chips are standing, refreshed on each commit and kept
+     when they leave, so a flight starts from the last place they stood. It is
+     declared after both flights above on purpose: those read the felt as it
+     was drawn before this update, which is where the chips that have just
+     moved still are. */
+  useLayoutEffect(() => {
+    const root = feltRef.current;
+    if (!flying || !root) return;
+    const base = root.getBoundingClientRect();
+    for (const pos of root.querySelectorAll('.pos')) {
+      const chips = pos.querySelector('.bet-chip .chips');
+      const i = Number(pos.getAttribute('data-seat'));
+      if (chips && Number.isFinite(i)) chipAt.current.set(i, anchorOf(chips, base));
+    }
+  });
+
+  /* The winner's number waits for the chips: it ticks up when the stack lands.
+     Without flights (v1, a replay, reduced motion) settling is the moment. */
+  const landed = (i: number) => (flying ? paid.has(i) : settled);
 
   return (
     <LookContext.Provider value={look}>
@@ -208,7 +370,7 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
       )}
 
       <div className="felt" data-mode={mode} data-seats={order.length}>
-        <div className="felt-in">
+        <div className="felt-in" ref={feltRef}>
           {order.map((s, k) => {
             const slot = slotAt(k, order.length);
             /* Two geometries, one set of elements: the ellipse reads --x and
@@ -216,11 +378,12 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
                which one applies is a container query. */
             const cell = portraitSlot(k, order.length);
             const award = show.awarded.get(s.i) ?? 0;
-            const seat = settled || award === 0 ? s : { ...s, stack: s.stack - award };
+            const seat = landed(s.i) || award === 0 ? s : { ...s, stack: s.stack - award };
             return (
               <div
                 className="pos"
                 key={s.i}
+                data-seat={s.i}
                 data-half={slot.half}
                 data-side={slot.side}
                 data-k={k}
@@ -234,22 +397,11 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
                 } as CSSProperties}
               >
                 <div className="seat-bet">
-                  <AnimatePresence>
-                    {awardTo && awardTo.seat === s.i && (
-                      <motion.span
-                        key={`award-${view.h}`}
-                        layoutId="pot-chips"
-                        className="bet-chip award-flight num"
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ layout: { duration: 0.42, ease: [0.2, 0, 0, 1] }, opacity: { duration: 0.2 } }}
-                      >
-                        <ChipStack amount={awardTo.amount} />
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
                   {s.bet > 0 && (
-                    <motion.span layoutId={`bet-${s.i}`} className="bet-chip num">
+                    <motion.span
+                      layoutId={look === 'v2' ? undefined : `bet-${s.i}`}
+                      className="bet-chip num"
+                    >
                       <ChipStack amount={s.bet} />
                       <span className="bet-figure">{s.bet}</span>
                     </motion.span>
@@ -273,7 +425,7 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
                      stack that rolls every time a blind is posted spends the
                      deal painting two values at once, which is what a live
                      table was caught doing two and a half seconds in. */
-                  snap={!(settled && award > 0)}
+                  snap={!(landed(s.i) && award > 0)}
                 />
               </div>
             );
@@ -284,11 +436,7 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
               <span className="k">Pot</span>
               {look === 'v2' ? (
                 <span className="pot-chips">
-                  {potShown > 0 && (
-                    <motion.span layoutId="pot-chips" className="chips-in">
-                      <ChipStack amount={potShown} />
-                    </motion.span>
-                  )}
+                  {potChips > 0 && <ChipStack amount={potChips} />}
                 </span>
               ) : (
                 <ChipStack amount={potShown} />
@@ -299,6 +447,7 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
               {view.pots.length > 1 && (
                 <span className="pot-side">{view.pots.map((p) => p.amount).join(' + ')}</span>
               )}
+              {look !== 'v2' && (
               <span className="flights" aria-hidden="true">
                 <AnimatePresence>
                   {flights.map((f) => (
@@ -315,6 +464,7 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
                   ))}
                 </AnimatePresence>
               </span>
+              )}
             </div>
 
             <div className="board">
@@ -349,6 +499,29 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
               </AnimatePresence>
             </div>
           </div>
+
+          {/* The chips in the air. Absolutely positioned over the felt and out
+              of the flow, so nothing on it can be moved by a flight. */}
+          {look === 'v2' && (
+            <div className="chip-flights" aria-hidden="true">
+              {moves.map((f) => (
+                <motion.span
+                  key={f.id}
+                  className="chip-flight"
+                  style={{ left: f.from.x, top: f.from.y, '--chip': `${f.from.chip}px` } as CSSProperties}
+                  initial={{ x: 0, y: 0, scale: 1 }}
+                  animate={{
+                    x: f.to.x - f.from.x,
+                    y: f.to.y - f.from.y,
+                    scale: f.to.chip / f.from.chip,
+                  }}
+                  transition={{ duration: FLIGHT_MS / 1000, ease: EASE_OUT, delay: f.delay }}
+                >
+                  <ChipStack amount={f.amount} />
+                </motion.span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -377,6 +550,27 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
     </div>
     </LookContext.Provider>
   );
+}
+
+/* The middle of a stack's bottom edge, in the felt's own coordinates, with the
+   chip size in force where it stands. Both ends of a flight are measured this
+   way, so a stack leaves and lands standing on the same line the stacks it
+   came from and joined stand on. */
+function anchorOf(el: Element, base: DOMRect): Anchor {
+  const r = el.getBoundingClientRect();
+  const chip = Number.parseFloat(getComputedStyle(el).getPropertyValue('--chip'));
+  return {
+    x: r.left + r.width / 2 - base.left,
+    y: r.bottom - base.top,
+    chip: Number.isFinite(chip) && chip > 0 ? chip : 24,
+  };
+}
+
+/* What is actually in the middle. The protocol's pot is the total including
+   the bets still in front of players; v2 draws those at their seats, so the
+   middle's own stack is the total less what is still on the line. */
+function collectedOf(view: TableView): number {
+  return Math.max(0, view.pot - view.seats.reduce((a, s) => a + s.bet, 0));
 }
 
 /* Your own two cards, or nothing. A seat with no cards is out of the hand and
