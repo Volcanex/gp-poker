@@ -56,6 +56,18 @@ boot, unrated.
 - Bots (`users.bot`) fill a heads-up seat after 5s and a six-max table after
   20s of waiting, never a table with no human. Bot matches are rated for
   now: a bootstrap choice to revisit once there are users.
+- Bots play at one of five levels (`users.bot_level`, `BOT_LEVELS` in the
+  protocol), 1 loose and passive up to 5 sharp. Level 4 is the bot that
+  existed before levels and is still the default. The roster is 15, three per
+  level, generated from the same seed so the first eight names never moved.
+  The ordering is proved by a seeded round robin through the engine
+  (`server/src/bots/levels.test.ts`), not asserted by hand; see
+  `server/src/bots/CLAUDE.md` for why that test is shaped the way it is.
+- Practice mode is a `queue` message carrying `bots: {level}`. It skips the
+  human queue, builds the table on the spot from bots at that level and
+  outwards, and is **always unrated** (`format.practice`, persisted like every
+  other format field). Casual and practice are both unrated, so only that flag
+  tells them apart on a finished match.
 - The engine only sees seats with chips; `hands.live_seats` maps engine
   seat to table seat and every stored log is in table seats.
 - Tests run against `TEST_DATABASE_URL` (opentable_test), never the live

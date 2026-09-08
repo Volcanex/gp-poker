@@ -56,7 +56,9 @@ decisions; this file covers what's not obvious from the code.
     replay needs to rebuild the engine config.
 - `src/matchmaking.ts` — the in-memory queues and their tick.
 - `src/bots/` — the bot roster (`index.ts`), one bot's message loop
-  (`player.ts`) and the pure decision function (`strategy.ts`).
+  (`player.ts`) and the pure decision function (`strategy.ts`). The five
+  levels, the roster's shape and why the ordering test looks the way it does
+  are in `src/bots/CLAUDE.md`.
 - `src/ws/hub.ts` — connection registry + the raw per-socket protocol
   handling (decode, `hi`, ping/pong, audit log). Knows nothing about
   matchmaking or match rooms; dispatch is injected.
@@ -229,12 +231,14 @@ against a short clock and a small stack.
 
 ## Bots
 `src/bots/` exists so one human can play right now. A bot is an ordinary
-`users` row with `bot = true`: a real name (a fixed list of eight CamelCase
+`users` row with `bot = true`: a real name (a fixed list of fifteen CamelCase
 names from `@opentable/identity`, generated once with a seeded rng so the
-roster is stable across boots), a real Glicko-2 rating and real match
+roster is stable across boots and growing it only appends), a level
+(`bot_level`, 1..5, three bots each), a real Glicko-2 rating and real match
 history, no password, never a guest. `ensureBots()` runs once in `buildApp`
-and keeps `BOT_COUNT` (default 6) of them alive; the insert is
-`on conflict do nothing` so parallel boots are safe. `migrateBotRoster()`
+and keeps `BOT_COUNT` (default 15, the whole roster) of them alive; the
+insert is `on conflict do nothing` so parallel boots are safe, and the level
+is re-asserted from the roster on every boot. `migrateBotRoster()`
 (backed by `db.migrateLegacyBotNames`, advisory-locked so concurrent boots
 can't race renaming the same row) runs first and one-time-renames any
 pre-identity-package `bot-otter` style row into the new roster, in the same
