@@ -57,7 +57,7 @@ test('a flag and an empty slot measure the same, so a seat line cannot move', as
   expect(new Set(heights).size).toBe(1);
 });
 
-test('the settings menu saves a country, and the top bar shows it', async ({ page }) => {
+test('the settings menu saves a country, and the account row shows it', async ({ page }) => {
   await stubApi(page);
 
   /* The PATCH the picker sends, answered here rather than by a server: the
@@ -85,7 +85,7 @@ test('the settings menu saves a country, and the top bar shows it', async ({ pag
 
   await expect.poll(() => patched).toEqual([{ country: 'gb' }]);
   await expect(field).toHaveValue('United Kingdom');
-  /* The picker's own flag, then the identity pill in the top bar, which reads
+  /* The picker's own flag, then the account row in the sidebar, which reads
      the session the save updated rather than asking /api/me again. */
   await expect(page.locator('.country-picker .flag')).toHaveAttribute('src', '/flags/gb.svg');
   await expect(page.locator('.account button .flag')).toHaveAttribute('alt', 'United Kingdom');

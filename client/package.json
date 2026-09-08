@@ -18,6 +18,7 @@
     "@opentable/preflop": "*",
     "@opentable/protocol": "*",
     "@opentable/rating": "*",
+    "@phosphor-icons/react": "^2.1.10",
     "motion": "^13.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

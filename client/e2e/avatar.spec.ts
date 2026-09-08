@@ -126,7 +126,7 @@ test('crops a photograph to a square under the budget and shows it at once', asy
   expect(body.length).toBeLessThan(BUDGET);
   expect(body.length).toBeGreaterThan(0);
 
-  /* The dialog closes and the top bar is drawing the new version, which is the
+  /* The dialog closes and the account row is drawing the new version, which is the
      only visible proof the whole round trip landed. */
   await expect(dialog).toHaveCount(0);
   await expect(page.locator('.account .avatar img.avatar-photo')).toHaveAttribute('src', /\?v=1$/);

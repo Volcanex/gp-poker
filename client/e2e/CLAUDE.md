@@ -82,11 +82,12 @@ it.
 | `chat.spec.ts` | opening, sending and closing the panel leave the header, felt and dock in identical boxes, at both widths |
 | `reduced-motion.spec.ts` | the same information with the motion emulated off |
 | `enter.spec.ts` | the page entrance: every block at rest inside 600ms, a fetching block held until its content lands, zero layout shift across an entrance, nothing under `/m`, and nothing at all under reduced motion |
-| `avatar.spec.ts` | a photograph cropped in the dialog leaves as a webp or png square under 120 KB, and the top bar draws the new version |
+| `avatar.spec.ts` | a photograph cropped in the dialog leaves as a webp or png square under 120 KB, and the account row draws the new version |
 | `settings.spec.ts` | a choice surviving a reload, the pre-paint stamp, every accent's and every palette's contrast in both themes, axe under each palette, the accent a palette arrives with, the four colour deck, and the menu itself |
 | `replay.spec.ts` | a recorded hand scrubbed back and forth leaves nothing behind and nothing outside the felt, and still verifies |
 | `odds.spec.ts` | the pot odds trainer's reserved boxes across an answer, at 390 and 1366, and axe in both themes. No baselines: the assertion is the geometry |
 | `puzzles.spec.ts` | the preflop chart's entrance: every cell ends visible, on the first spot and the next, and the page does not reflow while it runs |
+| `shell.spec.ts` | the sidebar as a named landmark and the section you are in, the sheet on a phone opening and shutting by toggle, Escape, scrim and a link with the focus put back, a shut sheet out of the tab order, and a table keeping the whole window |
 | `admin.spec.ts` | the admin bar, the annotate flow from shortcut to posted ticket, the tickets pages, and that a player gets none of it |
 | `screenshots.spec.ts` | 156 baselines: thirteen states at 360, 390, 430, 768, 1366 and 1920, dark and light |
 

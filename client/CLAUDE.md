@@ -29,7 +29,7 @@ declaration for `phe` that the engine's own tsconfig provides.
 | `src/tools/` | the pages at `/tools` |
 | `src/puzzles/` | the daily puzzles |
 | `src/chat/` | table chat |
-| `src/ui/` | settings, presence, the account menu and the g-ui seam |
+| `src/ui/` | the site shell, settings, presence, the account menu and the g-ui seam |
 | `src/admin/` | the admin bar, the annotation overlay and the tickets it writes |
 | `src/sound/` | the sound module and its packs |
 | `src/dev/mock.ts` | the scripted table the e2e suite drives (documented in `e2e/CLAUDE.md`) |
@@ -37,6 +37,12 @@ declaration for `phe` that the engine's own tsconfig provides.
 
 `src/app.tsx` mounts the routes, `src/app.css` is page layout plus the
 poker-specific pieces, and `src/test/` holds the unit tests for everything pure.
+
+**The chrome is g-system's `.g-shell`.** A sidebar of sections on the left, the
+page beside it, and under 720px the same sidebar as g's off-canvas sheet behind
+its scrim. `src/ui/shell.tsx` holds it and `src/ui/CLAUDE.md` says what is g's
+and what is ours. A table has no sidebar beside it at any width: the felt is
+measured against the whole window.
 
 **Every page enters the same way and no page arranges it.** The direct children
 of a routed `<main class="page">` slide in from the leading edge, staggered,
