@@ -1,47 +1,9 @@
 import { expect, test } from '@playwright/test';
-import type { Box } from './table.ts';
-import { boxes, markSettled, shiftSince, stubApi, waitForDock, watchLayoutShift } from './table.ts';
+import { stubApi } from './table.ts';
 
-/* The felt rework (SVG cards and chips, see table/look-v2.css) is held to the
-   same rule as the felt it replaces: one footprint through a hand and a layout
-   shift of exactly zero. The desktop cases live here; the phone hero band has
-   its own spec. */
-
-const MODES = [
-  { name: 'heads-up', url: '/m/mock?v2=1' },
-  { name: 'six-max', url: '/m/mock?mode=six-max&v2=1' },
-];
-
-function diff(a: Record<string, Box>, b: Record<string, Box>): string[] {
-  return Object.keys(a).filter((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k]));
-}
-
-for (const mode of MODES) {
-  test(`v2 ${mode.name} keeps one footprint through a hand at 1280`, async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 800 });
-    await stubApi(page);
-    await watchLayoutShift(page);
-    await page.goto(mode.url);
-    await expect(page.locator('.match[data-look="v2"]')).toBeVisible();
-    await expect(page.locator('.pc-face').first()).toBeVisible();
-
-    await waitForDock(page, 'turn');
-    const settledAt = await markSettled(page);
-    const onTurn = await boxes(page);
-
-    await waitForDock(page, 'wait');
-    expect(diff(onTurn, await boxes(page)), 'boxes that moved between your turn and waiting').toEqual([]);
-
-    await waitForDock(page, 'over');
-    await page.waitForTimeout(1400);
-    expect(diff(onTurn, await boxes(page)), 'boxes that moved between your turn and hand over').toEqual([]);
-
-    await waitForDock(page, 'turn');
-    expect(diff(onTurn, await boxes(page)), 'boxes that moved over a whole hand').toEqual([]);
-
-    expect(await shiftSince(page, settledAt)).toBe(0);
-  });
-}
+/* The felt rework (SVG cards and chips, see table/look-v2.css). Its footprint
+   is held to zero layout shift by hero-band.spec.ts, which walks a hand at
+   390 and 1280 in both shapes; this file checks what is drawn. */
 
 test('v2 draws every card from the sprite and every chip from the chip symbol', async ({ page }) => {
   await stubApi(page);
