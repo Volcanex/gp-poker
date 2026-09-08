@@ -35,6 +35,8 @@ boot, unrated.
   function (pure, ticked by the server).
 - `packages/preflop` — cached baseline HU charts by stack depth and the
   EV-lost scorer. Preflop only, no solver at runtime.
+- `packages/equity` — postflop analysis: hand naming, exact or sampled
+  equity, outs, range notation. Isomorphic, runs in the client's worker.
 - `packages/identity` — generated CamelCase names (guests, bots) and
   deterministic geometric avatars from a user id. Pure, no dependencies.
 - `server` — Fastify REST + `ws` WebSocket + `postgres` driver. Owns
