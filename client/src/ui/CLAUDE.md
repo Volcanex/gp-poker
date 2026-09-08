@@ -190,7 +190,10 @@ the settings menu hides the two rows. Choosing another theme brings all of it
 back. `g.theme("room")` stamps and stores the value like any other, so g's
 `g-theme` key and `ot.prefs` still agree. The felt takes `--felt` through one
 rule at the foot of `room.css` that also maps `--surface-2` to `--felt-panel`
-for the seats; the hero band stays on the walnut and reads as the rail.
+for the seats and `--text-secondary` to the felt's lighter own, so a seat's
+line survives the ended table's dim; the hero band stays on the walnut and
+reads as the rail. The table chat is a second such island, the darker green
+with white on it, mapped on `.chat-panel` the same way.
 
 `../../e2e/settings.spec.ts` measures the room as one set: every text token on
 the walnut, the baize and the panel, the brass under its ink, and the pips on

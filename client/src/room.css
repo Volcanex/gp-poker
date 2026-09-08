@@ -74,16 +74,21 @@
   --accent-edge: #ba882e;
 
   /* The baize, the well a seat sits in, and the secondary text the felt
-     wears. Three tokens, read by the felt rule at the foot of the file and by
-     nothing else. The well is darker than the cloth and the felt's secondary
-     is lighter than the walnut's, because the ended table dims the whole felt
-     to 0.7 and a seat's line has to keep 4.5 through that: on a near-black
-     ground the dim costs nothing, on a green one it costs a whole step. As
-     shipped, secondary on the well is 8.7, on the acting seat 7.2, and 5.2
-     with the felt dimmed. */
-  --felt: #174229;
-  --felt-panel: #0f3620;
+     wears. Three tokens, read by the felt rule and the chat rule at the foot
+     of the file and by nothing else. The cloth is a snooker table's: the
+     chroma held down to what a baize reads as under a lamp, because the first
+     cut was called garish. The well is darker than the cloth and the felt's
+     secondary is lighter than the walnut's, because the ended table dims the
+     whole felt to 0.7 and a seat's line has to keep 4.5 through that: on a
+     near-black ground the dim costs nothing, on a green one it costs a whole
+     step. As shipped, secondary on the well is 9.1, on the acting seat 7.4,
+     and 5.3 with the felt dimmed. */
+  --felt: #244232;
+  --felt-panel: #183124;
   --felt-text-secondary: #d7d0c3;
+  /* Chat over the felt: the darker green with white on it. 14:1. */
+  --chat-ground: var(--felt-panel);
+  --chat-text: #ffffff;
 
   /* Meaning colours. Bet is brass, call the quiet green, fold the deep red;
      g's own pairs for the filled buttons carry white. */
@@ -137,4 +142,14 @@
   background: var(--felt);
   --surface-2: var(--felt-panel);
   --text-secondary: var(--felt-text-secondary);
+}
+
+/* The table chat is a sheet over the felt, so it is the felt's darker green
+   with white on it rather than a walnut panel: the player asked for exactly
+   that. Tokens again, mapped on the panel and read by chat.css as it is. */
+[data-theme="room"] .chat-panel {
+  --surface-1: var(--chat-ground);
+  --text-primary: var(--chat-text);
+  --text-secondary: var(--felt-text-secondary);
+  --text-muted: var(--felt-text-secondary);
 }
