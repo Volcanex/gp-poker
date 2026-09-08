@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { arenaPoints, type MatchFormat } from '@opentable/protocol';
 import {
+  acceptReady,
   connectSession,
   deleteUser,
   driveRandomPlay,
@@ -9,9 +10,11 @@ import {
   makeApp,
   mintGuestSession,
   testFormat,
+  unlockRanked,
   type Connected,
   type Session,
 } from './helpers.js';
+import { resetReadyChecks } from '../src/ready.js';
 import {
   arenaListing,
   arenaTick,
@@ -108,6 +111,7 @@ describe('arenas', () => {
   afterAll(async () => {
     for (const c of open) c.ws.close();
     resetArena();
+    resetReadyChecks();
     await sql`delete from matches where id in (select match_id from match_players where user_id in ${sql(
       createdUserIds.length > 0 ? createdUserIds : ['00000000-0000-0000-0000-000000000000']
     )})`;
@@ -116,9 +120,14 @@ describe('arenas', () => {
     await app.close();
   });
 
+  /* Every arena player has already finished a casual match. An arena is rated
+     heads-up, so it is behind the same gate the rated queue is, and a guest
+     who has played nothing cannot join one. The row this writes is cleaned up
+     by the same sweep as every other match these users played. */
   async function guest(): Promise<Session> {
     const session = await mintGuestSession(app);
     createdUserIds.push(session.id);
+    await unlockRanked(session.id);
     return session;
   }
 
@@ -199,6 +208,9 @@ describe('arenas', () => {
     await join(b, arena.id);
 
     await arenaTick();
+    // An arena pairing is offered the same way a queued one is, on a shorter
+    // window: nobody is dealt a table they have not said they are at.
+    await Promise.all([acceptReady(a), acceptReady(b)]);
     const foundA = await a.messages.wait((m) => m.t === 'q' && m.s === 'found');
     const foundB = await b.messages.wait((m) => m.t === 'q' && m.s === 'found');
     expect(foundA.m).toBe(foundB.m);
@@ -236,6 +248,7 @@ describe('arenas', () => {
 
     clock += 2_000;
     await arenaTick();
+    await acceptReady(lone);
     const found = await lone.messages.wait((m) => m.t === 'q' && m.s === 'found');
     const match = (await getMatchById(found.m))!;
     expect(match.format.arena).toBe(arena.id);
@@ -272,6 +285,7 @@ describe('arenas', () => {
     await arenaTick();
     clock += 2_000;
     await arenaTick();
+    await acceptReady(b);
     const found = await b.messages.wait((m) => m.t === 'q' && m.s === 'found');
     const match = (await getMatchById(found.m))!;
     expect(match.seats.map((s) => s.userId)).not.toContain(a.id);

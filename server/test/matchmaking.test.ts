@@ -1,7 +1,18 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { makeApp, mintGuestSession, deleteUser, listenForWs, connectWs, driveRandomPlay, testFormat } from './helpers.js';
+import {
+  acceptReady,
+  connectWs,
+  deleteUser,
+  driveRandomPlay,
+  listenForWs,
+  makeApp,
+  mintGuestSession,
+  testFormat,
+  unlockRanked,
+} from './helpers.js';
 import { createMatchForPlayers, tick } from '../src/matchmaking.js';
+import { resetReadyChecks } from '../src/ready.js';
 import { getMatchById, getRatingHistoryForUser, sql } from '../src/db.js';
 
 describe('matchmaking', () => {
@@ -16,6 +27,7 @@ describe('matchmaking', () => {
   });
 
   afterAll(async () => {
+    resetReadyChecks();
     for (const id of createdMatchIds) await sql`delete from matches where id = ${id}`;
     for (const id of createdUserIds) await deleteUser(id);
     await app.close();
@@ -24,6 +36,7 @@ describe('matchmaking', () => {
   it('round-trips queue and dequeue', async () => {
     const session = await mintGuestSession(app);
     createdUserIds.push(session.id);
+    createdMatchIds.push(await unlockRanked(session.id));
 
     const { ws, messages } = await connectWs(wsUrl, session.token);
     await messages.wait((m) => m.t === 'hi');
@@ -43,18 +56,22 @@ describe('matchmaking', () => {
     const a = await mintGuestSession(app);
     const b = await mintGuestSession(app);
     createdUserIds.push(a.id, b.id);
+    createdMatchIds.push(await unlockRanked(a.id), await unlockRanked(b.id));
 
     const connA = await connectWs(wsUrl, a.token);
     const connB = await connectWs(wsUrl, b.token);
     await connA.messages.wait((m) => m.t === 'hi');
     await connB.messages.wait((m) => m.t === 'hi');
 
-    connA.ws.send(JSON.stringify({ t: 'queue' }));
-    connB.ws.send(JSON.stringify({ t: 'queue' }));
+    connA.ws.send(JSON.stringify({ t: 'queue', mode: 'heads-up' }));
+    connB.ws.send(JSON.stringify({ t: 'queue', mode: 'heads-up' }));
     await connA.messages.wait((m) => m.t === 'q' && m.s === 'searching');
     await connB.messages.wait((m) => m.t === 'q' && m.s === 'searching');
 
     await tick();
+    // The table is offered before it is dealt: both seats say they are there
+    // and only then does the match exist.
+    await Promise.all([acceptReady(connA), acceptReady(connB)]);
 
     const foundA = await connA.messages.wait((m) => m.t === 'q' && m.s === 'found');
     const foundB = await connB.messages.wait((m) => m.t === 'q' && m.s === 'found');
@@ -70,10 +87,11 @@ describe('matchmaking', () => {
     connB.ws.close();
   });
 
-  it('keeps the four mode/rated queues apart', async () => {
+  it('keeps the mode, rated and speed queues apart', async () => {
     const a = await mintGuestSession(app);
     const b = await mintGuestSession(app);
     createdUserIds.push(a.id, b.id);
+    createdMatchIds.push(await unlockRanked(a.id), await unlockRanked(b.id));
 
     const connA = await connectWs(wsUrl, a.token);
     const connB = await connectWs(wsUrl, b.token);
@@ -90,7 +108,24 @@ describe('matchmaking', () => {
 
     await tick();
 
-    await expect(connA.messages.wait((m) => m.t === 'q' && m.s === 'found', 300)).rejects.toThrow();
+    await expect(connA.messages.wait((m) => m.t === 'ready' && m.s === 'pending', 300)).rejects.toThrow();
+
+    connA.ws.send(JSON.stringify({ t: 'dequeue' }));
+    connB.ws.send(JSON.stringify({ t: 'dequeue' }));
+    await connA.messages.wait((m) => m.t === 'q' && m.s === 'left');
+    await connB.messages.wait((m) => m.t === 'q' && m.s === 'left');
+
+    // Speed is the third dimension and separates the queues exactly as the
+    // other two do: same mode, same rated flag, different game.
+    connA.ws.send(JSON.stringify({ t: 'queue', mode: 'heads-up', rated: true, speed: 'short' }));
+    connB.ws.send(JSON.stringify({ t: 'queue', mode: 'heads-up', rated: true, speed: 'long' }));
+    const shortSearch = await connA.messages.wait((m) => m.t === 'q' && m.s === 'searching' && m.speed === 'short');
+    const longSearch = await connB.messages.wait((m) => m.t === 'q' && m.s === 'searching' && m.speed === 'long');
+    expect(shortSearch.speed).toBe('short');
+    expect(longSearch.speed).toBe('long');
+
+    await tick();
+    await expect(connA.messages.wait((m) => m.t === 'ready' && m.s === 'pending', 300)).rejects.toThrow();
 
     connA.ws.send(JSON.stringify({ t: 'dequeue' }));
     connB.ws.send(JSON.stringify({ t: 'dequeue' }));
@@ -98,35 +133,37 @@ describe('matchmaking', () => {
     connB.ws.close();
   });
 
-  it('defaults a bare queue message to a rated heads-up match', async () => {
+  it('defaults a bare queue message to a rated long six-max match', async () => {
     const a = await mintGuestSession(app);
     const b = await mintGuestSession(app);
-    createdUserIds.push(a.id, b.id);
+    const others = await Promise.all([
+      mintGuestSession(app), mintGuestSession(app), mintGuestSession(app), mintGuestSession(app),
+    ]);
+    createdUserIds.push(a.id, b.id, ...others.map((o) => o.id));
+    for (const id of [a.id, b.id, ...others.map((o) => o.id)]) createdMatchIds.push(await unlockRanked(id));
 
-    const connA = await connectWs(wsUrl, a.token);
-    const connB = await connectWs(wsUrl, b.token);
-    await connA.messages.wait((m) => m.t === 'hi');
-    await connB.messages.wait((m) => m.t === 'hi');
-
-    // No mode, no rated: exactly what an older client sends.
-    connA.ws.send(JSON.stringify({ t: 'queue' }));
-    connB.ws.send(JSON.stringify({ t: 'queue' }));
-    await connA.messages.wait((m) => m.t === 'q' && m.s === 'searching');
-    await connB.messages.wait((m) => m.t === 'q' && m.s === 'searching');
+    // No mode, no rated, no speed: six handed and long is what that means now,
+    // and a full ring needs six people before it deals.
+    const conns = await Promise.all([a, b, ...others].map((sess) => connectWs(wsUrl, sess.token)));
+    const connA = conns[0];
+    for (const c of conns) await c.messages.wait((m) => m.t === 'hi');
+    for (const c of conns) c.ws.send(JSON.stringify({ t: 'queue' }));
+    for (const c of conns) await c.messages.wait((m) => m.t === 'q' && m.s === 'searching');
 
     await tick();
+    await Promise.all(conns.map((c) => acceptReady(c)));
     const found = await connA.messages.wait((m) => m.t === 'q' && m.s === 'found');
     createdMatchIds.push(found.m);
 
     const match = await getMatchById(found.m);
-    expect(match!.format.mode).toBe('heads-up');
+    expect(match!.format.mode).toBe('six-max');
+    expect(match!.format.speed).toBe('long');
     expect(match!.format.rated).toBe(true);
     // The column is a copy of the format and must never disagree with it.
     expect(match!.rated).toBe(true);
     expect(match!.rated).toBe(match!.format.rated);
 
-    connA.ws.close();
-    connB.ws.close();
+    for (const c of conns) c.ws.close();
   });
 
   it('re-asserts rated from the format when the row is changed underneath it', async () => {

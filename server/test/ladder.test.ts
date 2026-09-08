@@ -123,7 +123,9 @@ describe('the bot ladder', () => {
   it('does not start a match while a human is queued', async () => {
     const session = await mintGuestSession(app);
     createdUserIds.push(session.id);
-    await enqueue(session.id, 'heads-up', true);
+    // Casual, because a fresh guest cannot queue rated: what the ladder is
+    // being asked here is whether anybody is searching at all.
+    await enqueue(session.id, 'heads-up', false);
 
     for (let i = 0; i < 5; i++) await ladderTick();
     expect(currentLadderMatch()).toBeNull();

@@ -1,7 +1,7 @@
 import type { AddressInfo } from 'node:net';
 import type { FastifyInstance } from 'fastify';
 import { WebSocket } from 'ws';
-import { formatFor, type MatchFormat, type MatchResult, type Mode, type TableView } from '@opentable/protocol';
+import { formatFor, type MatchFormat, type MatchResult, type Mode, type Speed, type TableView } from '@opentable/protocol';
 import { buildApp } from '../src/app.js';
 import { sql } from '../src/db.js';
 
@@ -100,7 +100,41 @@ export async function connectSession(url: string, session: Session): Promise<Con
 // five test files.
 export function testFormat(overrides: Partial<MatchFormat> = {}): MatchFormat {
   const mode: Mode = overrides.mode ?? 'heads-up';
-  return { ...formatFor(mode, overrides.rated ?? true), ...overrides };
+  const speed: Speed = overrides.speed ?? 'long';
+  return { ...formatFor(mode, overrides.rated ?? true, speed), ...overrides };
+}
+
+/* Opens rated play for a user without playing a casual match first. The gate
+   asks whether they have finished an unrated match, so this writes one: a
+   finished, unrated, solo match row with a `match_players` row pointing at
+   it. Cheaper than driving a whole table through the engine, and it exercises
+   exactly the row the gate reads.
+
+   The caller owns the cleanup; the match id is returned for that. */
+export async function unlockRanked(userId: string): Promise<string> {
+  const id = `gate-${Math.random().toString(36).slice(2, 10)}`;
+  await sql`
+    insert into matches (id, format, rated, seats, status, hands_played, finished_at)
+    values (
+      ${id},
+      ${sql.json(formatFor('six-max', false) as unknown as Record<string, unknown>)},
+      false,
+      ${sql.json([{ seat: 0, userId, name: 'gate', bot: false }] as unknown as Record<string, unknown>)},
+      'finished',
+      1,
+      now()
+    )
+  `;
+  await sql`insert into match_players (match_id, user_id, seat) values (${id}, ${userId}, 0)`;
+  return id;
+}
+
+/* The other half of queueing, now that a matchmade table asks everybody at it
+   to say they are there. Waits for the prompt and accepts it, which is what a
+   test that only wants a table has to do on every seat. */
+export async function acceptReady(conn: { ws: WebSocket; messages: WsMessages }, timeoutMs = 3000): Promise<void> {
+  await conn.messages.wait((m) => m.t === 'ready' && m.s === 'pending', timeoutMs);
+  conn.ws.send(JSON.stringify({ t: 'ready', a: true }));
 }
 
 /* Plays a seat with uniformly random legal actions until the match ends.
