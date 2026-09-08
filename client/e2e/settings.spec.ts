@@ -46,7 +46,7 @@ async function samples(page: import('@playwright/test').Page, palette: string) {
    that way is dark whatever the test is called. */
 async function useTheme(
   page: import('@playwright/test').Page,
-  theme: 'dark' | 'light',
+  theme: 'room' | 'dark' | 'light',
   palette = 'slate',
   accent = 'default',
 ) {
@@ -77,10 +77,54 @@ test('a theme survives a reload, and lands before the first paint', async ({ pag
   expect(early).toBe('light');
 });
 
+/* The games room is what a visitor gets before choosing anything, stamped by
+   the inline script before React or g-ui run and agreed by g's own key once
+   the app has mounted. While it is on, the palette and accent rows are not
+   offered; another theme brings them back. */
+test('a visitor with no preference gets the games room, before the first paint', async ({ page }) => {
+  await stubApi(page);
+  await page.goto('/');
+  const early = await page.evaluate(() =>
+    document.documentElement.getAttribute('data-theme'));
+  expect(early).toBe('room');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'room');
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('g-theme'))).toBe('room');
+
+  await openMenu(page);
+  await expect(page.locator('.choices .choice[aria-checked="true"]')).toHaveText('Games room');
+  await expect(page.locator('.pswatches')).toHaveCount(0);
+  await expect(page.locator('.swatches')).toHaveCount(0);
+
+  await page.locator('.choices .choice', { hasText: 'Dark' }).click();
+  await expect(page.locator('html')).not.toHaveAttribute('data-theme');
+  await expect(page.locator('.pswatches')).toBeVisible();
+  await expect(page.locator('.swatches')).toBeVisible();
+});
+
+/* A stored palette and accent are kept while the room is on, and worn again
+   the moment another theme is chosen. */
+test('the games room keeps a chosen palette and accent for later', async ({ page }) => {
+  await stubApi(page);
+  await useTheme(page, 'room', 'sky', 'violet');
+  await page.goto('/');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'room');
+  await expect(page.locator('html')).not.toHaveAttribute('data-palette');
+  await expect(page.locator('html')).not.toHaveAttribute('data-accent');
+
+  await openMenu(page);
+  await page.locator('.choices .choice', { hasText: 'Light' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-palette', 'sky');
+  await expect(page.locator('html')).toHaveAttribute('data-accent', 'violet');
+});
+
 test('an accent and a deck survive a reload', async ({ page }) => {
   await stubApi(page);
   await page.goto('/');
   await openMenu(page);
+  /* Off the games room first: it hides the accent row. Chosen here rather
+     than stamped by an init script, which would run again on the reload and
+     put the record back. */
+  await page.locator('.choices .choice', { hasText: 'Dark' }).click();
   await page.locator('.swatch[data-accent="jade"]').click();
   await page.locator('.settings-menu .switch').first().check();
 
@@ -201,6 +245,87 @@ for (const theme of ['dark', 'light'] as const) {
   });
 }
 
+/* The games room is a whole set rather than twelve greys, so it is measured as
+   one: text on the walnut, text on the baize and its panel, every status text
+   on both, the brass accent under its ink, and the pips on the paper. Text at
+   4.5, pips at 5, the same bar look-v2.css sets for the slate deck. */
+test('the games room keeps its text and its pips readable', async ({ page }) => {
+  await stubApi(page);
+  await useTheme(page, 'room');
+  await page.goto('/');
+
+  const pairs = await page.evaluate(() => {
+    /* Two probes: one on the page, one inside a `.felt`, because the felt
+       re-maps the panel and the secondary text and a probe on the body would
+       report the walnut's pairing on the baize's ground. */
+    const probe = document.createElement('span');
+    document.body.append(probe);
+    const island = document.createElement('div');
+    island.className = 'felt';
+    const feltProbe = document.createElement('span');
+    island.append(feltProbe);
+    document.body.append(island);
+    const read = (bg: string, fg: string, el = probe) => {
+      el.style.background = bg;
+      el.style.color = fg;
+      const s = getComputedStyle(el);
+      return [s.backgroundColor, s.color] as [string, string];
+    };
+    const grounds: [string, string, HTMLElement][] = [
+      ['surface-1', 'var(--surface-1)', probe], ['surface-2', 'var(--surface-2)', probe],
+      ['felt', 'var(--felt)', feltProbe], ['felt panel', 'var(--surface-2)', feltProbe],
+    ];
+    const texts: [string, string][] = [
+      ['text-primary', 'var(--text-primary)'], ['text-secondary', 'var(--text-secondary)'],
+      ['ok-text', 'var(--ok-text)'], ['warn-text', 'var(--warn-text)'],
+      ['danger-text', 'var(--danger-text)'], ['info-text', 'var(--info-text)'],
+    ];
+    const out: { what: string; pair: [string, string]; floor: number }[] = [];
+    for (const [g, gv, el] of grounds) {
+      for (const [t, tv] of texts) out.push({ what: `${t} on ${g}`, pair: read(gv, tv, el), floor: 4.5 });
+    }
+    out.push({ what: 'accent-fg on accent-fill', pair: read('var(--accent-fill)', 'var(--accent-fg)'), floor: 4.5 });
+    out.push({ what: 'accent-fg on accent-fill-hover', pair: read('var(--accent-fill-hover)', 'var(--accent-fg)'), floor: 4.5 });
+    out.push({ what: 'danger-fg on danger-fill', pair: read('var(--danger-fill)', 'var(--danger-fg)'), floor: 4.5 });
+    out.push({ what: 'go-fg on go-fill', pair: read('var(--go-fill)', 'var(--go-fg)'), floor: 4.5 });
+    for (const pip of ['card-ink', 'card-red', 'card-blue', 'card-green']) {
+      out.push({ what: `${pip} on card-face`, pair: read('var(--card-face)', `var(--${pip})`), floor: 5 });
+    }
+    probe.remove();
+    island.remove();
+    return out;
+  });
+
+  for (const { what, pair, floor } of pairs) {
+    const ratio = contrastOf(pair[0], pair[1]);
+    expect(ratio, `room: ${what} resolves`).not.toBe(null);
+    expect(ratio!, `room: ${what}`).toBeGreaterThanOrEqual(floor);
+  }
+});
+
+/* Home and the heads-up v2 felt. The six-max felt is not here: it overflows at
+   the default viewport and axe flags the scrollable region as unfocusable in
+   every theme, which is a table matter and not a colour one. */
+for (const url of ['/', '/m/mock?v2=1&step=6']) {
+  test(`the games room has no serious accessibility failures on ${url}`, async ({ page }) => {
+    await stubApi(page);
+    await useTheme(page, 'room');
+    await page.goto(url);
+    await page.waitForTimeout(1500);
+
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      .analyze();
+
+    const bad = results.violations.filter(
+      (v) => v.impact === 'serious' || v.impact === 'critical',
+    );
+    expect(
+      bad.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`),
+    ).toEqual([]);
+  });
+}
+
 /* Contrast measured off a probe is the palette's arithmetic. axe is the same
    claim made against the pages as they are drawn, where a colour sits on a
    material rather than on a token. Home and the felt, every palette. */
@@ -234,6 +359,7 @@ test('choosing a palette brings its accent, and keeps a chosen one', async ({ pa
   await stubApi(page);
   await page.goto('/');
   await openMenu(page);
+  await page.locator('.choices .choice', { hasText: 'Dark' }).click();
 
   await page.locator('.pswatch[title="Felt"]').click();
   await expect(page.locator('html')).toHaveAttribute('data-palette', 'felt');
@@ -258,7 +384,7 @@ test('the profile opens the same settings panel', async ({ page }) => {
   await expect(page.locator('#settings-menu')).toHaveCount(1);
 });
 
-for (const theme of ['dark', 'light'] as const) {
+for (const theme of ['room', 'dark', 'light'] as const) {
   test(`the settings menu looks right in ${theme}`, async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await stubApi(page);
