@@ -9,43 +9,15 @@ import { Watch } from './routes/watch.tsx';
 import { learnRoutes } from './routes/learn/index.tsx';
 import { toolsRoutes } from './tools/index.tsx';
 import { AccountMenu } from './ui/auth.tsx';
+import { SettingsMenu } from './ui/settings.tsx';
 import { SiteFooter } from './ui/site-footer.tsx';
+import { sound } from './sound/index.ts';
 
 /* The replay is the only page that runs the engine, and the engine carries a
    hand evaluator with a large lookup table. Splitting it here keeps that table
    out of the bundle everyone loads to play. */
 const Replay = lazy(() => import('./routes/replay.tsx').then((m) => ({ default: m.Replay })));
 import './app.css';
-
-type Theme = 'dark' | 'light' | 'system';
-const NEXT: Record<Theme, Theme> = { dark: 'light', light: 'system', system: 'dark' };
-const LABEL: Record<Theme, { long: string; short: string }> = {
-  dark: { long: 'Use light theme', short: 'Light' },
-  light: { long: 'Follow the system theme', short: 'System' },
-  system: { long: 'Use dark theme', short: 'Dark' },
-};
-
-function ThemeButton() {
-  const [theme, setTheme] = useState<Theme>('dark');
-
-  useEffect(() => {
-    const attr = document.documentElement.getAttribute('data-theme');
-    setTheme(attr === 'light' || attr === 'system' ? attr : 'dark');
-  }, []);
-
-  const flip = () => {
-    const next = NEXT[theme];
-    window.g?.theme(next);
-    setTheme(next);
-  };
-
-  return (
-    <button type="button" className="btn btn-tertiary btn-sm theme-btn" onClick={flip}>
-      <span className="long">{LABEL[theme].long}</span>
-      <span className="short">{LABEL[theme].short}</span>
-    </button>
-  );
-}
 
 function TopBar() {
   return (
@@ -60,12 +32,29 @@ function TopBar() {
       </nav>
       <span className="spacer" />
       <AccountMenu />
-      <ThemeButton />
+      <SettingsMenu />
     </header>
   );
 }
 
+/* A browser will not let a page make a noise until somebody has touched it, so
+   the first gesture anywhere is what opens the audio context. Once is enough,
+   and it costs nothing when the sound is off. */
+function useSoundUnlock() {
+  useEffect(() => {
+    const open = () => { void sound.unlock(); };
+    const opts = { once: true, passive: true } as const;
+    window.addEventListener('pointerdown', open, opts);
+    window.addEventListener('keydown', open, opts);
+    return () => {
+      window.removeEventListener('pointerdown', open);
+      window.removeEventListener('keydown', open);
+    };
+  }, []);
+}
+
 export function App() {
+  useSoundUnlock();
   return (
     <BrowserRouter>
       <SessionProvider>

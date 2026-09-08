@@ -41,7 +41,6 @@
 .top .spacer { flex: 1; }
 .whoami { display: flex; align-items: baseline; gap: 6px; font-size: var(--font-size-ui); white-space: nowrap; flex: none; }
 .top nav a { white-space: nowrap; }
-.theme-btn { flex: none; }
 .whoami .r { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 /* the mode the top bar's rating belongs to: a number that means two things
    without it */
@@ -86,6 +85,92 @@
    avatar sits well inside --row-h, so it never grows the row. */
 .player-cell { display: inline-flex; align-items: center; gap: var(--sp-2); }
 
+/* ------------------------------------------------------------------ accent */
+
+/* A rebrand is the four accent variables and nothing else, exactly as the
+   g-system rebrand card says. The values live here rather than in the settings
+   module so the stylesheet is the only place that knows what "jade" is: the
+   swatch in the menu carries the same attribute and takes the same colour, and
+   the pre-paint script in index.html only has to write the attribute.
+
+   Every fill pairs with white at 4.5:1 or better, which is why these are not
+   the chart tokens: those are step 9 solids meant to sit under large text, and
+   a 13 px button label needs more. The e2e suite reads the computed values back
+   and checks the ratio in both themes, so this comment cannot go stale
+   quietly. */
+[data-accent="ocean"] {
+  --accent-fill: #0d74ce; --accent-fill-hover: #0c66b8;
+  --accent-fg: #ffffff; --accent-edge: #0c66b8;
+}
+[data-accent="jade"] {
+  --accent-fill: #2e7d64; --accent-fill-hover: #286f58;
+  --accent-fg: #ffffff; --accent-edge: #286f58;
+}
+[data-accent="violet"] {
+  --accent-fill: #6e56cf; --accent-fill-hover: #654dc4;
+  --accent-fg: #ffffff; --accent-edge: #654dc4;
+}
+[data-accent="clay"] {
+  --accent-fill: #ad5700; --accent-fill-hover: #99500a;
+  --accent-fg: #ffffff; --accent-edge: #99500a;
+}
+
+/* --------------------------------------------------------------- settings */
+
+.settings { display: flex; flex: none; }
+.settings-menu { min-width: 262px; display: flex; flex-direction: column; gap: 6px; padding: 8px; }
+.menu-title { font-size: 11px; color: var(--text-secondary); padding: 0 2px; }
+
+.choices { display: flex; gap: 4px; }
+.choice {
+  flex: 1; min-width: 0; height: var(--h-control-sm);
+  padding: 0 6px;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+  background: none; color: var(--text-secondary);
+  font-family: inherit; font-size: 12px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.choice:hover { color: var(--text-primary); background: var(--fill-hover); }
+.choice[aria-checked="true"] { color: var(--text-primary); border-color: var(--accent-fill); }
+
+.swatches { display: flex; gap: 6px; padding: 2px; }
+.swatch {
+  width: 26px; height: 26px; flex: none;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: var(--accent-fill);
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+.swatch:hover { transform: scale(1.08); }
+.swatch[aria-checked="true"] { box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 3px var(--accent-fill); }
+
+.settings-menu .switch-row { justify-content: space-between; gap: var(--sp-3); }
+.settings-menu .switch-row .label { font-size: 12px; color: var(--text-primary); font-weight: 400; }
+.settings-menu .g-slider { width: 108px; flex: none; }
+.settings-menu .select { width: 108px; flex: none; height: var(--h-control-sm); }
+.settings-menu .preview { align-self: flex-start; }
+
+/* ------------------------------------------------------------ card colours */
+
+/* One variable per suit, so a four colour deck is a set of four values rather
+   than a branch in the component. Red and black are the default; the four
+   colour deck borrows the palette's green and blue the same way the red is
+   borrowed, and for the same reason: nothing on this felt means ok or info, so
+   the meaning colours are free to be used as colours. */
+:root {
+  --suit-s: var(--text-primary);
+  --suit-h: var(--danger-text);
+  --suit-d: var(--danger-text);
+  --suit-c: var(--text-primary);
+}
+:root[data-deck="four"] {
+  --suit-d: var(--info-text);
+  --suit-c: var(--ok-text);
+}
+
 /* ------------------------------------------------------------------ table */
 
 /* The table asks how much room it has, not how wide the window is: the replay
@@ -111,6 +196,10 @@
   --dock-r3: 34px; /* fold, call, raise */
   --dock-pad: 10px;
   --dock-gap: 6px;
+  /* Chips, and the height the bet line holds open for them. Five rows covers
+     every stack greedy denomination can build on a table this size. */
+  --chip: 18px;
+  --chip-rows: 5;
 }
 
 /* A practice table adds one more fixed row between the felt and the dock, for
@@ -223,6 +312,9 @@
    badge together are most of a ring seat's width. */
 .felt[data-mode="ring"] .seat-line { gap: 5px; }
 .felt[data-mode="ring"] .seat-stack .u:not([data-allin]) { display: none; }
+/* And the mini stack goes with it. Forty two pixels is a name on a ring seat,
+   and the chips on the line to the pot already say what is at stake. */
+.felt[data-mode="ring"] .stack-chips { display: none; }
 .felt[data-mode="ring"] .seat-id { grid-area: id; }
 .felt[data-mode="ring"] .seat-last { grid-area: last; min-height: 1.5em; min-width: 0; text-align: left; }
 .felt[data-mode="ring"] .seat-clock { grid-area: clock; }
@@ -297,6 +389,51 @@
 }
 .award-chip { border-color: var(--accent-fill); color: var(--text-primary); }
 
+/* ------------------------------------------------------------------ chips */
+
+/* One column per denomination, chips overlapping upwards. The bodies come from
+   the chart tokens and the greys, never raw hex, and each chip carries a thin
+   rim and a darker line along its bottom edge so a stack reads as chips rather
+   than as a column of dots. */
+.chips { display: inline-flex; align-items: flex-end; gap: 3px; }
+.chip-col {
+  position: relative; flex: none;
+  width: var(--chip);
+  height: calc(var(--chip) + (var(--chip-rows) - 1) * 3px);
+}
+.chip {
+  position: absolute; left: 0;
+  width: var(--chip); height: var(--chip);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--_rim, var(--border));
+  background: var(--_body, var(--surface-2));
+  box-shadow: inset 0 -2px 0 -1px var(--_edge, var(--border-strong));
+}
+.chip[data-d="1"] { --_body: var(--surface-2); --_rim: var(--text-secondary); --_edge: var(--text-secondary); }
+.chip[data-d="5"] { --_body: var(--danger-text); --_rim: var(--danger-text); --_edge: var(--danger); }
+.chip[data-d="25"] { --_body: var(--chart-6); --_rim: var(--chart-6); --_edge: var(--ok); }
+.chip[data-d="100"] { --_body: var(--text-primary); --_rim: var(--border); --_edge: var(--text-secondary); }
+.chip[data-d="500"] { --_body: var(--chart-2); --_rim: var(--chart-2); --_edge: var(--chart-2); }
+.chip-more {
+  position: absolute; left: 50%; bottom: calc(var(--chip) + 4px); translate: -50% 0;
+  font-size: 9px; color: var(--text-secondary);
+}
+
+/* The bet on the line between a seat and the pot: the chips, then the figure.
+   The row reserves five chips of height whether or not anybody has bet, which
+   is what keeps the felt still when one appears. */
+.bet-chip { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Beside a player's own number, the big chips only and no animation: it says
+   deep or short at a glance and is not the thing being watched. */
+.stack-chips { --chip: 12px; --chip-rows: 3; margin-left: 6px; display: inline-flex; align-items: flex-end; }
+
+/* At the end of a hand the pot counts to zero and its chips leave. The row
+   they leave behind is the same size, so the board under it does not move. */
+.pot .chips { margin-bottom: 2px; }
+
+
+
 /* --------------------------------------------------------------- playing card */
 
 .pcard {
@@ -316,8 +453,10 @@
 }
 .pcard .rank { font-size: calc(var(--card-w) * 0.41); font-weight: 500; letter-spacing: -0.02em; line-height: 1; }
 .pcard .suit { font-size: calc(var(--card-w) * 0.29); line-height: 1; }
-[data-suit="h"], [data-suit="d"] { color: var(--danger-text); }
-[data-suit="s"], [data-suit="c"] { color: var(--text-primary); }
+[data-suit="s"] { color: var(--suit-s); }
+[data-suit="h"] { color: var(--suit-h); }
+[data-suit="d"] { color: var(--suit-d); }
+[data-suit="c"] { color: var(--suit-c); }
 .pcard[data-back] { background: var(--well-bg); box-shadow: none; }
 .pcard[data-back]::after {
   content: ""; position: absolute; inset: 5px;
@@ -422,7 +561,10 @@
    never moves. */
 .stack-v { display: inline-block; min-width: 4ch; }
 .btn-marker[data-off] { visibility: hidden; }
-.seat-bet { display: flex; justify-content: center; min-height: 22px; }
+.seat-bet {
+  display: flex; justify-content: center; align-items: flex-end;
+  min-height: calc(var(--chip, 18px) + (var(--chip-rows) - 1) * 3px);
+}
 
 /* ------------------------------------------------------------------- dock */
 
@@ -605,6 +747,8 @@
 
   /* The wireframe's phone card sizes: the seat's cards are smaller than the
      board's, which is what buys the name its room back. */
+  .match { --chip: 14px; }
+  .stack-chips { display: none; }
   .seat .pcard { --card-w: 30px; }
   .board .pcard { --card-w: 34px; }
   /* A fixed slot, not a minimum: on a phone the seat has no spare width to
@@ -655,11 +799,6 @@
 .pot { position: relative; }
 .flights { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
 
-.theme-btn .short { display: none; }
-@media (max-width: 640px) {
-  .theme-btn .long { display: none; }
-  .theme-btn .short { display: inline; }
-}
 .whoami { text-decoration: none; }
 .whoami:hover { text-decoration: underline; text-decoration-color: var(--slate-a8); }
 

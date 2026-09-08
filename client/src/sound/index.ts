@@ -123,6 +123,11 @@ export async function unlock(): Promise<void> {
   notify();
 }
 
+/* The state object is replaced on every change and never mutated in place, so
+   handing out the live one is safe and handing out a copy is not:
+   `useSyncExternalStore` compares snapshots by identity, and a getter that
+   built a fresh object each call made every component using it re-render for
+   ever. */
 export const sound = {
   play,
   setEnabled,
@@ -132,7 +137,7 @@ export const sound = {
   subscribe,
   packs: PACK_META as unknown as ReadonlyArray<{ id: PackId; name: string; description: string }>,
   get state(): SoundState {
-    return { ...state };
+    return state;
   },
 };
 

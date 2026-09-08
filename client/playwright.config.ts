@@ -8,7 +8,10 @@ export default defineConfig({
   testDir: './e2e',
   snapshotPathTemplate: '{testDir}/__screenshots__/{testFileName}/{arg}{ext}',
   fullyParallel: true,
-  workers: process.env.CI ? 2 : 4,
+  /* Two, not one per core: the screenshot states render a full page at 1920 in
+     both themes, and four browsers doing that at once on this box start timing
+     out on each other rather than on anything real. */
+  workers: 2,
   reporter: [['list']],
   timeout: 90_000,
   expect: {

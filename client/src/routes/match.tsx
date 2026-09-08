@@ -4,6 +4,7 @@ import type { ActionKind, Mode, TableView } from '@opentable/protocol';
 import { Table } from '../table/table.tsx';
 import { HandsSection, MatchSummary, matchFromEnd } from '../table/match-summary.tsx';
 import { ResultPanel } from '../table/result-panel.tsx';
+import { playMatchEnd } from '../table/sounds.ts';
 import type { Match as MatchData } from '../net/types.ts';
 import { api } from '../net/api.ts';
 import { useServerMsg, useSession } from '../net/session.tsx';
@@ -111,6 +112,7 @@ function LiveMatch({ id }: { id: string }) {
          table below the panel is showing the hand that decided the match. */
       const last = latest.current;
       const fallback = last ? matchFromEnd(last, m.r) : null;
+      playMatchEnd(m.r.winner != null && m.r.winner === me?.id);
       api
         .match(id)
         .then((full) => {

@@ -6,12 +6,14 @@ import { Link } from 'react-router-dom';
 import type { ActionKind, Card, SeatView, TableView } from '@opentable/protocol';
 import { Seat } from './seat.tsx';
 import { PlayingCard } from './playing-card.tsx';
+import { ChipStack } from './chip-stack.tsx';
 import { Dock, KeyLegend } from './dock.tsx';
 import {
   blindText, blindTextShort, cardsOf, handText, handTextShort, shortHash, streetText,
 } from './labels.ts';
 import { dealOrder, layoutMode, seatOrder, slotAt } from './layout.ts';
 import { readShowdown } from './best-five.ts';
+import { useTableSounds } from './sounds.ts';
 import { useGInit } from '../ui/bits.tsx';
 import { LiveStats } from '../analysis/live-stats.tsx';
 
@@ -41,6 +43,7 @@ export function Table({ view, onAct, sending, bare, ended }: TableProps) {
   const reduced = useReducedMotion();
   const headRef = useRef<HTMLDivElement>(null);
   useGInit(headRef);
+  useTableSounds(bare ? null : view);
 
   /* The bottom slot is yours when you are seated; watching, seat 0 takes it.
      Two seats stack into the felt they have always had, three or more sit on
@@ -162,7 +165,10 @@ export function Table({ view, onAct, sending, bare, ended }: TableProps) {
               >
                 <div className="seat-bet">
                   {s.bet > 0 && (
-                    <motion.span layoutId={`bet-${s.i}`} className="badge num">{s.bet}</motion.span>
+                    <motion.span layoutId={`bet-${s.i}`} className="bet-chip num">
+                      <ChipStack amount={s.bet} />
+                      {s.bet}
+                    </motion.span>
                   )}
                 </div>
                 <Seat
@@ -187,6 +193,7 @@ export function Table({ view, onAct, sending, bare, ended }: TableProps) {
           <div className="middle">
             <div className="pot">
               <span className="k">Pot</span>
+              <ChipStack amount={potShown} />
               <span className="v">
                 <NumberFlow value={potShown} respectMotionPreference />
               </span>
@@ -199,10 +206,11 @@ export function Table({ view, onAct, sending, bare, ended }: TableProps) {
                     <motion.span
                       key={f.id}
                       layoutId={`bet-${f.seat}`}
-                      className="badge num"
+                      className="bet-chip num"
                       exit={{ opacity: 0, scale: 0.9 }}
                       transition={{ duration: 0.24, ease: [0.2, 0, 0, 1] }}
                     >
+                      <ChipStack amount={f.amount} />
                       {f.amount}
                     </motion.span>
                   ))}

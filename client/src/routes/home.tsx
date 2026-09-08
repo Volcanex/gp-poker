@@ -12,6 +12,7 @@ import { int } from '../ui/format.ts';
 import { useTitle } from '../ui/title.ts';
 import { Link, useLocation } from 'react-router-dom';
 import { Avatar } from '../ui/avatar.tsx';
+import { avatarSeed } from '../net/adapt.ts';
 import { RecentMatches, StatsStrip } from './feed.tsx';
 
 /* The line under each mode's name is built from that mode's format, so the
@@ -330,7 +331,7 @@ function Leaderboard({ mode }: { mode: Mode }) {
                     <td>
                       {list ? (
                         <span className="player-cell">
-                          <Avatar seed={r.name} name={r.name} size={24} />
+                          <Avatar seed={avatarSeed(r.id, r.name)} name={r.name} size={24} />
                           <Link to={`/u/${encodeURIComponent(r.name)}`}>{r.name}</Link>
                         </span>
                       ) : (

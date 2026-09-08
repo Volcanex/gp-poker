@@ -8,6 +8,7 @@ import { useTitle } from '../ui/title.ts';
 import { MODE_NAME, ModeTabs } from '../ui/mode-tabs.tsx';
 import { int } from '../ui/format.ts';
 import { Avatar } from '../ui/avatar.tsx';
+import { avatarSeed } from '../net/adapt.ts';
 
 export function Leaderboard() {
   const { me, queue } = useSession();
@@ -79,7 +80,7 @@ export function Leaderboard() {
                       <td>
                         {list ? (
                           <span className="player-cell">
-                            <Avatar seed={r.name} name={r.name} size={24} />
+                            <Avatar seed={avatarSeed(r.id, r.name)} name={r.name} size={24} />
                             <Link to={`/u/${encodeURIComponent(r.name)}`}>{r.name}</Link>
                           </span>
                         ) : (

@@ -1,8 +1,9 @@
 import type { Card, MatchFormat, SeatView, TableView } from '@opentable/protocol';
 import NumberFlow from '@number-flow/react';
 import { PlayingCard } from './playing-card.tsx';
+import { ChipStack } from './chip-stack.tsx';
 import { TurnBar, TurnSeconds } from './turn-clock.tsx';
-import { actionText, ordinal } from './labels.ts';
+import { actionText, ordinal, shortName } from './labels.ts';
 import { useFading } from '../ui/bits.tsx';
 import { Avatar } from '../ui/avatar.tsx';
 import { int } from '../ui/format.ts';
@@ -74,7 +75,7 @@ export function Seat({
 
       <div className="seat-id">
         <span className="seat-line">
-          <span className="seat-name" title={seat.name}>{seat.name}</span>
+          <span className="seat-name" title={seat.name}>{shortName(seat.name, 14)}</span>
           {you && <span className="seat-you">you</span>}
           {/* Always here, hidden when the button is elsewhere: a marker that
               comes and goes moves every badge after it once a hand. */}
@@ -102,6 +103,9 @@ export function Seat({
             <span className="u" data-allin={seat.allin ? '' : undefined}>
               {seat.allin ? 'all in' : 'units'}
             </span>
+            {/* The big chips only, and never animated: this one says deep or
+                short at a glance, it is not the thing being watched. */}
+            <span className="stack-chips"><ChipStack amount={seat.stack} columns={3} /></span>
           </span>
         )}
       </div>

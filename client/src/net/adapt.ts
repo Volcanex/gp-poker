@@ -136,3 +136,12 @@ export function startStacks(hand: Hand, seatMap: number[]): number[] {
   const perTableSeat = hand.stacksStart.length > seatMap.length;
   return seatMap.map((seat, engineIndex) => hand.stacksStart[perTableSeat ? seat : engineIndex] ?? 0);
 }
+
+/* An avatar is drawn from an id, because a name can be claimed and changed and
+   the picture should not change with it. Two payloads carried names only until
+   the server started sending ids, and a row written before that has nothing
+   else to go on: seeding on the name keeps a picture on the screen, and it
+   settles to the id the moment one arrives. */
+export function avatarSeed(id: string | undefined, name: string): string {
+  return id && id.length > 0 ? id : name;
+}

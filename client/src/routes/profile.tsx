@@ -8,8 +8,8 @@ import { useTitle } from '../ui/title.ts';
 import { RatingGraph } from '../ui/rating-graph.tsx';
 import { fmtDate, fmtPct, fmtShortDate, int, signed } from '../ui/format.ts';
 import {
-  matchPlacing, matchPractice, matchRated, modePeakAt, modeRating, modeWinRate, profileAccuracy,
-  ratingHistoryFor,
+  avatarSeed, matchPlacing, matchPractice, matchRated, modePeakAt, modeRating, modeWinRate,
+  profileAccuracy, ratingHistoryFor,
 } from '../net/adapt.ts';
 import { MODES, MODE_NAME, ModeTabs } from '../ui/mode-tabs.tsx';
 import { ordinal } from '../table/labels.ts';
@@ -211,7 +211,7 @@ export function Profile() {
                           <span className="muted">{placing.players} players</span>
                         ) : (
                           <span className="player-cell">
-                            <Avatar seed={m.opponent} name={m.opponent} size={24} />
+                            <Avatar seed={avatarSeed(m.opponentId, m.opponent)} name={m.opponent} size={24} />
                             <Link to={`/u/${encodeURIComponent(m.opponent)}`}>{m.opponent}</Link>
                           </span>
                         )}

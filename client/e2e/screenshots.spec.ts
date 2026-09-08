@@ -12,7 +12,15 @@ import { masks, setTheme, stubApi } from './table.ts';
 const WIDTHS = [360, 390, 430, 768, 1366, 1920];
 const THEMES = ['dark', 'light'] as const;
 
-const STATES = [
+interface Shot {
+  name: string;
+  url: string;
+  /* A settings record to stamp before the page loads, for the states that are
+     about a setting rather than about a moment in a hand. */
+  prefs?: Record<string, unknown>;
+}
+
+const STATES: Shot[] = [
   { name: 'home', url: '/' },
   { name: 'waiting', url: '/m/mock?step=2' },
   { name: 'turn', url: '/m/mock?step=9' },
@@ -20,6 +28,14 @@ const STATES = [
   { name: 'result', url: '/m/mock?step=18' },
   { name: 'six-max', url: '/m/mock?mode=six-max&step=0' },
   { name: 'six-max-over', url: '/m/mock?mode=six-max&step=6' },
+  /* The two settings that change the felt: a four colour deck and an accent
+     that is not g's own. Chips are in every state above; this is the one that
+     pins their colours against a different accent. */
+  {
+    name: 'four-colour',
+    url: '/m/mock?step=13',
+    prefs: { theme: 'dark', accent: 'jade', fourColour: true },
+  },
 ];
 
 /* Reduced motion, so a card that is still dealing cannot decide a baseline. */
@@ -32,6 +48,11 @@ for (const theme of THEMES) {
         await page.setViewportSize({ width, height: 900 });
         await stubApi(page);
         await setTheme(page, theme);
+        if (state.prefs) {
+          await page.addInitScript((p) => {
+            localStorage.setItem('ot.prefs', JSON.stringify(p));
+          }, { ...state.prefs, theme });
+        }
         await page.goto(state.url);
         /* The mock's dev caption is fixed to the corner of the viewport and
            says which step it is on. Hidden rather than masked: a magenta block

@@ -11,6 +11,7 @@ import {
 import type { PreAction } from './preactions.ts';
 import { ordinal } from './labels.ts';
 import { Link } from 'react-router-dom';
+import { playClick } from './sounds.ts';
 
 export interface DockProps {
   view: TableView;
@@ -125,7 +126,7 @@ function Waiting({
             disabled={!canPre}
             aria-pressed={pre === p.key}
             data-on={pre === p.key ? '' : undefined}
-            onClick={() => onPre(pre === p.key ? null : p.key)}
+            onClick={() => { playClick(); onPre(pre === p.key ? null : p.key); }}
           >
             {p.label}
           </button>
@@ -352,7 +353,7 @@ function TurnControls({
             disabled={sending}
             aria-pressed={value === p.value}
             data-on={value === p.value ? '' : undefined}
-            onClick={() => setRaw(String(p.value))}
+            onClick={() => { playClick(); setRaw(String(p.value)); }}
             title={`${p.label}, key ${i + 1}`}
           >
             <span className="p-n">{p.label}</span>
@@ -400,7 +401,12 @@ function TurnControls({
 
       <div className="dock-acts">
         {actions.includes('f') && (
-          <button type="button" className="btn btn-tertiary" disabled={sending} onClick={() => onAct('f')}>
+          <button
+            type="button"
+            className="btn btn-tertiary"
+            disabled={sending}
+            onClick={() => { playClick(); onAct('f'); }}
+          >
             Fold
           </button>
         )}
@@ -410,7 +416,7 @@ function TurnControls({
             className={canRaise ? 'btn btn-secondary num' : 'btn btn-primary num'}
             data-primary={canRaise ? undefined : ''}
             disabled={sending}
-            onClick={() => onAct(checkOrCall)}
+            onClick={() => { playClick(); onAct(checkOrCall); }}
           >
             {checkOrCall === 'x' ? 'Check' : `Call ${call}`}
           </button>
@@ -421,7 +427,7 @@ function TurnControls({
             className="btn btn-primary num"
             data-primary
             disabled={sending}
-            onClick={submitRaise}
+            onClick={() => { playClick(); submitRaise(); }}
           >
             {raiseLabel}
           </button>

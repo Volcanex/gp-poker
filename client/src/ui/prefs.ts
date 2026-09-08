@@ -1,0 +1,166 @@
+/* What the player has chosen about how the table looks. Three settings, one
+   record, one key.
+
+   Every one of them is applied as an attribute on the root element and the
+   values live in CSS, which is why this file holds no colours: an accent is
+   `data-accent="jade"`, and `app.css` says what jade is. That keeps the
+   pre-paint script in index.html down to three attribute writes, with nothing
+   to drift out of step with the stylesheet. */
+
+export type ThemeChoice = 'dark' | 'light' | 'system';
+export type AccentId = 'default' | 'ocean' | 'jade' | 'violet' | 'clay';
+
+export interface Prefs {
+  theme: ThemeChoice;
+  accent: AccentId;
+  fourColour: boolean;
+}
+
+export const PREFS_KEY = 'ot.prefs';
+
+export const DEFAULT_PREFS: Prefs = { theme: 'dark', accent: 'default', fourColour: false };
+
+export const THEMES: { id: ThemeChoice; label: string }[] = [
+  { id: 'dark', label: 'Dark' },
+  { id: 'light', label: 'Light' },
+  { id: 'system', label: 'System' },
+];
+
+/* Names, not colours. The swatch in the menu carries the same data-accent as
+   the root does and takes its colour from the same rule. */
+export const ACCENTS: { id: AccentId; label: string }[] = [
+  { id: 'default', label: 'Slate' },
+  { id: 'ocean', label: 'Ocean' },
+  { id: 'jade', label: 'Jade' },
+  { id: 'violet', label: 'Violet' },
+  { id: 'clay', label: 'Clay' },
+];
+
+const isTheme = (v: unknown): v is ThemeChoice =>
+  v === 'dark' || v === 'light' || v === 'system';
+
+const isAccent = (v: unknown): v is AccentId =>
+  typeof v === 'string' && ACCENTS.some((a) => a.id === v);
+
+/* A stored record from an older build, a half-written one, or a browser with
+   storage switched off all mean the same thing: take the defaults for whatever
+   is missing and keep whatever reads. A settings menu is not worth an error. */
+export function readPrefs(store: Storage | null = safeStorage()): Prefs {
+  if (!store) return { ...DEFAULT_PREFS };
+  let raw: unknown;
+  try {
+    raw = JSON.parse(store.getItem(PREFS_KEY) ?? 'null');
+  } catch {
+    return { ...DEFAULT_PREFS };
+  }
+  if (!raw || typeof raw !== 'object') return { ...DEFAULT_PREFS };
+  const r = raw as Partial<Prefs>;
+  return {
+    theme: isTheme(r.theme) ? r.theme : DEFAULT_PREFS.theme,
+    accent: isAccent(r.accent) ? r.accent : DEFAULT_PREFS.accent,
+    fourColour: typeof r.fourColour === 'boolean' ? r.fourColour : DEFAULT_PREFS.fourColour,
+  };
+}
+
+export function writePrefs(prefs: Prefs, store: Storage | null = safeStorage()): void {
+  if (!store) return;
+  try {
+    store.setItem(PREFS_KEY, JSON.stringify(prefs));
+  } catch {
+    /* private browsing, or a full quota. The session keeps the choice. */
+  }
+}
+
+/* g-ui reads its own `g-theme` key at load and stamps `data-theme` itself, so
+   the theme is written in both places by the one call that changes it. They
+   cannot drift: nothing else in this app calls g.theme(). */
+export function applyPrefs(prefs: Prefs, root: HTMLElement, store: Storage | null = safeStorage()): void {
+  const g = (window as { g?: { theme?: (m: ThemeChoice) => void } }).g;
+  if (g?.theme) {
+    g.theme(prefs.theme);
+  } else {
+    if (prefs.theme === 'dark') root.removeAttribute('data-theme');
+    else root.setAttribute('data-theme', prefs.theme);
+    try {
+      store?.setItem('g-theme', prefs.theme);
+    } catch {
+      /* see writePrefs */
+    }
+  }
+
+  if (prefs.accent === 'default') root.removeAttribute('data-accent');
+  else root.setAttribute('data-accent', prefs.accent);
+
+  if (prefs.fourColour) root.setAttribute('data-deck', 'four');
+  else root.removeAttribute('data-deck');
+}
+
+function safeStorage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+/* WCAG relative luminance and contrast, used by the e2e suite to check every
+   accent against the text that sits on it, in both themes. The values it reads
+   are the ones the stylesheet actually ships, so this cannot pass on a colour
+   nobody sees. */
+export function relativeLuminance(rgb: [number, number, number]): number {
+  const [r, g, b] = rgb.map((v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+export function contrastRatio(a: [number, number, number], b: [number, number, number]): number {
+  const la = relativeLuminance(a);
+  const lb = relativeLuminance(b);
+  const [hi, lo] = la > lb ? [la, lb] : [lb, la];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/* Relative luminance from any of the three notations a browser hands back.
+   g's own palette is declared in display-p3, and this app's accents in hex, so
+   both turn up: p3 is not converted to sRGB and then measured, it is measured
+   where it is, using the luminance row of the P3 to XYZ matrix. Same number,
+   none of the round trip. */
+const P3_TO_Y = [0.2289745640697488, 0.6917385218365064, 0.079286914093745];
+
+const linear = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+
+export function luminance(css: string): number | null {
+  const p3 = css.trim().match(/^color\(\s*display-p3\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/i);
+  if (p3) {
+    const [r, g, b] = [1, 2, 3].map((i) => linear(Number(p3[i])));
+    return P3_TO_Y[0] * r + P3_TO_Y[1] * g + P3_TO_Y[2] * b;
+  }
+  const rgb = parseColour(css);
+  return rgb == null ? null : relativeLuminance(rgb);
+}
+
+export function contrastOf(a: string, b: string): number | null {
+  const la = luminance(a);
+  const lb = luminance(b);
+  if (la == null || lb == null) return null;
+  const [hi, lo] = la > lb ? [la, lb] : [lb, la];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/* "rgb(46, 125, 100)" or "#2e7d64", which is what getComputedStyle gives back
+   for a colour declared in either. */
+export function parseColour(value: string): [number, number, number] | null {
+  const text = value.trim();
+  const rgb = text.match(/^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i);
+  if (rgb) return [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])];
+  const hex = text.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (!hex) return null;
+  const h = hex[1].length === 3 ? hex[1].split('').map((c) => c + c).join('') : hex[1];
+  return [
+    parseInt(h.slice(0, 2), 16),
+    parseInt(h.slice(2, 4), 16),
+    parseInt(h.slice(4, 6), 16),
+  ];
+}

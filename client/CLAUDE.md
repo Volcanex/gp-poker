@@ -32,8 +32,10 @@ declaration for `phe` that the engine's own tsconfig provides.
   `playing-card.tsx`, `turn-clock.tsx` and `dock.tsx` are its parts.
   `result-panel.tsx` is the result under a finished felt and
   `match-summary.tsx` is the page a finished match opens on cold.
-  `sizing.ts`, `preactions.ts`, `best-five.ts`, `labels.ts`, `layout.ts`
-  (where each seat sits) and `results.ts` (the finishing order) are pure.
+  `chip-stack.tsx` draws a denominated stack and `sounds.ts` is the table's
+  side of the sound module. `sizing.ts`, `preactions.ts`, `best-five.ts`,
+  `chips.ts`, `labels.ts`, `layout.ts` (where each seat sits) and `results.ts`
+  (the finishing order) are pure.
 - `src/analysis/` — equity, outs and hand names, computed in a web worker.
   `worker.ts` is the only module that imports `@opentable/equity` (and so the
   only one that pulls in `phe`'s half-megabyte lookup table); `index.ts` is the
@@ -45,8 +47,8 @@ declaration for `phe` that the engine's own tsconfig provides.
   and send every actual computation to the worker.
 - `src/replay/` — `to-view.ts` turns an engine `HandState` into a `TableView`;
   `fairness.ts` re-derives the deck and rehashes the commitment.
-- `src/ui/` — `auth.tsx` (claim, log in, account menu), `avatar.tsx`,
-  `rating-graph.tsx`,
+- `src/ui/` — `auth.tsx` (claim, log in, account menu), `settings.tsx` and its
+  pure half `prefs.ts`, `avatar.tsx`, `rating-graph.tsx`,
   `board-text.tsx`, `mode-tabs.tsx` (the heads-up / six-max switch), `bits.tsx`,
   `format.ts`, `title.ts`.
 - `src/dev/mock.ts` — the scripted live table, dev only. Both scripts end on a
@@ -211,7 +213,8 @@ dev server happens to be up.
 | `access` | axe-core per state with zero serious or critical, a keyboard-only decision, tab reachability, and typing in the field not triggering the shortcuts |
 | `practice` | the strip is on a practice table and off a rated one, that it reads, and that a practice table keeps one footprint with zero layout shift |
 | `reduced-motion` | the same information with the motion emulated off |
-| `screenshots` | 84 baselines: seven states at 360, 390, 430, 768, 1366 and 1920, dark and light |
+| `settings` | a choice surviving a reload, the pre-paint stamp, every accent's contrast in both themes, the four colour deck, and the menu itself |
+| `screenshots` | 96 baselines: eight states at 360, 390, 430, 768, 1366 and 1920, dark and light |
 
 Baselines live in `e2e/__screenshots__/` and are updated with
 `npm run e2e:update -w client`. **Read the diff before you accept one.** The
@@ -220,10 +223,91 @@ masks the four things that cannot be pinned to a pixel: the pot figure
 mid-count, the depleting turn bar, the seconds beside it and the hand-end
 countdown.
 
+The suite runs two workers, not one per core: eight states at 1920 in two
+themes is a lot of full-page rendering, and four browsers doing it at once on
+this box time out on each other rather than on anything real.
+
 Two things the suite does not cover. The replay page draws a hand fetched from
 the API and the suite deliberately runs without one. And the mock has no
 uncontested pot, so that rule is pinned in the unit tests on `readShowdown`
 instead.
+
+## Settings
+
+One panel in the top bar, `src/ui/settings.tsx`, replacing a button that cycled
+the theme: the only way to learn what its third press did was to press it twice.
+It is g's `.menu` popover holding g's own controls, so the choices are radio
+groups and switches and are labelled as such. A menu role over a set of switches
+announces the wrong thing.
+
+**Every setting is an attribute on the root element and every value is in CSS.**
+`src/ui/prefs.ts` holds ids and no colours: an accent is `data-accent="jade"` and
+`app.css` says what jade is. That is what keeps the pre-paint script in
+`index.html` down to three attribute writes with nothing to drift, and it is why
+the swatch in the menu can paint itself by carrying the same attribute.
+
+| Setting | Attribute | Values |
+| --- | --- | --- |
+| Theme | `data-theme` | absent (dark), `light`, `system` |
+| Accent | `data-accent` | absent (g's own), `ocean`, `jade`, `violet`, `clay` |
+| Four colour deck | `data-deck` | absent, `four` |
+
+All three live in one record under `ot.prefs`. **The theme is written twice on
+purpose**: g-ui reads its own `g-theme` key at load and stamps the attribute
+itself, so `applyPrefs` writes both in the one call that changes it, and nothing
+else in this app calls `g.theme()`. Sound is not in that record: it is a
+separate module with its own store and its own key, and playing with the sound
+off in a light theme is the normal case rather than a contradiction.
+
+**The accents are not the chart tokens.** Those are step 9 solids meant to sit
+under large text, and a 13 px button label on one measures about 3:1. The four
+here follow the rebrand card's recipe (a fill, a slightly darker hover and edge,
+white on top) and every one of them clears 4.5:1. `e2e/settings.spec.ts` reads
+the computed values back out of the stylesheet in both themes and checks the
+ratio, so that claim cannot go stale quietly. It reads them through a probe
+element rather than off the custom properties, because a custom property whose
+value is another `var()` comes back unresolved, and it measures display-p3 where
+it is rather than converting it badly: g's palette is p3 and this app's accents
+are hex, so both notations turn up.
+
+The four colour deck is four variables, `--suit-s/h/d/c`, read by one rule each
+on the card. Diamonds take the palette's blue and clubs its green, borrowed the
+same way the red is borrowed and for the same reason: nothing on this felt means
+ok or info.
+
+## Chips
+
+`chips.ts` is `denominate(amount)`, greedy over 500, 100, 25, 5 and 1, which is
+how a dealer makes change: 137 is a hundred, a twenty five, two fives and two
+ones. Greedy over those five also bounds a column, because four ones roll into a
+five and three twenty fives into a hundred. A unit test walks every amount a
+table can hold and pins it, which is what lets the felt reserve five chips of
+height instead of the ten a stack will draw before it starts counting.
+
+`chip-stack.tsx` draws them, and the rule that matters is this: **every
+denomination keeps its slot whether or not there is a chip in it, and a column
+is a fixed height with its chips on the floor of it.** A chip appears where that
+denomination has always been, and the row is the same size at 0 as at 1200. A
+centred group whose membership changes moves every member, which is how the pot
+counting down to zero was moving the board underneath it.
+
+Three places use it: the bet on the line to the pot (the stack is inside the
+element that flies, so the chips travel rather than a badge standing in for
+them), the pot, and a mini stack of the big three denominations beside a
+player's own number. The mini stack is off on a phone and off on a ring, where
+forty two pixels is a name.
+
+## Sound
+
+The module is `src/sound/` and belongs to another workstream; the table's side
+of it is `src/table/sounds.ts`, one hook driven by the same view everything else
+is drawn from. Nothing there asks whether sound is on: the module returns
+immediately when it is off, and a pack is only fetched once something plays.
+Every effect keys on the hand and action sequence, which is what stops a
+re-render replaying the last thing that happened. The first pointer or key
+event anywhere unlocks the audio context (`useSoundUnlock` in `app.tsx`),
+because a browser will not let a page make a noise until somebody has touched
+it.
 
 ## The table, two to six seats
 
@@ -529,6 +613,9 @@ being poker-specific, build it in g-system, not here.
   `vector-effect`, which is why it has no marker: a circle would stretch into
   an ellipse.
 - **`board-text.tsx`** — cards as text for dense tables. **Promotion: no.**
+- **`chip-stack.tsx`** — denominated chips. **Promotion: no, this is poker**,
+  though the fixed-slot idea behind it (a member that appears takes a place that
+  was already there) is worth stealing anywhere a group can change size.
 - **`ui/avatar.tsx`** — not bespoke: it is g's shipped `.avatar` with its size
   adjusted through `--avatar-size`, around the deterministic SVG from
   `@opentable/identity`. 28 px at a seat, 24 px in a row, 56 px on a header.
@@ -548,6 +635,12 @@ being poker-specific, build it in g-system, not here.
   shifts everything beside it.
 - The stack is `useGrouping: false`. A grouped `1,200` is five characters in a
   four character slot, and it moved the word beside it.
+- **Generated names are CamelCase** (RedTiger, StealthyCyclone), so a plain
+  ellipsis cuts a word in half. `shortName` drops whole words instead and the
+  seat keeps the full name in its title.
+- An avatar is seeded from a user id, never a name: a name can be claimed and
+  changed and the picture should not change with it. `avatarSeed` in `adapt.ts`
+  falls back to the name for a row written before the server sent ids.
 - `TableView.pot` **includes the current street's bets**. `presetsFor` in
   `sizing.ts` depends on that: a pot-sized raise is `myBet + call + (pot +
   call)`. The unit test pins it.

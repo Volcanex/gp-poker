@@ -6,6 +6,22 @@
     <meta name="description" content="Free ranked no-limit hold'em, heads-up or six handed. No money, no ads, no rake." />
     <title>Open Table</title>
     <link rel="stylesheet" href="/g/g.css" />
+    <!-- Three attribute writes before the first paint, so a light theme or a
+         four colour deck is never a flash of the dark default. g-ui reads its
+         own g-theme key a moment later and lands on the same answer, because
+         the app writes both in one call (src/ui/prefs.ts). Attributes only:
+         what jade is, and what a four colour deck is, are in app.css. -->
+    <script>
+      (() => {
+        try {
+          const p = JSON.parse(localStorage.getItem('ot.prefs') || '{}');
+          const el = document.documentElement;
+          if (p.theme === 'light' || p.theme === 'system') el.setAttribute('data-theme', p.theme);
+          if (p.accent && p.accent !== 'default') el.setAttribute('data-accent', p.accent);
+          if (p.fourColour) el.setAttribute('data-deck', 'four');
+        } catch {}
+      })();
+    </script>
     <script defer src="/g/g-ui.js"></script>
   </head>
   <body>
