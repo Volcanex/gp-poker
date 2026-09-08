@@ -1,4 +1,6 @@
-import type { BotRow, FeedMatch, Hand, LeaderboardRow, LiveMatch, Match, Me, Profile, SiteStats } from './types.ts';
+import type {
+  BotRow, Challenge, CreatedChallenge, FeedMatch, Hand, LeaderboardRow, LiveMatch, Match, Me, Profile, SiteStats,
+} from './types.ts';
 import type { Mode, UserSummary } from '@opentable/protocol';
 
 export class ApiError extends Error {
@@ -55,6 +57,14 @@ export const api = {
   recent: (limit = 20) => req<FeedMatch[]>(`/api/recent?limit=${limit}`),
   stats: () => req<SiteStats>('/api/stats'),
   live: () => req<LiveMatch[]>('/api/live'),
+  /* Play a friend. The link is made by the person sharing it and spent by the
+     person who opens it; either may be a guest, so none of these calls needs
+     an account. */
+  createChallenge: (mode: Mode, rated: boolean) => post<CreatedChallenge>('/api/challenges', { mode, rated }),
+  challenge: (id: string) => req<Challenge>(`/api/challenges/${encodeURIComponent(id)}`),
+  acceptChallenge: (id: string) => post<{ matchId: string }>(`/api/challenges/${encodeURIComponent(id)}/accept`),
+  cancelChallenge: (id: string) =>
+    req<{ ok: true }>(`/api/challenges/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   claim: (name: string, password: string) => post<UserSummary>('/api/claim', { name, password }),
   login: (name: string, password: string) => post<UserSummary>('/api/login', { name, password }),
   logout: () => post<{ ok: true }>('/api/logout'),

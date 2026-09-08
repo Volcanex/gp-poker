@@ -213,3 +213,27 @@ export interface Hand {
   startedAt: string;
   completedAt: string | null;
 }
+
+/* A "play a friend" link, from /api/challenges/:id. `expired` is derived by
+   the server from the link's day-long life rather than stored, so a page that
+   sits open does not need to work the clock out for itself: it re-reads. */
+export interface Challenge {
+  id: string;
+  mode: Mode;
+  rated: boolean;
+  status: 'open' | 'accepted' | 'cancelled' | 'expired';
+  creator: UserSummary;
+  /* Set once the link has been accepted, so a spent link can still offer the
+     table it turned into. */
+  matchId: string | null;
+  createdAt: string;
+  expiresAt: string;
+}
+
+/* What creating one hands back: the id, and the whole address to share. The
+   url is built by the server from the host the request arrived on, so it is
+   right behind the proxy without the client guessing at the origin. */
+export interface CreatedChallenge {
+  id: string;
+  url: string;
+}

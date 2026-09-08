@@ -736,3 +736,88 @@ export async function getSiteStats(): Promise<SiteStats> {
   `;
   return row;
 }
+
+// ---- challenges ----
+
+/* A "play a friend" link. The row is the whole feature: created when someone
+   asks for a link, spent when the friend opens it and accepts. `expired` is
+   never a stored status, only one derived from `expiresAt` at read time, so
+   there is nothing to sweep. */
+export interface ChallengeRow {
+  id: string;
+  creatorId: string;
+  mode: Mode;
+  rated: boolean;
+  status: 'open' | 'accepted' | 'cancelled';
+  acceptedBy: string | null;
+  matchId: string | null;
+  createdAt: Date;
+  expiresAt: Date;
+}
+
+export async function insertChallenge(
+  id: string,
+  creatorId: string,
+  mode: Mode,
+  rated: boolean,
+  expiresAt: Date
+): Promise<ChallengeRow> {
+  const [row] = await sql<ChallengeRow[]>`
+    insert into challenges (id, creator_id, mode, rated, expires_at)
+    values (${id}, ${creatorId}, ${mode}, ${rated}, ${expiresAt})
+    returning *
+  `;
+  return row;
+}
+
+export async function getChallengeById(id: string): Promise<ChallengeRow | null> {
+  const [row] = await sql<ChallengeRow[]>`select * from challenges where id = ${id}`;
+  return row ?? null;
+}
+
+// Links still worth counting against the cap: cancelled and accepted ones are
+// spent, and an expired one is nobody's open link even though the column
+// still says open.
+export async function countOpenChallenges(creatorId: string): Promise<number> {
+  const [row] = await sql<{ n: number }[]>`
+    select count(*)::int as n from challenges
+    where creator_id = ${creatorId} and status = 'open' and expires_at > now()
+  `;
+  return row.n;
+}
+
+/* Claims a link for one accepter and nobody else. The status test is inside
+   the update, so two friends opening the same link at the same moment cannot
+   both be handed a match: the loser gets null and reads "already taken". */
+export async function claimChallenge(id: string, userId: string): Promise<ChallengeRow | null> {
+  const [row] = await sql<ChallengeRow[]>`
+    update challenges
+    set status = 'accepted', accepted_by = ${userId}
+    where id = ${id} and status = 'open' and expires_at > now()
+    returning *
+  `;
+  return row ?? null;
+}
+
+export async function setChallengeMatch(id: string, matchId: string): Promise<void> {
+  await sql`update challenges set match_id = ${matchId} where id = ${id}`;
+}
+
+// Puts a claimed link back after the match it was claimed for failed to be
+// created, so a database error does not silently eat somebody's link.
+export async function releaseChallenge(id: string): Promise<void> {
+  await sql`
+    update challenges set status = 'open', accepted_by = null
+    where id = ${id} and status = 'accepted' and match_id is null
+  `;
+}
+
+export async function cancelOpenChallenge(id: string, creatorId: string): Promise<ChallengeRow | null> {
+  const [row] = await sql<ChallengeRow[]>`
+    update challenges set status = 'cancelled'
+    where id = ${id} and creator_id = ${creatorId} and status = 'open'
+    returning *
+  `;
+  return row ?? null;
+}
+

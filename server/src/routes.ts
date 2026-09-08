@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { blindsAt, type MatchFormat, type Mode } from '@opentable/protocol';
 
 function modeParam(raw: unknown): Mode {
@@ -29,6 +29,7 @@ import { getRoom } from './match/rooms.js';
 import { claimGuest, login, requireUser, setSessionCookie, clearSessionCookie, createSessionForUser, SESSION_COOKIE } from './auth.js';
 import { rosterSummary } from './bots/index.js';
 import { roundRatings, toModeRating, toUserSummary } from './userView.js';
+import { acceptChallenge, cancelChallenge, challengeView, createChallenge } from './challenges.js';
 
 function err(reply: { code: (n: number) => { send: (b: unknown) => unknown } }, status: number, message: string) {
   return reply.code(status).send({ error: message });
@@ -277,6 +278,50 @@ export function registerRoutes(app: FastifyInstance): void {
       startedAt: m.createdAt,
     }));
   });
+
+  /* Play a friend. Creating and accepting both go through requireUser, so a
+     link works for someone who has never been here: they arrive, a guest is
+     minted, and they are at the table. The match is created by the accept,
+     which tells both players through the same `q found` a queue match sends. */
+  app.post<{ Body: { mode?: string; rated?: boolean } }>('/api/challenges', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    const result = await createChallenge(user.id, modeParam(request.body?.mode), request.body?.rated !== false);
+    if (!result.ok) return err(reply, result.status, result.error);
+    return { id: result.row.id, url: `${originOf(request)}/c/${result.row.id}` };
+  });
+
+  app.get<{ Params: { id: string } }>('/api/challenges/:id', async (request, reply) => {
+    const view = await challengeView(request.params.id);
+    if (!view) return err(reply, 404, 'no such challenge');
+    return view;
+  });
+
+  app.post<{ Params: { id: string } }>('/api/challenges/:id/accept', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    const result = await acceptChallenge(request.params.id, user.id);
+    if (!result.ok) return err(reply, result.status, result.error);
+    return { matchId: result.matchId };
+  });
+
+  app.delete<{ Params: { id: string } }>('/api/challenges/:id', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    const result = await cancelChallenge(request.params.id, user.id);
+    if (!result.ok) return err(reply, result.status, result.error);
+    return { ok: true };
+  });
+}
+
+/* The absolute address of this site as the caller reached it, which is the
+   only thing a shareable link can be built from: nginx terminates TLS, so
+   Fastify's own view of the protocol is http on every request that matters.
+   Read the same way auth.ts reads it for the session cookie's secure flag. */
+function originOf(request: FastifyRequest): string {
+  const forwardedProto = request.headers['x-forwarded-proto'];
+  const forwardedHost = request.headers['x-forwarded-host'];
+  const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+  const proto = first(forwardedProto)?.split(',')[0]?.trim() || request.protocol;
+  const host = first(forwardedHost)?.split(',')[0]?.trim() || request.headers.host;
+  return `${proto}://${host}`;
 }
 
 const STATS_TTL_MS = 5_000;

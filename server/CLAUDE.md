@@ -54,7 +54,16 @@ decisions; this file covers what's not obvious from the code.
   - `/api/hands/:id` adds `liveSeats` and reports the hand's own `sb`/`bb`
     from `blindsAt` rather than the format's level-1 blinds, which is what a
     replay needs to rebuild the engine config.
-- `src/matchmaking.ts` — the in-memory queues and their tick.
+- `src/matchmaking.ts` — the in-memory queues and their tick. `matchFormat`
+  exposes the same resolver the queue reads, so a match created outside the
+  queue honours a test's `setFormatResolver` too.
+- `src/challenges.ts` — "play a friend": a link instead of a queue. Creating
+  one writes a `challenges` row, capped at five open per player and alive for
+  24 hours; accepting it claims the row with a conditional UPDATE (so two
+  people opening the same link cannot both be seated) and then calls
+  `createMatchForPlayers`, which announces the table to both sides with the
+  ordinary `q found`. `expired` is derived from `expires_at` at read time and
+  never written, so the table needs no sweeper. Heads-up only.
 - `src/bots/` — the bot roster (`index.ts`), one bot's message loop
   (`player.ts`) and the pure decision function (`strategy.ts`). The five
   levels, the roster's shape and why the ordering test looks the way it does
@@ -594,6 +603,8 @@ a new field on `MatchFormat` never has to be added in five files;
 legal actions and is what every full-match test drives its clients with.
 Tests that need the *real* queue path against a fast format replace
 `setFormatResolver` instead, and must put `formatFor` back in `afterAll`.
+The challenge path goes through the same resolver, so `challenge.test.ts`
+opens its tables on a fast format the same way.
 
 - `match.test.ts` — plays a whole match to `end` with two real clients
   picking uniformly random legal actions from each `state.legal` (a short

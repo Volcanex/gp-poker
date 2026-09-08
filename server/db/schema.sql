@@ -144,3 +144,24 @@ insert into ratings (user_id, mode, rating, rd, volatility, rating_at, peak_rati
 select id, 'heads-up', rating, rd, volatility, rating_at, peak_rating, peak_at, matches, wins, losses, draws
 from users
 on conflict (user_id, mode) do nothing;
+
+-- Challenge links: "play a friend". One row per link, created when someone
+-- asks for one and spent the moment the friend opens it and accepts. Status
+-- is only ever open, accepted or cancelled: an expired link is derived from
+-- expires_at when the row is read, so nothing has to sweep the table and a
+-- row can never sit here claiming a status only a cron job would have made
+-- true.
+create table if not exists challenges (
+  id text primary key,                         -- short public id, the shareable URL
+  creator_id uuid not null references users(id) on delete cascade,
+  mode text not null,                          -- heads-up | six-max
+  rated boolean not null default true,
+  status text not null default 'open',         -- open | accepted | cancelled
+  accepted_by uuid references users(id) on delete set null,
+  match_id text references matches(id) on delete set null,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null
+);
+-- The cap on open links per person is counted on every create, so it is the
+-- one query this table is read by other than the link's own page.
+create index if not exists challenges_creator on challenges(creator_id, status);

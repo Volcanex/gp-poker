@@ -38,7 +38,17 @@ export function setFormatResolver(fn: (mode: Mode, rated: boolean) => MatchForma
   resolveFormat = fn;
 }
 
-function randomMatchId(): string {
+// The resolver itself, for the paths that create a match outside the queue: a
+// challenge link builds its format through here so the seam covers it too,
+// and in production it is `formatFor` and nothing else.
+export function matchFormat(mode: Mode, rated: boolean): MatchFormat {
+  return resolveFormat(mode, rated);
+}
+
+// Exported so a challenge link can be minted from the same alphabet as a
+// match id: both are short public ids people read off a URL, and there should
+// only ever be one set of characters that appear in one.
+export function randomMatchId(): string {
   let s = '';
   for (const b of randomBytes(8)) s += MATCH_ID_ALPHABET[b % MATCH_ID_ALPHABET.length];
   return s;

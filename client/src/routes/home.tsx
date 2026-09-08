@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BOT_LEVELS, botLevelInfo, formatFor } from '@opentable/protocol';
 import type { Mode } from '@opentable/protocol';
-import { api } from '../net/api.ts';
+import { api, ApiError } from '../net/api.ts';
 import { levelAverageRating, modeRating } from '../net/adapt.ts';
-import type { BotRow, LeaderboardRow, Me } from '../net/types.ts';
+import type { BotRow, CreatedChallenge, LeaderboardRow, Me } from '../net/types.ts';
 import { readPlayChoice, useSession } from '../net/session.tsx';
 import { MODES, MODE_NAME } from '../ui/mode-tabs.tsx';
 import { elapsed, useNow } from '../ui/bits.tsx';
@@ -14,10 +14,12 @@ import { Link, useLocation } from 'react-router-dom';
 import { Avatar } from '../ui/avatar.tsx';
 import { avatarSeed } from '../net/adapt.ts';
 import { RecentMatches, StatsStrip } from './feed.tsx';
+import { ShareLink } from '../ui/share-link.tsx';
 
 /* The line under each mode's name is built from that mode's format, so the
-   promise on the card cannot drift from the match it starts. */
-function modeBlurb(mode: Mode): string {
+   promise on the card cannot drift from the match it starts. Exported because
+   a challenge link promises the same match on a different page. */
+export function modeBlurb(mode: Mode): string {
   const f = formatFor(mode, true);
   if (mode === 'six-max') {
     return `Last player standing. ${f.players} seats, ${f.stack} units each, blinds climb every ${f.levelHands} hands.`;
@@ -110,6 +112,7 @@ export function Home() {
               </div>
             ))}
             <PracticeCard onPlay={startPractice} disabled={!ready || offline} error={queue.error} />
+            <FriendCard disabled={!ready || offline} />
           </div>
         ) : (
           <div className="card searching-card" role="status">
@@ -260,6 +263,135 @@ function PracticeCard({
       <button type="button" className="btn btn-primary" disabled={disabled} onClick={() => onPlay(mode, level)}>
         Play against bots
       </button>
+    </div>
+  );
+}
+
+/* The fourth way to play: a link instead of a queue. The creator makes one,
+   sends it to whoever they want to play, and the match starts the moment that
+   person opens it and accepts. Heads-up only for now, and the copy says so
+   rather than leaving it to be found out.
+
+   A made link is remembered in this browser, because the challenge outlives
+   the page: without this a reload would strand it, and the only way back
+   would be to make another and spend one of the five allowed. */
+const CHALLENGE_KEY = 'ot-challenge';
+
+function readChallenge(): CreatedChallenge | null {
+  try {
+    const raw = localStorage.getItem(CHALLENGE_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as Partial<CreatedChallenge>;
+    return v?.id && v?.url ? { id: v.id, url: v.url } : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeChallenge(c: CreatedChallenge | null) {
+  try {
+    if (c) localStorage.setItem(CHALLENGE_KEY, JSON.stringify(c));
+    else localStorage.removeItem(CHALLENGE_KEY);
+  } catch {
+    /* private mode: the link is still on screen, just not after a reload */
+  }
+}
+
+function FriendCard({ disabled }: { disabled: boolean }) {
+  const [rated, setRated] = useState(true);
+  const [link, setLink] = useState<CreatedChallenge | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  /* A remembered link is only shown once the server says it is still waiting,
+     the same bargain the remembered live match makes. */
+  useEffect(() => {
+    const saved = readChallenge();
+    if (!saved) return;
+    let live = true;
+    api
+      .challenge(saved.id)
+      .then((c) => {
+        if (!live) return;
+        if (c.status === 'open') setLink(saved);
+        else writeChallenge(null);
+      })
+      .catch(() => writeChallenge(null));
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const make = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const made = await api.createChallenge('heads-up', rated);
+      writeChallenge(made);
+      setLink(made);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'the link could not be made. Try again in a moment.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /* The link leaves this page the moment it is cancelled: the request that
+     spends it on the server is the tidy-up, and a failed one only means the
+     link sits unused until it expires. */
+  const drop = async () => {
+    if (!link) return;
+    const { id } = link;
+    writeChallenge(null);
+    setLink(null);
+    setError(null);
+    try {
+      await api.cancelChallenge(id);
+    } catch {
+      /* it expires on its own within the day either way */
+    }
+  };
+
+  return (
+    <div className="card mode" style={{ gridColumn: '1 / -1' }}>
+      <div className="mode-head">
+        <span className="t">Play a friend</span>
+      </div>
+      <span className="muted">
+        Make a link, send it to whoever you want to play, and the match starts when they open it.
+        Heads-up only for now.
+      </span>
+
+      {link ? (
+        <>
+          <ShareLink url={link.url} />
+          <span className="muted">Waiting for your friend. The link works for 24 hours.</span>
+          <button type="button" className="btn btn-tertiary btn-sm" onClick={drop}>
+            Cancel link
+          </button>
+        </>
+      ) : (
+        <>
+          <div className="stakes">
+            {[true, false].map((r) => (
+              <label className="choice" key={String(r)}>
+                <input
+                  type="radio"
+                  className="radio"
+                  name="friend-stake"
+                  checked={rated === r}
+                  onChange={() => setRated(r)}
+                />
+                {r ? 'Rated' : 'Casual'}
+              </label>
+            ))}
+          </div>
+          {error && <span className="badge badge-warn">{error}</span>}
+          <button type="button" className="btn btn-primary" disabled={disabled || busy} onClick={make}>
+            Create a link
+          </button>
+        </>
+      )}
     </div>
   );
 }

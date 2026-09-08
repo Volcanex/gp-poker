@@ -68,6 +68,15 @@ boot, unrated.
   outwards, and is **always unrated** (`format.practice`, persisted like every
   other format field). Casual and practice are both unrated, so only that flag
   tells them apart on a finished match.
+- Play a friend is a link, not a queue (`challenges` table,
+  `server/src/challenges.ts`, `/c/:id` on the client). A link is capped at five
+  open per player and lives 24 hours; accepting it is what creates the match,
+  through the same `createMatchForPlayers` the queue uses, so both sides are
+  told by the same `q found` and the creator's waiting card navigates without
+  knowing a challenge existed. Heads-up only: a six-max link would have to
+  gather six people, which is a lobby wearing the same word. `expired` is
+  derived from `expires_at` when a row is read and never stored, so no sweep
+  has to run for a status to be true.
 - The engine only sees seats with chips; `hands.live_seats` maps engine
   seat to table seat and every stored log is in table seats.
 - Tests run against `TEST_DATABASE_URL` (opentable_test), never the live

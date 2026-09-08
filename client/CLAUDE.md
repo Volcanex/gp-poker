@@ -399,6 +399,7 @@ starts on as though it were earned.
 | `/leaderboard` | top 100 |
 | `/u/:name` | profile |
 | `/watch` | live tables, and the ones that just finished |
+| `/c/:id` | a friend's challenge link: who is challenging you, the format, one button that starts the match |
 | `/m/:id` | live table while playing, spectator seat if you have none, result summary once finished |
 | `/m/:id/h/:n` | hand replay, scrubber and fairness checks |
 | `/m/mock` | the scripted table, dev only (`?step=N` freezes one moment, `?mode=six-max` runs the six-handed script, `?watch=1` drops the seat) |
