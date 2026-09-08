@@ -250,3 +250,17 @@
   translate: -50% -100%;
   transform-origin: bottom center;
 }
+
+/* ------------------------------------------------------------------ ticks */
+
+/* A chip is set down, not faded in: it lands from three pixels up in the
+   time one tick takes, and a chip leaving simply is not there any more,
+   because it is the one that has just been set down somewhere else. */
+@keyframes chip-set {
+  from { translate: 0 -3px; }
+  to { translate: 0 0; }
+}
+.match[data-look="v2"] .chip { animation: chip-set 60ms var(--ease-out) both; }
+@media (prefers-reduced-motion: reduce) {
+  .match[data-look="v2"] .chip { animation: none; }
+}
