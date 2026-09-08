@@ -111,7 +111,8 @@ that is non-null once the whole match is decided.
   waits `min(HAND_HOLD_MS, format.clockMs)`, 4s in the product, long enough for
   the reveal to register and never longer than the decision clock so a short test
   clock does not spend four seconds on a finished board, and then calls
-  `startHand` for the next number.
+  `startHand` for the next number. On a practice table this wait is the practice
+  hold instead (below), for every hand including the last.
 - **onFail callback.** Dealing the next hand and completing one are both detached
   async work, run from a timer or after an action has already returned, with
   nothing left to await their rejection. A failed write there used to become an
@@ -206,6 +207,34 @@ in that window (a client reconnecting late, or a spectator arriving just after
 `MatchRoom` keeps the last `MatchResult` around. After the linger the room is
 dropped from the registry entirely and a `join` gets `err no_match`; the match
 itself is still in the database.
+
+## The practice hold
+
+A practice table does not deal the next hand (or send `end`, on the last one)
+on the fixed `holdFor` timer every other table uses. Instead
+`EngineHandRunner.holdAfterHand` waits for the human to send `{t: 'next', m, h}`
+echoing the hand just held, with `practiceHoldTimeoutFor(format)` (120s by
+default, `format.practiceHoldTimeoutMs` in a test) as the fallback if they
+never do. `next()` on the hand runner ignores anything that is not exactly
+that: a stale hand number, a spectator, or a seat that is not the human's.
+
+**`waitingForHuman()` decides whether to wait at all**, and it is not simply
+"is this a practice table": it also requires `places[humanSeat] === null`, the
+human still being in the hand. Checked *before* `settleHeadsUp`/
+`settleMultiway` on the hand that might end the match (so a hand that busts
+the human still holds for their `next` before the match is declared over), and
+*after* settling on a hand that does not (so a human busted out of a multiway
+practice table no longer holds up the bot-only hands that outlive them — there
+is nobody left to press the button, and holding for one anyway would need the
+120s timeout to fire on every remaining hand). `humanSeat` itself is fixed at
+construction, the one seat that is not a bot; a practice table always has
+exactly one.
+
+`TableView.hold` is `'you'`, sent only to the human's own view, only while a
+hold from this mechanism is in progress. It answers "the table is waiting on
+me", not "a hand just ended": every other viewer (the bots, a spectator) sees
+the same held board with no `hold` key at all, since only the human can answer
+it.
 
 ## Spectating
 

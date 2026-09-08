@@ -11,7 +11,7 @@ import {
   type HandState,
 } from '@opentable/engine';
 import { extractDecisions, handStats, summarise } from '@opentable/preflop';
-import { HAND_HOLD_MS, blindsAt, holdFor, levelAt } from '@opentable/protocol';
+import { HAND_HOLD_MS, blindsAt, holdFor, levelAt, practiceHoldTimeoutFor } from '@opentable/protocol';
 import type {
   ActionKind,
   Card,
@@ -92,6 +92,15 @@ export class EngineHandRunner implements HandRunner {
   private lastEvent: LastEvent | null = null;
   private matchOutcome: MatchOutcome | null = null;
 
+  // Practice hold. `practice` and `humanSeat` are fixed for the life of the
+  // match; `pendingNextHand` is non-null only while a hand's result is being
+  // held for the human's `next`, and is the hand number they must echo.
+  private practice: boolean;
+  private humanSeat: number | null;
+  private pendingNextHand: number | null = null;
+  private nextResolve: (() => void) | null = null;
+  private nextTimer: ReturnType<typeof setTimeout> | null = null;
+
   constructor(deps: HandRunnerDeps) {
     this.matchId = deps.matchId;
     this.match = deps.match;
@@ -103,6 +112,9 @@ export class EngineHandRunner implements HandRunner {
     this.places = this.seatsInfo.map(() => null);
     this.handStartStacks = [...this.stacks];
     this.startedAtMs = deps.match.createdAt?.getTime() ?? Date.now();
+    this.practice = deps.match.format.practice === true;
+    const human = this.seatsInfo.findIndex((s) => !s.bot);
+    this.humanSeat = this.practice && human !== -1 ? human : null;
   }
 
   private get headsUp(): boolean {
@@ -243,6 +255,55 @@ export class EngineHandRunner implements HandRunner {
     this.completeHand().catch(this.onFail);
   }
 
+  // The human asking to deal the next hand rather than wait out the hold.
+  // Anything that is not exactly the thing being waited for is ignored: no
+  // hold in progress, a hand number that has already moved on, a spectator
+  // (seatOf returns null), or a seat that is not the human's.
+  next(userId: string, msg: Extract<ClientMsg, { t: 'next' }>): void {
+    if (this.pendingNextHand === null || msg.h !== this.pendingNextHand) return;
+    if (this.seatOf(userId) !== this.humanSeat) return;
+    this.resolveHold();
+  }
+
+  // Whether this hand's hold should wait for the human to say `next` rather
+  // than run out on its own clock. Only true on a practice table where the
+  // human is still seated: once they have busted out of a multiway table
+  // there is nobody left to press the button, and the remaining bot-only
+  // hands play out at the ordinary pace instead of waiting on someone who
+  // cannot answer.
+  private waitingForHuman(): boolean {
+    return this.practice && this.humanSeat !== null && this.places[this.humanSeat] === null;
+  }
+
+  // The pause after a hand: the ordinary fixed sleep everywhere else, or, on
+  // a practice table with the human still in it, a wait for their `next`
+  // with a safety timeout so a player who walks away does not hang a table
+  // that still has bots seated at it. Broadcasting here (`onChange`) is what
+  // puts `hold: 'you'` on the human's view for the wait; nothing else in this
+  // hand has changed, so there is nothing else to send.
+  private holdAfterHand(): Promise<void> {
+    if (!this.waitingForHuman()) {
+      return new Promise((resolve) => setTimeout(resolve, holdFor(this.match.format)));
+    }
+    return new Promise((resolve) => {
+      this.pendingNextHand = this.handNumber;
+      this.nextResolve = resolve;
+      this.nextTimer = setTimeout(() => this.resolveHold(), practiceHoldTimeoutFor(this.match.format));
+      this.onChange();
+    });
+  }
+
+  private resolveHold(): void {
+    if (this.nextTimer) {
+      clearTimeout(this.nextTimer);
+      this.nextTimer = null;
+    }
+    const resolve = this.nextResolve;
+    this.pendingNextHand = null;
+    this.nextResolve = null;
+    if (resolve) resolve();
+  }
+
   private stampLastAction(state: HandState, timedOut = false): void {
     const idx = state.actions.length - 1;
     const t = Date.now() - this.handStartedAt;
@@ -381,6 +442,7 @@ export class EngineHandRunner implements HandRunner {
       handsPlayed: this.handsPlayed,
       last: this.lastEvent,
       result,
+      ...(this.pendingNextHand !== null && viewerTableSeat === this.humanSeat ? { hold: 'you' as const } : {}),
     };
   }
 
@@ -444,11 +506,25 @@ export class EngineHandRunner implements HandRunner {
     await updateMatchHandsPlayed(this.matchId, this.handsPlayed);
 
     if (this.matchWouldFinish()) {
-      // The last hand is held on screen like any other before the result.
-      await new Promise((r) => setTimeout(r, holdFor(this.match.format)));
+      // The last hand is held on screen like any other before the result:
+      // on a practice table with the human still in it, that means waiting
+      // for their `next` rather than a fixed sleep. `places` has not been
+      // touched yet, so `waitingForHuman` still reads the human as live even
+      // on the hand that is about to bust them.
+      await this.holdAfterHand();
     }
     const finished = this.headsUp ? await this.settleHeadsUp() : await this.settleMultiway();
     if (finished) {
+      this.onChange();
+      return;
+    }
+
+    if (this.waitingForHuman()) {
+      // `places` is now settled for this hand, so a human who just busted
+      // out of a multiway table no longer holds up the bot-only hands after
+      // them.
+      await this.holdAfterHand();
+      await this.startHand(this.handNumber + 1);
       this.onChange();
       return;
     }

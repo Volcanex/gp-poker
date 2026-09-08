@@ -139,16 +139,29 @@ export async function acceptReady(conn: { ws: WebSocket; messages: WsMessages },
 
 /* Plays a seat with uniformly random legal actions until the match ends.
    Every client in a match runs one of these; whoever is not to act simply
-   waits, and a player who has busted waits for `end` like a spectator. */
+   waits, and a player who has busted waits for `end` like a spectator.
+
+   On a practice table this also answers the hold: a view with `hold: 'you'`
+   has no legal action to take, and the table waits for `next` instead of
+   dealing on by itself. Sending it here is what a real client does the
+   moment it draws the button, so this plays a practice table to completion
+   exactly like any other rather than hanging until the safety timeout. */
 export async function driveRandomPlay(
   conn: { ws: WebSocket; messages: WsMessages },
   timeoutMs = 20_000,
   maxSteps = 4000
 ): Promise<MatchResult> {
   for (let step = 0; step < maxSteps; step++) {
-    const msg = await conn.messages.wait((m) => (m.t === 'state' && m.s.legal !== null) || m.t === 'end', timeoutMs);
+    const msg = await conn.messages.wait(
+      (m) => (m.t === 'state' && (m.s.legal !== null || m.s.hold === 'you')) || m.t === 'end',
+      timeoutMs
+    );
     if (msg.t === 'end') return msg.r as MatchResult;
     const view = msg.s as TableView;
+    if (view.hold === 'you') {
+      conn.ws.send(JSON.stringify({ t: 'next', m: view.m, h: view.h }));
+      continue;
+    }
     const legal = view.legal!;
     const action = legal.actions[Math.floor(Math.random() * legal.actions.length)];
     const payload: Record<string, unknown> = { t: 'act', m: view.m, h: view.h, n: view.n, a: action };

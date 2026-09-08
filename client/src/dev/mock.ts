@@ -120,12 +120,19 @@ export function mockScript(mode: Mode = 'heads-up', rated = true, practice = fal
   const steps = mode === 'six-max' ? sixMaxScript() : headsUpScript();
   /* A practice table is a casual table with the flag the client reads to show
      the analysis strip. Stamped over the finished script rather than threaded
-     through both builders: the flag changes nothing about how a hand plays. */
+     through both builders: the flag changes nothing about how a hand plays.
+     A hand-over step (street done) also gets `hold: 'you'`, the same way the
+     server holds a practice table for the human's `next`, so the button that
+     answers it has something to show up against on /m/mock?practice=1. */
   if (practice) {
     return steps.map((s) => ({
       ...s,
       view: s.view
-        ? { ...s.view, format: { ...s.view.format, rated: false, practice: true } }
+        ? {
+            ...s.view,
+            format: { ...s.view.format, rated: false, practice: true },
+            ...(s.view.street === 'done' ? { hold: 'you' as const } : {}),
+          }
         : undefined,
       end: s.end ? { ...s.end, rated: false } : undefined,
     }));

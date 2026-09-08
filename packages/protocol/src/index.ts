@@ -14,7 +14,12 @@
    matchmade table now waits for every human to accept it, and a v4 client
    neither draws the prompt nor sends `ready`. It would sit through the
    countdown, be dropped as a no-show and collect a cooldown for it, so this
-   one cannot be served unchanged. */
+   one cannot be served unchanged.
+
+   The practice hold was additive inside v5: `ClientMsg.next` and
+   `TableView.hold` are both new and both optional, and a client that never
+   sends `next` simply never un-holds a practice table beyond the safety
+   timeout, which is exactly the behaviour it had before either existed. */
 
 export const PROTOCOL_VERSION = 5;
 
@@ -68,6 +73,11 @@ export interface MatchFormat {
   // Overrides HAND_HOLD_MS for this format. A ladder hand has no one
   // watching it, so it does not pause four seconds to be watched.
   holdMs?: number;
+  // Overrides PRACTICE_HOLD_TIMEOUT_MS: how long a practice table waits for
+  // the human to send `next` before dealing on by itself. Only meaningful
+  // with `practice: true`; a test shrinks it rather than actually waiting
+  // two minutes for the fallback to prove itself.
+  practiceHoldTimeoutMs?: number;
   // A home game: a private six-max table a host gathered by link, with bots
   // in whatever seats nobody took. Optional for the same reason `practice`
   // is: a format stored before home games existed simply has no key.
@@ -353,6 +363,20 @@ export const HAND_HOLD_MS = 4_000;
    server sleeps this and the client counts it down, so both ask here. */
 export function holdFor(format: MatchFormat): number {
   return Math.min(format.holdMs ?? HAND_HOLD_MS, format.clockMs);
+}
+
+/* A practice table does not deal on by itself the way `holdFor` above does:
+   the finished hand stays up until the human sends `next`. This is the
+   safety valve for the case where they never do (walked away, closed the
+   tab): after this long the table deals on (or finishes the match) as if
+   `next` had arrived, so a bot table cannot hang forever on somebody who
+   isn't coming back. */
+export const PRACTICE_HOLD_TIMEOUT_MS = 120_000;
+
+/* The timeout one practice format actually uses: its own
+   `practiceHoldTimeoutMs` if it set one, the shared default otherwise. */
+export function practiceHoldTimeoutFor(format: MatchFormat): number {
+  return format.practiceHoldTimeoutMs ?? PRACTICE_HOLD_TIMEOUT_MS;
 }
 
 /* Six handed is the main game. It is the one the home page opens on, the one
@@ -654,6 +678,13 @@ export type ClientMsg =
   | { t: 'join'; m: string } // subscribe to a match as player or spectator
   | { t: 'leave'; m: string }
   | { t: 'act'; m: string; h: number; n: number; a: ActionKind; v?: number } // n = action seq the client is acting at
+  // Practice only: deal the next hand (or, on the last one, finish the
+  // match) instead of waiting out the hold. `h` is the hand this is answering
+  // for, echoed the same way `act` echoes `n`: a `next` for a hand that has
+  // already moved on is ignored rather than misapplied to the one after it.
+  // Sent by the human seat only; a spectator's or a bot's is ignored too, and
+  // so is one on a table that never holds for it in the first place.
+  | { t: 'next'; m: string; h: number }
   // Table chat. Anyone subscribed to the match may send one; where it lands is
   // the server's decision, not the sender's (see ChatFrom).
   | { t: 'chat'; m: string; text: string }
@@ -848,6 +879,11 @@ export interface TableView {
   handsPlayed: number;
   last: LastEvent | null;
   result: HandResult | null; // set while street === 'done'
+  /* Present only in the hand-over state of a practice table, for the human
+     viewer: the table has finished a hand and is waiting for them to send
+     `next` rather than dealing on by itself. Additive and optional, absent
+     everywhere else (a non-practice table, a spectator, mid-hand). */
+  hold?: 'you';
 }
 
 export interface HandResult {

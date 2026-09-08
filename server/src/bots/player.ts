@@ -1,4 +1,4 @@
-import { DEFAULT_BOT_LEVEL, type BotLevel, type ClientMsg, type ServerMsg, type TableView } from '@opentable/protocol';
+import { DEFAULT_BOT_LEVEL, type BotLevel, type ClientMsg, type MatchFormat, type ServerMsg, type TableView } from '@opentable/protocol';
 import { decide, type Rng } from './strategy.js';
 
 /* One bot at the table. It has no socket: the hub routes its messages to
@@ -11,13 +11,38 @@ import { decide, type Rng } from './strategy.js';
    and so its timing is not a tell. The delay is capped against the decision
    clock, which is what makes a test running a 300ms clock finish this
    decade; it never runs out of time, because the decision is already made
-   when the timer is set. */
+   when the timer is set.
+
+   The ranges are chosen from the format on every decision rather than fixed
+   at construction: the same BotPlayer instance plays a rated queue fill, a
+   practice table and a ladder match across its lifetime, one after another,
+   and a practice table alone is paced for a person to follow. */
 
 const THINK_MIN_MS = 600;
 const THINK_MAX_MS = 1800;
 const QUICK_MIN_MS = 100;
 const QUICK_MAX_MS = 400;
+
+// A practice table is a person against bots, so bots there think longer than
+// they need to: fast enough not to be dull, slow enough that a hand reads as
+// something happening rather than a wall of text. The quick range (a check,
+// a call that costs nothing) is roughly doubled rather than left alone, for
+// the same reason. Rated and casual tables against bots (the ladder, a
+// filled heads-up seat) are tuned for throughput and keep the ranges above.
+const PRACTICE_THINK_MIN_MS = 1400;
+const PRACTICE_THINK_MAX_MS = 3200;
+const PRACTICE_QUICK_MIN_MS = 200;
+const PRACTICE_QUICK_MAX_MS = 800;
+
 const CLOCK_FRACTION = 4; // never think for longer than a quarter of the clock
+
+// Exported for the test suite: proving the ranges actually differ by format
+// does not need a live match, timers and a socket around it.
+export function thinkRange(format: MatchFormat, trivial: boolean): [number, number] {
+  const practice = format.practice === true;
+  if (trivial) return practice ? [PRACTICE_QUICK_MIN_MS, PRACTICE_QUICK_MAX_MS] : [QUICK_MIN_MS, QUICK_MAX_MS];
+  return practice ? [PRACTICE_THINK_MIN_MS, PRACTICE_THINK_MAX_MS] : [THINK_MIN_MS, THINK_MAX_MS];
+}
 
 export type Dispatch = (userId: string, msg: ClientMsg) => void;
 
@@ -56,7 +81,7 @@ export class BotPlayer {
     const decision = decide(view, this.rng, this.level);
     const me = view.seats[view.you];
     const trivial = decision.a === 'x' || me.stack === 0 || me.stack <= view.legal.call;
-    const [lo, hi] = trivial ? [QUICK_MIN_MS, QUICK_MAX_MS] : [THINK_MIN_MS, THINK_MAX_MS];
+    const [lo, hi] = thinkRange(view.format, trivial);
     const cap = Math.max(1, Math.floor(view.format.clockMs / CLOCK_FRACTION));
     const delay = Math.min(cap, lo + this.rng() * (hi - lo));
 

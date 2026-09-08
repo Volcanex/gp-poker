@@ -7,6 +7,10 @@ import { unwatchArena, watchArena } from '../arena.js';
 
 // Dispatches everything the hub hands it except `ping`, which the hub
 // answers itself before this is ever called.
+//
+// `next` is the practice hold's un-hold: sent by the human seat once they
+// have looked at a finished hand, so the table deals the next one (or
+// finishes the match) instead of waiting out the safety timeout.
 export function routeClientMessage(userId: string, msg: ClientMsg): void {
   switch (msg.t) {
     case 'queue': {
@@ -49,6 +53,15 @@ export function routeClientMessage(userId: string, msg: ClientMsg): void {
         return;
       }
       room.handleAct(userId, msg);
+      return;
+    }
+    case 'next': {
+      const room = getRoom(msg.m);
+      if (!room) {
+        hub.send(userId, { t: 'err', c: 'no_match', msg: 'No such match' });
+        return;
+      }
+      room.handleNext(userId, msg);
       return;
     }
     case 'chat': {
