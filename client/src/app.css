@@ -215,6 +215,10 @@
 
 .settings { display: flex; flex: none; }
 .settings-menu { min-width: 262px; display: flex; flex-direction: column; gap: 6px; padding: 8px; }
+/* display: flex above beats the popover's own display: none while it is shut,
+   so a closed menu was still in the tab order: thirty stops of swatches and
+   switches between the header and the dock, invisible at opacity 0. */
+.settings-menu:not(:popover-open) { display: none; }
 .menu-title { font-size: 11px; color: var(--text-secondary); padding: 0 2px; }
 
 .choices { display: flex; gap: 4px; }

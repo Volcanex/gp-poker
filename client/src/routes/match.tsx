@@ -186,7 +186,11 @@ function LiveMatch({ id }: { id: string }) {
 
   return (
     <>
-      <Table view={view} onAct={onAct} sending={sending} ended={ended != null} chat={chat} />
+      {/* Every live table draws the v2 felt: SVG cards and chips and the
+          action band. The mock keeps v1 as its default so the footprint and
+          screenshot suites go on measuring the felt they were written for,
+          and offers ?v2=1 for the one people play on. */}
+      <Table view={view} onAct={onAct} sending={sending} ended={ended != null} chat={chat} look="v2" />
       {ended ? (
         <>
           <ResultPanel

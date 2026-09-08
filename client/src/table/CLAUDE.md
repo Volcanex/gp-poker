@@ -264,9 +264,10 @@ forty two pixels is a name.
 ## The v2 felt (cards and chips as SVG)
 
 `look.ts` is a context, `v1` or `v2`; `Table` takes `look` and stamps
-`data-look="v2"` on `.match`, and the mock reaches it at `/m/mock?v2=1`. It
-exists so the rework can be looked at beside the felt people play on while the
-suite stays green against v1; once v2 is the only felt, the context goes.
+`data-look="v2"` on `.match`. **Every live table draws v2** (`../routes/match.tsx`
+passes it); the mock defaults to v1 so the footprint and screenshot suites keep
+measuring the felt they were written for, and takes `?v2=1`. The replay is bare
+and stays v1. Once the suites move to v2, v1 and the context go.
 `look-v2.css` holds every v2 rule and `felt-v2.spec.ts` holds it to the same
 zero layout shift as v1.
 

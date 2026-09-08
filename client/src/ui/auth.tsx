@@ -112,7 +112,6 @@ export function AccountMenu() {
         aria-haspopup="menu"
       >
         {me && <Avatar seed={me.id} name={me.name} size={24} avatarV={avatarVersion(me.avatarV)} />}
-        {me && <Avatar seed={me.id} name={me.name} size={24} />}
         {me?.country && <Flag code={me.country} size={16} />}
         {me ? me.name : 'Account'}
         {me && <span className="r num">{int(modeRating(me, mode).rating)}</span>}

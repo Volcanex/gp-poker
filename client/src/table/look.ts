@@ -1,10 +1,10 @@
 import { createContext, useContext } from 'react';
 
-/* Which rendering of the felt this table draws. `v2` is the card and chip
-   rework being spiked on the mock table: SVG card faces, three-quarter chips,
-   the phone hero band. The context exists so the two can be looked at side by
-   side while the old one is still the one people play on; once v2 is the only
-   look, this file goes. */
+/* Which rendering of the felt this table draws. `v2` is the rework: SVG card
+   faces, three-quarter chips, the action band. Every live table draws it; the
+   mock defaults to `v1` so the footprint and screenshot suites keep measuring
+   the felt they were written for, and takes ?v2=1. Once the suites move to v2,
+   v1 and this file go. */
 export type Look = 'v1' | 'v2';
 
 export const LookContext = createContext<Look>('v1');
