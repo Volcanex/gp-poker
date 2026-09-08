@@ -1,11 +1,13 @@
-/* The two pure parts of how the 13 by 13 grid shows a value: the heat ramp a
-   number is shaded with, and the geometry of the entrance that radiates out
-   from the middle of the grid.
+/* The heat ramp a number on the grid is shaded with.
 
-   Both live here rather than in hand-grid.tsx because they are arithmetic with
-   no React in them, which is what makes them testable and what lets the legend
-   swatches be drawn from exactly the same numbers as the cells they explain.
-   A legend built by eye drifts from its grid the first time the cap moves. */
+   It lives here rather than in hand-grid.tsx because it is arithmetic with no
+   React in it, which is what makes it testable and what lets the legend
+   swatches be drawn from exactly the same numbers as the cells they explain. A
+   legend built by eye drifts from its grid the first time a cap moves.
+
+   The entrance the grid arrives with is not here: it is shared with the
+   preflop puzzle's chart, which has no ramp at all, so it lives in
+   ../ui/grid-entrance.ts. */
 
 /* How far up the ramp a cell may go, as a percentage of the hue mixed into the
    surface. Not a taste decision: past this the cell text stops clearing 4.5 to
@@ -58,31 +60,4 @@ export function rangeHeat(percentile: number, top: number): number {
   if (top <= 0) return 1;
   const early = clamp01(1 - percentile / top);
   return RANGE_FLOOR + (1 - RANGE_FLOOR) * early;
-}
-
-/* ------------------------------------------------------------- entrance */
-
-export const GRID_SIZE = 13;
-
-/* One cell's fade, and how long the wave takes to reach a corner from the
-   middle. The two add up to the whole entrance: 520ms, inside g's slow
-   duration times three and well under the point where a page entrance starts
-   feeling like a page load. */
-export const CELL_ENTER = 0.16;
-export const WAVE_SPAN = 0.36;
-
-/* Cells come in a shade smaller. Transform only: a grid that animated its
-   width would push the panel beside it around 169 times. */
-export const ENTER_SCALE = 0.84;
-
-const CENTRE = (GRID_SIZE - 1) / 2;
-const REACH = Math.hypot(CENTRE, CENTRE);
-
-/* Seconds before the cell at (row, col) starts, straight line distance from
-   the middle of the grid. Radial rather than row major, which is the whole
-   point: a wave that runs left to right reads as a list being filled in, one
-   that radiates reads as the grid arriving at once. */
-export function centreDelay(row: number, col: number): number {
-  const d = Math.hypot(row - CENTRE, col - CENTRE);
-  return (d / REACH) * WAVE_SPAN;
 }

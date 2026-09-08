@@ -10,6 +10,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BoardText } from '../ui/board-text.tsx';
+import { useGridEntrance } from '../ui/grid-entrance.ts';
 import { useTitle } from '../ui/title.ts';
 import { KeyHint, ScoreRow, useAnswerKeys, Verdict } from './bits.tsx';
 import { BUCKET_WORDS, SPOT_COPY, chartFor, labelFor, type Action } from './chart.ts';
@@ -150,6 +151,11 @@ export function Preflop() {
 }
 
 function ChartGrid({ puzzle }: { puzzle: PreflopPuzzle }) {
+  /* The chart is only ever on the page for one answer, and the next spot
+     unmounts it, so it enters on mount and never needs a wave. The same
+     radiating order the tools grids use: the two are the same object to a
+     reader, whatever they are made of underneath. */
+  const gridRef = useGridEntrance<HTMLDivElement>({ selector: '.chart-cell' });
   const grid = gridFor(puzzle.bucket, puzzle.spot);
   const counts = countRegions(grid);
   const chart = chartFor(puzzle.bucket, puzzle.spot);
@@ -168,6 +174,7 @@ function ChartGrid({ puzzle }: { puzzle: PreflopPuzzle }) {
       <div className="chart-grid-wrap" tabIndex={0} role="group" aria-label="The chart for this spot">
         <div
           className="chart-grid"
+          ref={gridRef}
           role="img"
           aria-label={`The chart for this spot, 13 by 13, ranks from ace down to two. Of the 169 classes it says ${summary}. For ${puzzle.hand} it says ${labelFor(puzzle.spot, puzzle.best).toLowerCase()}.`}
         >
@@ -178,10 +185,12 @@ function ChartGrid({ puzzle }: { puzzle: PreflopPuzzle }) {
           {grid.map((row, i) => (
             <Fragment key={RANKS[i]}>
               <span className="chart-head">{RANKS[i]}</span>
-              {row.map((cell) => (
+              {row.map((cell, j) => (
                 <div
                   className="chart-cell"
                   key={cell.hand}
+                  data-r={i}
+                  data-c={j}
                   data-region={cell.region}
                   title={cell.hand}
                   {...(cell.hand === puzzle.hand ? { 'data-yours': '' } : {})}

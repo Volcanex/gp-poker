@@ -43,6 +43,20 @@ walk that finds the decision (`GET /api/puzzles/hand`) and the page replays the
 log up to the index it names, so the pot and the price on screen are the
 engine's answer rather than numbers the server wrote down.
 
+## The chart enters with the same wave the tools grids do
+
+`preflop-page.tsx` draws its own 13 by 13 chart from `gridFor` rather than
+using `../tools/hand-grid.tsx`, because the two agree about nothing except
+their shape: one is 169 buttons with a roving tab index and a paint gesture,
+this is 169 decorative divs behind one `role="img"` label. What they do share
+is the entrance, `useGridEntrance` in `../ui/grid-entrance.ts`, which is why
+the chart cells carry `data-r` and `data-c`: that is what the wave orders by.
+
+The chart takes no `wave`, because it mounts fresh for every answer and
+unmounts on the next spot, so mounting is the only thing that can ever mean a
+new chart. Only opacity and a transform are touched, so the verdict above it
+and the score row below it do not move while it arrives.
+
 ## The record
 
 One object under `ot.puzzles`: a streak, best streak and count per type, plus
