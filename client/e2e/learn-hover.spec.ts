@@ -1,6 +1,14 @@
 import { expect, test } from '@playwright/test';
 import { markSettled, shiftSince, stubApi, watchLayoutShift } from './table.ts';
 
+/* Pages slide in on load (see ui/enter.tsx), and a rect read mid-slide is a
+   rect with a transform in it. Every measurement here waits for the page's
+   animations to finish first. */
+async function settled(page: import('@playwright/test').Page) {
+  await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => null))));
+}
+
+
 /* Hovering a square must not move the square. Every page in the learn, tools
    and puzzles section draws a 13 by 13 grid the pointer is meant to sweep, and
    two of them read the cell under it out into a panel beside the grid. If that
@@ -83,6 +91,7 @@ const PAGES: Page[] = [
     ready: async (page) => {
       await page.locator('.row .btn').first().click();
       await page.locator('.chart-grid').waitFor();
+      await settled(page);
     },
   },
 ];
@@ -119,6 +128,7 @@ for (const target of PAGES) {
     await page.locator('main').waitFor();
     await target.ready?.(page);
     await page.locator(target.cells).first().waitFor();
+    await settled(page);
 
     const cells = page.locator(target.cells);
     await expect(cells).toHaveCount(169);
@@ -159,6 +169,7 @@ test('the opening explorer keeps its panel through every cell', async ({ page })
   await page.route('**/api/explorer*', (route) => route.fulfill({ json: BOOK }));
   await page.goto('/tools/explorer');
   await page.locator('.hand-grid .cell').first().waitFor();
+  await settled(page);
 
   const panel = 'section[aria-label="One hand"]';
   const cells = page.locator('.hand-grid .cell');
