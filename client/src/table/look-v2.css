@@ -178,6 +178,16 @@
   pointer-events: none;
 }
 
+/* The award line under the board is revealed, not faded: a mask that opens
+   from its leading edge, the way a line is written. `--wipe` is how much of
+   it is still covered and is the only thing animated; the pill's own radius
+   is carried in the clip so what grows is a pill and not a rectangle. It is
+   paint, not layout, so the zone's reserved height still holds the felt
+   still, and a split pot's two lines stay side by side in the flow. */
+.match[data-look="v2"] .award-chip {
+  clip-path: inset(0 var(--wipe, 0%) 0 0 round var(--radius-full));
+}
+
 /* A flight is placed by the middle of its bottom edge, the point a stack
    stands on, and carries the chip size it left at, so it lines up with the
    stack it came from and scales into the size of the one it joins. Nothing
