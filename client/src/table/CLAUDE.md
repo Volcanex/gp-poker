@@ -136,6 +136,29 @@ The row is aligned to its bottom edge instead.
 the band renders it into its middle column, so row 6 is empty and the felt gets
 those pixels back. v1 keeps the row untouched.
 
+**The band sits on the page's gutter, not its own.** `--band-gut` is 16px wide
+and 12px on a phone, which is what the felt, the hand header and the dock this
+replaces already use. It was 12 and 8, four pixels narrower than the felt above
+it at both sizes, and the step in the edge was visible where the band's border
+meets the felt. `--band-pad` is the vertical padding only, so changing the
+gutter cannot move a row.
+
+**Three lines, one edge.** The flag's reserved box sets the name in by
+`--hb-flag` plus `--hb-flag-gap`, so `.hb-nums` is padded by the same, and the
+name, the stack figure and the last action all start on one line. A stack flush
+to the edge under a name that is not reads as a slip, and most players have no
+flag, so the empty box is the common case rather than the odd one.
+
+**The hand-over ghosts stand where the controls stood, as far as the result
+line allows.** `--act-1/2/3` and `--act-gap` are the turn column's rows, and the
+bottom ghost takes `--act-3` and the same gap, so the fold bar's box is drawn
+exactly where the fold bar was: that is the control a thumb is resting on when
+the hand ends. The two above it cannot also keep their heights. The result line
+and its countdown want 43px at 1280 and 57px on a phone, and three ghosts at the
+turn column's heights would leave 39 and 35, which clips the countdown. So
+`--ghosts-h` is fixed at 156 and 144, the two upper ghosts share what is left,
+and the middle one at least keeps its bottom edge.
+
 **Fold is a slide.** Drag the handle 70% of the way across and the hand goes;
 release earlier and it springs back; a tap nudges it 12 px and springs back, so
 the gesture teaches itself rather than needing a caption. Pointer events with
@@ -165,6 +188,13 @@ sweep and move it. Enter sends, and lives in the sizer because it only means
 anything while a size is open. The clamp and all-in semantics come from
 `raiseAction` and `raiseLabel` in `sizing.ts`, which the dock's `submitRaise`
 also calls.
+
+**Waiting, the status line sits on the band's floor.** It shares the bottom
+line with the hand's last action, which is a 16px slot resting on that floor;
+the status was centred in a 28px row instead and read six pixels above it.
+`.hb-wait .hb-status` is bottom aligned on a 16px line for that reason, and the
+watching state is untouched, because there the line is the only thing in a box
+built for a hand and belongs in the middle of it.
 
 **Handedness is a setting** (`hand` in `../ui/prefs.ts`), stamped as
 `data-hand="left"` on the root by the pre-paint script in `../../index.html` as
@@ -300,7 +330,12 @@ zero layout shift as v1.
   28 is a green chip, two empty slots, a white one). Packing them would move
   chips when a denomination appears; it could be done with a fixed-width
   container and a layout animation, which the observer would not count, but
-  it has not been.
+  it has not been. The consequence, measured at 1280: a bet of 52 draws a green
+  chip and a white one with an empty red slot between them, and the ink inside
+  the five-column box sits 10px right of the lane's centre line, where a bet
+  using every denomination sits 16px left of it. The bet's figure has no
+  reserved width either, so the chips beside it slide about 4px when the amount
+  gains or loses a digit.
 
 ## Two to six seats
 

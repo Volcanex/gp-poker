@@ -19,14 +19,29 @@
   grid-template-columns: auto minmax(0, 1fr) var(--band-col);
   grid-template-areas: "cards keys acts";
   column-gap: var(--band-gap);
-  padding: var(--band-pad) var(--band-pad) calc(var(--band-pad) + env(safe-area-inset-bottom));
+  padding: var(--band-pad) var(--band-gut) calc(var(--band-pad) + env(safe-area-inset-bottom));
   border-top: 1px solid var(--border-subtle);
   background: var(--surface-2);
 
   --band-col: 340px;
   --band-gap: 20px;
   --band-pad: 12px;
+  /* The side gutter is the page's, not the band's own. The felt, the hand
+     header and the dock this replaces all sit on it, and a band four pixels
+     wider than the felt above it reads as a step in the edge. */
+  --band-gut: var(--sp-4);
   --hero-card: 132px;
+  /* The flag's reserved box and the gap after it. The name is set in from the
+     edge by exactly this much, so the stack and the last action are set in by
+     it too and the three lines share one edge. */
+  --hb-flag: 16px;
+  --hb-flag-gap: 6px;
+  /* The three action rows, named here because the hand-over ghosts stand in
+     for them and have to be the same size in the same place. */
+  --act-1: 60px;
+  --act-2: 60px;
+  --act-3: 52px;
+  --act-gap: 8px;
   /* How much of the first card the second one covers. */
   --fan-overlap: 0.4;
   --fan-tilt: 6deg;
@@ -89,12 +104,17 @@
   width: 156px;
   min-width: 0;
 }
-.hb-who { display: flex; align-items: center; gap: 6px; min-width: 0; height: 22px; }
+.hb-who { display: flex; align-items: center; gap: var(--hb-flag-gap); min-width: 0; height: 22px; }
 .hb-name {
   font-size: var(--font-size-ui); font-weight: 500; color: var(--text-primary);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.hb-nums { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+/* Set in by the flag's box and the gap after it: the name starts there, and a
+   stack figure flush to the edge under a name that is not reads as a slip. */
+.hb-nums {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  padding-left: calc(var(--hb-flag) + var(--hb-flag-gap));
+}
 .hb-stack {
   height: 30px; display: flex; align-items: center;
   font-size: 26px; font-weight: 500; letter-spacing: -0.015em;
@@ -128,8 +148,8 @@
 
 .hb-turn {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) 60px 60px 52px;
-  row-gap: 8px;
+  grid-template-rows: minmax(0, 1fr) var(--act-1) var(--act-2) var(--act-3);
+  row-gap: var(--act-gap);
 }
 /* Left aligned inside a full width box, so the first character of a line
    whose numbers change every action stays where it was. */
@@ -303,14 +323,21 @@
   font-size: 12px; color: var(--text-secondary);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+/* Waiting, this line and the hand's last action are the two quiet strings on
+   the band's bottom line. Centred in its own row the status sat six pixels
+   above the label beside it, so it is set on the floor the label sits on. */
+.hb-wait .hb-status { align-items: flex-end; line-height: 16px; }
 
 /* ------------------------------------------------------------------- over */
 
+/* The ghosts take a fixed block rather than their own content height, like
+   everything else on this band, and the result line takes what is left. */
 .hb-over {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  row-gap: 8px;
+  grid-template-rows: minmax(0, 1fr) var(--ghosts-h);
+  row-gap: var(--act-gap);
   min-height: 0;
+  --ghosts-h: 156px;
 }
 /* The dock says the same thing across a row half the page wide. Here it has a
    column, so it stacks, and the countdown keeps its own line. */
@@ -319,7 +346,16 @@
   gap: 4px; min-height: 0; overflow: hidden;
 }
 .hero-band .dock-result .r-line { font-size: var(--font-size-ui); line-height: 1.45; }
-.hb-ghosts { display: grid; grid-template-rows: repeat(3, 48px); gap: 6px; }
+/* The bottom ghost is the fold bar's box exactly, and the gaps are the turn
+   column's, so the control the thumb rests on does not move when the hand
+   ends. The two above it cannot also be their own size: the result line and
+   its countdown need the rest of the block, and a slot too short for them
+   clips the countdown. */
+.hb-ghosts {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) var(--act-3);
+  gap: var(--act-gap);
+}
 /* Outlines rather than dimmed copies, exactly as the dock draws them: a
    button at 40% opacity is a button nobody can read. */
 .hb-ghosts .ghost {
@@ -369,7 +405,11 @@
   rotate: calc(-1 * var(--fan-tilt));
 }
 :root[data-hand="left"] .hb-who { flex-direction: row-reverse; }
-:root[data-hand="left"] .hb-nums { align-items: flex-end; }
+:root[data-hand="left"] .hb-nums {
+  align-items: flex-end;
+  padding-left: 0;
+  padding-right: calc(var(--hb-flag) + var(--hb-flag-gap));
+}
 :root[data-hand="left"] .hb-last { text-align: right; }
 :root[data-hand="left"] .hb-sizer {
   grid-template-columns: var(--track-w) minmax(0, 1fr);
@@ -418,7 +458,11 @@
     --band-col: 176px;
     --band-gap: 10px;
     --band-pad: 8px;
+    --band-gut: var(--sp-3);
     --hero-card: 104px;
+    --act-1: 56px;
+    --act-2: 56px;
+    --act-3: 48px;
     grid-template-columns: minmax(0, 1fr) var(--band-col);
     grid-template-areas: "cards acts";
   }
@@ -447,8 +491,7 @@
   .hb-last { width: 84px; text-align: right; }
   .hb-stack { line-height: 1; }
 
-  .hb-turn { grid-template-rows: minmax(0, 1fr) 56px 56px 48px; }
-  .hb-ghosts { grid-template-rows: repeat(3, 44px); }
+  .hb-over { --ghosts-h: 144px; }
   .hero-band .dock-result .r-line { font-size: 11.5px; line-height: 1.4; }
 
   .hb-sizer {
@@ -467,6 +510,19 @@
   :root[data-hand="left"] .hb-cards { justify-self: end; }
   :root[data-hand="left"] .hb-nums { flex-direction: row-reverse; }
   :root[data-hand="left"] .hb-last { text-align: left; }
+}
+
+/* Below 380 the fan is wider than the room left beside the controls: the
+   tilted card reaches over the raise button, which is measured rather than
+   guessed (at 360 it crossed it by thirteen pixels). The card steps down
+   instead, because a card under a button is worse than a smaller card. */
+@media (max-width: 380px) {
+  .hero-band { --hero-card: 84px; }
+  /* And the last action's slot with it. The name's indent is paid for out of
+     this row, and at 360 the row is 150px: a 84px slot plus a four figure
+     stack does not fit one, and a row with no slack packs its two ends
+     together, so the label would move every time the stack gained a digit. */
+  .hb-last { width: 64px; }
 }
 
 /* A narrow desktop has room for the hand and the controls but not for a

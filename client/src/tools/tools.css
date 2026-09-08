@@ -333,12 +333,21 @@
   color: var(--text-primary);
 }
 
+/* Three columns rather than space-between: with three labels of three
+   different widths, space-between puts the middle one's box in the middle of
+   what is left over rather than over the halfway line the track draws, which
+   left "50%" seven pixels off the mark it names. */
 .eq-ticks {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
   font-size: 11px;
   color: var(--text-secondary);
 }
+
+.eq-ticks i:first-child { justify-self: start; }
+.eq-ticks i:nth-child(2) { justify-self: center; }
+.eq-ticks i:last-child { justify-self: end; }
 
 .eq-ticks i {
   font-style: normal;
@@ -508,6 +517,14 @@
 
   .odds-score {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* Two rows here rather than one, so the tile has a neighbour under it. Its
+     bleed downwards was eating the whole row gap and its bottom edge sat on
+     the cell below. It keeps the bleed into the card's padding on the three
+     sides where there is padding to bleed into. */
+  .streak-tile {
+    margin-bottom: 0;
   }
 
   .eq-row,
