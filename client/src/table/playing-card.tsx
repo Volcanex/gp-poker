@@ -4,6 +4,9 @@ import { useLook } from './look.ts';
 
 const SUIT_GLYPH: Record<string, string> = { s: '♠', h: '♥', d: '♦', c: '♣' };
 const SUIT_NAME: Record<string, string> = { s: 'spades', h: 'hearts', d: 'diamonds', c: 'clubs' };
+/* Where a card sits once it has landed. */
+const REST = { opacity: 1, x: 0, y: 0, scale: 1, rotateY: 0 };
+
 const RANK_NAME: Record<string, string> = {
   A: 'ace', K: 'king', Q: 'queen', J: 'jack', T: 'ten',
   '9': 'nine', '8': 'eight', '7': 'seven', '6': 'six',
@@ -42,8 +45,12 @@ export function PlayingCard({ card, index = 0, dim, still, best, flip, origin }:
      A card turned over at a showdown does neither: it flips where it lies, so
      nothing about the seat moves while the hand is being read. */
   const from = origin ?? { x: 0, y: -10 };
+  /* A card that is not being dealt still names its resting values: a parent
+     that flips `still` while a deal is in flight (the hero band does, on the
+     render after its first) would otherwise strip the target and leave the
+     card frozen wherever the deal had got to. */
   const enter = reduced || still
-    ? { initial: false as const }
+    ? { initial: false as const, animate: REST }
     : flip
       ? {
           initial: { rotateY: 90, opacity: 0.4 },
@@ -103,7 +110,7 @@ function CardV2({
   const label = hidden ? 'Face down card' : `${RANK_NAME[rank] ?? rank} of ${SUIT_NAME[suit] ?? suit}`;
   const from = origin ?? { x: 0, y: -10 };
   const enter = reduced || still
-    ? { initial: false as const }
+    ? { initial: false as const, animate: REST }
     : flip
       ? {
           initial: { rotateY: 180 },
