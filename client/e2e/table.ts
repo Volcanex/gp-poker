@@ -41,10 +41,115 @@ const LEADERBOARD = [
    stub served 404 to everything for its whole life, and the two payloads below
    never reached a page. It is why the accessibility run never saw a logged-in
    top bar, which is exactly where the contrast defect was hiding. */
+/* The feed, the counters, the watch page and the practice card. Fixtures rather
+   than an empty 404 for each, so the baselines show the pages populated: an
+   offline state is a state worth one screenshot, not the only one anybody ever
+   sees.
+
+   Times are offsets from now, not fixed dates. The feed prints "2h ago" and a
+   pinned timestamp would read differently every day and turn into a date after
+   a week, so each one sits in the middle of its bucket and stays there. */
+const ago = (ms: number) => new Date(Date.now() - ms).toISOString();
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+
+const RECENT = [
+  {
+    id: 'qtabzev9',
+    mode: 'heads-up',
+    rated: true,
+    practice: false,
+    handsPlayed: 25,
+    finishedAt: ago(2.5 * HOUR),
+    players: [
+      { name: 'riverrat', bot: false, place: 1, ratingBefore: 1623, ratingAfter: 1642 },
+      { name: 'kestrel', bot: false, place: 2, ratingBefore: 1537, ratingAfter: 1518 },
+    ],
+  },
+  {
+    id: 'zqmny5hf',
+    mode: 'six-max',
+    rated: false,
+    practice: true,
+    handsPlayed: 31,
+    finishedAt: ago(3.5 * DAY),
+    players: [
+      { name: 'quarrel', bot: false, place: 1, ratingBefore: null, ratingAfter: null },
+      { name: 'BriskQuarry', bot: true, place: 2, ratingBefore: null, ratingAfter: null },
+      { name: 'FeistyGale', bot: true, place: 3, ratingBefore: null, ratingAfter: null },
+    ],
+  },
+];
+
+const STATS = {
+  online: 12,
+  inQueue: 2,
+  playing: 6,
+  matchesToday: 48,
+  handsTotal: 9312,
+  playersTotal: { registered: 34, guest: 502 },
+};
+
+const LIVE = [
+  {
+    id: 'qtabzev9',
+    mode: 'heads-up',
+    rated: true,
+    practice: false,
+    hand: 7,
+    players: [
+      { name: 'riverrat', bot: false, rating: 1642 },
+      { name: 'quarrel', bot: false, rating: 1560 },
+    ],
+    spectators: 3,
+    startedAt: ago(12.5 * MINUTE),
+  },
+];
+
+/* Three to a level, the five levels the server ships, so the practice card's
+   picker has every step in it and the ladder has a roster to draw. */
+const BOT_LEVELS = [
+  { level: 1, levelName: 'Loose and passive', description: 'Level 1: loose and passive, calls almost everything' },
+  { level: 2, levelName: 'Loose', description: 'Level 2: loose, raises only with strong hands' },
+  { level: 3, levelName: 'Tight and passive', description: 'Level 3: tight and passive, folds a lot' },
+  { level: 4, levelName: 'Solid', description: 'Level 4: solid, bets its good hands' },
+  { level: 5, levelName: 'Sharp', description: 'Level 5: sharp, punishes a passive table' },
+];
+
+const BOT_NAMES = [
+  'BriskQuarry', 'FeistyGale', 'CalmPier',
+  'RedTiger', 'OpalChipmunk', 'GleefulCottage',
+  'StealthyCyclone', 'TawnyFjord', 'CheerySled',
+  'ShadyHarp', 'RegalCloud', 'BreezyWhirlwind',
+  'JauntySwan', 'SmokySeal', 'RoyalZinc',
+];
+
+const BOTS = BOT_NAMES.map((name, i) => {
+  const level = BOT_LEVELS[Math.floor(i / 3)];
+  const rating = 1320 + level.level * 60 + (i % 3) * 14;
+  return {
+    id: `bot-${i + 1}`,
+    name,
+    level: level.level,
+    levelName: level.levelName,
+    description: level.description,
+    ratings: {
+      'heads-up': { rating, matches: 40 - i },
+      'six-max': { rating: rating - 40, matches: 12 - (i % 6) },
+    },
+    ladderMatches: i % 4,
+  };
+});
+
 export async function stubApi(page: Page) {
   await page.route('**/api/**', (route) =>
     route.fulfill({ status: 404, json: { error: 'not found' } }));
   await page.route('**/api/leaderboard*', (route) => route.fulfill({ json: LEADERBOARD }));
+  await page.route('**/api/recent*', (route) => route.fulfill({ json: RECENT }));
+  await page.route('**/api/stats', (route) => route.fulfill({ json: STATS }));
+  await page.route('**/api/live', (route) => route.fulfill({ json: LIVE }));
+  await page.route('**/api/bots', (route) => route.fulfill({ json: BOTS }));
   await page.route('**/api/me', (route) => route.fulfill({ json: ME }));
 }
 

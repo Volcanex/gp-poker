@@ -28,6 +28,9 @@ const STATES: Shot[] = [
   { name: 'result', url: '/m/mock?step=18' },
   { name: 'six-max', url: '/m/mock?mode=six-max&step=0' },
   { name: 'six-max-over', url: '/m/mock?mode=six-max&step=6' },
+  /* The list of tables to watch: the one page whose whole content is the live
+     endpoint, so it is worth a picture now that the endpoint has fixtures. */
+  { name: 'watch', url: '/watch' },
   /* The two settings that change the felt: a four colour deck and an accent
      that is not g's own. Chips are in every state above; this is the one that
      pins their colours against a different accent. */
@@ -59,6 +62,15 @@ for (const theme of THEMES) {
            over the dock hides the thing the baseline is for. */
         await page.addStyleTag({ content: '.devnote { display: none !important; }' });
         await page.evaluate(() => document.fonts.ready);
+        /* And every avatar. They are inline SVG data URIs, so they never hit
+           the network and it is tempting to assume they are there, but the
+           decode is still asynchronous: a shot taken between layout and paint
+           differs from one taken after by a few hundred pixels, which is how
+           the whole suite started flaking the day the API stub began serving a
+           logged-in top bar. */
+        await page.evaluate(() => Promise.all(
+          [...document.images].map((img) => img.decode().catch(() => undefined)),
+        ));
         await page.waitForTimeout(1200);
 
         await expect(page).toHaveScreenshot(`${state.name}-${width}-${theme}.png`, {

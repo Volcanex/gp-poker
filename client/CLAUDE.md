@@ -67,6 +67,10 @@ declaration for `phe` that the engine's own tsconfig provides.
   baseline chart in a browser, `showdown.ts` and `preflop.ts` are the pure
   generators, `store.ts` is the record under `ot.puzzles`, and the three
   `*-page.tsx` files are the pages. See **Puzzles** below.
+- `src/chat/` — table chat. `chat.ts` is the pure half (the send cooldown, the
+  unread count, relative time, appending without duplicating a replayed line),
+  `use-chat.ts` owns the state for a live table and for the mock, and `chat.tsx`
+  is the panel and the toggle that goes in the hand header. See **Chat** below.
 - `src/replay/` — `to-view.ts` turns an engine `HandState` into a `TableView`;
   `fairness.ts` re-derives the deck and rehashes the commitment.
 - `src/ui/` — `auth.tsx` (claim, log in, account menu), `settings.tsx` and its
@@ -248,6 +252,14 @@ mock routes need no server and `stubApi` in `e2e/table.ts` fakes the endpoints
 the pages around them ask for, so a run is identical whether or not a dev server
 happens to be up.
 
+`stubApi` serves the leaderboard, the feed, the site counters, the live tables
+and the bot roster as well as your own account, so the baselines show those
+pages populated rather than showing eight pictures of an offline state. Its
+timestamps are offsets from now, sitting in the middle of their bucket, because
+the feed prints "2h ago" and a pinned date would read differently every day.
+The one thing no route can stub is the websocket, so the home page's baseline
+says the connection dropped, which is true.
+
 **Playwright runs the last matching route handler**, so a catch-all has to be
 registered first and the fixtures after it. Registered the other way round the
 catch-all swallows everything: this stub served 404 to every call for its whole
@@ -269,14 +281,18 @@ for it.
 | `reduced-motion` | the same information with the motion emulated off |
 | `settings` | a choice surviving a reload, the pre-paint stamp, every accent's contrast in both themes, the four colour deck, and the menu itself |
 | `replay` | a recorded hand scrubbed back and forth leaves nothing behind and nothing outside the felt, and still verifies |
-| `screenshots` | 96 baselines: eight states at 360, 390, 430, 768, 1366 and 1920, dark and light |
+| `screenshots` | 108 baselines: nine states at 360, 390, 430, 768, 1366 and 1920, dark and light |
 
 Baselines live in `e2e/__screenshots__/` and are updated with
 `npm run e2e:update -w client`. **Read the diff before you accept one.** The
 suite runs with reduced motion so a card mid-deal cannot decide a baseline, and
 masks the four things that cannot be pinned to a pixel: the pot figure
 mid-count, the depleting turn bar, the seconds beside it and the hand-end
-countdown.
+countdown. **It also waits for every image to decode.** Avatars are inline SVG
+data URIs that never touch the network, which makes it easy to assume they are
+there, but the decode is still asynchronous: a shot taken between layout and
+paint differs from one taken after by a few hundred pixels, and the whole suite
+began flaking the day the stub started serving a logged-in top bar.
 
 The suite runs two workers, not one per core: eight states at 1920 in two
 themes is a lot of full-page rendering, and four browsers doing it at once on
@@ -286,6 +302,48 @@ Two things the suite does not cover. The replay page draws a hand fetched from
 the API and the suite deliberately runs without one. And the mock has no
 uncontested pot, so that rule is pinned in the unit tests on `readShowdown`
 instead.
+
+## Chat
+
+**The panel is never a row of `.match`'s grid.** That is the whole rule, and
+`e2e/chat.spec.ts` measures it at both widths: opening, sending and closing
+leave the header, the felt and the dock in byte identical boxes. Where the felt
+leaves a gutter beside it the panel shares the felt's own row (`grid-row: 3`,
+`justify-self: end`) and sits in that gutter; anywhere narrower it is a sheet
+fixed over the felt and above the dock. There are two thresholds because there
+are two felts: 680px heads-up needs 1240px of container, 960px six-max needs
+1520px, and below its own threshold each keeps the sheet rather than laying a
+column over a seat.
+
+The toggle goes at the **end** of the hand header's row, so the unread count
+can arrive and grow without moving anything that was already on it, and its
+slot is held open whether or not there is a number in it.
+
+A spectator's line is drawn quieter and marked "watching", because a spectator
+sees both channels and two conversations in one list have to be told apart. The
+server decides which channel a message is on; the panel only draws what it is
+sent. The cooldown on the send button counts down `CHAT_MIN_GAP_MS` **from the
+protocol**, the same constant the server refuses against: two copies of that
+number drift and the countdown starts lying, the same reason `HAND_HOLD_MS`
+lives there.
+
+`/m/mock` drives the same panel from `mockChat()` with no server behind it,
+which is how the toggle is measured without a live table.
+
+## Presence
+
+Two cues that a match is yours, both outside the table because the point of
+them is being somewhere else. A **"You are playing" pill** in the top bar links
+back to the match `session.tsx` last saw you seated at, on every page except
+that table. It is only ever for a seat: watching is not something to be late
+for. The bar does not wrap and it clips, so the pill drops the opponent's name
+below 700px and the long form of its words below 900px.
+
+A **match found while you are elsewhere** raises g's toast with one action that
+opens the table. Home still navigates by itself, as it always has, so the toast
+is deliberately suppressed there. The sound cue plays wherever you are,
+including home: `matchFound` is not a `SoundEvent`, so this reuses `yourTurn`,
+which is the packs' notification cue and the nearest honest thing to it.
 
 ## Settings
 
