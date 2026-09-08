@@ -139,7 +139,11 @@
 .chat-send .input { flex: 1; min-width: 0; }
 /* The label swaps between "Send" and a countdown, so the box is held open for
    the longer of the two rather than resizing under the pointer. */
-.chat-send-btn { flex: none; min-width: 84px; }
+.chat-send-btn {
+  /* The label counts down and the digits must not resize the button: 2 and 1
+     are different widths in a proportional face. */
+  font-variant-numeric: tabular-nums; flex: none; min-width: 84px;
+}
 
 .chat-err { margin: 0; font-size: 12px; color: var(--danger-text); flex: none; }
 
