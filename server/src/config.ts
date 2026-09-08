@@ -53,4 +53,12 @@ export const config = {
   // ladder is meant to trickle, not to grind: it exists to make the numbers
   // real, and it gives the box back between matches.
   ladderPauseMs: Number(process.env.LADDER_PAUSE_MS ?? 60_000),
+  /* How far behind the present the opening explorer reads. A hand row is
+     written when the hand completes, and two matches running side by side can
+     commit out of order, so the window stops short of now and never closes
+     over a row that has not landed yet. Zero under vitest: a test plays a
+     match and then asks about it, and ten seconds of waiting to prove an
+     ordering guarantee that a single-match suite cannot violate is ten
+     seconds of nothing. */
+  explorerLagMs: Number(process.env.EXPLORER_LAG_MS ?? (inTest ? 0 : 10_000)),
 };

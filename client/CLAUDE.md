@@ -54,9 +54,15 @@ declaration for `phe` that the engine's own tsconfig provides.
   `replay-analysis.ts` is the pure half of the replay's analysis panel (what is
   known at a step, what a call cost, the questions the strip needs) and
   `replay-panel.tsx` draws it. See **The replay** below.
-- `src/tools/` — the calculators at `/tools`: the range explorer and the pot
-  odds trainer. They import the evaluator-free subpaths of `@opentable/equity`
-  and send every actual computation to the worker.
+- `src/tools/` — the pages at `/tools`. The range explorer and the pot odds
+  trainer import the evaluator-free subpaths of `@opentable/equity` and send
+  every actual computation to the worker; the opening explorer (`explorer.tsx`)
+  is the one tool that reads the server, from `/api/explorer`, because what the
+  site itself did preflop is not something a browser can work out.
+  `hand-grid.tsx` is the 13 by 13 grid the two grid pages share: it owns the
+  layout, the roving tab index and the paint gesture, and the cells are the
+  caller's, which is what lets one page paint a range on it and another shade
+  it by a frequency.
 - `src/puzzles/` — the daily puzzles at `/puzzles`. `chart.ts` reads the
   baseline chart in a browser, `showdown.ts` and `preflop.ts` are the pure
   generators, `store.ts` is the record under `ot.puzzles`, and the three

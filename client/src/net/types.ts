@@ -134,6 +134,36 @@ export interface Insights {
   } | null;
 }
 
+/* The opening explorer at /tools/explorer: what players here did preflop from
+   one position, by hand class. Every one of the 169 classes is always in
+   `hands`, so the grid is a fixed shape; a class nobody was dealt here reads
+   as zero hands and null rates rather than as a missing row. */
+export type ExplorerFacing = 'unopened' | 'open' | 'threebet';
+export type ExplorerPlayers = 'all' | 'humans';
+
+export interface ExplorerRow {
+  hand: string;
+  hands: number;
+  raise: number | null;
+  call: number | null;
+  fold: number | null;
+  netBb: number | null;
+}
+
+export interface Explorer {
+  mode: Mode;
+  position: PositionKey;
+  facing: ExplorerFacing;
+  players: ExplorerPlayers;
+  minHands: number;
+  /* `hands` is this selection's decisions; `matches` is every finished match
+     the book was built from, which is what `since` dates. */
+  sample: { hands: number; matches: number };
+  since: string | null;
+  totals: Omit<ExplorerRow, 'hand'>;
+  hands: ExplorerRow[];
+}
+
 export interface MatchHandSummary {
   number: number;
   completedAt: string | null;

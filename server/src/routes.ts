@@ -16,6 +16,7 @@ import {
   getMatchesForUser,
   getInsightHandsForUser,
   getInsightMatchesForUser,
+  getExplorerHands,
   getRatingHistoryForUser,
   getMatchById,
   getHandsForMatch,
@@ -27,6 +28,7 @@ import {
   deleteSession,
   type MatchRow,
 } from './db.js';
+import { config } from './config.js';
 import { hub } from './ws/hub.js';
 import { queueSize } from './matchmaking.js';
 import { getRoom } from './match/rooms.js';
@@ -34,6 +36,7 @@ import { claimGuest, login, requireUser, setSessionCookie, clearSessionCookie, c
 import { rosterSummary } from './bots/index.js';
 import { roundRatings, toModeRating, toUserSummary } from './userView.js';
 import { computeInsights, type Insights } from './insights.js';
+import { emptyExplorerCube, explorerQuery, foldExplorerHands, sliceExplorer, type ExplorerCube } from './explorer.js';
 import { acceptChallenge, cancelChallenge, challengeView, createChallenge } from './challenges.js';
 
 function err(reply: { code: (n: number) => { send: (b: unknown) => unknown } }, status: number, message: string) {
@@ -195,6 +198,38 @@ export function registerRoutes(app: FastifyInstance): void {
       const body = computeInsights({ mode, hands, matches });
       rememberInsights(key, at, body);
       return body;
+    }
+  );
+
+  /* The opening explorer: what players here actually did preflop from a
+     position, by hand class. One cube per mode holds every position, every
+     situation and both player scopes, so the controls on the page cost a
+     slice rather than a query.
+
+     The cube is topped up rather than rebuilt. Every count in it is a sum, so
+     the hands that finished since the last look can simply be added, and the
+     site never pays to replay its whole history twice. Checked at most once a
+     minute per mode, which is also what the Cache-Control tells the browser:
+     a book of finished matches has nothing to say between one match and the
+     next.
+
+     That header is the one exception to app.ts's blanket `no-store` on /api,
+     which is there because every other route is session-scoped. This one is
+     not: it is the same public aggregate for everybody, logged in or not, and
+     it moves only when a match finishes. The override is a route-level onSend
+     because the blanket rule is an instance-level one and instance hooks run
+     first. */
+  app.get<{ Querystring: { mode?: string; position?: string; facing?: string; players?: string } }>(
+    '/api/explorer',
+    {
+      onSend: async (_request, reply, payload) => {
+        reply.header('Cache-Control', `public, max-age=${EXPLORER_REFRESH_MS / 1000}`);
+        return payload;
+      },
+    },
+    async (request) => {
+      const mode = modeParam(request.query.mode);
+      return sliceExplorer(await explorerCube(mode), explorerQuery(mode, request.query));
     }
   );
 
@@ -426,6 +461,34 @@ function rememberInsights(key: string, at: string, body: Insights): void {
     if (oldest === undefined) break;
     insightsCache.delete(oldest);
   }
+}
+
+/* One cube per mode, kept for the life of the process and read up to a moving
+   edge. Two entries at most, so unlike the insights cache there is nothing
+   here to evict. A cold cube reads the most recent EXPLORER_HAND_LIMIT hands;
+   every look after that adds only what finished since, which is why the limit
+   bites once per restart rather than once per match. */
+const EXPLORER_REFRESH_MS = 60_000;
+const explorerCache = new Map<Mode, { cube: ExplorerCube; through: Date; checkedAt: number }>();
+
+async function explorerCube(mode: Mode): Promise<ExplorerCube> {
+  const now = Date.now();
+  // Hands are only read up to a settled edge, so a row committed a moment
+  // late cannot fall behind the window and be missed. See config.explorerLagMs.
+  const before = new Date(now - config.explorerLagMs);
+  const entry = explorerCache.get(mode);
+  if (!entry) {
+    const cube = emptyExplorerCube(mode);
+    foldExplorerHands(cube, await getExplorerHands(mode, { before }));
+    explorerCache.set(mode, { cube, through: before, checkedAt: now });
+    return cube;
+  }
+  if (now - entry.checkedAt >= EXPLORER_REFRESH_MS) {
+    foldExplorerHands(entry.cube, await getExplorerHands(mode, { before, after: entry.through }));
+    entry.through = before;
+    entry.checkedAt = now;
+  }
+  return entry.cube;
 }
 
 function clampLimit(raw: string | undefined, fallback: number, max: number): number {

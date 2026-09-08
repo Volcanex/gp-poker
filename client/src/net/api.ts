@@ -1,6 +1,6 @@
 import type {
-  BotRow, Challenge, CreatedChallenge, FeedMatch, Hand, Insights, LeaderboardRow, LiveMatch, Match, Me, Profile,
-  PuzzleHand, SiteStats,
+  BotRow, Challenge, CreatedChallenge, Explorer, ExplorerFacing, ExplorerPlayers, FeedMatch, Hand, Insights,
+  LeaderboardRow, LiveMatch, Match, Me, PositionKey, Profile, PuzzleHand, SiteStats,
 } from './types.ts';
 import type { Mode, UserSummary } from '@opentable/protocol';
 
@@ -53,6 +53,15 @@ export const api = {
      the one payload on this page worth paying for only when it is looked at. */
   insights: (name: string, mode: Mode) =>
     req<Insights>(`/api/users/${encodeURIComponent(name)}/insights?mode=${encodeURIComponent(mode)}`),
+  /* The opening explorer's book for one selection. The server holds the whole
+     cube in memory and slices it, so flicking a control is a cheap request
+     rather than a recount, and it is cacheable for a minute because the book
+     only moves when a match finishes. */
+  explorer: (mode: Mode, position: PositionKey, facing: ExplorerFacing, players: ExplorerPlayers) =>
+    req<Explorer>(
+      `/api/explorer?mode=${encodeURIComponent(mode)}&position=${encodeURIComponent(position)}` +
+        `&facing=${encodeURIComponent(facing)}&players=${encodeURIComponent(players)}`
+    ),
   match: (id: string) => req<Match>(`/api/matches/${encodeURIComponent(id)}`),
   /* A hand's primary key is '<match id>-<number>' (server/db/schema.sql), so a
      hand is addressable from a match URL without a lookup table. */

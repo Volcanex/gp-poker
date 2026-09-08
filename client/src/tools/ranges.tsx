@@ -8,11 +8,9 @@
    running underneath. */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
-  classKind,
   comboCount,
-  HAND_GRID,
   parseRange,
   rangeFromTop,
   rangePercent,
@@ -26,19 +24,26 @@ import { useGInit } from '../ui/bits.tsx';
 import { useTitle } from '../ui/title.ts';
 import { BoardText } from '../ui/board-text.tsx';
 import { CardPicker, readCards } from './cards.tsx';
+import { HandGrid } from './hand-grid.tsx';
 
 const PRESETS = chartPresets();
 const START_PERCENT = 20;
 
 export function Ranges() {
-  const [range, setRange] = useState<Range>(() => rangeFromTop(START_PERCENT));
+  /* ?preset=deep/sb_open opens straight on one of the baseline charts, which
+     is how the opening explorer hands over a spot: same position, the chart
+     beside what people actually did with it. An id nothing matches is simply
+     the page as it always opens. */
+  const [params] = useSearchParams();
+  const asked = PRESETS.find((p) => p.id === params.get('preset')) ?? null;
+  const [range, setRange] = useState<Range>(() => (asked ? asked.range : rangeFromTop(START_PERCENT)));
   /* The notation field shows the canonical text of the range, except while it
      is being typed into: a draft that parses updates the range, and letting the
      field snap to canonical form mid-word would fight the typist. */
   const [draft, setDraft] = useState<string | null>(null);
   const [textError, setTextError] = useState<string | null>(null);
-  const [top, setTop] = useState(START_PERCENT);
-  const [preset, setPreset] = useState('');
+  const [top, setTop] = useState(asked ? Math.round(asked.percent) : START_PERCENT);
+  const [preset, setPreset] = useState(asked ? asked.id : '');
   const [hero, setHero] = useState<[string, string]>(['Ah', 'Ks']);
   const [boardText, setBoardText] = useState('');
   const sliderRef = useRef<HTMLDivElement | null>(null);
@@ -96,7 +101,12 @@ export function Ranges() {
 
       <div className="tools-split">
         <section className="card stack" aria-label="The range">
-          <HandGrid range={range} onPaint={paint} />
+          <HandGrid
+            label="Starting hands"
+            cell={(cls) => ({ content: cls, label: cls, selected: range.has(cls) })}
+            onPaint={paint}
+            hint="Click or drag to paint. Arrow keys move, space toggles. Pairs run down the diagonal, suited above it, offsuit below."
+          />
           <div className="range-meta">
             <span className="num">{combos}</span>
             <span className="muted">combos</span>
@@ -199,103 +209,6 @@ export function Ranges() {
         </div>
       </div>
     </main>
-  );
-}
-
-function HandGrid({ range, onPaint }: { range: Range; onPaint: (cls: string, adding: boolean) => void }) {
-  const painting = useRef<boolean | null>(null);
-  const gridRef = useRef<HTMLDivElement | null>(null);
-  const [focus, setFocus] = useState<[number, number]>([0, 0]);
-
-  useEffect(() => {
-    const stop = () => {
-      painting.current = null;
-    };
-    window.addEventListener('pointerup', stop);
-    window.addEventListener('pointercancel', stop);
-    return () => {
-      window.removeEventListener('pointerup', stop);
-      window.removeEventListener('pointercancel', stop);
-    };
-  }, []);
-
-  const move = (row: number, col: number) => {
-    const r = Math.max(0, Math.min(12, row));
-    const c = Math.max(0, Math.min(12, col));
-    setFocus([r, c]);
-    gridRef.current?.querySelector<HTMLButtonElement>(`[data-r="${r}"][data-c="${c}"]`)?.focus();
-  };
-
-  const onKeyDown = (event: React.KeyboardEvent) => {
-    const [r, c] = focus;
-    const keys: Record<string, () => void> = {
-      ArrowUp: () => move(r - 1, c),
-      ArrowDown: () => move(r + 1, c),
-      ArrowLeft: () => move(r, c - 1),
-      ArrowRight: () => move(r, c + 1),
-      Home: () => move(r, 0),
-      End: () => move(r, 12),
-    };
-    const handler = keys[event.key];
-    if (!handler) return;
-    event.preventDefault();
-    handler();
-  };
-
-  return (
-    <div className="grid-wrap">
-      <div
-        className="hand-grid"
-        role="grid"
-        aria-label="Starting hands"
-        aria-multiselectable="true"
-        ref={gridRef}
-        onKeyDown={onKeyDown}
-      >
-        {HAND_GRID.map((row, r) => (
-          <div className="grid-row" role="row" key={r}>
-            {row.map((cls, c) => {
-              const on = range.has(cls);
-              return (
-                <button
-                  key={cls}
-                  type="button"
-                  role="gridcell"
-                  data-r={r}
-                  data-c={c}
-                  data-kind={classKind(cls)}
-                  className="cell"
-                  aria-selected={on}
-                  aria-label={cls}
-                  tabIndex={focus[0] === r && focus[1] === c ? 0 : -1}
-                  onFocus={() => setFocus([r, c])}
-                  onPointerDown={(e) => {
-                    e.preventDefault();
-                    painting.current = !on;
-                    onPaint(cls, !on);
-                  }}
-                  onPointerEnter={() => {
-                    if (painting.current !== null) onPaint(cls, painting.current);
-                  }}
-                  onClick={(e) => {
-                    // A pointer already painted this cell; only the keyboard
-                    // should toggle it a second time.
-                    if (e.detail !== 0) return;
-                    onPaint(cls, !on);
-                  }}
-                >
-                  {cls}
-                </button>
-              );
-            })}
-          </div>
-        ))}
-      </div>
-      <p className="muted grid-hint">
-        Click or drag to paint. Arrow keys move, space toggles. Pairs run down the diagonal, suited
-        above it, offsuit below.
-      </p>
-    </div>
   );
 }
 

@@ -8,6 +8,7 @@ import { blindsAt } from '@opentable/protocol';
 import type { HandOutcome } from '@opentable/engine';
 import type { Decision, SeatStats, Summary } from '@opentable/preflop';
 import type { InsightHand, InsightMatch } from './insights.js';
+import type { ExplorerHand } from './explorer.js';
 import { config } from './config.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -961,4 +962,84 @@ export async function getInsightMatchesForUser(userId: string, mode: Mode): Prom
     result: matchResultForUser(m, userId),
     finishedAt: m.finishedAt,
   }));
+}
+
+// ---- explorer ----
+
+/* The rows behind /api/explorer. Every finished hand of one mode, not one
+   player's: the opening explorer is the site's book, so there is no user to
+   narrow it by. Practice tables are left out because they are unrated
+   sandboxes, and ladder tables because nobody played them, which would make
+   the book a picture of the bots talking to themselves.
+
+   Read as a window rather than as a whole table. `before` is the settled
+   edge (see config.explorerLagMs) and `after` is how far the caller has already
+   read, so a warm cache asks only for the hands that arrived since. The limit
+   only ever bites on the first read of a process, which is the one that has
+   no `after` to start from. */
+export const EXPLORER_HAND_LIMIT = 5000;
+
+export interface ExplorerWindow {
+  before: Date;
+  after?: Date | null;
+  limit?: number;
+}
+
+export async function getExplorerHands(mode: Mode, window: ExplorerWindow): Promise<ExplorerHand[]> {
+  const after = window.after ?? null;
+  const rows = await sql<
+    {
+      matchId: string;
+      number: number;
+      seed: string;
+      button: number;
+      stacksStart: number[];
+      liveSeats: number[] | null;
+      actions: LoggedAction[];
+      format: MatchFormat;
+      seats: MatchSeat[];
+      finishedAt: Date | null;
+    }[]
+  >`
+    select
+      h.match_id, h.number, h.seed, h.button, h.stacks_start, h.live_seats, h.actions,
+      m.format, m.seats, m.finished_at
+    from hands h
+    join matches m on m.id = h.match_id
+    where m.status = 'finished'
+      and coalesce(m.format ->> 'mode', 'heads-up') = ${mode}
+      and coalesce((m.format ->> 'practice')::boolean, false) = false
+      and coalesce((m.format ->> 'ladder')::boolean, false) = false
+      and h.completed_at is not null
+      and h.completed_at <= ${window.before}
+      and (${after}::timestamptz is null or h.completed_at > ${after})
+      and h.seed is not null
+    order by h.completed_at desc
+    limit ${window.limit ?? EXPLORER_HAND_LIMIT}
+  `;
+  return rows.map((r) => {
+    // A format written before blind levels existed has no `levels` array and
+    // never escalated, so its level-1 blinds are its blinds for every hand.
+    // blindsAt reads the array without checking, which is a throw on those
+    // rows rather than a fallback.
+    const { sb, bb } = r.format.levels ? blindsAt(r.format, r.number) : { sb: r.format.sb, bb: r.format.bb };
+    // Dense by table seat, so a seat the match never names still reads as a
+    // person rather than as a hole in the array.
+    const bots: boolean[] = r.stacksStart.map(() => false);
+    for (const seat of r.seats) if (seat.seat < bots.length) bots[seat.seat] = seat.bot === true;
+    return {
+      matchId: r.matchId,
+      button: r.button,
+      sb,
+      bb,
+      seed: r.seed,
+      stacksStart: r.stacksStart,
+      // A heads-up hand written before the map existed had table seats and
+      // engine seats as the same thing, which is what the identity says.
+      liveSeats: r.liveSeats ?? r.stacksStart.map((_, i) => i),
+      actions: r.actions,
+      bots,
+      finishedAt: r.finishedAt,
+    };
+  });
 }

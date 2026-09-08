@@ -6,6 +6,7 @@
 
 import { Link } from 'react-router-dom';
 import { useTitle } from '../ui/title.ts';
+import { Explorer } from './explorer.tsx';
 import { Odds } from './odds.tsx';
 import { Ranges } from './ranges.tsx';
 import './tools.css';
@@ -14,9 +15,15 @@ export const toolsRoutes: { path: string; element: React.ReactNode }[] = [
   { path: '/tools', element: <Tools /> },
   { path: '/tools/ranges', element: <Ranges /> },
   { path: '/tools/odds', element: <Odds /> },
+  { path: '/tools/explorer', element: <Explorer /> },
 ];
 
 const TOOLS = [
+  {
+    to: '/tools/explorer',
+    title: 'Opening explorer',
+    desc: 'Every hand played here, by starting hand: what the table raised, called and folded, and how it went.',
+  },
   {
     to: '/tools/ranges',
     title: 'Range explorer',
@@ -36,8 +43,10 @@ export function Tools() {
       <div className="stack" style={{ gap: 'var(--sp-3)' }}>
         <h1 className="h1">Tools</h1>
         <p className="muted">
-          Two calculators that run entirely in your browser. Nothing here is a solver: the ranges are
-          heuristic baselines and the equities are against random hands unless you say otherwise.
+          Two calculators that run entirely in your browser and one book that reads the site's own
+          hands back. Nothing here is a solver: the ranges are heuristic baselines, the equities are
+          against random hands unless you say otherwise, and the explorer is a record of what people
+          did rather than advice about what to do.
         </p>
       </div>
       <div className="tool-list">
@@ -54,3 +63,4 @@ export function Tools() {
 
 export { Ranges } from './ranges.tsx';
 export { Odds } from './odds.tsx';
+export { Explorer } from './explorer.tsx';

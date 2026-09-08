@@ -214,3 +214,111 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* The opening explorer */
+
+.ex-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--sp-4);
+  align-items: end;
+}
+
+.ex-sample {
+  margin: 0;
+  font-size: var(--font-size-ui);
+  color: var(--text-secondary);
+}
+
+.ex-sample .num {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A shaded cell is one token colour at a strength, never a colour of its own:
+   --_v is how far up the ramp it sits and --_tone is which ramp. Mixing into
+   the cell's own background rather than over it keeps an empty cell and a
+   nearly empty one on the same ground. */
+.cell[data-tone] {
+  --_tone: var(--chart-1);
+  --_v: 0;
+  background: color-mix(in oklab, var(--_tone) calc(var(--_v) * 100%), var(--surface-2));
+  color: var(--text-primary);
+  cursor: default;
+}
+
+.cell[data-tone='up'] { --_tone: var(--ok-text); }
+.cell[data-tone='down'] { --_tone: var(--danger-text); }
+
+.cell[data-tone='none'] {
+  background: var(--bg);
+  color: var(--text-secondary);
+}
+
+/* Every cell with hands in it is boxed, so the shape of what the site has
+   actually played is readable even where the shade is at its palest: an
+   untinted cell that somebody folded every time and a cell nobody has been
+   dealt are otherwise the same colour. */
+.cell[data-tone]:not([data-tone='none']) {
+  border-color: var(--border);
+}
+
+/* The base .cell:hover is one class less specific than the rule above, so the
+   pointer would otherwise get no answer at all on a shaded grid. */
+.cell[data-tone]:hover {
+  border-color: var(--accent-edge);
+}
+
+.ex-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.ex-ramp {
+  display: flex;
+  gap: 2px;
+}
+
+.ex-swatch {
+  --_tone: var(--chart-1);
+  --_v: 0;
+  width: 20px;
+  height: 12px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: color-mix(in oklab, var(--_tone) calc(var(--_v) * 100%), var(--surface-2));
+}
+
+.ex-swatch[data-tone='up'] { --_tone: var(--ok-text); }
+.ex-swatch[data-tone='down'] { --_tone: var(--danger-text); }
+
+.results dd.num[data-sign='up'] { color: var(--ok-text); }
+.results dd.num[data-sign='down'] { color: var(--danger-text); }
+
+@media (max-width: 720px) {
+  .ex-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Rank strips, for a grid whose cells read a number rather than their own
+   class. The corner is an empty span so the two strips line up on one track
+   without the rows needing a different template from the header. */
+.hand-grid[data-ranks] .grid-row {
+  grid-template-columns: 1.1rem repeat(13, minmax(0, 1fr));
+}
+
+.rank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--text-secondary);
+}
+
+.rank-row .rank {
+  height: 12px;
+}

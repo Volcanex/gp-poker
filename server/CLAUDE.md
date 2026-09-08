@@ -33,6 +33,14 @@ decisions; this file covers what's not obvious from the code.
   No database, no clock, no Fastify: hands in, one `Insights` out, which is
   why `src/insights.test.ts` can drive it with synthetic action logs. See
   "Insights".
+- `src/explorer.ts` — the pure derivation behind `/api/explorer` (the opening
+  explorer at `/tools/explorer`): every finished hand of a mode replayed into
+  one cube of (position, facing, hand class) tallies that `sliceExplorer` reads
+  a selection out of. The cube is **added to rather than rebuilt** and the route
+  tops it up once a minute, because replaying the whole corpus every time a
+  match finished would block the event loop for the best part of a second. It
+  is also the one route that overrides `app.ts`'s blanket `no-store` on `/api`:
+  it is the same public aggregate for everybody, so it is cacheable.
 - `src/routes.ts` — all REST endpoints. Protocol v2 changes:
   - `/api/me`, `/api/claim`, `/api/login` and `hi` all carry a `UserSummary`
     whose `ratings` is a mode-keyed map of `{rating, rd, provisional, peak,
