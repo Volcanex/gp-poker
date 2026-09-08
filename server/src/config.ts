@@ -43,4 +43,14 @@ export const config = {
   // every level has its three bots: a practice table asks for a level, and a
   // level with nobody loaded cannot be practised against.
   botCount: Number(process.env.BOT_COUNT ?? 15),
+  // The bot ladder: bots play each other in the background, rated, so the
+  // levels spread out before any human arrives. Off under vitest unless a
+  // test turns it on through `configureLadder`, because a suite that quietly
+  // plays poker in the background is a suite whose timings are somebody
+  // else's.
+  ladderEnabled: process.env.LADDER_ENABLED ? process.env.LADDER_ENABLED === 'true' : !inTest,
+  // Gap between one ladder match ending and the next being considered. The
+  // ladder is meant to trickle, not to grind: it exists to make the numbers
+  // real, and it gives the box back between matches.
+  ladderPauseMs: Number(process.env.LADDER_PAUSE_MS ?? 60_000),
 };

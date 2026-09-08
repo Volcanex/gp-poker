@@ -309,10 +309,14 @@ export function registerRoutes(app: FastifyInstance): void {
   });
 
   // Latest finished matches, newest first. Aborted matches are left out: they
-  // changed nobody's rating and there is nothing to read in them.
-  app.get<{ Querystring: { limit?: string } }>('/api/recent', async (request) => {
+  // changed nobody's rating and there is nothing to read in them. Ladder
+  // matches (bots playing each other in the background) are left out too
+  // unless `?ladder=1` asks for them: they are real rated matches, but there
+  // are far more of them than there are matches a person played, and the feed
+  // is for the second kind.
+  app.get<{ Querystring: { limit?: string; ladder?: string } }>('/api/recent', async (request) => {
     const limit = clampLimit(request.query.limit, 20, 50);
-    const rows = await getRecentMatches(limit);
+    const rows = await getRecentMatches(limit, request.query.ladder === '1');
     return rows.map(toFeedMatch);
   });
 
@@ -336,8 +340,9 @@ export function registerRoutes(app: FastifyInstance): void {
     return body;
   });
 
-  // Matches in progress with a person at the table. Bot-only tables never
-  // happen (matchmaking will not seat one), but the filter says so anyway.
+  // Matches in progress with a person at the table. The human queues never
+  // seat a bot-only table, but the ladder does, and one of those is not
+  // something to watch: the filter is what keeps it off the list.
   app.get('/api/live', async () => {
     const rows = await getLiveMatches();
     return rows.filter(hasHuman).map((m) => ({

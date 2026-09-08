@@ -52,3 +52,11 @@ export function getRoom(matchId: string): MatchRoom | undefined {
 export function roomForPlayer(userId: string): MatchRoom | undefined {
   return byPlayer.get(userId);
 }
+
+// Every match still being played. A finished room lingers a minute before it
+// is unregistered, so this asks each one whether it is active rather than
+// treating registration as liveness. The ladder reads it to find out whether
+// a person is at a table anywhere before it starts a bot-only one.
+export function liveRooms(): MatchRoom[] {
+  return [...byId.values()].filter((room) => room.active);
+}

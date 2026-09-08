@@ -27,6 +27,13 @@ export interface MatchFormat {
   // A practice table: one human, the rest bots of a chosen level, never
   // rated. Optional so a format stored before practice existed still parses.
   practice?: boolean;
+  // A ladder table: bots playing each other in the background so their
+  // ratings are earned rather than assumed. Rated like any bot match, but
+  // kept out of the live list and the feed, because nobody is at it.
+  ladder?: boolean;
+  // Overrides HAND_HOLD_MS for this format. A ladder hand has no one
+  // watching it, so it does not pause four seconds to be watched.
+  holdMs?: number;
 }
 
 export const HEADS_UP_FORMAT: MatchFormat = {
@@ -74,6 +81,13 @@ export const SIX_MAX_FORMAT: MatchFormat = {
    number drift and the countdown starts lying. Capped at the decision clock,
    so a test running a 300 ms clock does not spend four seconds a hand. */
 export const HAND_HOLD_MS = 4_000;
+
+/* The hold one format actually uses: its own `holdMs` if it set one, the
+   shared default otherwise, and never longer than the decision clock. The
+   server sleeps this and the client counts it down, so both ask here. */
+export function holdFor(format: MatchFormat): number {
+  return Math.min(format.holdMs ?? HAND_HOLD_MS, format.clockMs);
+}
 
 export const DEFAULT_FORMAT = HEADS_UP_FORMAT;
 

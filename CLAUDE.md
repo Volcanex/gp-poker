@@ -68,6 +68,14 @@ boot, unrated.
   outwards, and is **always unrated** (`format.practice`, persisted like every
   other format field). Casual and practice are both unrated, so only that flag
   tells them apart on a finished match.
+- The bot ladder (`server/src/ladder.ts`, `format.ladder`) is the one bot-only
+  table there is: bots play each other, rated, one match at a time, only while
+  nobody is queued or playing, so the levels spread out on their own and the
+  practice picker's per-level average is a number somebody earned instead of
+  fifteen bots reading 1500. Off under vitest, `LADDER_ENABLED` and
+  `LADDER_PAUSE_MS` on the box. Kept off `/api/live` and off `/api/recent`
+  (unless `?ladder=1`): nobody played them, but they are stored and replayable
+  like any other match.
 - Play a friend is a link, not a queue (`challenges` table,
   `server/src/challenges.ts`, `/c/:id` on the client). A link is capped at five
   open per player and lives 24 hours; accepting it is what creates the match,

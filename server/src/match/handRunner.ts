@@ -11,7 +11,7 @@ import {
   type HandState,
 } from '@opentable/engine';
 import { extractDecisions, handStats, summarise } from '@opentable/preflop';
-import { HAND_HOLD_MS, blindsAt } from '@opentable/protocol';
+import { HAND_HOLD_MS, blindsAt, holdFor } from '@opentable/protocol';
 import type {
   ActionKind,
   Card,
@@ -30,7 +30,8 @@ import type { HandRunner, MatchOutcome, RoomClock } from './types.js';
 
 // The hold a completed hand's result stays on screen for. It lives in the
 // protocol because the client counts the same number down in the dock, and two
-// copies of it drift.
+// copies of it drift. `holdFor` is the one that reads a format's own `holdMs`,
+// which is how a ladder hand runs without a four-second pause nobody watches.
 export { HAND_HOLD_MS };
 
 export interface HandRunnerDeps {
@@ -419,7 +420,7 @@ export class EngineHandRunner implements HandRunner {
 
     if (this.matchWouldFinish()) {
       // The last hand is held on screen like any other before the result.
-      await new Promise((r) => setTimeout(r, Math.min(HAND_HOLD_MS, this.match.format.clockMs)));
+      await new Promise((r) => setTimeout(r, holdFor(this.match.format)));
     }
     const finished = this.headsUp ? await this.settleHeadsUp() : await this.settleMultiway();
     if (finished) {
@@ -431,7 +432,7 @@ export class EngineHandRunner implements HandRunner {
       () => {
         this.startHand(this.handNumber + 1).then(() => this.onChange(), this.onFail);
       },
-      Math.min(HAND_HOLD_MS, this.match.format.clockMs)
+      holdFor(this.match.format)
     );
   }
 

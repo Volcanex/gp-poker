@@ -700,13 +700,34 @@ export async function insertAuditLog(entry: {
 // is aborted at boot (abortStalePlayingMatches), which is what keeps the
 // live query honest.
 
-export async function getRecentMatches(limit = 20): Promise<MatchRow[]> {
+/* Ladder matches are left out by default. They are real rated matches and
+   they are readable by their own id, but there are far more of them than
+   there are matches somebody played, so a feed that included them would be
+   nothing else. The filter is in the query rather than over the results
+   because filtering after the limit would return an almost empty page. */
+export async function getRecentMatches(limit = 20, includeLadder = false): Promise<MatchRow[]> {
   return sql<MatchRow[]>`
     select * from matches
     where status = 'finished'
+    ${includeLadder ? sql`` : sql`and format->>'ladder' is distinct from 'true'`}
     order by finished_at desc
     limit ${limit}
   `;
+}
+
+/* How many ladder matches each bot has played, for the round robin (fewest
+   played goes next) and for /api/bots. Keyed by user id; a bot that has not
+   played one is simply absent. Aborted matches do not count: a match killed
+   by a restart moved nobody's rating. */
+export async function getLadderMatchCounts(): Promise<Map<string, number>> {
+  const rows = await sql<{ userId: string; n: number }[]>`
+    select mp.user_id, count(*)::int as n
+    from match_players mp
+    join matches m on m.id = mp.match_id
+    where m.format->>'ladder' = 'true' and m.status <> 'aborted'
+    group by mp.user_id
+  `;
+  return new Map(rows.map((r) => [r.userId, r.n]));
 }
 
 /* Candidates for the "from a real hand" puzzle: completed hands from finished,

@@ -1,7 +1,14 @@
 import { botLevelInfo, type BotLevel, type ClientMsg, type Mode } from '@opentable/protocol';
 import { generateName, seededRng } from '@opentable/identity';
 import { config } from '../config.js';
-import { ensureBotUser, getBotUsers, getRatingsForUsers, migrateLegacyBotNames, type UserRow } from '../db.js';
+import {
+  ensureBotUser,
+  getBotUsers,
+  getLadderMatchCounts,
+  getRatingsForUsers,
+  migrateLegacyBotNames,
+  type UserRow,
+} from '../db.js';
 import { hub } from '../ws/hub.js';
 import { roomForPlayer } from '../match/rooms.js';
 import { BotPlayer, type Dispatch } from './player.js';
@@ -151,6 +158,10 @@ export interface BotSummary {
   levelName: string;
   description: string;
   ratings: Record<Mode, { rating: number; matches: number }>;
+  // Matches this bot has played on the ladder, against other bots. Most of
+  // its rating comes from there until humans arrive, so the picker can say
+  // where the number came from rather than only what it is.
+  ladderMatches: number;
 }
 
 const MODES: Mode[] = ['heads-up', 'six-max'];
@@ -160,6 +171,7 @@ export async function rosterSummary(): Promise<BotSummary[]> {
   const ids = rows.map((u) => u.id);
   const byMode = new Map<Mode, Awaited<ReturnType<typeof getRatingsForUsers>>>();
   for (const mode of MODES) byMode.set(mode, await getRatingsForUsers(ids, mode));
+  const ladder = await getLadderMatchCounts();
 
   const out = rows.map((u) => {
     const level = levels.get(u.id) ?? ((u.botLevel ?? 4) as BotLevel);
@@ -169,7 +181,15 @@ export async function rosterSummary(): Promise<BotSummary[]> {
       const standing = byMode.get(mode)!.get(u.id);
       ratings[mode] = { rating: Math.round(standing?.rating ?? 1500), matches: standing?.matches ?? 0 };
     }
-    return { id: u.id, name: u.name, level, levelName: info.name, description: info.description, ratings };
+    return {
+      id: u.id,
+      name: u.name,
+      level,
+      levelName: info.name,
+      description: info.description,
+      ratings,
+      ladderMatches: ladder.get(u.id) ?? 0,
+    };
   });
 
   return out.sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));

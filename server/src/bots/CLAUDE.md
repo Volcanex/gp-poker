@@ -71,3 +71,38 @@ lingers for a minute.
 
 Bots are excluded from the leaderboard but their rated matches move their
 ratings, which is what `/api/bots` reports. Practice matches never do.
+
+## The ladder
+`../ladder.ts` is the one sanctioned bot-only table. Bots play each other,
+rated, one match at a time, in the gaps when nobody is here, because without
+it every bot reads 1500 and the practice picker's per-level average says
+nothing at launch. The human queues still never seat a bot-only table.
+
+- **Humans first.** A ladder match starts only when the queue is empty and no
+  person is at a live table (`liveRooms()` plus `levelOf(id) === null`). One
+  already running is left to finish rather than torn out mid-rating.
+- **Nothing new is needed to keep the bots free for people**: a ladder match
+  registers an ordinary room, so `availableBots` and `availableBotsAtLevel`
+  already see its seats as busy. `ladder.test.ts` asserts it rather than
+  assuming it.
+- **Pairing** is a round robin by fewest ladder matches (the anchor), then the
+  least-played half of everyone else sorted nearest in rating. Recent tables
+  are remembered so the same two do not keep meeting, and that memory is
+  relaxed rather than enforced when everyone free has just played.
+- **Format** is the mode's rated format with `ladder: true`, a 5 s clock and
+  `holdMs` 1 s, so a hand nobody is watching does not pause four seconds.
+  Everything else is the product format: 25 hands, 200 units, rated, stored,
+  replayable. That is the point, because a human beating a level 3 bot should
+  beat a number that was earned the same way theirs is.
+- **Off under vitest** unless a test calls `configureLadder({enabled: true})`.
+  `LADDER_ENABLED` and `LADDER_PAUSE_MS` are the knobs on the box.
+
+Ladder matches are excluded from `/api/live` (the existing "has a human seat"
+filter) and from `/api/recent` unless `?ladder=1`. `/api/bots` reports
+`ladderMatches` per bot beside the per-mode ratings.
+
+Proof that it does what it is for: `../../test/ladder.test.ts`'s skipped
+`ladder proof`, run with `LADDER_PROOF=1 LADDER_PROOF_MATCHES=40` against its
+own database, ended level 1 on 1328, level 2 on 1292, level 3 on 1558, level 4
+on 1604 and level 5 on 1681. Five matches is not enough to say anything;
+forty puts three hundred points between the ends.
