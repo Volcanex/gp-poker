@@ -303,7 +303,7 @@
    column beside its action list, so the question is how wide this felt is, not
    how wide the window is. */
 .felt[data-mode="ring"] {
-  --felt-w: 960px; --seat-w: 264px; --seat-h: 78px; --ring-h: 404px;
+  --felt-w: 960px; --seat-w: 300px; --seat-h: 78px; --ring-h: 404px;
   --seat-card: 30px; --board-card: 40px;
 }
 .felt[data-mode="ring"][data-seats="3"], .felt[data-mode="ring"][data-seats="4"] { --ring-h: 340px; }
@@ -324,7 +324,11 @@
   background: var(--surface-2);
   border-color: var(--border-subtle);
   grid-template-columns: auto auto minmax(0, 1fr) auto;
-  grid-template-areas: "cards av id clock" "cards av last clock";
+  /* The name row runs the width of the seat, over the clock's column as well:
+     a generated name is two CamelCase words and can be sixteen characters, and
+     the clock is a five character label that only the acting seat shows. The
+     seconds go beside the last action instead, on the row below. */
+  grid-template-areas: "cards av id id" "cards av last clock";
   column-gap: var(--sp-2); row-gap: 0;
   padding: 6px var(--sp-2);
 }
@@ -361,7 +365,10 @@
 
 @container (max-width: 900px) {
   .felt[data-mode="ring"] {
-    --seat-w: 204px; --seat-h: 76px; --ring-h: 392px;
+    /* A wider seat reaches further in, so the ring gets taller to keep the two
+       lower seats off the board's corners. The felt has the height to spare at
+       this width and a name is worth more than 48 px of felt. */
+    --seat-w: 268px; --seat-h: 76px; --ring-h: 448px;
     --seat-card: 28px; --board-card: 34px;
   }
   .felt[data-mode="ring"][data-seats="3"], .felt[data-mode="ring"][data-seats="4"] { --ring-h: 336px; }
@@ -370,13 +377,16 @@
 /* Narrow: a phone, or the replay's column. Three rows to a seat so the name
    has the width of the box, the rating goes (it is on the profile the name
    leads to), and the ellipse pinches so no seat sits level with the board. */
-/* Narrow: a phone, or the replay's column. The ellipse gives up here. Six seats
+/* Narrow: a phone, the replay's column, or a window too small for a ring. The
+   ellipse gives up at 740, which is measured rather than chosen: below it the
+   two lower seats reach far enough in to sit on the pot, and a seat narrow
+   enough to clear it is too narrow to hold a name. Six seats
    across a 366 px felt leave 120 px each, which is not a seat: it was
    truncating every name and the avatar had been dropped to buy room. So the
    felt becomes four rows instead, the way a phone poker client has always done
    it. `layout.ts` says which cell each seat takes; everything below is undoing
    the ellipse's absolute positioning. */
-@container (max-width: 640px) {
+@container (max-width: 740px) {
   .felt[data-mode="ring"] .felt-in {
     position: static;
     height: auto;

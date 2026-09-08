@@ -477,13 +477,23 @@ pure, so the rotation is unit tested rather than eyeballed:
 `SeatView.out` seats render dimmed to 45% with their place ("4th") where the
 stack would be, and `SeatView.bot` gets a small mark beside the name.
 
-**A ring seat is 264 px and everything on it is fighting for that width**:
-cards, an avatar, a name with up to three badges, a stack, a hand name and a
-clock. Three things give way rather than the name, which is the identity: the
-rating (a click away on the profile the name leads to), the word "units" (every
-number on this felt is in units, and "all in" still shows), and on the narrowest
-ring the avatar itself. A name that still does not fit truncates with its full
-text in the title.
+**A ring seat is everything fighting for one width**: cards, an avatar, a name
+with up to three badges, a stack, a hand name and a clock. **Generated names are
+two CamelCase words and run to sixteen characters**, so the name wins and the
+rest give way: the rating goes (it is a click away on the profile the name leads
+to), the word "units" goes (every number on this felt is in units, and "all in"
+still shows), the name's row spans the clock's column and the seconds move down
+beside the last action, and on the narrowest ring the avatar leaves the flow for
+the seat's corner.
+
+The seat is 300 px wide above a 900 px felt and 268 below it, and **both numbers
+are measured, not chosen**: they are the widest a seat can be before the two
+lower seats reach in far enough to sit on the board, which the taller ring at
+the narrower step then buys back. The ellipse gives up entirely below 740, for
+the same reason: below that a seat that clears the pot is too narrow to hold a
+name. `e2e/ergonomics.spec.ts` checks at 768, 1280 and 1920 that no name is
+truncated, that no seat touches the board or the pot, and that no badge has
+wrapped off the name's line.
 
 ## Ratings are per mode
 
@@ -854,7 +864,11 @@ being poker-specific, build it in g-system, not here.
   four character slot, and it moved the word beside it.
 - **Generated names are CamelCase** (RedTiger, StealthyCyclone), so a plain
   ellipsis cuts a word in half. `shortName` drops whole words instead and the
-  seat keeps the full name in its title.
+  seat keeps the full name in its title. Its limit is 16, not 14: at 14 it was
+  cutting "PoliteSaxophone" down to "Polite" on a felt with room for all of it,
+  which is a truncation nobody asked for and no test could see, because the mock
+  dealt in seven-letter lowercase names. **The mock deals in the names people
+  actually get now**, and the ring test asserts that it does.
 - An avatar is seeded from a user id, never a name: a name can be claimed and
   changed and the picture should not change with it. `avatarSeed` in `adapt.ts`
   falls back to the name for a row written before the server sent ids.

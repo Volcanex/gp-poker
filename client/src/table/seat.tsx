@@ -75,7 +75,7 @@ export function Seat({
 
       <div className="seat-id">
         <span className="seat-line">
-          <span className="seat-name" title={seat.name}>{shortName(seat.name, 14)}</span>
+          <span className="seat-name" title={seat.name}>{shortName(seat.name, 16)}</span>
           {you && <span className="seat-you">you</span>}
           {/* Always here, hidden when the button is elsewhere: a marker that
               comes and goes moves every badge after it once a hand. */}

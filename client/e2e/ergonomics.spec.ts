@@ -125,3 +125,43 @@ test.describe('pre-actions', () => {
     await expect(page.locator('.dock-pre .pill[data-on]')).toHaveCount(0);
   });
 });
+
+/* The ring, at the widths it is actually drawn at. Two promises: a generated
+   name fits, and nothing on the felt sits on anything else. Both were broken
+   at once on a live six-max table and neither was measured, because the mock
+   used short lowercase names and the suite only ever saw those. */
+test.describe('the ring', () => {
+  for (const width of [768, 1280, 1920]) {
+    test(`shows a whole name and keeps its seats off the board at ${width}`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await stubApi(page);
+      await page.goto('/m/mock?mode=six-max&step=2');
+      await expect(page.locator('.seat').first()).toBeVisible();
+
+      const seen = await page.evaluate(() => {
+        const hit = (a: DOMRect, b: DOMRect) => !(
+          a.right < b.left + 1 || a.left > b.right - 1
+          || a.bottom < b.top + 1 || a.top > b.bottom - 1);
+        const rect = (sel: string) => document.querySelector(sel)!.getBoundingClientRect();
+        const seats = [...document.querySelectorAll('.seat')].map((s) => s.getBoundingClientRect());
+        const names = [...document.querySelectorAll('.seat-name')] as HTMLElement[];
+        return {
+          longest: Math.max(...names.map((n) => n.textContent!.length)),
+          cut: names.filter((n) => n.scrollWidth > n.clientWidth).map((n) => n.textContent),
+          onBoard: seats.filter((r) => hit(r, rect('.board'))).length,
+          onPot: seats.filter((r) => hit(r, rect('.pot'))).length,
+          /* Every badge stays on the name's own line rather than wrapping
+             under it, which is what a name that grew used to cause. */
+          lines: [...document.querySelectorAll('.seat-line')]
+            .map((l) => Math.round(l.getBoundingClientRect().height)),
+        };
+      });
+
+      expect(seen.longest, 'the mock deals in names the length people get').toBeGreaterThanOrEqual(15);
+      expect(seen.cut, 'names truncated at this width').toEqual([]);
+      expect(seen.onBoard, 'seats sitting on the board').toBe(0);
+      expect(seen.onPot, 'seats sitting on the pot').toBe(0);
+      expect(new Set(seen.lines).size, 'a name line that wrapped').toBe(1);
+    });
+  }
+});

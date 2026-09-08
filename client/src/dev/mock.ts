@@ -407,13 +407,17 @@ function headsUpScript(): MockStep[] {
 
 /* -------------------------------------------------------------- six-max */
 
+/* The names people actually get: CamelCase, two words, up to about sixteen
+   characters. The script used to use short lowercase ones, which is why the
+   screenshot suite never noticed that every ring seat was truncating at six
+   letters on a live table. A mock that is easier than reality tests nothing. */
 const SIX: Player[] = [
-  { uid: 'u-dredger', name: 'dredger', rating: 1602 },
-  { uid: 'u-hexmark', name: 'hexmark', rating: 1500, bot: true },
-  { uid: 'u-you', name: 'kestrel', rating: 1518 },
-  { uid: 'u-ninecut', name: 'ninecut', rating: 1477 },
-  { uid: 'u-pellmell', name: 'pellmell', rating: 1500, bot: true },
-  { uid: 'u-quarrel', name: 'quarrel', rating: 1560 },
+  { uid: 'u-dredger', name: 'PoliteSaxophone', rating: 1602 },
+  { uid: 'u-hexmark', name: 'BriskQuarry', rating: 1500, bot: true },
+  { uid: 'u-you', name: 'RustyAlligator', rating: 1518 },
+  { uid: 'u-ninecut', name: 'IcyPencil', rating: 1477 },
+  { uid: 'u-pellmell', name: 'DeepShelf', rating: 1500, bot: true },
+  { uid: 'u-quarrel', name: 'VividMoonlight', rating: 1560 },
 ];
 const ME = 2;
 const SIX_HOLE: Card[] = ['Ah', 'Kd'];
