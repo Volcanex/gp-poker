@@ -158,6 +158,10 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
     <div
       className="match"
       data-look={look === 'v2' ? 'v2' : undefined}
+      /* The felt's shape, said here as well as on the felt itself: the band is
+         the felt's sibling and sits on the felt's column, so it has to be able
+         to read `--felt-w`, which is declared per mode. */
+      data-mode={mode}
       /* The felt stops drawing your own seat only when the band is actually
          on screen and it is actually yours: a spectator's bottom seat belongs
          to a player, and hiding it would leave nothing in its place. */

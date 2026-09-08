@@ -3,6 +3,7 @@ import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import { useReducedMotion } from 'motion/react';
 import type { ActionKind, Card, LegalActions, TableView } from '@opentable/protocol';
 import { PlayingCard } from './playing-card.tsx';
+import { TurnBar, TurnSeconds } from './turn-clock.tsx';
 import {
   HandResult, KeyLegend, PreActionPills, StopWatching, useDockLogic, useTurnKeys,
   waitingText, watchingText,
@@ -12,7 +13,7 @@ import { clamp, presetsFor, raiseAction, raiseLabel, raiseShape } from './sizing
 import type { Preset } from './sizing.ts';
 import { playClick } from './sounds.ts';
 import { actionText, shortName } from './labels.ts';
-import { useFading } from '../ui/bits.tsx';
+import { useFading, useMedia } from '../ui/bits.tsx';
 import { FlagSlot } from '../ui/flag.tsx';
 import './hero-band.css';
 
@@ -26,39 +27,62 @@ export interface HeroBandProps {
   best?: ReadonlySet<Card>;
 }
 
-/* The phone's action band, in place of the dock. Two columns: your own two
-   cards drawn at the size you would hold them, and a column of controls under
-   the thumb. Which side each takes is a setting, because a phone is held in
-   one hand and the thumb only reaches one edge.
+/* The action band, in place of the dock, at every width. Two columns: your own
+   two cards drawn at the size you would hold them, with your name and your
+   stack under them, and a column of controls beside them. Which side each
+   takes is a setting, because a phone is held in one hand and the thumb only
+   reaches one edge.
+
+   **The band is your seat now, at every width**, so it carries what the seat
+   carried: the turn clock's bar along its top edge and the seconds in a slot
+   of their own beside the last action.
 
    The dock's rule holds here and is the reason nothing in this file measures
    itself: one box, one height, four states rendered into it. Every control is
    rendered in every state it belongs to and disabled rather than dropped, and
    every string that changes sits in a slot with a size of its own. */
+
+/* Above this the raise control is a row of sizes under a mouse; below it, a
+   sweep under a thumb. The same number the stylesheet's phone block uses. */
+const WIDE = '(min-width: 561px)';
+
 export function HeroBand({ view, onAct, sending, best }: HeroBandProps) {
   const { state, pre, setPre, canPre } = useDockLogic(view, onAct, sending);
   const mine = view.you == null ? null : view.seats.find((s) => s.i === view.you) ?? null;
   const legal = view.legal;
+  const wide = useMedia(WIDE);
+  /* Your own clock, read the way the seat read it. Out of the flow on the
+     band's top border, so it cannot move anything by starting. */
+  const clock = view.clock && view.clock.seat === view.you ? view.clock : null;
 
   return (
     <div className="hero-band" data-state={state} data-seated={mine ? '' : undefined}>
-      {mine && <HeroCards view={view} best={best} />}
-
-      {/* Between the hand and the controls on a wide screen, and gone on a
-          phone, where there is no keyboard to legend. It says the same thing
-          in every state, so it is rendered outside the column that changes. */}
-      <KeyLegend className="hb-keys" watching={view.you == null} />
-
-      <div className="hb-col">
-        {state === 'turn' && legal ? (
-          <TurnColumn view={view} legal={legal} sending={sending} onAct={onAct} />
-        ) : state === 'over' ? (
-          <OverColumn view={view} />
-        ) : state === 'watch' ? (
-          <WatchColumn view={view} />
-        ) : (
-          <WaitColumn view={view} pre={pre} onPre={setPre} canPre={canPre} />
+      {/* The band's ground runs the width of the page and its content sits on
+          the felt's column, so the cards start on the felt's left edge and the
+          controls end on its right one. */}
+      <div className="hb-in">
+        {clock && (
+          <TurnBar deadline={clock.deadline} totalMs={view.format.clockMs} paused={clock.paused} />
         )}
+
+        {mine && <HeroCards view={view} best={best} clock={clock} totalMs={view.format.clockMs} />}
+
+        {/* One quiet line under the controls, gone on a phone where there is
+            no keyboard to legend. It says the same thing in every state, so it
+            is rendered outside the column that changes. */}
+        <KeyLegend className="hb-keys" watching={view.you == null} />
+
+        <div className="hb-col">
+          {state === 'turn' && legal ? (
+            <TurnColumn view={view} legal={legal} sending={sending} onAct={onAct} wide={wide} />
+          ) : state === 'over' ? (
+            <OverColumn view={view} />
+          ) : state === 'watch' ? (
+            <WatchColumn view={view} />
+          ) : (
+            <WaitColumn view={view} pre={pre} onPre={setPre} canPre={canPre} />
+          )}
+        </div>
       </div>
     </div>
   );
@@ -67,14 +91,22 @@ export function HeroBand({ view, onAct, sending, best }: HeroBandProps) {
 /* ------------------------------------------------------------------ cards */
 
 /* Your hand, at the size the sketch asked for: two cards overlapped and fanned
-   in the corner, big enough to read without looking for them. The felt hides
-   your own seat under this band (see hero-band.css) because this is that seat,
-   drawn once and drawn large.
+   in the corner, big enough to read without looking for them, with your name,
+   your stack, your last action and your clock on one edge under them. The felt
+   does not draw your seat on v2 at any width (see hero-band.css) because this
+   is that seat, drawn once and drawn large.
 
    The deal runs on the first render of a hand and not again: `still` is a
    state rather than a ref, so the flag flips after the deal has already been
    handed to motion, and the cards are keyed on the hand so a new one deals. */
-function HeroCards({ view, best }: { view: TableView; best?: ReadonlySet<Card> }) {
+function HeroCards({
+  view, best, clock, totalMs,
+}: {
+  view: TableView;
+  best?: ReadonlySet<Card>;
+  clock: TableView['clock'];
+  totalMs: number;
+}) {
   const mine = view.seats.find((s) => s.i === view.you);
   const cards = mine?.cards ?? [null, null];
   const [dealtHand, setDealtHand] = useState<number | null>(null);
@@ -120,6 +152,13 @@ function HeroCards({ view, best }: { view: TableView; best?: ReadonlySet<Card> }
           {/* A reserved slot: the label is empty most of the hand and a box
               that sizes to it would move the stack every time it filled. */}
           <span className="hb-last">{label}</span>
+          {/* And another, for the same reason: the seconds arrive once a hand
+              and a box that grows to hold them moves the label beside it. */}
+          <span className="hb-clock">
+            {clock && (
+              <TurnSeconds deadline={clock.deadline} totalMs={totalMs} paused={clock.paused} />
+            )}
+          </span>
         </span>
       </div>
     </div>
@@ -129,16 +168,21 @@ function HeroCards({ view, best }: { view: TableView; best?: ReadonlySet<Card> }
 /* ------------------------------------------------------------------- turn */
 
 function TurnColumn({
-  view, legal, sending, onAct,
+  view, legal, sending, onAct, wide,
 }: {
   view: TableView;
   legal: LegalActions;
   sending: boolean;
   onAct: (a: ActionKind, v?: number) => void;
+  wide: boolean;
 }) {
   const { canRaise, checkOrCall } = raiseShape(legal);
   const { call, min, max } = legal;
+  /* Two ways to choose a size and only ever one of them on screen: the phone
+     sweeps, and a screen with a mouse presses one of the six. `custom` is the
+     wide band's typed way in, and it stands in the sizes' own box. */
   const [sizing, setSizing] = useState(false);
+  const [custom, setCustom] = useState(false);
   const [value, setValue] = useState(min);
   const myBet = view.seats.find((s) => s.i === view.you)?.bet ?? 0;
   const presets = useMemo(
@@ -146,21 +190,15 @@ function TurnColumn({
     [canRaise, legal, view.pot, myBet, view.street],
   );
 
-  /* A fresh decision resets the size to the minimum and closes the sizer:
-     carrying the last one into a new spot is how people put a stack in by
-     accident, and a sizer left open over a hand you have not looked at is the
-     same mistake with a slider on it. */
+  /* A fresh decision resets the size to the minimum and closes whichever way
+     in was open: carrying the last one into a new spot is how people put a
+     stack in by accident, and a sizer left open over a hand you have not
+     looked at is the same mistake with a slider on it. */
   useEffect(() => {
     setValue(min);
     setSizing(false);
+    setCustom(false);
   }, [min, max, view.h, view.n]);
-
-  /* The same keys the dock answers to, doing the same things: `r` reaches for
-     where the size is chosen, which here is the sweep rather than a field, and
-     a number key writes its preset into it. */
-  const openSizer = useCallback(() => setSizing(true), []);
-  const takePreset = useCallback((v: number) => { setValue(v); setSizing(true); }, []);
-  useTurnKeys({ legal, presets, sending, onAct, onRaiseKey: openSizer, onPresetKey: takePreset });
 
   const send = useCallback((v: number) => {
     if (sending || !canRaise) return;
@@ -169,7 +207,23 @@ function TurnColumn({
     else onAct(kind, amount);
   }, [sending, canRaise, legal, onAct]);
 
-  if (sizing && canRaise) {
+  /* The same keys the dock answers to, doing the same things. `r` reaches for
+     where the size is chosen, which is the sweep on a phone and the custom
+     field on a wide band. A number key addresses the preset it is written
+     beside: on a phone that writes it into the sweep, and on a wide band it
+     does what pressing that segment does, which is send it. */
+  const openSizer = useCallback(() => {
+    if (wide) setCustom(true);
+    else setSizing(true);
+  }, [wide]);
+  const takePreset = useCallback((v: number) => {
+    if (wide) { playClick(); send(v); return; }
+    setValue(v);
+    setSizing(true);
+  }, [wide, send]);
+  useTurnKeys({ legal, presets, sending, onAct, onRaiseKey: openSizer, onPresetKey: takePreset });
+
+  if (!wide && sizing && canRaise) {
     return (
       <Sizer
         legal={legal}
@@ -184,7 +238,7 @@ function TurnColumn({
   }
 
   return (
-    <div className="hb-turn">
+    <div className="hb-turn" data-wide={wide ? '' : undefined}>
       {/* Left aligned, not centred: the numbers change every action and a
           centred line moves its own first character when they do. */}
       <div className="hb-note num">
@@ -192,23 +246,45 @@ function TurnColumn({
         {call > 0 ? ` · to call ${call}` : ' · nothing to call'}
       </div>
 
-      {/* Both buttons are here in every spot and the emphasis moves between
-          them, the way the dock moves it: facing an all in there is nothing to
-          raise to, so calling is the decision and it takes the primary slot. */}
-      <button
-        type="button"
-        className={canRaise ? 'btn btn-primary num hb-act' : 'btn btn-secondary num hb-act'}
-        data-primary={canRaise ? '' : undefined}
-        disabled={sending || !canRaise}
-        onClick={() => { playClick(); openSizer(); }}
-      >
-        {canRaise ? raiseLabel(legal, min) : 'Raise'}
-      </button>
+      {wide ? (
+        custom && canRaise ? (
+          <CustomSize
+            legal={legal}
+            sending={sending}
+            onSend={send}
+            onClose={() => setCustom(false)}
+          />
+        ) : (
+          <SizeRow
+            presets={presets}
+            sending={sending}
+            onSend={(v) => { playClick(); send(v); }}
+            onCustom={() => { playClick(); setCustom(true); }}
+          />
+        )
+      ) : (
+        /* The phone's one raise control: a button that opens the sweep. Both
+            buttons are here in every spot and the emphasis moves between them,
+            the way the dock moves it. */
+        <button
+          type="button"
+          className={canRaise ? 'btn btn-primary num hb-act' : 'btn btn-secondary num hb-act'}
+          data-primary={canRaise ? '' : undefined}
+          disabled={sending || !canRaise}
+          onClick={() => { playClick(); openSizer(); }}
+        >
+          {canRaise ? raiseLabel(legal, min) : 'Raise'}
+        </button>
+      )}
 
+      {/* Facing an all in there is nothing to raise to, so calling is the
+          decision and it takes the primary slot. On a wide band it takes it
+          either way: six sizes are six choices and none of them is the one the
+          eye should land on first. */}
       <button
         type="button"
-        className={canRaise ? 'btn btn-secondary num hb-act' : 'btn btn-primary num hb-act'}
-        data-primary={canRaise ? undefined : ''}
+        className={!wide && canRaise ? 'btn btn-secondary num hb-act' : 'btn btn-primary num hb-act'}
+        data-primary={!wide && canRaise ? undefined : ''}
         disabled={sending || checkOrCall == null}
         onClick={() => { if (checkOrCall) { playClick(); onAct(checkOrCall); } }}
       >
@@ -219,6 +295,131 @@ function TurnColumn({
         disabled={sending || !legal.actions.includes('f')}
         onFold={() => onAct('f')}
       />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------- size row */
+
+/* The wide band's raise control: the six presets as six equal segments, each
+   printing its name over the number it will send, and a narrower seventh for
+   a size that is none of them. One press sends, which is what a mouse and the
+   number keys both do here, so there is no size to carry from one press to the
+   next and nothing to confirm.
+
+   The six are `presetsFor`, in its order, because the number keys address them
+   by position and a preset that moves is a preset nobody learns. When raising
+   is not on the table the group is empty and keeps its box: the row is a fixed
+   height in the column above it, and six dead segments say less than nothing
+   where there is nothing to say. */
+function SizeRow({
+  presets, sending, onSend, onCustom,
+}: {
+  presets: Preset[];
+  sending: boolean;
+  onSend: (v: number) => void;
+  onCustom: () => void;
+}) {
+  return (
+    <div className="hb-sizes" role="group" aria-label="Raise sizes">
+      {presets.map((p, i) => (
+        <button
+          key={p.key}
+          type="button"
+          className="hb-size"
+          disabled={sending}
+          title={`${p.label}, key ${i + 1}`}
+          onClick={() => onSend(p.value)}
+        >
+          <span className="s-n">{p.label}</span>
+          <span className="s-v num">{p.value}</span>
+        </button>
+      ))}
+      {presets.length > 0 && (
+        <button
+          type="button"
+          className="hb-size hb-size-custom"
+          disabled={sending}
+          title="A size of your own, key R"
+          onClick={onCustom}
+        >
+          <span className="s-n">Custom</span>
+          <span className="s-v num" aria-hidden="true" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/* A size of your own, in the segments' own box. The field is the source of
+   truth exactly as the dock's is: a number outside the legal range is clamped
+   into the field and not sent, so the next press sends a number somebody
+   chose. Enter sends, Escape puts the six sizes back. */
+function CustomSize({
+  legal, sending, onSend, onClose,
+}: {
+  legal: LegalActions;
+  sending: boolean;
+  onSend: (v: number) => void;
+  onClose: () => void;
+}) {
+  const { min, max } = legal;
+  const { isBet } = raiseShape(legal);
+  const [raw, setRaw] = useState(() => String(min));
+  const ref = useRef<HTMLInputElement>(null);
+  const value = Number(raw);
+
+  useEffect(() => {
+    ref.current?.focus();
+    ref.current?.select();
+  }, []);
+
+  const submit = () => {
+    if (sending) return;
+    const typed = Number.isFinite(value) && raw !== '' ? Math.round(value) : min;
+    const fixed = clamp(typed, min, max);
+    if (fixed !== typed) {
+      setRaw(String(fixed));
+      ref.current?.select();
+      return;
+    }
+    playClick();
+    onSend(fixed);
+  };
+
+  return (
+    <div className="hb-custom">
+      <label className="hb-custom-field">
+        <span className="label">{isBet ? 'Bet' : 'Raise to'}</span>
+        <input
+          ref={ref}
+          className="input num"
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          autoComplete="off"
+          value={raw}
+          disabled={sending}
+          aria-label={isBet ? 'Bet amount' : 'Raise to amount'}
+          onChange={(e) => setRaw(e.target.value.replace(/[^0-9]/g, ''))}
+          onFocus={(e) => e.currentTarget.select()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); submit(); }
+            else if (e.key === 'Escape') { e.preventDefault(); onClose(); }
+          }}
+        />
+      </label>
+      <button
+        type="button"
+        className="btn btn-secondary num hb-custom-send"
+        disabled={sending}
+        onClick={submit}
+      >
+        {raiseLabel(legal, Number.isFinite(value) && raw !== '' ? value : min)}
+      </button>
+      <button type="button" className="btn btn-tertiary hb-custom-back" onClick={onClose}>
+        Back
+      </button>
     </div>
   );
 }

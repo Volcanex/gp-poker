@@ -6,31 +6,40 @@
    obeys the same rule: one box, one height, every state drawn inside it.
    Nothing below is allowed to size to its content.
 
-   The phone layout is the shape and the desktop one is it scaled up, so the
-   wide rules are the base and the phone overrides them at the foot of the
-   file: three columns become two, the legend goes (a phone has no keyboard to
-   legend) and the hand's name and stack move under the cards rather than
-   beside them. */
+   **The phone layout is the shape and the desktop one is it scaled up**, so
+   the two are one set of rules rather than two: cards in one corner with the
+   name, the stack and the last action on one edge under them, the controls in
+   the other corner, and the phone block at the foot of the file changes sizes
+   rather than shapes. Two things are the wide band's alone: the key legend,
+   because a phone has no keyboard to legend, and the raise control, which is
+   six sizes under a mouse and a sweep under a thumb.
+
+   **The band's ground is the page's and its content is the felt's.** The
+   ground runs the full width, because a band that stopped where the felt does
+   would be a floating panel; the grid inside it is capped at `--felt-w` and
+   centred, so the cards start on the felt's left edge, the controls end on its
+   right one, and the whole screen reads as one column. `--felt-w` is declared
+   on `.match` for exactly this (see `../app.css`). */
 
 .hero-band {
   grid-row: 5;
   height: calc(var(--dock-h) + env(safe-area-inset-bottom));
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) var(--band-col);
-  grid-template-areas: "cards keys acts";
-  column-gap: var(--band-gap);
   padding: var(--band-pad) var(--band-gut) calc(var(--band-pad) + env(safe-area-inset-bottom));
   border-top: 1px solid var(--border-subtle);
   background: var(--surface-2);
 
-  --band-col: 340px;
-  --band-gap: 20px;
-  --band-pad: 12px;
+  --band-gap: var(--sp-4);
+  --band-pad: var(--sp-3);
   /* The side gutter is the page's, not the band's own. The felt, the hand
      header and the dock this replaces all sit on it, and a band four pixels
      wider than the felt above it reads as a step in the edge. */
   --band-gut: var(--sp-4);
-  --hero-card: 132px;
+  --hero-card: 104px;
+  /* The meta under the cards: the name line, the figures line, and the gap. */
+  --hb-who-h: 20px;
+  --hb-nums-h: 26px;
+  --hb-meta-gap: 6px;
   /* The flag's reserved box and the gap after it. The name is set in from the
      edge by exactly this much, so the stack and the last action are set in by
      it too and the three lines share one edge. */
@@ -38,44 +47,96 @@
   --hb-flag-gap: 6px;
   /* The three action rows, named here because the hand-over ghosts stand in
      for them and have to be the same size in the same place. */
-  --act-1: 60px;
-  --act-2: 60px;
-  --act-3: 52px;
-  --act-gap: 8px;
-  /* How much of the first card the second one covers. */
+  --act-1: 56px;
+  --act-2: 44px;
+  --act-3: 44px;
+  --act-gap: var(--sp-2);
+  /* The legend's own row under the controls, and the gap over it. Named for
+     this band: `--keys-h` is the table grid's own row for the v1 legend. */
+  --hb-keys-h: 14px;
+  --keys-gap: 6px;
+  /* How much of the first card the second one covers, how far the second one
+     is tilted, and the sine of that tilt. The sine is written out because the
+     fan's box is drawn from it: a card rotated about its bottom corner reaches
+     past a box drawn to the cards' own size, up by its width times the sine
+     and out by its height times the same. */
   --fan-overlap: 0.4;
   --fan-tilt: 6deg;
+  --fan-sin: 0.1045;
 }
 
+/* The felt's column, and the band's own two areas on it. The legend takes a
+   row of its own under the controls rather than a column between them: the
+   middle of the band is the gap between your hand and your controls, and a
+   caption sitting in it was the thing the eye kept stopping on. */
+.hb-in {
+  position: relative;
+  width: 100%; max-width: var(--felt-w); margin: 0 auto;
+  min-width: 0; min-height: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) var(--hb-keys-h);
+  grid-template-areas:
+    "cards acts"
+    "cards keys";
+  column-gap: var(--band-gap);
+  row-gap: var(--keys-gap);
+}
+
+/* The clock the felt's seat used to carry, on the band's top border and the
+   width of the felt's column. Out of the flow, so it cannot move a row by
+   starting, and the seconds are in the meta where the eye already is. */
+.hb-in > .turn-bar { left: 0; right: 0; top: calc(-1 * var(--band-pad) - 1px); }
+
 /* A spectator has no hand to hold and no keys to press, so the band is one
-   centred column rather than a hand sized hole beside an empty legend. Who is
-   watching is settled before the first card, so this can never change
-   mid-hand. */
+   centred column rather than a hand sized hole beside an empty legend, and it
+   is shorter: the height a band is is the height two giant cards and a thumb's
+   column need, and a spectator has neither. Whether you are watching is
+   settled before the first card, the way a practice strip is, so this is still
+   one box and one height for as long as the table is on screen, and the felt
+   keeps the seat that is not yours to hide. Left at the full height the felt
+   had twenty six pixels too few for the two seats it still draws. */
 .hero-band:not([data-seated]) {
+  height: calc(var(--band-watch-h) + env(safe-area-inset-bottom));
+}
+.hero-band:not([data-seated]) .hb-in {
   grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   grid-template-areas: "acts";
 }
 .hero-band:not([data-seated]) .hb-keys { display: none; }
 
 /* --------------------------------------------------------------- your hand */
 
-/* Wide: the cards and what they are worth sit side by side on the floor of
-   the band. */
+/* The cards, and under them on one edge the name, the stack and the last
+   action. The same shape at every width: a wide band has the room to set them
+   beside the cards instead, and doing so gave the row four left edges and no
+   reason for any of them. */
 .hb-hero {
   grid-area: cards;
-  display: flex;
-  align-items: flex-end;
-  gap: var(--sp-4);
-  min-width: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) calc(var(--hb-who-h) + var(--hb-nums-h) + 2px);
+  row-gap: var(--hb-meta-gap);
+  /* The column is the fan's own width, so the name, the stack, the last action
+     and the clock under it share both of the cards' edges. */
+  width: calc(var(--hero-card) * (2 - var(--fan-overlap) + 1.4 * var(--fan-sin)));
+  min-width: 0; min-height: 0;
 }
 
-/* The fan. Both cards are absolute inside a box the size of the pair, so the
-   tilt on the second one cannot push the first one along. */
+/* The fan. Both cards are absolute inside one box, so the tilt on the second
+   one cannot push the first one along, and **the box is the fan's real bounds
+   rather than the pair's**: a card rotated about its bottom left corner
+   reaches up past the top of the pair by its width times the sine of the
+   tilt and out past their right edge by its height times the same. Drawn to
+   the pair's size, the box was eleven pixels shorter and sixteen narrower than
+   the thing inside it, so the tilted card crossed the band's top edge and the
+   column beside it. The cards rest on the floor of the box; the slack is at
+   the top, which is where the tilt goes. */
 .hb-cards {
   position: relative;
   flex: none;
-  width: calc(var(--hero-card) * (2 - var(--fan-overlap)));
-  height: calc(var(--hero-card) * 1.4);
+  width: calc(var(--hero-card) * (2 - var(--fan-overlap) + 1.4 * var(--fan-sin)));
+  height: calc(var(--hero-card) * (1.4 + var(--fan-sin)));
 }
 .hb-card {
   position: absolute;
@@ -97,50 +158,75 @@
    than its own rule. */
 .hero-band .hb-card .pcard { --card-w: var(--hero-card); }
 
+.hb-cards { align-self: end; justify-self: start; }
+
 .hb-meta {
   display: grid;
+  grid-template-rows: var(--hb-who-h) var(--hb-nums-h);
   align-content: end;
   row-gap: 2px;
-  width: 156px;
   min-width: 0;
 }
-.hb-who { display: flex; align-items: center; gap: var(--hb-flag-gap); min-width: 0; height: 22px; }
+.hb-who {
+  display: flex; align-items: center; gap: var(--hb-flag-gap);
+  min-width: 0; height: var(--hb-who-h);
+}
 .hb-name {
   font-size: var(--font-size-ui); font-weight: 500; color: var(--text-primary);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-/* Set in by the flag's box and the gap after it: the name starts there, and a
-   stack figure flush to the edge under a name that is not reads as a slip. */
+/* **One left edge for the whole corner.** The cards, the name line, the stack
+   and the last action all start on it, and it is the felt's own left edge, so
+   the band reads as the bottom of the column above it rather than as a panel
+   of its own. The figures used to be set in by the flag's reserved box to line
+   up with the name's first letter, which put three edges in a corner that
+   needs one; the flag now stands on the shared edge and the name reads as
+   indented behind it.
+
+   Three things on one line and one bottom edge, not one baseline: the last
+   action's slot is empty for most of a hand, an empty box has no baseline of
+   its own, and a row aligned on one moves the label four pixels the moment a
+   word arrives in it. That was the only shift this band has ever had. */
 .hb-nums {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
-  padding-left: calc(var(--hb-flag) + var(--hb-flag-gap));
+  display: flex; align-items: flex-end; gap: var(--sp-2);
+  height: var(--hb-nums-h);
 }
 .hb-stack {
-  height: 30px; display: flex; align-items: center;
-  font-size: 26px; font-weight: 500; letter-spacing: -0.015em;
+  flex: none;
+  font-size: 22px; font-weight: 500; line-height: 1; letter-spacing: -0.015em;
   font-variant-numeric: tabular-nums;
 }
 /* A reserved slot with a size of its own: the label is empty for most of a
    hand and a box that shrinks to it moves the figure beside it every time. */
 .hb-last {
-  width: 100%; height: 16px; flex: none;
+  flex: 1; min-width: 0; height: 16px;
   font-size: 11px; line-height: 16px; color: var(--text-secondary);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* The seconds, in a slot the width of the longest thing they say. The clock
+   arrives once a hand and a box that grows to hold it moves the label. */
+.hb-clock {
+  flex: none; width: 34px; height: 16px;
+  display: flex; align-items: flex-end; justify-content: flex-end;
+  line-height: 16px;
 }
 
 /* ----------------------------------------------------------------- legend */
 
-/* The same line the dock's legend carries, stood on end between the hand and
-   the controls. It says the same thing in every state, so it lives outside
-   the column that changes. */
+/* The dock's legend, as one quiet line on the floor of the controls' own
+   column. It stood in the middle of the band before, centred in the empty
+   space between the hand and the controls, which is the one place on this
+   screen nothing should be asking to be read. It says the same thing in every
+   state, so it lives outside the column that changes. */
 .hb-keys {
   grid-area: keys;
-  align-self: center; justify-self: center;
-  display: flex; flex-direction: column; gap: 7px;
-  font-size: 11px; color: var(--text-secondary);
-  min-width: 0; overflow: hidden;
+  align-self: end;
+  display: flex; align-items: center; gap: var(--sp-3);
+  height: var(--hb-keys-h);
+  font-size: 11px; line-height: var(--hb-keys-h); color: var(--text-secondary);
+  min-width: 0; overflow: hidden; white-space: nowrap;
 }
-.hb-keys > span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.hb-keys > span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 
 /* ------------------------------------------------------------ the column */
 
@@ -151,10 +237,81 @@
   grid-template-rows: minmax(0, 1fr) var(--act-1) var(--act-2) var(--act-3);
   row-gap: var(--act-gap);
 }
+
+/* ------------------------------------------------------------- the sizes */
+
+/* The wide band's raise control: the six presets `sizing.ts` gives, as six
+   equal segments in the order the number keys address them, and a narrower
+   seventh for a size that is none of them. One press sends, so there is no
+   size held between presses and nothing to confirm.
+
+   Composed from g's button tokens rather than built on a shipped component,
+   because g-system has no segmented control: the segments are `.btn`'s own
+   fill, border and radius with the inner edges collapsed. It is a g-system
+   candidate, and it belongs there rather than here (see `CLAUDE.md`). */
+.hb-sizes {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr)) minmax(0, 0.72fr);
+  gap: 1px;
+  height: 100%;
+}
+.hb-size {
+  display: grid;
+  grid-template-rows: 15px 15px;
+  align-content: center;
+  min-width: 0;
+  padding: 0 2px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0;
+  background: var(--surface-1);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out);
+}
+.hb-size:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+.hb-size:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+.hb-size:hover:not(:disabled) { background: var(--fill-hover); border-color: var(--border); }
+.hb-size:active:not(:disabled) { background: var(--fill-active); }
+.hb-size:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; z-index: 1; }
+.hb-size:disabled { opacity: 0.45; cursor: default; }
+/* The name over the number it sends, both on one line each so every segment's
+   two rows sit on the same two edges across the row. */
+.hb-size .s-n {
+  font-size: 12px; line-height: 15px; font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hb-size .s-v {
+  font-size: 12px; line-height: 15px; color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* The seventh is a way in, not a size, so it is quieter than the six and says
+   nothing on the number line it shares with them. */
+.hb-size-custom { color: var(--text-secondary); }
+
+/* The typed size, in the segments' own box: one row, one height, so the
+   column does not move when it opens. */
+.hb-custom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 100%;
+}
+.hb-custom-field { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.hb-custom-field .label {
+  font-size: 12px; color: var(--text-secondary); font-weight: 400; white-space: nowrap;
+}
+.hb-custom-field .input {
+  width: 100%; min-width: 0; height: 32px;
+  font-variant-numeric: tabular-nums;
+}
+.hb-custom-send { height: 32px; }
+.hb-custom-back { height: 32px; }
 /* Left aligned inside a full width box, so the first character of a line
    whose numbers change every action stays where it was. */
 .hb-note {
-  display: flex; align-items: center;
+  display: flex; align-items: flex-end;
   width: 100%; min-width: 0;
   font-size: 12px; color: var(--text-secondary);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -337,7 +494,7 @@
   grid-template-rows: minmax(0, 1fr) var(--ghosts-h);
   row-gap: var(--act-gap);
   min-height: 0;
-  --ghosts-h: 156px;
+  --ghosts-h: 132px;
 }
 /* The dock says the same thing across a row half the page wide. Here it has a
    column, so it stacks, and the countdown keeps its own line. */
@@ -390,11 +547,14 @@
    `../../index.html`, so a left handed player never sees the right handed
    layout. The wide band mirrors with it, because a mouse is held in one hand
    too and the two should not disagree about which way round the table is. */
-:root[data-hand="left"] .hero-band {
-  grid-template-columns: var(--band-col) minmax(0, 1fr) auto;
-  grid-template-areas: "acts keys cards";
+:root[data-hand="left"] .hb-in {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "acts cards"
+    "keys cards";
 }
-:root[data-hand="left"] .hb-hero { flex-direction: row-reverse; }
+:root[data-hand="left"] .hb-cards { justify-self: end; }
+:root[data-hand="left"] .hb-keys { justify-content: flex-end; }
 :root[data-hand="left"] .hb-card {
   left: auto; right: 0;
   transform-origin: bottom right;
@@ -404,13 +564,16 @@
   right: calc(var(--hero-card) * (1 - var(--fan-overlap)));
   rotate: calc(-1 * var(--fan-tilt));
 }
+/* And the fan stacks the other way round with it. A card's rank is in its top
+   left corner, so the card in front has to sit on the side the rank is not:
+   mirrored, the second card lands over the first one's rank and a left handed
+   player could not read the card they were dealt first. */
+:root[data-hand="left"] .hb-card[data-i="0"] { z-index: 1; }
 :root[data-hand="left"] .hb-who { flex-direction: row-reverse; }
-:root[data-hand="left"] .hb-nums {
-  align-items: flex-end;
-  padding-left: 0;
-  padding-right: calc(var(--hb-flag) + var(--hb-flag-gap));
-}
+:root[data-hand="left"] .hb-meta { justify-items: end; }
+:root[data-hand="left"] .hb-nums { flex-direction: row-reverse; }
 :root[data-hand="left"] .hb-last { text-align: right; }
+:root[data-hand="left"] .hb-clock { justify-content: flex-start; }
 :root[data-hand="left"] .hb-sizer {
   grid-template-columns: var(--track-w) minmax(0, 1fr);
   grid-template-areas:
@@ -436,60 +599,63 @@
 
 /* ------------------------------------------------------------------ rows */
 
-/* The band is taller than the dock at both sizes, because giant cards and a
-   thumb sized column are the point of it. The felt gives up the difference,
-   and the legend no longer needs a row of its own: it is inside the band. */
-.match[data-look="v2"] { --dock-h: 260px; }
+/* The band is taller than the dock, because giant cards and a thumb sized
+   column are the point of it, and it is the same height at every width: the
+   phone's, which is the shape the wide one is scaled up from. The felt gives
+   up the difference, and the legend no longer needs a row of its own.
+
+   **The height is declared at the root, not on `.match`.** The mock's caption
+   is fixed to the page and is not inside the table, so it cannot read a value
+   declared on it; a second copy of the number beside it is a number that
+   drifts. `.match` reads the root's. */
+/* Declared at the root, not on `.match`: the mock's caption is fixed to the
+   page and is not inside the table, so it cannot read a value declared on it,
+   and a second copy of either number beside it is a number that drifts. */
+:root { --band-h: 236px; --band-watch-h: 148px; }
+.match[data-look="v2"] { --dock-h: var(--band-h); }
 .match[data-look="v2"] .dock-error {
   bottom: calc(var(--dock-h) + 8px + env(safe-area-inset-bottom));
 }
+/* The mock's step caption printed over the hero's cards, which are the one
+   thing on this screen you have to be able to read. It is lifted clear of the
+   band by `../routes/match.tsx`, which is the only thing that knows which rows
+   this table has; the numbers it adds up are the two above. A `:root:has()`
+   rule could work it out instead, and would then be a whole document selector
+   running on every page in the app to place a caption on one. */
 
 /* ------------------------------------------------------------------ phone */
 
+/* The phone changes sizes, not shapes: the hand is still the cards with the
+   name and the figures on one edge under them, and the controls are still the
+   column beside it. What goes is the key legend, because there is no keyboard
+   to legend, and the felt's column, because on a phone the felt is the page's
+   full width and so is the band. */
 @media (max-width: 560px) {
-  /* The band is the hero's seat, drawn once and drawn large, so the felt does
-     not draw it a second time. Only the seat goes: the bet on the line to the
-     pot hangs off this element and the chip flights are keyed to it. */
-  .match[data-look="v2"][data-band] .felt .pos[data-k="0"] .seat { display: none; }
-
-  .match[data-look="v2"] { --dock-h: 236px; }
-
   .hero-band {
     --band-col: 176px;
-    --band-gap: 10px;
-    --band-pad: 8px;
+    --band-gap: var(--sp-2);
+    --band-pad: var(--sp-2);
     --band-gut: var(--sp-3);
-    --hero-card: 104px;
     --act-1: 56px;
     --act-2: 56px;
     --act-3: 48px;
-    grid-template-columns: minmax(0, 1fr) var(--band-col);
+  }
+
+  /* The controls take a thumb's column and the hand takes the fan's own width,
+     the same way round as the wide band. A `1fr` here was two pixels wider
+     than the fan at 390 and two narrower than it at 360, and left handed the
+     fan is set against the far edge, so those two pixels were the card leaving
+     the band. */
+  .hb-in {
+    grid-template-columns: auto var(--band-col);
+    grid-template-rows: minmax(0, 1fr);
     grid-template-areas: "cards acts";
+    row-gap: 0;
+    column-gap: var(--band-gap);
   }
 
   /* No keyboard, no legend. */
   .hb-keys { display: none; }
-
-  /* The hand has the width of the band to itself, so the name and the stack
-     go under the cards rather than beside them. */
-  .hb-hero {
-    display: grid;
-    grid-template-rows: minmax(0, 1fr) 48px;
-    row-gap: 6px;
-  }
-  .hb-cards { align-self: end; justify-self: start; }
-  .hb-meta { width: auto; grid-template-rows: 20px 26px; }
-  .hb-who { height: 20px; }
-  /* Not baseline aligned. The last action's slot is empty for most of a hand
-     and an empty box has no baseline of its own, so a row aligned on one moves
-     the label four pixels the moment a word arrives in it. The layout-shift
-     observer counts that, and it is the only shift this band has ever had. */
-  .hb-nums {
-    flex-direction: row; align-items: flex-end; justify-content: space-between; gap: 8px;
-  }
-  .hb-stack { height: auto; font-size: 22px; }
-  .hb-last { width: 84px; text-align: right; }
-  .hb-stack { line-height: 1; }
 
   .hb-over { --ghosts-h: 144px; }
   .hero-band .dock-result .r-line { font-size: 11.5px; line-height: 1.4; }
@@ -502,14 +668,10 @@
   }
   .hb-confirm { font-size: 13px; }
 
-  :root[data-hand="left"] .hero-band {
-    grid-template-columns: var(--band-col) minmax(0, 1fr);
+  :root[data-hand="left"] .hb-in {
+    grid-template-columns: var(--band-col) auto;
     grid-template-areas: "acts cards";
   }
-  :root[data-hand="left"] .hb-hero { display: grid; }
-  :root[data-hand="left"] .hb-cards { justify-self: end; }
-  :root[data-hand="left"] .hb-nums { flex-direction: row-reverse; }
-  :root[data-hand="left"] .hb-last { text-align: left; }
 }
 
 /* Below 380 the fan is wider than the room left beside the controls: the
@@ -518,19 +680,14 @@
    instead, because a card under a button is worse than a smaller card. */
 @media (max-width: 380px) {
   .hero-band { --hero-card: 84px; }
-  /* And the last action's slot with it. The name's indent is paid for out of
-     this row, and at 360 the row is 150px: a 84px slot plus a four figure
-     stack does not fit one, and a row with no slack packs its two ends
-     together, so the label would move every time the stack gained a digit. */
-  .hb-last { width: 64px; }
 }
 
-/* A narrow desktop has room for the hand and the controls but not for a
-   legend between them, and the legend is the thing you can do without: the
-   keys still work. */
+/* A narrow window still has a keyboard, and the legend no longer sits between
+   the hand and the controls, so it stays. What comes in is the hand's column:
+   at this width the felt is narrower than its cap and the controls need the
+   room more than the cards do. */
 @media (min-width: 561px) and (max-width: 900px) {
-  .hero-band { --band-col: 300px; --band-gap: var(--sp-3); }
-  .hb-keys { display: none; }
+  .hero-band { --band-gap: var(--sp-3); }
 }
 
 @media (prefers-reduced-motion: reduce) {
