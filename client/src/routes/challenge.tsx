@@ -61,7 +61,7 @@ export function Challenge() {
     return (
       <Shell>
         <div className="empty">
-          <span className="e-title">This link does not work</span>
+          <h1 className="e-title">This link does not work</h1>
           <span className="e-desc">It may be mistyped. Start a match from the home page instead.</span>
           <Link className="btn btn-secondary btn-sm" to="/">Go to the home page</Link>
         </div>
@@ -87,7 +87,7 @@ export function Challenge() {
     return (
       <Shell>
         <div className="empty">
-          <span className="e-title">{expired ? 'This link has expired' : 'This challenge was cancelled'}</span>
+          <h1 className="e-title">{expired ? 'This link has expired' : 'This challenge was cancelled'}</h1>
           <span className="e-desc">
             {expired
               ? 'A challenge link works for 24 hours. Ask for a new one, or play the queue instead.'
@@ -103,7 +103,7 @@ export function Challenge() {
     return (
       <Shell>
         <div className="empty">
-          <span className="e-title">This challenge was already taken</span>
+          <h1 className="e-title">This challenge was already taken</h1>
           <span className="e-desc">
             {mine ? 'Your link has been used.' : 'Somebody opened this link first.'}
           </span>
@@ -122,7 +122,7 @@ export function Challenge() {
     return (
       <Shell>
         <div className="mode-head">
-          <span className="t">This is your own link</span>
+          <h1 className="t">This is your own link</h1>
         </div>
         <span className="muted">
           Send it to the friend you want to play. The match starts the moment they open it.
@@ -140,7 +140,7 @@ export function Challenge() {
       <div className="mode-head">
         <span className="player-cell">
           <Avatar seed={avatarSeed(link.creator.id, link.creator.name)} name={link.creator.name} />
-          <span className="t">{link.creator.name} wants to play you</span>
+          <h1 className="t">{link.creator.name} wants to play you</h1>
         </span>
       </div>
       <span className="tags">
