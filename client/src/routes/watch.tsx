@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../net/api.ts';
 import type { FeedMatch, LiveMatch } from '../net/types.ts';
 import { MODE_NAME } from '../ui/mode-tabs.tsx';
+import { Flag } from '../ui/flag.tsx';
 import { useTitle } from '../ui/title.ts';
 import { MatchRow, StakeBadge, ago } from './feed.tsx';
 import './home.css';
@@ -96,6 +97,7 @@ function LiveRow({ match }: { match: LiveMatch }) {
       <span className="feed-players">
         {match.players.map((p, i) => (
           <span className="name" key={`${p.name}-${i}`}>
+            {p.country && <Flag code={p.country} size={16} />}
             <Link to={`/u/${encodeURIComponent(p.name)}`}>{p.name}</Link>
             {p.bot && <span className="bot-tag">bot</span>}
             {p.rating != null && <span className="rating num">{p.rating}</span>}

@@ -299,3 +299,9 @@ create index if not exists tickets_status on tickets(status, created_at desc);
 alter table users add column if not exists avatar bytea;
 alter table users add column if not exists avatar_type text;
 alter table users add column if not exists avatar_v integer not null default 0;
+-- The flag a player chose to put beside their name: a lowercase ISO 3166-1
+-- alpha-2 code, or null for no flag, which is the default and stays the
+-- default. Nothing infers it from an address or a request header: it is
+-- something a player says about themselves, and guests may say it too.
+-- Validated against server/src/countries.ts before it is written here.
+alter table users add column if not exists country char(2);

@@ -30,9 +30,13 @@ import {
   getUserAvatar,
   setUserAvatar,
   clearUserAvatar,
+  updateUserCountry,
   type MatchRow,
   type ModeStanding,
+  type RatingRow,
+  type UserRow,
 } from './db.js';
+import { readCountry } from './countries.js';
 import { config } from './config.js';
 import { hub } from './ws/hub.js';
 import { queueSize } from './matchmaking.js';
@@ -71,25 +75,22 @@ export function registerRoutes(app: FastifyInstance): void {
 
   app.get('/api/me', async (request, reply) => {
     const user = await requireUser(request, reply);
-    const summary = toUserSummary(user, await getRatingsFor(user.id));
-    const headsUp = summary.ratings['heads-up'];
-    // The flat peak/peakAt/matches/wins/losses/draws are the heads-up ones,
-    // same compatibility bargain as the flat rating fields on UserSummary.
-    // They are read straight off the heads-up standing rather than recomputed,
-    // so a caller falling back from a null standing to the flat field can
-    // never be handed a different answer than the standing already gave it.
-    return {
-      ...summary,
-      // Only ever true for an admin. The key is absent for everybody else, so
-      // nothing about the admin layer is on the wire for a player at all.
-      ...(user.admin ? { admin: true } : {}),
-      peak: headsUp.peak,
-      peakAt: headsUp.peakAt,
-      matches: headsUp.matches,
-      wins: headsUp.wins,
-      losses: headsUp.losses,
-      draws: headsUp.draws,
-    };
+    return meBody(user, await getRatingsFor(user.id));
+  });
+
+  /* The one thing a player can change about themselves without claiming an
+     account: the flag beside their name. Guests may set it too, because a
+     guest plays here like anybody else and the flag belongs to the seat. The
+     body says the state it wants rather than asking for a toggle, so `null`
+     clears the flag and two tabs cannot flip each other. An unknown code is
+     refused rather than stored and then quietly never drawn. */
+  app.patch<{ Body: { country?: unknown } }>('/api/me', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    const country = readCountry(request.body?.country);
+    if (country === undefined) return err(reply, 400, 'country must be a two-letter country code, or null');
+    const updated = await updateUserCountry(user.id, country);
+    if (!updated) return err(reply, 404, 'no such user');
+    return meBody(updated, await getRatingsFor(updated.id));
   });
 
   app.post<{ Body: { name?: string; password?: string } }>('/api/claim', async (request, reply) => {
@@ -130,6 +131,7 @@ export function registerRoutes(app: FastifyInstance): void {
       rd: Math.round(r.rd),
       matches: r.matches,
       peak: Math.round(r.peakRating),
+      country: r.country,
     }));
   });
 
@@ -430,6 +432,7 @@ export function registerRoutes(app: FastifyInstance): void {
         name: s.name,
         bot: s.bot === true,
         rating: Math.round(s.rating),
+        country: s.country ?? null,
       })),
       // People watching without a seat. Reported here and nowhere near the
       // table itself: the players are deciding and do not need the number.
@@ -642,6 +645,31 @@ export function registerRoutes(app: FastifyInstance): void {
   );
 }
 
+/* What /api/me answers, from the GET and from a PATCH alike, so the two can
+   never disagree about a field one of them forgot. The flat peak, peakAt,
+   matches, wins, losses and draws are the heads-up ones, the same
+   compatibility bargain as the flat rating fields on UserSummary, and every
+   one is read straight off the heads-up standing rather than recomputed
+   beside it. */
+function meBody(user: UserRow, ratings: Record<Mode, RatingRow>) {
+  const summary = toUserSummary(user, ratings);
+  const headsUp = summary.ratings['heads-up'];
+  // The flat peak/peakAt/matches/wins/losses/draws are the heads-up ones,
+  // same compatibility bargain as the flat rating fields on UserSummary.
+  return {
+    ...summary,
+    // Only ever true for an admin. The key is absent for everybody else, so
+    // nothing about the admin layer is on the wire for a player at all.
+    ...(user.admin ? { admin: true } : {}),
+    peak: headsUp.peak,
+    peakAt: headsUp.peakAt,
+    matches: headsUp.matches,
+    wins: headsUp.wins,
+    losses: headsUp.losses,
+    draws: headsUp.draws,
+  };
+}
+
 /* The absolute address of this site as the caller reached it, which is the
    only thing a shareable link can be built from: nginx terminates TLS, so
    Fastify's own view of the protocol is http on every request that matters.
@@ -737,6 +765,9 @@ function toFeedMatch(m: MatchRow) {
       avatarV: s.avatarV ?? 0,
       name: s.name,
       bot: s.bot === true,
+      // The seat's own snapshot, not the player's flag today: a feed row says
+      // what the table looked like, the same way it says what they were rated.
+      country: s.country ?? null,
       place: m.places?.[s.userId] ?? null,
       ratingBefore: change ? Math.round(change.before) : null,
       ratingAfter: change ? Math.round(change.after) : null,

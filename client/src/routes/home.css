@@ -170,7 +170,9 @@
   flex: 1;
   min-width: 0;
 }
-.lobby-who .n { color: var(--text-primary); }
+/* The flag sits before the name and keeps its box when there is none, so the
+   guest list reads as one column of names rather than a ragged one. */
+.lobby-who .n { display: flex; align-items: center; gap: var(--sp-2); color: var(--text-primary); }
 .lobby-seat[data-empty] .lobby-who .n { color: var(--text-secondary); }
 .lobby-who .muted { font-size: 11px; }
 

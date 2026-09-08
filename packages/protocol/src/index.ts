@@ -1,12 +1,12 @@
-/* Wire protocol v4. JSON over WebSocket, short keys, every message carries t.
+/* Wire protocol v5. JSON over WebSocket, short keys, every message carries t.
    The server is authoritative: clients send intent only. Any change to the
    shapes below is a protocol change: bump PROTOCOL_VERSION and keep the
    server accepting the previous one for a deploy cycle. v4 is additive: the
    `arena` message in both directions and `format.arena`, so a v3 client that
-   never sends one is served unchanged. Profile pictures were additive inside
-   v4 for the same reason: `avatarV` is optional on every shape that carries
-   it, and a client that has never heard of it draws the generated avatar it
-   always did. */
+   never sends one is served unchanged. Profile pictures and flags were
+   additive inside v4 for the same reason: `avatarV` and `country` are optional
+   on every shape that carries them, and a client that has never heard of
+   either draws the generated avatar and no flag, as it always did. */
 
 export const PROTOCOL_VERSION = 4;
 
@@ -161,6 +161,7 @@ export interface LobbySeat {
   rating: number; // their six-max standing, the mode a home game is played in
   host: boolean;
   avatarV?: number; // picture version, 0 for none
+  country?: string; // see SeatView.country
 }
 
 /* An arena: a half-hour heads-up event that pairs you again the moment your
@@ -186,6 +187,7 @@ export interface ArenaStanding {
   matches: number;
   paused: boolean;
   avatarV?: number; // picture version, 0 for none
+  country?: string; // see SeatView.country
 }
 
 /* What a result is worth on the board, and when a run of wins starts paying
@@ -289,6 +291,12 @@ export interface UserSummary {
   guest: boolean;
   bot: boolean;
   botLevel?: number; // 1..5, present only on a bot
+  /* The flag beside their name, as SeatView.country, except that this one is
+     sent as `null` rather than left off when there is none: a summary is
+     merged over the one a client already holds, and a key that goes absent
+     when a flag is cleared would leave the old flag on the screen. Optional
+     only so a v4 server, which sends no key at all, still parses. */
+  country?: string | null;
   // Flat fields are the heads-up standing, kept so anything reading a single
   // rating still works. `ratings` is the real answer.
   rating: number;
@@ -313,6 +321,13 @@ export interface SeatView {
   i: number;
   uid: string;
   name: string;
+  /* The flag beside the name: a lowercase ISO 3166-1 alpha-2 code the player
+     picked for themselves, absent when they have picked none. Optional, and
+     omitted rather than sent as null, because most players will never set one
+     and a v4 client is served a seat it can already read. Snapshotted with the
+     name when the match is created, so changing it mid-match changes the next
+     table rather than this one. */
+  country?: string;
   rating: number;
   stack: number;
   bet: number; // committed on the current street

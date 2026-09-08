@@ -46,6 +46,9 @@ export interface UserRow {
   bot: boolean;
   botLevel: number | null; // 1..5 on a bot, null on a person
   admin: boolean; // the annotation layer and the tickets it writes, nothing else
+  // The flag beside their name: lowercase ISO 3166-1 alpha-2, or null for
+  // none, which is what everyone starts as. See ./countries.ts.
+  country: string | null;
   createdAt: Date;
   lastSeenAt: Date;
   rating: number;
@@ -70,7 +73,7 @@ export interface UserRow {
 const USER_COLS = sql`
   id, name, name_lower, password_hash, guest, bot, bot_level, created_at,
   last_seen_at, rating, rd, volatility, rating_at, peak_rating, peak_at,
-  matches, wins, losses, draws, admin, avatar_type, avatar_v
+  matches, wins, losses, draws, admin, avatar_type, avatar_v, country
 `;
 
 /* One row per (user, mode). This is where the Glicko-2 state lives now; the
@@ -210,6 +213,11 @@ export interface MatchSeat {
      the seat like the name and the rating are, so a finished match reads back
      as it looked, and absent on a match played before pictures existed. */
   avatarV?: number;
+  // Snapshotted with the name and the rating when the match is created, and
+  // left off the row entirely when the player has no flag, so a match stored
+  // before countries existed reads the same way as one played by somebody who
+  // never set one.
+  country?: string;
 }
 
 export interface MatchRow {
@@ -295,6 +303,17 @@ export async function claimGuestUser(
     set name = ${name}, name_lower = ${name.toLowerCase()}, password_hash = ${passwordHash}, guest = false
     where id = ${id} and guest = true
     returning ${USER_COLS}
+  `;
+  return row ?? null;
+}
+
+/* Sets or clears the flag beside a player's name. Guests included: a guest
+   plays here like anybody else, and the flag belongs to the seat rather than
+   to the account. The code is validated against ./countries.ts before it
+   reaches this, so anything arriving here is already a country or null. */
+export async function updateUserCountry(id: string, country: string | null): Promise<UserRow | null> {
+  const [row] = await sql<UserRow[]>`
+    update users set country = ${country} where id = ${id} returning *
   `;
   return row ?? null;
 }
@@ -402,13 +421,14 @@ export interface LeaderboardRow {
   matches: number;
   peakRating: number;
   avatarV: number;
+  country: string | null;
 }
 
 export async function getLeaderboard(mode: Mode, limit = 100): Promise<LeaderboardRow[]> {
   // 110 mirrors @opentable/rating's isProvisional threshold (see userView.ts);
   // it's duplicated here only because SQL can't call into that package.
   return sql<LeaderboardRow[]>`
-    select u.id, u.name, r.rating, r.rd, r.matches, r.peak_rating, u.avatar_v
+    select u.id, u.name, u.country, r.rating, r.rd, r.matches, r.peak_rating, u.avatar_v
     from ratings r
     join users u on u.id = r.user_id
     where r.mode = ${mode} and r.rd <= 110 and u.bot = false
@@ -1029,6 +1049,7 @@ export interface HomeGameSeatRow {
   userId: string;
   name: string;
   avatarV: number;
+  country: string | null;
   joinedAt: Date;
 }
 
@@ -1066,7 +1087,7 @@ export async function countOpenHomeGames(hostId: string): Promise<number> {
 // In join order, which is the order the lobby fills its seats in.
 export async function getHomeGameSeats(gameId: string): Promise<HomeGameSeatRow[]> {
   return sql<HomeGameSeatRow[]>`
-    select s.user_id, u.name, u.avatar_v, s.joined_at
+    select s.user_id, u.name, u.avatar_v, u.country, s.joined_at
     from home_game_seats s join users u on u.id = s.user_id
     where s.game_id = ${gameId}
     order by s.joined_at asc
@@ -1325,6 +1346,7 @@ export interface ArenaPlayerRow {
   name: string;
   bot: boolean;
   avatarV: number;
+  country: string | null;
   rating: number; // heads-up, filled in by the join below
   joinedAt: Date;
   score: number;
@@ -1404,7 +1426,7 @@ export async function finishArena(
 export async function getArenaPlayers(arenaId: string): Promise<ArenaPlayerRow[]> {
   return sql<ArenaPlayerRow[]>`
     select
-      ap.arena_id, ap.user_id, u.name, u.bot, u.avatar_v, ap.joined_at, ap.score,
+      ap.arena_id, ap.user_id, u.name, u.bot, u.avatar_v, u.country, ap.joined_at, ap.score,
       ap.wins, ap.losses, ap.draws, ap.streak, ap.matches, ap.paused, ap.place,
       coalesce(r.rating, 1500) as rating
     from arena_players ap

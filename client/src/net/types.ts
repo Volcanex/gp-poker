@@ -67,6 +67,9 @@ export interface MatchSeat {
   /* The picture this seat had when the match was made. Absent on a match
      played before pictures existed; read it through avatarVersion(). */
   avatarV?: number;
+  /* The flag this seat carried when the match was created. Absent on a seat
+     played before countries existed, and on one whose player had none. */
+  country?: string | null;
 }
 
 export interface LeaderboardRow {
@@ -79,6 +82,9 @@ export interface LeaderboardRow {
   matches: number;
   peak: number;
   avatarV?: number;
+  /* Null for a player with no flag, absent on a server that predates them.
+     Both mean the same thing to the row, which draws nothing. */
+  country?: string | null;
 }
 
 export interface RatingPoint {
@@ -287,6 +293,7 @@ export interface FeedPlayer {
   avatarV?: number;
   name: string;
   bot: boolean;
+  country?: string | null;
   place: number | null; // 1 = winner; null on a match stored before places existed
   ratingBefore: number | null; // null when the match was casual or practice
   ratingAfter: number | null;
@@ -354,7 +361,7 @@ export interface LiveMatch {
   // rating and spectators are optional because a server that predates
   // watching sends neither, and a missing number is hidden rather than
   // printed as a zero.
-  players: { uid?: string; avatarV?: number; name: string; bot: boolean; rating?: number }[];
+  players: { uid?: string; avatarV?: number; name: string; bot: boolean; rating?: number; country?: string | null }[];
   spectators?: number;
   startedAt: string;
 }

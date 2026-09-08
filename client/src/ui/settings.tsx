@@ -4,6 +4,7 @@ import { ACCENTS, THEMES, applyPrefs, readPrefs, writePrefs } from './prefs.ts';
 import type { AccentId, Prefs, ThemeChoice } from './prefs.ts';
 import { useSoundSettings } from '../sound/react.ts';
 import { PictureDialog } from './picture-dialog.tsx';
+import { CountryPicker } from './country-picker.tsx';
 import type { PackId } from '../sound/index.ts';
 
 /* One panel for everything about how the table looks and sounds. It replaced a
@@ -127,6 +128,13 @@ export function SettingsMenu() {
             onChange={(e) => update({ hand: e.target.checked ? 'left' : 'right' })}
           />
         </label>
+
+        <hr className="separator" />
+
+        <div className="menu-title">Country</div>
+        {/* The flag beside your name at every table. Its own control rather
+            than a list of choices here: 249 of them is a search, not a menu. */}
+        <CountryPicker label="Country" />
 
         <hr className="separator" />
         <SoundSection />

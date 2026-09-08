@@ -364,6 +364,7 @@ function toStanding(row: ArenaPlayerRow, rank: number): ArenaStanding {
     avatarV: row.avatarV,
     name: row.name,
     bot: row.bot,
+    ...(row.country ? { country: row.country } : {}),
     rating: Math.round(row.rating),
     rank,
     score: row.score,

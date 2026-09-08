@@ -18,6 +18,8 @@ import { deltaTone } from '../ui/bits.tsx';
 import { ClaimCard } from '../ui/auth.tsx';
 import { Avatar } from '../ui/avatar.tsx';
 import { EditPictureButton } from '../ui/picture-dialog.tsx';
+import { Flag } from '../ui/flag.tsx';
+import { CountryPicker } from '../ui/country-picker.tsx';
 import './profile.css';
 
 export function Profile() {
@@ -25,6 +27,7 @@ export function Profile() {
   const { me } = useSession();
   const [data, setData] = useState<ProfileData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editingCountry, setEditingCountry] = useState(false);
   useTitle(data ? data.summary.name : name);
 
   const load = useCallback(() => {
@@ -68,6 +71,7 @@ export function Profile() {
   const isMe = me != null && me.id === data.summary.id;
   const standings = MODES.map((mode) => ({ mode, r: modeRating(data.summary, mode) }));
   const accuracy = profileAccuracy(data);
+  const flag = isMe ? (me?.country ?? null) : (data.summary.country ?? null);
 
   return (
     <main className="page wide stack">
@@ -86,6 +90,11 @@ export function Profile() {
               isMe ? avatarVersion(me?.avatarV) : 0
             )}
           />
+          {/* Your own flag comes from the session rather than from the payload
+              this page loaded with: the picker below changes the session, and
+              a heading that waited for a refetch would go on showing the flag
+              you had just replaced. */}
+          {flag && <Flag code={flag} size={24} />}
           <h1 className="h1">{data.summary.name}</h1>
           {data.summary.bot && data.summary.botLevel != null && (
             <span className="badge badge-plain">Bot, level {data.summary.botLevel}</span>
@@ -93,7 +102,22 @@ export function Profile() {
           {/* Beside your own avatar, because that is the thing it changes. It
               is the same dialog the settings menu opens. */}
           {isMe && <EditPictureButton />}
+          {isMe && (
+            <button
+              type="button"
+              className="btn btn-tertiary btn-sm"
+              aria-expanded={editingCountry}
+              onClick={() => setEditingCountry((v) => !v)}
+            >
+              {editingCountry ? 'Close' : 'Edit country'}
+            </button>
+          )}
         </div>
+        {/* The same control the settings menu offers, mounted here because a
+            profile is where somebody looks at their own name. */}
+        {isMe && editingCountry && (
+          <CountryPicker label="Country" onSaved={() => setEditingCountry(false)} />
+        )}
         {/* A bot's rating only means something next to how it plays, so the
             level's description sits under its name rather than in a tooltip. */}
         {data.summary.bot && data.summary.botLevel != null && (

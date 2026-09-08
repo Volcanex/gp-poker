@@ -86,6 +86,7 @@ async function seatViews(gameId: string, hostId: string): Promise<LobbySeat[]> {
     uid: r.userId,
     avatarV: r.avatarV,
     name: r.name,
+    ...(r.country ? { country: r.country } : {}),
     rating: Math.round(standings.get(r.userId)?.rating ?? 1500),
     host: r.userId === hostId,
   }));

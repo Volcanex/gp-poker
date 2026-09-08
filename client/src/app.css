@@ -459,6 +459,23 @@
     --seat-w: 268px; --seat-h: 76px; --ring-h: 448px;
     --seat-card: 28px; --board-card: 34px;
   }
+  /* The avatar leaves the name line and hangs off the seat's corner, which is
+     what the phone ring already does with it and for the same reason. A 268 px
+     seat had exactly nothing left over once the name line grew a flag, and of
+     the two the avatar is the one that is decorative: it is aria-hidden and
+     sits beside the name it draws, while a flag is a thing the player chose to
+     say. Out of the flow it costs no width and cannot shift anything by
+     arriving. The seat could not simply be widened instead: a wider seat
+     reaches further in, and at this width the two upper seats meet the pot. */
+  .felt[data-mode="ring"] .seat {
+    grid-template-areas: "cards id id" "cards last clock";
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .felt[data-mode="ring"] .avatar {
+    position: absolute; top: -6px; left: -6px; z-index: 1;
+    --avatar-size: 20px;
+    box-shadow: 0 0 0 2px var(--surface-1);
+  }
   .felt[data-mode="ring"][data-seats="3"], .felt[data-mode="ring"][data-seats="4"] { --ring-h: 336px; }
 }
 
@@ -1033,6 +1050,19 @@
   .seat-rating { display: none; }
   .seat-name { max-width: 12ch; }
   .avatar { --avatar-size: 24px; }
+  /* The dealer button leaves the name line for the seat's corner, which is
+     what the phone ring already does with it and for the same reason: it costs
+     no width there, it still cannot move anything by arriving, and it reads
+     like the button on a real table. The line had nothing spare once it grew a
+     flag, and of the two the name is what somebody reads a seat by. Top right
+     rather than the ring's bottom right, because a stack seat is a wide row
+     whose bottom right is where its stack figure ends. */
+  .felt[data-mode="stack"] .btn-marker {
+    position: absolute; top: 5px; right: 5px; z-index: 1;
+    width: 15px; height: 15px; font-size: 9px;
+  }
+  /* And the clock drops to the bottom of that column, out from under it. */
+  .felt[data-mode="stack"] .seat-clock { align-self: end; }
 }
 
 /* pot flight layer: the chip lands over the pot without moving it */
@@ -1271,3 +1301,26 @@ a.btn { text-decoration: none; }
   .watch-bar { padding-left: var(--sp-3); padding-right: var(--sp-3); }
   .watch-bar .tagset { display: none; }
 }
+
+/* ------------------------------------------------------------------ flags */
+
+/* A country flag beside a name. 4:3 artwork sized by its slot, with the
+   hairline drawn inside the box (outline-offset: -1px) rather than around it,
+   so an outlined flag and an empty slot measure the same and a footprint test
+   cannot tell them apart. The border is not decoration: Japan, Switzerland and
+   a dozen others are mostly white, and on a light surface they read as a hole
+   without it. */
+.flag {
+  display: inline-block;
+  flex: none;
+  border-radius: 2px;
+  outline: 1px solid var(--border-subtle);
+  outline-offset: -1px;
+  vertical-align: -1px;
+}
+.flag-empty { outline: none; }
+
+/* The picker: the chosen flag, then the field that changes it. */
+.country-picker { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.country-picker .g-combobox { flex: 1; min-width: 0; }
+.country-current { display: inline-flex; align-items: center; }
