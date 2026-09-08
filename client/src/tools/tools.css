@@ -216,7 +216,7 @@
 
 .spot-line {
   margin: 0;
-  min-height: 1.6em;
+  min-height: var(--lh-2);
   font-size: var(--font-size-ui);
 }
 
@@ -271,7 +271,7 @@
   align-items: center;
   gap: var(--sp-2);
   margin: 0;
-  min-height: 1.5em;
+  min-height: var(--lh-2);
   font-size: var(--font-size-ui);
   color: var(--text-primary);
 }
@@ -355,7 +355,7 @@
 
 .reveal-note {
   margin: 0;
-  min-height: 18px;
+  min-height: var(--lh-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -508,11 +508,11 @@
      beside it is the wide one. A reserve one line short is the same as no
      reserve at all: the record slides the moment somebody gets one wrong. */
   .spot-line {
-    min-height: 3.2em;
+    min-height: calc(var(--lh-2) * 2);
   }
 
   .verdict-line {
-    min-height: 3em;
+    min-height: calc(var(--lh-2) * 2);
   }
 
   .odds-score {

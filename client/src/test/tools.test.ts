@@ -215,8 +215,10 @@ describe('the grid entrance', () => {
     for (let r = 0; r < GRID_SIZE; r += 1) {
       for (let c = 0; c < GRID_SIZE; c += 1) worst = Math.max(worst, centreDelay(r, c));
     }
-    expect(worst + CELL_ENTER).toBeLessThan(0.6);
+    /* Widened 2026-09-08: the opening explorer's wave read as too quick to
+       register as a wave, so the budget doubled from 520ms to roughly 1040ms. */
+    expect(worst + CELL_ENTER).toBeLessThan(1.1);
     expect(CELL_ENTER).toBeGreaterThanOrEqual(0.12);
-    expect(CELL_ENTER).toBeLessThanOrEqual(0.2);
+    expect(CELL_ENTER).toBeLessThanOrEqual(0.4);
   });
 });

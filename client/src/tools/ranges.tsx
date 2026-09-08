@@ -51,7 +51,6 @@ export function Ranges() {
      or a painted range is a set, where a second colour would claim a ranking
      the range does not have. */
   const [heat, setHeat] = useState(!asked);
-  const [wave, setWave] = useState(0);
   const [preset, setPreset] = useState(asked ? asked.id : '');
   const [hero, setHero] = useState<[string, string]>(['Ah', 'Ks']);
   const [boardText, setBoardText] = useState('');
@@ -64,13 +63,14 @@ export function Ranges() {
 
   const text = draft ?? rangeToText(range);
 
-  /* Every wholesale change to the range comes through here, which is also what
-     makes the grid enter again. Painting and typing deliberately do not: a
-     dragged range would restart the entrance under the pointer. */
+  /* Every wholesale change to the range comes through here. The grid's centre-out
+     entrance is for opening the page, not for every edit, so nothing here
+     re-triggers it: painting, typing, the slider and the presets all update the
+     cells in place, which is what makes dragging the slider read as scrubbing
+     rather than as the grid restarting under the pointer. */
   const apply = (next: Range, shaded: boolean) => {
     setRange(next);
     setHeat(shaded);
-    setWave((n) => n + 1);
     setDraft(null);
     setTextError(null);
   };
@@ -121,7 +121,6 @@ export function Ranges() {
             label="Starting hands"
             cell={(cls) => cellFor(cls, range.has(cls), heat, top)}
             onPaint={paint}
-            wave={wave}
             hint="Click or drag to paint. Arrow keys move, space toggles. Pairs run down the diagonal, suited above it, offsuit below."
           />
           {heat ? (
