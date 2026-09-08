@@ -30,6 +30,7 @@ declaration for `phe` that the engine's own tsconfig provides.
 | `src/puzzles/` | the daily puzzles |
 | `src/chat/` | table chat |
 | `src/ui/` | settings, presence, the account menu and the g-ui seam |
+| `src/admin/` | the admin bar, the annotation overlay and the tickets it writes |
 | `src/sound/` | the sound module and its packs |
 | `src/dev/mock.ts` | the scripted table the e2e suite drives (documented in `e2e/CLAUDE.md`) |
 | `e2e/` | the Playwright suite |

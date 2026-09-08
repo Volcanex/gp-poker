@@ -16,6 +16,7 @@ file covers the flat files and the subsystems that live in exactly one of them.
 | `arena.ts` | the hourly competitive event |
 | `ladder.ts` | bots playing each other so their ratings spread out |
 | `chat.ts` | the pure half of table chat: `cleanChatText` and `ChatLimiter` |
+| `admin.ts` | the admin gate's own routes: the tickets the annotation layer writes |
 | `insights.ts` | the pure derivation behind `/api/users/:name/insights` |
 | `explorer.ts` | the pure derivation behind `/api/explorer` |
 | `meta.ts` | what a pasted link shows, plus `/robots.txt` and `/sitemap.xml` |
@@ -53,6 +54,40 @@ Password hashing is `crypto.scrypt`, stored as `salt:hash` hex.
 
 The websocket path uses `resolveSessionUser` instead and does not mint
 (`ws/CLAUDE.md`).
+
+## The admin gate and tickets
+
+`users.admin` is one boolean and one person has it. It is granted in
+`../db/schema.sql` by an `update ... where id = '...' and admin = false`, which
+re-runs harmlessly on every boot: a deploy is where a grant belongs, and nobody
+has to touch the live rows by hand to make one.
+
+`requireAdmin` in `auth.ts` sits beside `requireUser` and differs from it in one
+way that matters: **it never mints**. `requireUser` exists so a link works for
+somebody who has never been here, which is exactly wrong for a route that is
+about to refuse them anyway. It sends its own 403 and answers null, so a route
+hands the reply straight back to Fastify. `/api/me` adds `admin: true` for an
+admin and **omits the key entirely** otherwise, so nothing about the admin layer
+is on the wire for a player at all.
+
+`admin.ts` holds every route behind that gate: `POST /api/tickets` and
+`GET|PATCH /api/admin/tickets[/:id]`. A ticket is an annotation made on the
+running site, and its shape is all context: the `url` and `path` it was made on,
+the `viewport` (width, height, dpr, theme) it was seen at, `targets` (a CSS
+selector path, the box, the trimmed text and the aria label for each element
+that was pointed at), and `drawing`, a PNG data URL of the strokes drawn over
+them. `title` is the note's first line, derived on the way in so a list reads as
+sentences rather than as truncated paragraphs. `page_shot` is a slot nothing
+writes yet.
+
+Three limits are worth knowing. The drawing is capped at **1.5 MB**, and the
+route carries its own `bodyLimit` well above that so the refusal is ours and
+carries a sentence rather than being Fastify's generic payload error. Ticket
+creation is limited to **one a second per user**, which is about a stuck save
+button rather than about abuse; `clearTicketRate()` is the seam the suite uses,
+since writing several tickets in a row is exactly what the limiter refuses. And
+**the list never selects `drawing`**: twenty tickets would otherwise be twenty
+PNGs nobody is looking at.
 
 ## Ratings are per mode
 

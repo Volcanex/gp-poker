@@ -16,6 +16,46 @@ export interface Me extends UserSummary {
   wins: number;
   losses: number;
   draws: number;
+  /* Absent for everybody but the one account that has it. The admin bar and
+     the annotation layer are the only things that read it. */
+  admin?: boolean;
+}
+
+/* An annotation made on the running site: what is wrong, where it was seen,
+   which elements were pointed at and what was drawn over them. Written by
+   src/admin/annotate.tsx and read by src/admin/tickets.tsx. */
+export interface TicketTarget {
+  selector: string;
+  rect: { x: number; y: number; width: number; height: number };
+  text: string;
+  label: string | null;
+}
+
+export interface TicketViewport {
+  width: number;
+  height: number;
+  dpr: number;
+  theme: string;
+}
+
+/* What a list row carries. The drawing is deliberately not on it: a page of
+   titles must not be a page of PNGs. */
+export interface TicketSummary {
+  id: string;
+  createdAt: string;
+  url: string;
+  path: string;
+  title: string;
+  note: string;
+  viewport: TicketViewport;
+  targets: TicketTarget[];
+  status: 'open' | 'done';
+  build: string | null;
+}
+
+export interface Ticket extends TicketSummary {
+  drawing: string | null;
+  pageShot: string | null;
 }
 
 export interface MatchSeat {

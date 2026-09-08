@@ -1,0 +1,111 @@
+/* The admin layer: the bar, the annotation overlay and the tickets pages.
+   Tokens only, like the rest of the app. Nothing here is ever rendered for a
+   player: the bar returns null unless /api/me said admin, and both pages
+   render the not-found page instead. */
+
+/* ------------------------------------------------------------------- bar */
+
+.admin-bar {
+  display: flex; align-items: center; gap: var(--sp-3);
+  height: 28px; flex: none;
+  padding: 0 var(--sp-4);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-2);
+  font-size: 12px; color: var(--text-secondary);
+  white-space: nowrap; overflow: hidden;
+}
+.admin-bar .ab-label { color: var(--text-primary); font-weight: 500; }
+.admin-bar a { color: var(--text-secondary); text-decoration: none; }
+.admin-bar a:hover { color: var(--text-primary); }
+.admin-bar .ab-tickets { display: inline-flex; align-items: center; gap: 6px; }
+.admin-bar .ab-hint { display: inline-flex; align-items: center; gap: 3px; }
+.admin-bar .ab-hint .kbd { height: 16px; min-width: 16px; font-size: 10px; }
+.admin-bar .spacer { flex: 1; }
+/* The bar is furniture, not a place to sit: below 700px it keeps the two
+   things that do something and drops the hint. */
+@media (max-width: 700px) {
+  .admin-bar .ab-hint { display: none; }
+}
+
+/* --------------------------------------------------------------- overlay */
+
+/* Under g's tooltip (50) and its toaster (60), over everything this app
+   draws, so the "Ticket saved" toast lands on top of the overlay that
+   raised it. */
+.anno {
+  position: fixed; inset: 0; z-index: 45;
+  font-size: var(--font-size-ui);
+}
+.anno-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+/* The surface that takes the pointer. The page underneath is a picture for as
+   long as the overlay is up: nothing on it can be clicked by accident. */
+.anno-hit { position: absolute; inset: 0; cursor: crosshair; }
+.anno[data-tool="pen"] .anno-hit { cursor: cell; }
+
+.anno-outline, .anno-target {
+  position: absolute; pointer-events: none;
+  border-radius: var(--radius-sm);
+}
+.anno-outline {
+  border: 2px solid var(--accent-edge);
+  background: color-mix(in srgb, var(--accent-fill) 14%, transparent);
+}
+/* A target already taken, so the difference from the live outline is the
+   thing to see: dashed, and no fill. */
+.anno-target { border: 2px dashed var(--accent-edge); }
+.anno-tag {
+  position: absolute; left: 0; top: -20px;
+  max-width: 60vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 0 5px; height: 18px; line-height: 18px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-fill); color: var(--accent-fg);
+  font-size: 11px;
+}
+
+.anno-panel {
+  position: absolute; left: var(--sp-4); bottom: var(--sp-4);
+  width: 320px; max-width: calc(100vw - var(--sp-6));
+  display: flex; flex-direction: column; gap: var(--sp-3);
+  box-shadow: var(--overlay-shadow);
+}
+.anno-panel .anno-tools { display: flex; align-items: center; gap: var(--sp-2); }
+.anno-panel .anno-tools .spacer { flex: 1; }
+.anno-panel textarea.input { min-height: 76px; resize: vertical; }
+.anno-panel .anno-actions { display: flex; align-items: center; gap: var(--sp-2); }
+.anno-panel .anno-count { color: var(--text-secondary); font-size: 12px; }
+.anno-panel .anno-error { color: var(--danger-text); font-size: 12px; }
+
+/* ------------------------------------------------------------- tickets */
+
+.tk-head { display: flex; align-items: flex-end; gap: var(--sp-4); flex-wrap: wrap; }
+.tk-head .spacer { flex: 1; }
+.tk-when { color: var(--text-secondary); white-space: nowrap; }
+.tk-path { font-family: var(--font-mono); font-size: 12px; }
+.tk-title-cell { display: flex; flex-direction: column; gap: 2px; }
+.tk-title-cell a { color: var(--text-primary); text-decoration: none; }
+.tk-title-cell a:hover { text-decoration: underline; }
+.tk-rows tbody tr { cursor: pointer; }
+
+.tk-note { white-space: pre-wrap; margin: 0; }
+.tk-context { display: grid; grid-template-columns: max-content 1fr; gap: 4px var(--sp-4); margin: 0; }
+.tk-context dt { color: var(--text-secondary); }
+.tk-context dd { margin: 0; overflow-wrap: anywhere; }
+.tk-targets { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.tk-targets li {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+  background: var(--fill-hover);
+}
+.tk-targets .sel { font-family: var(--font-mono); font-size: 12px; overflow-wrap: anywhere; }
+.tk-targets .txt { color: var(--text-secondary); font-size: 12px; }
+
+/* The strokes over a neutral ground at the aspect the page was seen at, so a
+   drawing made at 1366 wide is not read as though it were square. */
+.tk-shot {
+  width: 100%;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  overflow: hidden;
+}
+.tk-shot img { display: block; width: 100%; height: 100%; }

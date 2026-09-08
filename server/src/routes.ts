@@ -48,6 +48,7 @@ import {
   startHomeGame,
 } from './home-games.js';
 import { arenaListing, arenaView, joinArena, leaveArena, pauseArena } from './arena.js';
+import { registerAdminRoutes } from './admin.js';
 
 function err(reply: { code: (n: number) => { send: (b: unknown) => unknown } }, status: number, message: string) {
   return reply.code(status).send({ error: message });
@@ -57,6 +58,10 @@ export function registerRoutes(app: FastifyInstance): void {
   // Always 200 while the process answers; what is actually healthy is in the
   // body. See health.ts for the contract.
   app.get('/health', async () => health());
+
+  // The admin layer lives in its own file: every route in it is behind the
+  // admin gate, and none of it is part of the game.
+  registerAdminRoutes(app);
 
   app.get('/api/me', async (request, reply) => {
     const user = await requireUser(request, reply);
@@ -69,6 +74,9 @@ export function registerRoutes(app: FastifyInstance): void {
     // never be handed a different answer than the standing already gave it.
     return {
       ...summary,
+      // Only ever true for an admin. The key is absent for everybody else, so
+      // nothing about the admin layer is on the wire for a player at all.
+      ...(user.admin ? { admin: true } : {}),
       peak: headsUp.peak,
       peakAt: headsUp.peakAt,
       matches: headsUp.matches,

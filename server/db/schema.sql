@@ -249,3 +249,39 @@ create table if not exists arena_players (
   primary key (arena_id, user_id)
 );
 create index if not exists arena_players_board on arena_players(arena_id, score desc);
+
+-- The admin flag. One person has it, and what it unlocks is the annotation
+-- layer and the tickets it writes: a way to point at a broken thing on the
+-- page it is broken on. Nothing about the game reads it.
+alter table users add column if not exists admin boolean not null default false;
+
+-- Gabriel's account, granted here rather than by a statement somebody runs by
+-- hand, so a fresh database and a deploy both end up with an admin without
+-- anyone touching the live rows. Guarded on `admin = false`, so it is a no-op
+-- on every boot after the first and a revoke made deliberately elsewhere
+-- would be undone only by a deploy, which is where a grant belongs.
+update users set admin = true
+where id = '4ed2aa44-08b7-414e-a88a-9e337b190ad5' and admin = false;
+
+-- Tickets: an annotation made on the running site. The note is what is wrong,
+-- `targets` is the elements that were pointed at (selector, box, text) and
+-- `drawing` is the strokes drawn over them as a PNG data URL. The context is
+-- stored with the note because a bug report written a day later cannot
+-- reconstruct the viewport it was seen at. `page_shot` is the slot for a
+-- capture of the page itself, which nothing writes yet.
+create table if not exists tickets (
+  id text primary key,                         -- short public id, like a match's
+  created_at timestamptz not null default now(),
+  user_id uuid not null references users(id) on delete cascade,
+  url text not null,                           -- the full URL the note was made on
+  path text not null,                          -- its pathname, which is what a list reads
+  title text not null,                         -- the note's first line, trimmed to 120
+  note text not null,
+  viewport jsonb not null,                     -- {width, height, dpr, theme}
+  targets jsonb not null default '[]',         -- [{selector, rect, text, label}]
+  drawing text,                                -- PNG data URL of the strokes layer
+  page_shot text,                              -- unused for now, see above
+  status text not null default 'open',         -- open | done
+  build text                                   -- the client build this was seen on
+);
+create index if not exists tickets_status on tickets(status, created_at desc);

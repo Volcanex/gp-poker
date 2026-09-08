@@ -38,6 +38,10 @@ filled and none of them yours.
 The one thing no route can stub is the websocket, so the home page's baseline
 says the connection dropped, which is true.
 
+`admin.spec.ts` is the one spec that stubs `/api/me` as an admin, which it does
+by registering its own handler **after** `stubApi`, for the reason below. Every
+other spec sees the ordinary player, so the bar is not in any other baseline.
+
 **Playwright runs the last matching route handler**, so a catch-all has to be
 registered first and the fixtures after it. Registered the other way round the
 catch-all swallows everything: this stub served 404 to every call for its whole
@@ -63,6 +67,7 @@ it.
 | `settings.spec.ts` | a choice surviving a reload, the pre-paint stamp, every accent's contrast in both themes, the four colour deck, and the menu itself |
 | `replay.spec.ts` | a recorded hand scrubbed back and forth leaves nothing behind and nothing outside the felt, and still verifies |
 | `screenshots.spec.ts` | 132 baselines: eleven states at 360, 390, 430, 768, 1366 and 1920, dark and light |
+| `admin.spec.ts` | the admin bar, the annotate flow from shortcut to posted ticket, the tickets pages, and that a player gets none of it |
 
 ## Reading a baseline diff
 

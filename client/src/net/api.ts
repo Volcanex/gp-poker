@@ -1,7 +1,7 @@
 import type {
   Arena, ArenaListing, BotRow, Challenge, CreatedChallenge, CreatedHomeGame, Explorer, ExplorerFacing,
   ExplorerPlayers, FeedMatch, Hand, HomeGame, Insights, LeaderboardRow, LiveMatch, Match, Me, PositionKey,
-  Profile, PuzzleHand, SiteStats, StartedHomeGame,
+  Profile, PuzzleHand, SiteStats, StartedHomeGame, Ticket, TicketSummary, TicketTarget, TicketViewport,
 } from './types.ts';
 import type { Mode, UserSummary } from '@opentable/protocol';
 
@@ -107,6 +107,26 @@ export const api = {
      tabs cannot flip each other. */
   pauseArena: (id: string, paused: boolean) =>
     post<{ ok: true }>(`/api/arenas/${encodeURIComponent(id)}/pause`, { paused }),
+  /* The admin layer. Every one of these is 403 for anybody but the admin, so
+     nothing here is ever called from a page a player can reach. Creating a
+     ticket is the one call with a body worth anything: the drawing is a PNG
+     data URL and the server caps it at 1.5 MB. */
+  createTicket: (t: {
+    url: string;
+    path: string;
+    note: string;
+    viewport: TicketViewport;
+    targets: TicketTarget[];
+    drawing: string | null;
+    build: string | null;
+  }) => post<{ id: string }>('/api/tickets', t),
+  tickets: (status: 'open' | 'done') => req<TicketSummary[]>(`/api/admin/tickets?status=${status}`),
+  ticket: (id: string) => req<Ticket>(`/api/admin/tickets/${encodeURIComponent(id)}`),
+  setTicketStatus: (id: string, status: 'open' | 'done') =>
+    req<{ id: string; status: string }>(`/api/admin/tickets/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
   claim: (name: string, password: string) => post<UserSummary>('/api/claim', { name, password }),
   login: (name: string, password: string) => post<UserSummary>('/api/login', { name, password }),
   logout: () => post<{ ok: true }>('/api/logout'),

@@ -140,6 +140,23 @@ export async function requireUser(request: FastifyRequest, reply: FastifyReply):
   return guest;
 }
 
+// The admin gate. Unlike requireUser it never mints: an admin route asked for
+// without a session is a 403, not a new guest who is then refused anyway. It
+// sends the refusal itself so the wording lives in one place, and answers null
+// so the route can hand the reply straight back to Fastify.
+export async function requireAdmin(
+  request: FastifyRequest,
+  reply: FastifyReply
+): Promise<UserRow | null> {
+  const user = await resolveSessionUser(request);
+  if (!user || !user.admin) {
+    reply.code(403).send({ error: 'admin only' });
+    return null;
+  }
+  await touchLastSeen(user.id);
+  return user;
+}
+
 export async function claimGuest(
   guestId: string,
   name: string,
