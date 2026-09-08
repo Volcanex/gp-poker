@@ -34,6 +34,9 @@ export function toUserSummary(user: UserRow, ratings: Record<Mode, RatingRow>): 
     name: user.name,
     guest: user.guest,
     bot: user.bot,
+    // Only a bot has one, and a person's summary should not carry the key at
+    // all rather than carry a null.
+    ...(user.botLevel != null ? { botLevel: user.botLevel } : {}),
     rating: headsUp.rating,
     rd: headsUp.rd,
     provisional: headsUp.provisional,

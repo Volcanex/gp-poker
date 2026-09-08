@@ -103,6 +103,10 @@ create index if not exists audit_log_match on audit_log(match_id);
 -- alters rather than folded into the create-table blocks above so an existing
 -- database picks them up on the next boot.
 alter table users add column if not exists bot boolean not null default false;
+-- 1..5 on a bot, null on everyone else. Set from the roster on every boot, so
+-- a level change in code lands on the existing accounts rather than needing
+-- new ones.
+alter table users add column if not exists bot_level smallint;
 alter table matches add column if not exists places jsonb;            -- {user_id: place}, 1 = winner
 alter table match_players add column if not exists place int;
 -- Table seats that were dealt into this hand, in engine-seat order. The

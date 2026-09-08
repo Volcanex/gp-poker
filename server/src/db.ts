@@ -41,6 +41,7 @@ export interface UserRow {
   passwordHash: string | null;
   guest: boolean;
   bot: boolean;
+  botLevel: number | null; // 1..5 on a bot, null on a person
   createdAt: Date;
   lastSeenAt: Date;
   rating: number;
@@ -222,12 +223,18 @@ export async function claimGuestUser(
 }
 
 // Bot accounts are ordinary users with bot = true: real names, real ratings,
-// real history, no password and never a guest. Created once at boot.
-export async function ensureBotUser(name: string): Promise<UserRow> {
+// real history, no password and never a guest. Created once at boot. The level
+// is re-asserted on every boot rather than only at creation, so the roster in
+// code stays the source of truth for who plays how.
+export async function ensureBotUser(name: string, level: number): Promise<UserRow> {
   await sql`
-    insert into users (name, name_lower, guest, bot)
-    values (${name}, ${name.toLowerCase()}, false, true)
+    insert into users (name, name_lower, guest, bot, bot_level)
+    values (${name}, ${name.toLowerCase()}, false, true, ${level})
     on conflict (name_lower) do nothing
+  `;
+  await sql`
+    update users set bot_level = ${level}
+    where name_lower = ${name.toLowerCase()} and bot = true and bot_level is distinct from ${level}
   `;
   const [row] = await sql<UserRow[]>`select * from users where name_lower = ${name.toLowerCase()}`;
   return row;
@@ -427,6 +434,7 @@ export interface UserMatchSummary {
   place: number | null;
   result: 'win' | 'loss' | 'draw';
   rated: boolean;
+  practice: boolean; // a table of bots, always unrated
   ratingChange: number;
   finishedAt: Date | null;
 }
@@ -463,6 +471,9 @@ export async function getMatchesForUser(userId: string, limit = 20): Promise<Use
       place,
       result,
       rated: m.rated,
+      // A practice match is unrated, but so is a casual one: the flag is what
+      // lets a history row say which of the two it was.
+      practice: m.format.practice === true,
       ratingChange: mine ? Math.round(mine.after - mine.before) : 0,
       finishedAt: m.finishedAt,
     };

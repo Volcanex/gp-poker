@@ -1,4 +1,4 @@
-import type { ClientMsg, ServerMsg, TableView } from '@opentable/protocol';
+import { DEFAULT_BOT_LEVEL, type BotLevel, type ClientMsg, type ServerMsg, type TableView } from '@opentable/protocol';
 import { decide, type Rng } from './strategy.js';
 
 /* One bot at the table. It has no socket: the hub routes its messages to
@@ -28,6 +28,7 @@ export class BotPlayer {
   constructor(
     readonly userId: string,
     private dispatch: Dispatch,
+    readonly level: BotLevel = DEFAULT_BOT_LEVEL,
     private rng: Rng = Math.random
   ) {}
 
@@ -52,7 +53,7 @@ export class BotPlayer {
     if (this.pending.has(key)) return;
     this.pending.add(key);
 
-    const decision = decide(view, this.rng);
+    const decision = decide(view, this.rng, this.level);
     const me = view.seats[view.you];
     const trivial = decision.a === 'x' || me.stack === 0 || me.stack <= view.legal.call;
     const [lo, hi] = trivial ? [QUICK_MIN_MS, QUICK_MAX_MS] : [THINK_MIN_MS, THINK_MAX_MS];

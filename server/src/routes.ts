@@ -25,6 +25,7 @@ import {
 } from './db.js';
 import { hub } from './ws/hub.js';
 import { queueSize } from './matchmaking.js';
+import { getRoom } from './match/rooms.js';
 import { claimGuest, login, requireUser, setSessionCookie, clearSessionCookie, createSessionForUser, SESSION_COOKIE } from './auth.js';
 import { rosterSummary } from './bots/index.js';
 import { roundRatings, toModeRating, toUserSummary } from './userView.js';
@@ -267,7 +268,12 @@ export function registerRoutes(app: FastifyInstance): void {
       // handsPlayed counts completed hands, so the hand being dealt is the
       // next one along.
       hand: m.handsPlayed + 1,
-      players: m.seats.map((s) => ({ name: s.name, bot: s.bot === true })),
+      players: m.seats.map((s) => ({ name: s.name, bot: s.bot === true, rating: Math.round(s.rating) })),
+      // People watching without a seat. Reported here and nowhere near the
+      // table itself: the players are deciding and do not need the number.
+      // A room that has already been unregistered reads as nobody watching
+      // rather than as an absent field.
+      spectators: getRoom(m.id)?.spectatorCount ?? 0,
       startedAt: m.createdAt,
     }));
   });
