@@ -62,7 +62,8 @@ it.
 | `reduced-motion.spec.ts` | the same information with the motion emulated off |
 | `settings.spec.ts` | a choice surviving a reload, the pre-paint stamp, every accent's contrast in both themes, the four colour deck, and the menu itself |
 | `replay.spec.ts` | a recorded hand scrubbed back and forth leaves nothing behind and nothing outside the felt, and still verifies |
-| `screenshots.spec.ts` | 132 baselines: eleven states at 360, 390, 430, 768, 1366 and 1920, dark and light |
+| `puzzles.spec.ts` | the preflop chart's entrance: every cell ends visible, on the first spot and the next, and the page does not reflow while it runs |
+| `screenshots.spec.ts` | 156 baselines: thirteen states at 360, 390, 430, 768, 1366 and 1920, dark and light |
 
 ## Reading a baseline diff
 
