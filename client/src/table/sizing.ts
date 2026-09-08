@@ -8,8 +8,9 @@ export interface Preset {
 
 export const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
-/* Raise-to sizes for the dock. A fraction is of the pot as it stands after the
-   call, added to what the player already has in front of them, which is the
+/* Raise-to sizes for **v1's dock**, which is the only thing left that uses
+   them; the band's own six are `presetsStack` below. A fraction is of the pot
+   as it stands after the call, added to what the player already has in front of them, which is the
    size everyone means when they say "pot". Everything is clamped to what the
    server said is legal.
 
@@ -57,67 +58,71 @@ export function presetsFor(
   ];
 }
 
-/* Ten sizes for a band under a mouse, in two rows of five. Six was too few:
-   every postflop size was about the pot and nobody could bet sixty percent of
-   it, which is the size the request that added these named. The phone keeps
-   the six above, because its sweep can land on any number and its marks are
-   only signposts.
+/* The band's six, and the only sizes it offers. **They are fractions of what
+   the player has, not of the pot**, which is what the owner asked for: a
+   spread up the stack rather than ten pot fractions nobody could tell apart.
+   `legal.max` is the raise-to that puts the whole stack in (the engine's
+   `seat.bet + seat.stack`), so a fraction of it is a fraction of what they
+   have, and the all in slot is the top of the same ladder rather than a
+   number of its own.
 
-   Preflop the sizes people think in are multiples of the bet, so the middle
-   eight are 2x through 6x with a pot sized raise as the ninth, which is the
-   size a three bet wants. Postflop they are fractions of the pot after the
-   call, from a quarter to one and a half. Min and all in are the ends of
-   both, so the first and last key always mean the same thing. */
-export function presetsWide(
-  legal: LegalActions,
-  pot: number,
-  myBet: number,
-  street: Street,
-): Preset[] {
-  const { call, min, max } = legal;
+   The same six before the flop and after it. The old set changed shape at the
+   flop, which meant the key under a finger meant one thing preflop and
+   another on the turn, and every postflop size was about the pot.
+
+   Six slots, always the same six in the same order, because the number keys
+   address them by position: a preset that moves is a preset nobody learns.
+   Everything is rounded to a whole chip and clamped into the legal range, so
+   a short stack collapses the middle of the ladder rather than offering a
+   size the server would refuse. */
+export const STACK_FRACTIONS = [0.1, 0.25, 0.5, 0.75] as const;
+
+/* Which slot a size of your own starts from. The quarter, because it is the
+   size a player who reaches for the sizer is usually somewhere near, and
+   because the sweep and the typed field should open on the same number.
+
+   **A decision itself opens on Min, not on this**, which is the rule the dock
+   has always had: the loaded size is what Enter and the button send, and a
+   band that came up preflop holding a quarter of a stack is a stack lost to a
+   keypress nobody meant. The quarter is a place to sweep from, not a place to
+   land. */
+export const DEFAULT_PRESET = 2;
+
+/* And which slot the sizer actually starts from when a short stack has
+   collapsed the quarter onto a neighbour. A blank box is not a size anyone can
+   choose, so it steps up the ladder to the first live box above it, and falls
+   back down to the first live box at all when there is none. */
+export function openAt(presets: Preset[], dups: ReadonlySet<string>): number {
+  const live = (i: number) => presets[i] != null && !dups.has(presets[i].key);
+  for (let i = DEFAULT_PRESET; i < presets.length; i += 1) if (live(i)) return i;
+  for (let i = 0; i < presets.length; i += 1) if (live(i)) return i;
+  return 0;
+}
+
+export function presetsStack(legal: LegalActions): Preset[] {
+  const { min, max } = legal;
   if (max <= 0 || max < min) return [];
-
-  const potAfterCall = pot + call;
-  const currentBet = myBet + call;
-  const fraction = (f: number) => clamp(Math.round(myBet + call + f * potAfterCall), min, max);
-  const multiple = (x: number) => clamp(Math.round(currentBet * x), min, max);
-
-  const middle: Preset[] =
-    street === 'pre'
-      ? [
-          { key: '2x', label: '2×', value: multiple(2) },
-          { key: '2.5x', label: '2.5×', value: multiple(2.5) },
-          { key: '3x', label: '3×', value: multiple(3) },
-          { key: '3.5x', label: '3.5×', value: multiple(3.5) },
-          { key: '4x', label: '4×', value: multiple(4) },
-          { key: '5x', label: '5×', value: multiple(5) },
-          { key: '6x', label: '6×', value: multiple(6) },
-          { key: 'pot', label: 'Pot', value: fraction(1) },
-        ]
-      : [
-          { key: 'p25', label: '25%', value: fraction(0.25) },
-          { key: 'p33', label: '33%', value: fraction(1 / 3) },
-          { key: 'p50', label: '50%', value: fraction(0.5) },
-          { key: 'p60', label: '60%', value: fraction(0.6) },
-          { key: 'p75', label: '75%', value: fraction(0.75) },
-          { key: 'pot', label: '100%', value: fraction(1) },
-          { key: 'p125', label: '125%', value: fraction(1.25) },
-          { key: 'p150', label: '150%', value: fraction(1.5) },
-        ];
-
+  const of = (f: number) => clamp(Math.round(f * max), min, max);
   return [
     { key: 'min', label: 'Min', value: min },
-    ...middle,
+    ...STACK_FRACTIONS.map((f) => ({
+      key: `s${Math.round(f * 100)}`,
+      label: `${Math.round(f * 100)}%`,
+      value: of(f),
+    })),
     { key: 'allin', label: 'All in', value: max },
   ];
 }
 
-/* Which presets say a number another one already says. A segment sends on one
-   press, so two segments sending the same raise is one raise offered twice,
-   and the second is disabled rather than dropped so the keys stay put. The
-   ends own their numbers: a size that clamps up to the stack is an all in and
-   the all in segment is the one that stays, and a size that clamps down to the
-   minimum is the minimum. Between them, the first to say a number keeps it. */
+/* Which presets say a number another one already says. A short stack collapses
+   the middle of the ladder onto its ends, and a box repeating a number its
+   neighbour already offers is noise, so the later one is drawn blank and
+   disabled rather than dropped: the keys address the boxes by position and a
+   box that moved would take its key with it. The ends own their numbers, which
+   is why the all in box is always the last one and always says the stack: a
+   size that clamps up to the stack is an all in, a size that clamps down to
+   the minimum is the minimum, and between them the first to say a number keeps
+   it. */
 export function dupKeys(presets: Preset[]): Set<string> {
   const owner = new Map<number, string>();
   for (const p of presets) if (p.key === 'min' || p.key === 'allin') owner.set(p.value, p.key);

@@ -13,7 +13,7 @@ import type { DockState } from './dock.tsx';
 import { isLastHand } from './preactions.ts';
 import type { PreAction } from './preactions.ts';
 import {
-  clamp, dupKeys, presetsFor, presetsWide, raiseAction, raiseLabel, raiseShape,
+  clamp, dupKeys, openAt, presetsStack, raiseAction, raiseLabel, raiseShape,
 } from './sizing.ts';
 import type { Preset } from './sizing.ts';
 import { playClick } from './sounds.ts';
@@ -80,7 +80,7 @@ export function HeroBand({ view, onAct, sending, best, stack, onNext }: HeroBand
         {/* One quiet line under the controls, gone on a phone where there is
             no keyboard to legend. It says the same thing in every state, so it
             is rendered outside the column that changes. */}
-        <KeyLegend className="hb-keys" watching={view.you == null} sizes={10} />
+        <KeyLegend className="hb-keys" watching={view.you == null} sizes={6} />
 
         <div className="hb-col">
           {state === 'turn' && legal ? (
@@ -316,25 +316,34 @@ function TurnColumn({
 }) {
   const { canRaise, isBet, checkOrCall } = raiseShape(legal);
   const { call, min, max } = legal;
-  /* Two ways to choose a size and only ever one of them on screen: the phone
-     sweeps, and a screen with a mouse presses one of the ten. `custom` is the
-     wide band's typed way in, and it stands in the sizes' own box. */
+  /* One set of six at both widths, off the stack rather than off the pot. The
+     phone confirms a size on the sweep, because a thumb lands anywhere and a
+     box is small; a mouse presses the box and then the button that says what
+     it will send. */
   const [sizing, setSizing] = useState(false);
   const [custom, setCustom] = useState(false);
-  const [value, setValue] = useState(min);
-  const myBet = view.seats.find((s) => s.i === view.you)?.bet ?? 0;
-  const presets = useMemo(
-    () => (canRaise ? (wide ? presetsWide : presetsFor)(legal, view.pot, myBet, view.street) : []),
-    [canRaise, wide, legal, view.pot, myBet, view.street],
-  );
+  /* The typed size, while it is being typed: a string, so "1" on the way to
+     "135" is not clamped up to the minimum under the cursor. The clamp lands
+     on send, into the field, exactly as the dock's does. */
+  const [raw, setRaw] = useState('');
+  const presets = useMemo(() => (canRaise ? presetsStack(legal) : []), [canRaise, legal]);
   const dups = useMemo(() => dupKeys(presets), [presets]);
+  /* A decision opens on Min: the loaded size is what the button and Enter
+     send, and a band that came up holding a quarter of a stack is a stack lost
+     to a keypress nobody meant. A size of your own starts from the quarter
+     instead, which is what `sizerAt` is. */
+  const [sel, setSel] = useState(0);
+  const [value, setValue] = useState(min);
+  const sizerAt = presets[openAt(presets, dups)]?.value ?? min;
 
-  /* A fresh decision resets the size to the minimum and closes whichever way
-     in was open: carrying the last one into a new spot is how people put a
-     stack in by accident, and a sizer left open over a hand you have not
-     looked at is the same mistake with a slider on it. */
+  /* A fresh decision goes back to the box every decision opens on and closes
+     whichever way in was open: carrying the last size into a new spot is how
+     people put a stack in by accident, and a sizer left open over a hand you
+     have not looked at is the same mistake with a slider on it. */
   useEffect(() => {
+    setSel(0);
     setValue(min);
+    setRaw(String(min));
     setSizing(false);
     setCustom(false);
   }, [min, max, view.h, view.n]);
@@ -346,27 +355,57 @@ function TurnColumn({
     else onAct(kind, amount);
   }, [sending, canRaise, legal, onAct]);
 
-  /* The same keys the dock answers to, doing the same things. `r` reaches for
-     where the size is chosen, which is the sweep on a phone and the custom
-     field on a wide band, and it is what the Raise button does too. A number
-     key addresses the preset it is written beside: on a phone that writes it
-     into the sweep, and on a wide band it does what pressing that segment
-     does, which is send it, unless the segment is a duplicate and disabled. */
+  /* The typed size is the source of truth while the field is open, and a
+     number outside the legal range is clamped **into the field** rather than
+     sent: the next press sends the clamped number, so a size nobody chose
+     never reaches the server. */
+  const typed = Number(raw);
+  const typedValue = Number.isFinite(typed) && raw !== '' ? Math.round(typed) : min;
+  const shown = custom ? typedValue : value;
+  const confirm = useCallback(() => {
+    if (sending || !canRaise) return;
+    if (!custom) { playClick(); send(value); return; }
+    const fixed = clamp(typedValue, min, max);
+    if (fixed !== typedValue) { setRaw(String(fixed)); return; }
+    playClick();
+    send(fixed);
+  }, [sending, canRaise, custom, send, value, typedValue, min, max]);
+
+  /* The same keys the dock answers to. `r` reaches for a size of your own,
+     which is the sweep under a thumb and the typed field under a mouse, and it
+     is what the Bet button does on a phone. A number key addresses the box it
+     is written in: on a wide band it loads that size into the button, and on a
+     phone it opens the sweep on it. A blank box is a size another box already
+     offers, and its key does nothing, the way the box does nothing. */
   const openSizer = useCallback(() => {
+    setValue(sizerAt);
+    setRaw(String(sizerAt));
+    setSel(-1);
     if (wide) setCustom(true);
     else setSizing(true);
-  }, [wide]);
+  }, [wide, sizerAt]);
   const takePreset = useCallback((p: Preset) => {
-    if (wide) {
-      if (dups.has(p.key)) return;
-      playClick();
-      send(p.value);
-      return;
-    }
+    if (dups.has(p.key)) return;
+    setSel(presets.indexOf(p));
     setValue(p.value);
-    setSizing(true);
-  }, [wide, dups, send]);
+    setCustom(false);
+    if (!wide) setSizing(true);
+  }, [wide, dups, presets]);
   useTurnKeys({ legal, presets, sending, onAct, onRaiseKey: openSizer, onPresetKey: takePreset });
+
+  /* Enter sends what the button says, on a band that has a keyboard. It is
+     here rather than in the shared key hook because it only means anything
+     while a size is loaded, and the field's own Enter is the same call. */
+  useEffect(() => {
+    if (!wide || !canRaise) return undefined;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || sending || e.metaKey || e.ctrlKey || e.altKey) return;
+      e.preventDefault();
+      confirm();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [wide, canRaise, sending, confirm]);
 
   if (!wide && sizing && canRaise) {
     return (
@@ -383,28 +422,30 @@ function TurnColumn({
   }
 
   return (
-    <div className="hb-turn" data-wide={wide ? '' : undefined}>
+    <div className="hb-turn">
       {wide && custom && canRaise ? (
         <CustomSize
-          legal={legal}
+          raw={raw}
+          onRaw={setRaw}
           sending={sending}
-          onSend={send}
+          onSend={confirm}
           onClose={() => setCustom(false)}
         />
       ) : (
         <SizeGrid
           presets={presets}
           dups={dups}
+          selected={presets[sel]?.key}
           sending={sending}
-          onSend={(v) => { playClick(); send(v); }}
+          onTake={(p) => { playClick(); takePreset(p); }}
         />
       )}
 
-      {/* Three actions, three colours, one row under a mouse and one column
-          under a thumb: fold, check or call, and raise, which opens the way to
-          a size (the sweep on a phone, the typed field on a wide band). Each
-          is here in every spot and disabled where it is not legal, so the row
-          never changes shape. */}
+      {/* Two groups under a mouse: fold and call on the left, the sizes and the
+          button that sends one on the right. Three colours, and each button is
+          here in every spot and disabled where it is not legal, so the row
+          never changes shape. Under a thumb the same three stack up the
+          column, the bet at the top and fold on the bottom edge. */}
       <div className="hb-acts">
         <button
           type="button"
@@ -422,102 +463,102 @@ function TurnColumn({
         >
           {checkOrCall === 'c' ? `Call ${call}` : 'Check'}
         </button>
-        <button
-          type="button"
-          className="btn hb-act hb-act-bet"
-          disabled={sending || !canRaise}
-          aria-pressed={wide ? custom : undefined}
-          title={wide ? 'A size of your own, key R' : undefined}
-          onClick={() => { playClick(); if (wide) setCustom((c) => !c); else openSizer(); }}
-        >
-          {isBet ? 'Bet' : 'Raise'}
-        </button>
       </div>
+
+      {/* The button carries the size that is loaded and sends it. On a phone it
+          opens the sweep instead, because a size chosen with a thumb is worth
+          confirming. The words are keyed on themselves: a centred string that
+          changes in place is a text node the layout-shift observer sees move,
+          and a fresh node is content arriving. */}
+      <button
+        type="button"
+        className="btn hb-act hb-act-bet hb-bet num"
+        disabled={sending || !canRaise}
+        title={wide ? 'Enter sends, R for a size of your own' : undefined}
+        onClick={() => { if (wide) confirm(); else { playClick(); openSizer(); } }}
+      >
+        <span key={wide && canRaise ? raiseLabel(legal, shown) : ''}>
+          {wide && canRaise ? raiseLabel(legal, shown) : isBet ? 'Bet' : 'Raise'}
+        </span>
+      </button>
     </div>
   );
 }
 
 /* -------------------------------------------------------------- size grid */
 
-/* The wide band's raise control: ten presets in two rows of five, each
-   printing its name over the number it will send, and one press sends. The
-   phone's sweep needs a confirm because a thumb lands anywhere; a segment is
-   one named size and the press is the choice.
+/* The band's raise control at both widths: the six `presetsStack` gives, in
+   the order the number keys address them. **A box says its amount and nothing
+   else**, with its key drawn faintly in the corner: the old ten said "125%"
+   over a number in a box the size of a stamp, and the owner read the whole
+   grid as noise. What a size is called is in its title, where a name belongs
+   once the number is the thing you press.
 
-   The ten are `presetsWide`, in its order, because the number keys address
-   them by position and a preset that moves is a preset nobody learns. A
-   segment that would send a number another one already sends is disabled
-   rather than dropped, so the keys stay put. When raising is not on the table
-   the grid is empty and keeps its box: the rows above the actions are a fixed
-   height, and ten dead segments say less than nothing where there is nothing
-   to say. On a phone the box is hidden and the sweep is the control. */
+   Pressing one loads it into the button under them; on a phone it opens the
+   sweep on it. A box whose amount another box already offers is drawn blank
+   and disabled rather than dropped, so the keys stay where they are. When
+   raising is not on the table the grid is empty and keeps its box. */
 function SizeGrid({
-  presets, dups, sending, onSend,
+  presets, dups, selected, sending, onTake,
 }: {
   presets: Preset[];
   dups: ReadonlySet<string>;
+  selected?: string;
   sending: boolean;
-  onSend: (v: number) => void;
+  onTake: (p: Preset) => void;
 }) {
   return (
-    <div className="hb-sizes" role="group" aria-label="Raise sizes">
-      {presets.map((p, i) => (
-        <button
-          key={p.key}
-          type="button"
-          className="hb-size"
-          disabled={sending || dups.has(p.key)}
-          title={`${p.label}, key ${PRESET_KEYS[i]}`}
-          onClick={() => onSend(p.value)}
-        >
-          <span className="s-n">{p.label}</span>
-          <span className="s-v num">{p.value}</span>
-        </button>
-      ))}
+    <div className="hb-sizes" role="group" aria-label="Bet sizes">
+      {presets.map((p, i) => {
+        const blank = dups.has(p.key);
+        return (
+          <button
+            key={p.key}
+            type="button"
+            className="hb-size"
+            data-blank={blank ? '' : undefined}
+            disabled={sending || blank}
+            aria-pressed={p.key === selected}
+            data-on={p.key === selected ? '' : undefined}
+            title={blank ? undefined : `${p.label} of your stack, key ${PRESET_KEYS[i]}`}
+            onClick={() => onTake(p)}
+          >
+            {!blank && (
+              <>
+                <span className="s-k" aria-hidden="true">{PRESET_KEYS[i]}</span>
+                <span className="s-v num">{p.value}</span>
+              </>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }
 
-/* A size of your own, in the grid's own box. The field is the source of truth
-   exactly as the dock's is: a number outside the legal range is clamped into
-   the field and not sent, so the next press sends a number somebody chose.
-   Enter sends, Escape puts the ten sizes back. */
+/* A size of your own, in the grid's own box: the field, and the way back to
+   the six. The button under it is the one that sends, so there is one confirm
+   on the band rather than two. Enter sends from the field, Escape closes. */
 function CustomSize({
-  legal, sending, onSend, onClose,
+  raw, onRaw, sending, onSend, onClose,
 }: {
-  legal: LegalActions;
+  raw: string;
+  onRaw: (v: string) => void;
   sending: boolean;
-  onSend: (v: number) => void;
+  onSend: () => void;
   onClose: () => void;
 }) {
-  const { min, max } = legal;
-  const { isBet } = raiseShape(legal);
-  const [raw, setRaw] = useState(() => String(min));
   const ref = useRef<HTMLInputElement>(null);
-  const value = Number(raw);
 
   useEffect(() => {
     ref.current?.focus();
     ref.current?.select();
   }, []);
 
-  const submit = () => {
-    if (sending) return;
-    const typed = Number.isFinite(value) && raw !== '' ? Math.round(value) : min;
-    const fixed = clamp(typed, min, max);
-    if (fixed !== typed) {
-      setRaw(String(fixed));
-      ref.current?.select();
-      return;
-    }
-    playClick();
-    onSend(fixed);
-  };
-
   return (
     <div className="hb-custom">
       <label className="hb-custom-field">
-        <span className="label">{isBet ? 'Bet' : 'Raise to'}</span>
+        <span className="label">Your own size</span>
         <input
           ref={ref}
           className="input num"
@@ -527,23 +568,15 @@ function CustomSize({
           autoComplete="off"
           value={raw}
           disabled={sending}
-          aria-label={isBet ? 'Bet amount' : 'Raise to amount'}
-          onChange={(e) => setRaw(e.target.value.replace(/[^0-9]/g, ''))}
+          aria-label="Raise to amount"
+          onChange={(e) => onRaw(e.target.value.replace(/[^0-9]/g, ''))}
           onFocus={(e) => e.currentTarget.select()}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') { e.preventDefault(); submit(); }
+            if (e.key === 'Enter') { e.preventDefault(); onSend(); }
             else if (e.key === 'Escape') { e.preventDefault(); onClose(); }
           }}
         />
       </label>
-      <button
-        type="button"
-        className="btn hb-act-bet num hb-custom-send"
-        disabled={sending}
-        onClick={submit}
-      >
-        {raiseLabel(legal, Number.isFinite(value) && raw !== '' ? value : min)}
-      </button>
       <button type="button" className="btn btn-tertiary hb-custom-back" onClick={onClose}>
         Back
       </button>
@@ -588,17 +621,17 @@ function Sizer({
     return () => window.removeEventListener('keydown', onKey);
   }, [onSend, sending]);
 
-  /* Three marks, and only three: the ends of the range and the pot. A pot
-     sized raise is often all in or nearly it, and two labels three pixels
-     apart say less than one, so a mark that lands on one already placed is
-     dropped and the ends win. */
+  /* Three marks, and only three: the ends of the range and the half. A short
+     stack puts half of it within a few pixels of all in, and two labels three
+     pixels apart say less than one, so a mark that lands on one already placed
+     is dropped and the ends win. */
   const ticks = useMemo(() => {
-    const pot = clamp(presets.find((p) => p.key === 'pot')?.value ?? max, min, max);
+    const half = clamp(presets.find((p) => p.key === 's50')?.value ?? max, min, max);
     const at = (v: number) => (max === min ? 0 : (v - min) / (max - min));
     const out = [
       { key: 'allin', label: 'All in', value: max },
       { key: 'min', label: 'Min', value: min },
-      { key: 'pot', label: 'Pot', value: pot },
+      { key: 's50', label: '50%', value: half },
     ];
     const kept: typeof out = [];
     for (const t of out) {
@@ -697,7 +730,7 @@ function WaitColumn({
   return (
     <div className="hb-turn">
       <div className="hb-sizes" aria-hidden="true" />
-      <PreActionPills pre={pre} onPre={onPre} canPre={canPre} className="hb-acts hb-pre" size="" />
+      <PreActionPills pre={pre} onPre={onPre} canPre={canPre} className="hb-pre" size="" />
     </div>
   );
 }
@@ -712,7 +745,7 @@ function OverColumn({ view }: { view: TableView }) {
   return (
     <div className="hb-turn">
       <div className="hb-sizes" aria-hidden="true" />
-      <div className="hb-acts hb-ghosts" aria-hidden="true">
+      <div className="hb-ghosts" aria-hidden="true">
         <span className="btn hb-act hb-act-fold ghost">Fold</span>
         <span className="btn hb-act hb-act-call ghost">Check</span>
         <span className="btn hb-act hb-act-bet ghost">Raise</span>
