@@ -60,7 +60,7 @@ describe('settings persistence', () => {
       [PREFS_KEY]: '{"accent":"violet","theme":"chartreuse","palette":"tartan"}',
     });
     expect(readPrefs(store)).toEqual({
-      theme: 'dark', palette: 'slate', accent: 'violet', fourColour: false, hand: 'right',
+      theme: 'room', palette: 'slate', accent: 'violet', fourColour: false, hand: 'right',
     });
   });
 
@@ -80,13 +80,40 @@ describe('applying settings', () => {
     root = document.createElement('html');
   });
 
-  it('leaves the attributes off for the defaults, because dark and slate are the defaults', () => {
+  /* The games room is the default theme and the one attribute a fresh visitor
+     wears; everything else defaults to its absence. */
+  it('stamps only the theme for the defaults, because the room is the default', () => {
     applyPrefs(DEFAULT_PREFS, root, fakeStore());
-    expect(root.getAttribute('data-theme')).toBe(null);
+    expect(root.getAttribute('data-theme')).toBe('room');
     expect(root.getAttribute('data-palette')).toBe(null);
     expect(root.getAttribute('data-accent')).toBe(null);
     expect(root.getAttribute('data-deck')).toBe(null);
     expect(root.getAttribute('data-hand')).toBe(null);
+  });
+
+  it('leaves the attributes off for dark and slate, which are the absences', () => {
+    applyPrefs({ ...DEFAULT_PREFS, theme: 'dark' }, root, fakeStore());
+    expect(root.getAttribute('data-theme')).toBe(null);
+    expect(root.getAttribute('data-palette')).toBe(null);
+    expect(root.getAttribute('data-accent')).toBe(null);
+  });
+
+  /* The room carries its own set: a stored palette and accent stay in the
+     record but are not worn, and come back with the next theme. */
+  it('keeps a palette and an accent off while the room is on', () => {
+    const chosen = { ...DEFAULT_PREFS, palette: 'sky', accent: 'violet' } as const;
+    applyPrefs(chosen, root, fakeStore());
+    expect(root.getAttribute('data-theme')).toBe('room');
+    expect(root.getAttribute('data-palette')).toBe(null);
+    expect(root.getAttribute('data-accent')).toBe(null);
+
+    applyPrefs({ ...chosen, theme: 'light' }, root, fakeStore());
+    expect(root.getAttribute('data-palette')).toBe('sky');
+    expect(root.getAttribute('data-accent')).toBe('violet');
+
+    applyPrefs(chosen, root, fakeStore());
+    expect(root.getAttribute('data-palette')).toBe(null);
+    expect(root.getAttribute('data-accent')).toBe(null);
   });
 
   it('stamps one attribute per choice', () => {
