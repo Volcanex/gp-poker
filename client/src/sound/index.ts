@@ -16,6 +16,7 @@ const PACK_META = [
   { id: 'felt', name: 'Felt', description: 'Real foley: cards, chips and cloth on a poker table.' },
   { id: 'arcade', name: 'Arcade', description: '8-bit blips, mostly short clicks with jingles saved for wins.' },
   { id: 'glass', name: 'Glass', description: 'Quiet, glassy chimes, like an old desktop notification.' },
+  { id: 'web', name: 'Old web', description: 'Blips and chimes from the dial-up years.' },
 ] as const;
 
 export type PackId = (typeof PACK_META)[number]['id'];
@@ -24,6 +25,7 @@ const packLoaders: Record<PackId, () => Promise<{ default: SoundPack }>> = {
   felt: () => import('./packs/felt/index.ts'),
   arcade: () => import('./packs/arcade/index.ts'),
   glass: () => import('./packs/glass/index.ts'),
+  web: () => import('./packs/web/index.ts'),
 };
 
 export interface SoundState {
