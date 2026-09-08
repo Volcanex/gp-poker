@@ -295,7 +295,7 @@
   row-gap: var(--act-gap);
   min-height: 0;
 }
-.hb-turn > .hb-sizes { grid-area: sizes; }
+.hb-turn > .hb-sizes, .hb-turn > .hb-custom { grid-area: sizes; }
 .hb-turn > .hb-acts { grid-area: acts; }
 
 /* ------------------------------------------------------------- the sizes */
