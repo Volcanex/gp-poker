@@ -191,8 +191,12 @@
   display: flex; align-items: flex-end; gap: var(--sp-2);
   height: var(--hb-nums-h);
 }
+/* A reserved slot, like the felt's `.stack-v` and for the same reason: this
+   figure is the one that changes most on the band, and the last action sits
+   directly after it. Four figures covers every stack a table can hold, so the
+   label beside it does not move when a pot lands. */
 .hb-stack {
-  flex: none;
+  flex: none; min-width: 4ch;
   font-size: 22px; font-weight: 500; line-height: 1; letter-spacing: -0.015em;
   font-variant-numeric: tabular-nums;
 }
@@ -572,6 +576,9 @@
 :root[data-hand="left"] .hb-who { flex-direction: row-reverse; }
 :root[data-hand="left"] .hb-meta { justify-items: end; }
 :root[data-hand="left"] .hb-nums { flex-direction: row-reverse; }
+/* Mirrored, the figure's reserved slot is on the shared edge, so the digits
+   have to sit at that end of it rather than at the far one. */
+:root[data-hand="left"] .hb-stack { text-align: right; }
 :root[data-hand="left"] .hb-last { text-align: right; }
 :root[data-hand="left"] .hb-clock { justify-content: flex-start; }
 :root[data-hand="left"] .hb-sizer {

@@ -134,6 +134,17 @@ slot at the end of the figures line. The avatar and the rating did **not** come
 with it: the avatar is decorative and aria-hidden, and the rating is on the
 profile the name links to, which is the same trade the ring seat already makes.
 
+**Your stack is `table.tsx`'s reading, not the band's.** `HeroBand` takes it as
+a prop because at hand end it is held at what it was until the pot has actually
+moved, which is the same hold the felt puts on every seat's figure: a result
+message arrives 700 ms before the chips get there, and a band reading the view
+straight printed the number you won while the pot was still in the middle. Two
+readings of when a hand is paid is two readings that drift, so there is one, in
+the place the felt already reads it. It counts nothing up: the felt's winner
+rolls with `NumberFlow` inside a reserved `.stack-v`, and the band's figure has
+the last action sitting directly after it, so it takes a reserved `4ch` and
+changes in one step instead.
+
 **One left edge for the corner.** The cards, the name line, the stack and the
 last action all start on the felt's left edge. The figures used to be set in by
 the flag's reserved box so they lined up with the name's first letter, which put

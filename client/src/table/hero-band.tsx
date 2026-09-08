@@ -25,6 +25,11 @@ export interface HeroBandProps {
      way the felt outlines the board. The band is your seat, so it has to say
      what the seat would have said. */
   best?: ReadonlySet<Card>;
+  /* Your stack, from `table.tsx` rather than out of the view, because at hand
+     end it is held at what it was until the pot has actually moved. That is
+     the felt's own reading of when a hand is paid, and the band is a seat on
+     that felt: two readings of it would drift. */
+  stack: number;
 }
 
 /* The action band, in place of the dock, at every width. Two columns: your own
@@ -46,7 +51,7 @@ export interface HeroBandProps {
    sweep under a thumb. The same number the stylesheet's phone block uses. */
 const WIDE = '(min-width: 561px)';
 
-export function HeroBand({ view, onAct, sending, best }: HeroBandProps) {
+export function HeroBand({ view, onAct, sending, best, stack }: HeroBandProps) {
   const { state, pre, setPre, canPre } = useDockLogic(view, onAct, sending);
   const mine = view.you == null ? null : view.seats.find((s) => s.i === view.you) ?? null;
   const legal = view.legal;
@@ -65,7 +70,15 @@ export function HeroBand({ view, onAct, sending, best }: HeroBandProps) {
           <TurnBar deadline={clock.deadline} totalMs={view.format.clockMs} paused={clock.paused} />
         )}
 
-        {mine && <HeroCards view={view} best={best} clock={clock} totalMs={view.format.clockMs} />}
+        {mine && (
+          <HeroCards
+            view={view}
+            best={best}
+            clock={clock}
+            totalMs={view.format.clockMs}
+            stack={stack}
+          />
+        )}
 
         {/* One quiet line under the controls, gone on a phone where there is
             no keyboard to legend. It says the same thing in every state, so it
@@ -100,12 +113,13 @@ export function HeroBand({ view, onAct, sending, best }: HeroBandProps) {
    state rather than a ref, so the flag flips after the deal has already been
    handed to motion, and the cards are keyed on the hand so a new one deals. */
 function HeroCards({
-  view, best, clock, totalMs,
+  view, best, clock, totalMs, stack,
 }: {
   view: TableView;
   best?: ReadonlySet<Card>;
   clock: TableView['clock'];
   totalMs: number;
+  stack: number;
 }) {
   const mine = view.seats.find((s) => s.i === view.you);
   const cards = mine?.cards ?? [null, null];
@@ -148,7 +162,7 @@ function HeroCards({
           <span className="btn-marker" title="Button" data-off={mine?.button ? undefined : ''}>D</span>
         </span>
         <span className="hb-nums">
-          <span className="hb-stack num">{mine?.stack ?? 0}</span>
+          <span className="hb-stack num">{stack}</span>
           {/* A reserved slot: the label is empty most of the hand and a box
               that sizes to it would move the stack every time it filled. */}
           <span className="hb-last">{label}</span>

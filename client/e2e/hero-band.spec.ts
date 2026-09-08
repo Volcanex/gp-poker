@@ -207,6 +207,40 @@ for (const { name: where, size } of SIZES) {
   });
 }
 
+/* The band is your seat, so its figure moves when the seat's would: when the
+   pot has actually landed, not when the result message arrives. The result
+   carries the paid stack, so a band reading it straight out of the view would
+   only ever print the number you won and this would see one value; holding it
+   is what puts the number you had in front of it.
+
+   Recorded in the page rather than polled from here. The hold is 700ms and a
+   round trip through the driver can spend most of it, which made a poll pass
+   nine times in ten. */
+test("the band's figure waits for the pot to land", async ({ page }) => {
+  await page.setViewportSize(DESKTOP);
+  await stubApi(page);
+  await page.addInitScript(() => {
+    const w = window as unknown as { __figures: string[] };
+    w.__figures = [];
+    const read = () => {
+      const text = document.querySelector('.hb-stack')?.textContent?.trim();
+      if (text && text !== w.__figures[w.__figures.length - 1]) w.__figures.push(text);
+    };
+    const id = setInterval(read, 16);
+    setTimeout(() => clearInterval(id), 8000);
+  });
+
+  await page.goto('/m/mock?v2=1&step=13');
+  await waitForBand(page, 'over');
+  await expect(page.locator('.award-chip')).toBeVisible();
+  await page.waitForTimeout(400);
+
+  const figures = await page.evaluate(
+    () => (window as unknown as { __figures: string[] }).__figures,
+  );
+  expect(figures, 'the stack you had, then the stack you won').toEqual(['134', '266']);
+});
+
 /* The mock's caption printed over the hero's cards, which are the one thing on
    this screen you have to be able to read. */
 test('the mock caption stands clear of the band', async ({ page }) => {

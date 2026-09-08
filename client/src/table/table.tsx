@@ -326,6 +326,17 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
      has no fade anywhere on the felt, so the line is masked in instead. */
   const v2Award = look === 'v2';
 
+  /* Your own stack, held at what it was until the pot has actually landed.
+     The felt does this per seat below (`landed(i) || award === 0`) and the
+     band is your seat now, so its figure ticks on the same beat: one reading
+     of when a hand is paid, taken here and handed down, rather than the band
+     reading the view, which carries the paid number 700ms before the chips
+     arrive. */
+  const myAward = view.you == null ? 0 : show.awarded.get(view.you) ?? 0;
+  const heroStack = mySeat == null || landed(view.you as number) || myAward === 0
+    ? mySeat?.stack ?? 0
+    : mySeat.stack - myAward;
+
   return (
     <LookContext.Provider value={look}>
     {look === 'v2' && <DeckSprite />}
@@ -552,7 +563,13 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
       {!bare && !ended && (
         <>
           {band ? (
-            <HeroBand view={view} onAct={onAct} sending={sending} best={show.best} />
+            <HeroBand
+              view={view}
+              onAct={onAct}
+              sending={sending}
+              best={show.best}
+              stack={heroStack}
+            />
           ) : (
             <>
               <Dock view={view} onAct={onAct} sending={sending} />
