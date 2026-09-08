@@ -82,7 +82,7 @@ it.
 
 | Spec | Guards |
 | --- | --- |
-| `formats.spec.ts` | the picker's shape (six handed first and marked the main game), short and long on both cards, the choice being remembered, the ranked gate disabling rated, the ready check modal end to end, and the level and badges on a profile |
+| `formats.spec.ts` | the play panel's shape (three switchers, one button, four one-line ways to play), the pin and the remembered choice, the ranked gate disabling ranked, no middle dot anywhere on the page, the ready check modal end to end, and the level and badges on a profile |
 | `footprint.spec.ts` | the boxes and zero layout shift, playing and watching, that the dock is one height in all three states, and that the strips tile the grid |
 | `ergonomics.spec.ts` | phone target sizes, the primary action in the bottom quarter, the sizing model and clamping, a pre-action firing, and the ring at 768, 1280 and 1920 |
 | `showdown.spec.ts` | your cards face up through a lost showdown and after the end, the winning five, the award chip clear of the pot label |

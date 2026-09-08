@@ -31,30 +31,46 @@ here because the home page and the watch page both draw it and neither owns it.
 
 ## The picker
 
-The home page opens on two mode cards and three other ways to play. **Six
-handed is first, carries the "Main game" badge, a larger name and a larger
-button, and is the only card with `data-main`**; heads-up is the same card
-without the emphasis. Both run the full width of the grid, in that order,
-because the order is the hierarchy.
+The home page is the play panel and three cards beside it, the shape a games
+site settles on: everything that starts a match in one column, everything that
+is not a match beside it. It is the one page wider than `.page.wide`, because
+that layout needs the width, and **all of its styling is in `home.css`**, not
+in `app.css`.
 
-Each card carries two radio pairs of the same shape: short or long, and rated
-or casual. Radios rather than anything new, because g ships `.choice` with
-`.radio` and does not ship a segmented control, and because the two settings
-are the same kind of thing and should read the same way. Both are remembered
-per mode from `readPlayChoice()`, so somebody who plays long six handed and
-short heads-up finds each card where they left it.
+Above it, one row naming the player: picture, flag, name, and the rating for
+the game the panel is pinned to as the largest number on the page. A mode with
+no ranked match behind it says so rather than printing the 1500 everybody
+starts on as though it were earned.
 
-`modeBlurb(mode, speed)` is built from `formatFor(mode, rated, speed)`, so the
-line under the name cannot promise a table the button will not deal: it follows
-the speed radio as it moves, and the ceiling in it is `ceilingFor` rather than
-a number typed twice.
+**The panel is one pinned format, three switchers and one button.** Speed,
+stake and table size, each a `Segmented` (`../ui/segmented.tsx`), which is g's
+shipped tabs and not a new component: g-system ships no segmented control, and
+the rule is to use what exists rather than invent one in a consumer repo.
+`ModeTabs` is the same component with the modes in it, so there is one copy of
+the co-ownership rules with g-ui rather than two.
 
-**Rated is disabled until one casual or practice match has finished.** The
+**The pin is the game this player plays most**, `mainModeOf` in
+`../net/adapt.ts`, which is the rule their profile opens on, overridden by
+whatever they last chose (`readPlayChoice`). It is resolved a second time when
+the account lands, because the first render happens before `/api/me` answers.
+`modeBlurb(mode, speed)` is built from `formatFor`, so the line under the
+switchers cannot promise a table the button will not deal.
+
+**Ranked is disabled until one casual or practice match has finished.** The
 server refuses it either way (`server/src/CLAUDE.md`); the control says so
 rather than letting somebody press a button that answers no. It reads
 `me.rankedUnlocked`, and a page that has not heard from the server yet assumes
 open, so the control does not flicker shut on load. `/api/me` is refetched on
 every `end`, so it flips the moment the first game finishes.
+
+Under the button, the four other ways to play are **one line each**, with a
+Phosphor icon. Practice, a challenge link and a home game open their own
+controls in place rather than on four more cards; the arena is a link, because
+joining one is a thing you do beside the board you are joining. `@phosphor-icons/react`
+is used here and nowhere else on the site yet.
+
+**No middle dot separators.** They are banned in this UI, so the counts strip
+and the site footer separate with space and the page carries none.
 
 ## Watching
 

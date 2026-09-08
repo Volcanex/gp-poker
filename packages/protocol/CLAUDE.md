@@ -27,11 +27,11 @@ about to ask is not a client that can be served unchanged.
 
 ## Speed and the schedules
 
-`Speed` is `short` or `long`, and the four formats are spelled out in full with
+`Speed` is `fast` or `standard`, and the four formats are spelled out in full with
 the arithmetic for each written above it: how many big blinds the table holds
 at each level, when that level begins, and why the top one ends the table. The
 promise those tables keep is `matchCeilingMs(format) <= ceilingFor(speed)`,
-twenty minutes for short and two hours for long, and `server/test/speed.test.ts`
+twenty minutes for fast and two hours for standard, and `server/test/speed.test.ts`
 is what holds them to it rather than a comment claiming they do.
 
 The mechanism is the same for both: at the top level the big blind is at least
@@ -41,7 +41,7 @@ level begins plus `players - 1` forced hands, which is what `matchCeilingMs`
 computes. **Nothing stops a hand on a timer**: a hand cut off halfway is not a
 poker result.
 
-`speedOf(format)` is where `long` is spelled as the default for a stored format
+`speedOf(format)` is where `standard` is spelled as the default for a stored format
 that has no `speed`, so nothing else has to remember it. `levelAt` is where the
 two bases meet.
 

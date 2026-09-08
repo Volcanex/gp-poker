@@ -3,7 +3,7 @@
 **Owner:** Gabriel Penman
 **What:** Open Table, free ranked no-limit hold'em at
 poker.gabrielpenman.com: six-max sit-and-go (the main game) and heads-up
-(best of 25), each short or long and each rated or casual, with bots filling
+(best of 25), each fast or standard and each rated or casual, with bots filling
 empty seats in casual play. Lichess for poker: no money, no chips to buy, no
 rake, no ads. Chips are table units that reset every match; the scarce
 currency is Glicko-2 rating. Instant play as a guest, claim the account
@@ -60,18 +60,19 @@ files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
 - `server`: Fastify REST + `ws` WebSocket + `postgres` driver. Owns
   sessions, matchmaking queue, match orchestration, clocks, persistence,
   serving `client/dist`.
-- `client`: React 19 + Vite + motion + number-flow. g-system vendored at
+- `client`: React 19 + Vite + motion + number-flow + `@phosphor-icons/react`
+  (the home page's secondary buttons and nowhere else yet). g-system vendored at
   `client/public/g/` (never hand-edited; re-vendor from the g-system repo).
 
 ## Decisions
 - Modes: **six-max is the main game** (6 seats, last player standing, places
   by elimination order) with heads-up beside it (200 units, best of 25 hands
   or bust, equal stacks is a draw). Every table is 200 units a seat.
-  `DEFAULT_FORMAT` and a bare `queue` message both mean long six-max.
-- **Speed is the second dimension**: `format.speed`, short or long, so there
-  are four formats and eight queues (mode x rated x speed). A **long** table
+  `DEFAULT_FORMAT` and a bare `queue` message both mean standard six-max.
+- **Speed is the second dimension**: `format.speed`, fast or standard, so there
+  are four formats and eight queues (mode x rated x speed). A **standard** table
   is the game this site started with, a 20s clock and blinds climbing every
-  8 hands six handed, with a ceiling of two hours. A **short** table is the
+  8 hands six handed, with a ceiling of two hours. A **fast** table is the
   bullet game: a 10s clock and blinds climbing every 90 seconds of elapsed
   match time, with a ceiling of twenty minutes. Both ceilings are enforced by
   the blinds and not by a timer that stops a hand: the top level of every

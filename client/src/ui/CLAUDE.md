@@ -5,8 +5,17 @@ The furniture that is not the table: `auth.tsx` (claim, log in, account menu),
 `ready-check.tsx`, `avatar.tsx`,
 `picture-dialog.tsx`, `flag.tsx` with `country-picker.tsx` and the generated
 `countries.ts`, `rating-graph.tsx`, `board-text.tsx`, `mode-tabs.tsx`,
-`share-link.tsx`, `site-footer.tsx`, `bits.tsx`, `format.ts`, `grid-entrance.ts`
-and `title.ts`.
+`share-link.tsx`, `site-footer.tsx`, `segmented.tsx`, `bits.tsx`, `format.ts`,
+`grid-entrance.ts` and `title.ts`.
+
+`segmented.tsx` is the two option switcher the home page's play panel is built
+from, and `mode-tabs.tsx` is now that component with the modes in it. It is
+**g's shipped tabs**, not a new component: g-system ships no segmented control,
+and building one in a consumer repo is the defect the design contract names.
+The co-ownership rules with g-ui live there in one copy: React renders the
+selection once at mount and never writes `aria-selected` again, both handlers
+read the selection back out of the DOM, and a value changed from outside is
+applied by clicking the tab so that g-ui does the moving.
 
 `grid-entrance.ts` is here rather than beside either grid that uses it because
 there are two of them and they have nothing else in common: the tools pages'
