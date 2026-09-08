@@ -18,6 +18,13 @@ a database.
 - `src/presets.ts` — the preflop baseline charts as ready-made ranges.
 - `src/ranking.ts` — the equity ranking, read in a browser-safe way.
 
+## Importing it without the evaluator
+The root export pulls in `phe`. Three subpaths do not, and exist so a page can
+hold a range picker without the lookup table: `@opentable/equity/range`
+(notation, the grid, combos), `/presets` (the baseline charts as ranges) and
+`/cards` (the deck and card helpers). The client's tools pages import those
+directly and leave every evaluation to the worker.
+
 ## Exact or sampled
 One number decides, `exactBudget`, counted in hand evaluations:
 `villain assignments x board runouts x players`. Under it (default 1.5m)

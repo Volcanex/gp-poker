@@ -1,0 +1,216 @@
+/* Styles for the tools pages only. Kept out of app.css so a tool can change
+   shape without touching the table. */
+
+.tools-page .row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.tools-page .small {
+  font-size: 12px;
+}
+
+.tools-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--sp-4);
+  align-items: start;
+}
+
+.tools-page .field-note {
+  font-size: 12px;
+}
+
+.tools-page .field-note.error {
+  color: var(--danger-text);
+}
+
+/* The grid */
+
+.grid-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.hand-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  touch-action: none;
+}
+
+.grid-row {
+  display: grid;
+  grid-template-columns: repeat(13, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.cell {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 0;
+  aspect-ratio: 1;
+  font: inherit;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Three tiers, so the shape of a range is readable at a glance: pairs are the
+   boxed diagonal, suited hands sit above it in the brighter tier, offsuit
+   below in the quieter one. */
+.cell[data-kind='pair'] {
+  background: var(--surface-1);
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+.cell[data-kind='suited'] {
+  color: var(--text-primary);
+}
+
+.cell[data-kind='offsuit'] {
+  background: var(--bg);
+}
+
+.cell:hover {
+  border-color: var(--accent-edge);
+}
+
+.cell:focus-visible {
+  outline: 2px solid var(--accent-edge);
+  outline-offset: 1px;
+}
+
+.cell[aria-selected='true'] {
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
+  color: var(--accent-fg);
+}
+
+.grid-hint {
+  font-size: 12px;
+}
+
+.range-meta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  font-size: var(--font-size-ui);
+}
+
+.range-meta .num {
+  font-size: 1.15em;
+  color: var(--text-primary);
+}
+
+/* Results, shared by both tools */
+
+.results {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--sp-3);
+  margin: 0;
+}
+
+.results > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.results dt {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.results dd {
+  margin: 0;
+}
+
+.results dd.num {
+  font-size: 1.5rem;
+  line-height: 1.1;
+  color: var(--text-primary);
+}
+
+/* The odds trainer */
+
+.verdict {
+  align-self: flex-start;
+}
+
+.spot-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-5);
+}
+
+.spot-cards .ctext {
+  font-size: 1.4rem;
+}
+
+.spot-line {
+  margin: 0;
+  font-size: var(--font-size-ui);
+}
+
+.score-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sp-3);
+}
+
+.score-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.score-row .num {
+  font-size: 1.25rem;
+  color: var(--text-primary);
+}
+
+/* The index */
+
+.tool-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--sp-4);
+}
+
+.tool-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  text-decoration: none;
+  color: inherit;
+}
+
+.tool-card:hover {
+  border-color: var(--accent-edge);
+}
+
+.picker {
+  display: inline-flex;
+  gap: var(--sp-2);
+}
+
+@media (max-width: 720px) {
+  .tools-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .score-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
