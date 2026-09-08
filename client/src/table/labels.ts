@@ -1,3 +1,4 @@
+import { speedOf } from '@opentable/protocol';
 import type { ActionKind, Card, MatchFormat } from '@opentable/protocol';
 
 export function actionText(a: ActionKind, v?: number): string {
@@ -39,17 +40,45 @@ export function blindTextShort(blinds: { sb: number; bb: number }): string {
   return `${blinds.sb}/${blinds.bb}`;
 }
 
-/* The blinds as they stand, and where they are in the schedule when there is
-   one. The numbers come from the view, which is the server's word for the
-   level in play; only the position in the schedule is derived here. */
-export function blindText(format: MatchFormat, blinds: { sb: number; bb: number }, hand: number): string {
+/* The blinds as they stand, and where they are in the schedule. The numbers
+   and the level both come from the view, which is the server's word for what
+   is in play: a fast format climbs on elapsed match time, and counting hands
+   here would print a level the table is not on.
+
+   `level` is optional because a client can outlive the server it talks to,
+   and a view without one belongs to a format whose level is a function of the
+   hand number, which is what the fallback counts. How many hands are left of
+   the level is only said when there is a hand basis to say it from. */
+export function blindText(
+  format: MatchFormat,
+  blinds: { sb: number; bb: number },
+  hand: number,
+  level?: number
+): string {
   const stakes = `blinds ${blinds.sb}/${blinds.bb}`;
   if (format.levels.length <= 1) return `Blinds ${blinds.sb}/${blinds.bb}`;
-  const per = Math.max(1, format.levelHands);
-  const level = Math.min(format.levels.length - 1, Math.floor((hand - 1) / per));
-  if (level >= format.levels.length - 1) return `Level ${level + 1}, ${stakes}, top level`;
+  const per = format.levelHands;
+  const at =
+    level ?? Math.min(format.levels.length - 1, Math.floor((hand - 1) / Math.max(1, per)));
+
+  /* Two questions, and a schedule the player is not climbing answers no to
+     both. The hand basis fires only when a level is shorter than the match;
+     standard heads-up sets it to the whole 25, which can never come round.
+     The clock basis is a level the player meets only on a fast table, where
+     it is the whole idea; on a standard one it is a backstop half an hour
+     away that a normal match ends long before, and printing "Level 1" for
+     the whole of one is a schedule nobody is on. */
+  const climbsOnHands = per > 0 && (format.hands === null || per < format.hands);
+  const climbsOnClock = speedOf(format) === 'fast';
+  if (!climbsOnHands && !climbsOnClock) {
+    // A backstop that has actually fired is worth saying plainly: the blinds
+    // moved, which is the fact, and there is no schedule to place it in.
+    return `Blinds ${blinds.sb}/${blinds.bb}`;
+  }
+  if (at >= format.levels.length - 1) return `Level ${at + 1}, ${stakes}, top level`;
+  if (!climbsOnHands) return `Level ${at + 1}, ${stakes}`;
   const left = per - ((hand - 1) % per);
-  return `Level ${level + 1}, ${stakes}, next in ${left} ${left === 1 ? 'hand' : 'hands'}`;
+  return `Level ${at + 1}, ${stakes}, next in ${left} ${left === 1 ? 'hand' : 'hands'}`;
 }
 
 /* Generated names are CamelCase (RedTiger, StealthyCyclone), so a plain

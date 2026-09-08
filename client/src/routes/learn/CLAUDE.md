@@ -13,9 +13,13 @@ and it is then listed, routed and linked to.
 ## Every number comes from the code
 
 A lesson that types a constant into its copy goes quietly wrong the day the
-constant moves, and nothing fails. So the formats, blinds, clock, hand cap and
-blind schedule are read from `@opentable/protocol` (`HEADS_UP_FORMAT`,
-`SIX_MAX_FORMAT`, `HAND_HOLD_MS`), and `constants.ts` derives the rest.
+constant moves, and nothing fails. So the formats, blinds, clocks, hand cap and
+both blind schedules are read from `@opentable/protocol` (all four of
+`HEADS_UP_STANDARD`, `HEADS_UP_FAST`, `SIX_MAX_STANDARD`, `SIX_MAX_FAST`, plus
+`HAND_HOLD_MS`, `READY_CHECK_MS`, `READY_COOLDOWN_MS`, `ceilingFor` and
+`matchCeilingMs`), and `constants.ts` derives the rest. `formats.tsx` prints
+both schedules as tables straight off `format.levels`, so a level added or a
+blind changed redraws the lesson rather than dating it.
 
 `PROVISIONAL_RD` is the awkward one: `isProvisional` in `@opentable/rating`
 holds its threshold as a literal inside the function rather than exporting it,

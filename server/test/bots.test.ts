@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { formatFor, type MatchFormat, type Mode } from '@opentable/protocol';
 import { isGeneratedName } from '@opentable/identity';
 import {
+  acceptReady,
   makeApp,
   mintGuestSession,
   deleteUser,
@@ -51,16 +52,19 @@ describe('bots', () => {
       const conn = await connectWs(wsUrl, session.token);
       await conn.messages.wait((m) => m.t === 'hi');
 
-      conn.ws.send(JSON.stringify({ t: 'queue', mode: 'heads-up', rated: true }));
+      conn.ws.send(JSON.stringify({ t: 'queue', mode: 'heads-up', rated: false }));
       const searching = await conn.messages.wait((m) => m.t === 'q' && m.s === 'searching');
       expect(searching.mode).toBe('heads-up');
-      expect(searching.rated).toBe(true);
+      expect(searching.rated).toBe(false);
 
       // Too soon: a human might still turn up.
       await tick();
       await sleep(5_100);
       await tick();
 
+      // The table is offered before it is dealt, bot seats and all: the bot
+      // is picked when the check passes, not when the table was gathered.
+      await acceptReady(conn);
       const found = await conn.messages.wait((m) => m.t === 'q' && m.s === 'found');
       const matchId = found.m as string;
       createdMatchIds.push(matchId);
@@ -107,7 +111,10 @@ describe('bots', () => {
       const conn = await connectWs(wsUrl, session.token);
       await conn.messages.wait((m) => m.t === 'hi');
 
-      conn.ws.send(JSON.stringify({ t: 'queue', mode: 'six-max', rated: true }));
+      // Casual, because rated six-max fills with people or waits: five bots
+      // at a table whose result moves a Glicko-2 rating is a rating anybody
+      // could dial in, and casual is the room bots fill.
+      conn.ws.send(JSON.stringify({ t: 'queue', mode: 'six-max', rated: false }));
       const searching = await conn.messages.wait((m) => m.t === 'q' && m.s === 'searching');
       expect(searching.mode).toBe('six-max');
       expect(searching.seated).toBe(1);
@@ -116,6 +123,7 @@ describe('bots', () => {
       await sleep(20_100);
       await tick();
 
+      await acceptReady(conn);
       const found = await conn.messages.wait((m) => m.t === 'q' && m.s === 'found');
       const matchId = found.m as string;
       createdMatchIds.push(matchId);

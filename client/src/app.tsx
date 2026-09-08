@@ -18,6 +18,7 @@ import { SiteShell } from './ui/shell.tsx';
 import { SiteFooter } from './ui/site-footer.tsx';
 import { PageEnter } from './ui/enter.tsx';
 import { MatchFoundAlert } from './ui/presence.tsx';
+import { ReadyCheckDialog } from './ui/ready-check.tsx';
 import { sound } from './sound/index.ts';
 
 /* The replay is the only page that runs the engine, and the engine carries a
@@ -55,6 +56,7 @@ export function App() {
         <SiteShell>
           <PageEnter />
           <MatchFoundAlert />
+          <ReadyCheckDialog />
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/arena" element={<ArenaPage />} />

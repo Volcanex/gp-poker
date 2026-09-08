@@ -12,6 +12,10 @@ export const ME = {
   name: 'kestrel',
   guest: true,
   bot: false,
+  /* Rated play is open for the ordinary player every baseline is taken as:
+     they have forty matches behind them. `locked.spec.ts` overrides this on
+     its own to picture the other state. */
+  rankedUnlocked: true,
   rating: 1518,
   rd: 84,
   provisional: false,

@@ -48,6 +48,14 @@ filled and none of them yours.
 The one thing no route can stub is the websocket, so the home page's baseline
 says the connection dropped, which is true.
 
+**`formats.spec.ts` is the exception, and it replaces the websocket rather than
+routing it.** Its `fakeSocket` puts a stand-in `window.WebSocket` in front of
+the bundle with an init script: it says `hi` on open, because the real socket
+buffers every send until that arrives, records what the page sends, and hands
+the test a `push` so it can be the server. That is how the ready check modal is
+driven with no server at all. Push nothing before the socket exists: it is
+opened only once `/api/me` has answered, which is why `push` waits for it.
+
 `admin.spec.ts` is the one spec that stubs `/api/me` as an admin, which it does
 by registering its own handler **after** `stubApi`, for the reason below. Every
 other spec sees the ordinary player, so the bar is not in any other baseline.
@@ -74,6 +82,7 @@ it.
 
 | Spec | Guards |
 | --- | --- |
+| `formats.spec.ts` | the play panel's shape (three switchers, one button, four one-line ways to play), the pin and the remembered choice, the ranked gate disabling ranked, no middle dot anywhere on the page, the ready check modal end to end, and the level and badges on a profile |
 | `footprint.spec.ts` | the boxes and zero layout shift, playing and watching, that the dock is one height in all three states, and that the strips tile the grid |
 | `ergonomics.spec.ts` | phone target sizes, the primary action in the bottom quarter, the sizing model and clamping, a pre-action firing, and the ring at 768, 1280 and 1920 |
 | `showdown.spec.ts` | your cards face up through a lost showdown and after the end, the winning five, the award chip clear of the pot label |

@@ -17,11 +17,28 @@ exponential backoff (500 ms to 8 s, jittered), pings every 20 s, and buffers
 sends while the socket is down. Sends are typed `ClientMsg`; subscribers get
 every `ServerMsg` and filter for themselves (`useServerMsg` in `session.tsx`).
 
-Queueing sends `{t:'queue', mode, rated}`; the mode picker on the home page owns
-that choice and `session.tsx` remembers it in `localStorage`
+Queueing sends `{t:'queue', mode, rated, speed}`; the picker on the home page
+owns all three and `session.tsx` remembers them in `localStorage`
 (`ot-play-choice`), so "play again" repeats the match that just finished.
 `readPlayChoice()` returns null until something has been played, which is how
-the picker knows not to claim a mode was played last on a first visit.
+the picker knows not to claim a mode was played last on a first visit. A choice
+saved before speed existed reads as `standard`, the same default a stored format
+without one has.
+
+**The ready check is session state, not page state.** A matchmade table is
+offered before it is dealt, and `session.tsx` holds the one open check in
+`readyCheck`, opened and closed only by the server's own `ready` messages. It
+is here rather than on the home page because the whole point of a ready check
+is that it reaches you wherever you are; `../ui/ready-check.tsx` is the modal
+mounted once in `../app.tsx`. `answerReady` stamps this browser's own answer
+locally as well as sending it, so the button settles on the press while the
+counter beside it keeps following the server.
+
+A **cancelled** check puts everybody who accepted back at the front of the
+queue, so the screen goes back to `searching` carrying `readyCancelledText` as
+the reason rather than to idle with nothing to explain the jump. Three `err`
+codes end a search rather than reject an action, and all three land the same
+way: `bots_busy`, `ranked_locked` and `cooldown`.
 
 Acting sends `{t:'act', m, h: view.h, n: view.n, a, v}` and disables the bar
 until a state with a different `h:n` arrives. The server refuses a stale action

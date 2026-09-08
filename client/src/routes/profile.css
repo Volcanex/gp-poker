@@ -190,3 +190,17 @@
   display: flex; align-items: center; justify-content: space-between;
   gap: var(--sp-4); flex-wrap: wrap;
 }
+
+/* --------------------------------------------------------------- badges */
+
+/* The six marks, earned and unearned in one row, so the set reads as a set.
+   An unearned one is dimmed rather than hidden: a row of six with two lit is
+   information, and two badges alone are only a decoration. */
+.badge-set {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  align-items: center;
+}
+.profile-badge { opacity: 0.4; }
+.profile-badge[data-earned] { opacity: 1; color: var(--text-primary); border-color: var(--border); }

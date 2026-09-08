@@ -50,6 +50,17 @@ the real path rather than a parallel one.
 | `tick`, `ladderTick`, `arenaTick` | matchmaking, ladder, arena | run one pass directly instead of waiting on a real timer |
 | `configureArena` | `../src/arena.ts` | wider than the others because an arena has a clock: `now`, `format`, `everyMs`, `durationMs`, `botFillMs` and `lastPairingBeforeEndMs` are all injectable |
 
+Two more in `helpers.ts` for the two doors a queued table now has to get
+through:
+
+- **`unlockRanked(userId)`** writes the one finished unrated match the ranked
+  gate asks for, rather than driving a whole table through the engine to
+  produce it. Anything that queues rated needs it, and the match id comes back
+  for the caller's own cleanup.
+- **`acceptReady(conn)`** waits for the ready prompt and accepts it, which is
+  what every seat at a matchmade table now has to do before `q found` arrives.
+  Practice, challenges and home games need none of it.
+
 Build a format with `testFormat(overrides)` from `helpers.ts` rather than by
 hand, so a new field on `MatchFormat` never has to be added in five files. The
 challenge and home game paths go through the same resolver, so their tests open
@@ -57,6 +68,19 @@ tables on a fast format the same way.
 
 The ladder and the arena are off under vitest by default (`config.ladderEnabled`,
 `config.arenaEnabled`) unless a test asks for them.
+
+**The ready check has no off switch, on purpose.** It is on the real path to
+every matchmade table, and a seam that let most of the suite skip it would mean
+most of the suite testing a path production does not run. `resetReadyChecks()`
+from `../src/ready.ts` is the cleanup instead: pending checks and cooldowns are
+process state, and a file that left either behind would fail the next one
+rather than its own. Call it in `afterAll` anywhere a check is opened.
+
+`ready.test.ts` drives the state machine with made-up ids and no sockets at
+all: the hub drops a send to a user with no connection, so what a check does,
+which way it settles and who it charges, is readable straight off the two
+callbacks the caller hands it. `speed.test.ts` is pure arithmetic and touches
+neither the app nor the database.
 
 ## Two websocket gotchas
 

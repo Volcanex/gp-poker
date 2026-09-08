@@ -16,6 +16,48 @@ simply never reads is not a break, and calling it one costs a deploy cycle of
 compatibility code for nothing. v4 gained the `arena` message in both directions
 and `format.arena` that way, and it gained profile pictures the same way.
 
+**v5 is the first version that had to bump.** Speed would have been additive on
+its own: `format.speed`, `format.levelSeconds` and `TableView.level` are all
+optional and all default to what a v4 format already meant. The ready check is
+what makes it a break. A matchmade table now waits for every human at it to
+send `{t:'ready', a:true}`, and a v4 client neither draws the prompt nor knows
+the message: it would sit through the countdown, be dropped as a no-show and
+collect a cooldown for it. A client that cannot answer a question the server is
+about to ask is not a client that can be served unchanged.
+
+## Speed and the schedules
+
+`Speed` is `fast` or `standard`, and the four formats are spelled out in full with
+the arithmetic for each written above it: how many big blinds the table holds
+at each level, when that level begins, and why the top one ends the table. The
+promise those tables keep is `matchCeilingMs(format) <= ceilingFor(speed)`,
+twenty minutes for fast and two hours for standard, and `server/test/speed.test.ts`
+is what holds them to it rather than a comment claiming they do.
+
+The mechanism is the same for both: at the top level the big blind is at least
+half the chips in play, so no seat can post one without being all-in and each
+hand from there busts somebody. The ceiling is therefore the moment the top
+level begins plus `players - 1` forced hands, which is what `matchCeilingMs`
+computes. **Nothing stops a hand on a timer**: a hand cut off halfway is not a
+poker result.
+
+`speedOf(format)` is where `standard` is spelled as the default for a stored format
+that has no `speed`, so nothing else has to remember it. `levelAt` is where the
+two bases meet.
+
+## Level and badges
+
+`levelFor`, `levelThreshold`, `levelProgress`, `BADGES` and `badgesFor` are
+here for the reason everything else here is: the server tests the curve, the
+profile draws it and the top bar prints it, and three copies of "level 5 is
+fifteen matches" would drift. They are pure functions of counters that already
+exist, so nothing is written when a level or a badge is earned, and neither can
+be out of date.
+
+**Neither unlocks anything.** The one gate on this site is
+`RANKED_GATE_MATCHES`, which is a different thing entirely: one finished casual
+or practice match before rated play opens.
+
 ## `avatarV`
 
 Optional on every shape that names somebody: `UserSummary`, `SeatView`,
@@ -64,8 +106,11 @@ Anything both sides have to agree a number for, so two copies of it cannot
 drift: `HAND_HOLD_MS` and `holdFor` (the server sleeps it, the client counts it
 down), `BOT_LEVELS` (the server plays them, the client offers them),
 `CHAT_MAX_LENGTH` and the cooldowns (the server enforces them, the client counts
-them down), and `arenaPoints` with `ARENA_FIRE_FROM` (the server scores, the
-client draws the flame promising the next win is worth three).
+them down), `arenaPoints` with `ARENA_FIRE_FROM` (the server scores, the
+client draws the flame promising the next win is worth three), `READY_CHECK_MS`
+and `readyCooldownMs` (the server runs the window and sets the wait, the client
+counts both down), and the level curve (the server tests it, the profile and
+the top bar print it).
 
 What does **not** live here is anything only one side needs. The 249 country
 names behind a flag are the example: the codes are validated in

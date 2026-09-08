@@ -1,4 +1,5 @@
-import type { Mode, ModeRating, UserSummary } from '@opentable/protocol';
+import { badgesFor, levelFor } from '@opentable/protocol';
+import type { BadgeId, BadgeStats, Mode, ModeRating, UserSummary } from '@opentable/protocol';
 import type {
   BotRow, Hand, Match, MatchHandSummary, MatchSeat, ModeStanding, Profile, RatingPoint,
   UserMatchSummary,
@@ -84,10 +85,21 @@ export function modePeakAt(profile: Profile, mode: Mode): string | null {
 export function mainMode(profile: Profile): Mode {
   const sent = profile.main;
   if (sent === 'heads-up' || sent === 'six-max') return sent;
-  const sixMax = modeRating(profile.summary, 'six-max');
-  const headsUp = modeRating(profile.summary, 'heads-up');
+  return mainModeOf(profile.summary);
+}
+
+/* The same rule off a bare summary, which is all the home page has: /api/me
+   carries the standings but not the `main` the profile route works out. Used
+   to pin the play panel to the game somebody actually plays, so it is the
+   same answer their profile opens on rather than a second notion of it.
+
+   Six handed wins a genuine tie, unlike the profile's fallback, because it is
+   the main game: a player who has played neither is pinned to it. */
+export function mainModeOf(summary: UserSummary): Mode {
+  const sixMax = modeRating(summary, 'six-max');
+  const headsUp = modeRating(summary, 'heads-up');
   if (sixMax.matches !== headsUp.matches) return sixMax.matches > headsUp.matches ? 'six-max' : 'heads-up';
-  return sixMax.rating > headsUp.rating ? 'six-max' : 'heads-up';
+  return headsUp.rating > sixMax.rating ? 'heads-up' : 'six-max';
 }
 
 /* Where this player sits in a mode. Null covers three different things that
@@ -181,4 +193,39 @@ export function avatarSeed(id: string | undefined, name: string): string {
    addressed is the component that draws it. */
 export function avatarVersion(v: number | null | undefined): number {
   return typeof v === 'number' && v > 0 ? v : 0;
+}
+
+/* ---------------------------------------------------------------- level
+
+   How many matches somebody has finished, everything included: rated, casual
+   and practice, in every mode and at both speeds. The per-mode counters are
+   what the server already sends, so a total is a sum rather than a field, and
+   nothing on the wire has to be kept in step with it.
+
+   Level is the curve over that total, and the curve lives in the protocol so
+   the profile, the top bar and the server's own tests read one definition. */
+const ALL_MODES: Mode[] = ['six-max', 'heads-up'];
+
+export function totalMatches(summary: UserSummary): number {
+  return ALL_MODES.reduce((sum, mode) => sum + modeRating(summary, mode).matches, 0);
+}
+
+export function levelOf(summary: UserSummary): number {
+  return levelFor(totalMatches(summary));
+}
+
+/* What a badge is decided from, gathered off the profile payload. `hands` is
+   the count the accuracy line is already averaged over, and the six handed
+   wins are the counter on that mode's standing, so a badge is a reading of
+   numbers already on the page rather than a row somebody had to write. */
+export function badgeStats(profile: Profile): BadgeStats {
+  return {
+    matches: totalMatches(profile.summary),
+    hands: profile.stats?.hands ?? 0,
+    sixMaxWins: modeRating(profile.summary, 'six-max').wins,
+  };
+}
+
+export function profileBadges(profile: Profile): BadgeId[] {
+  return badgesFor(badgeStats(profile));
 }

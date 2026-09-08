@@ -365,7 +365,7 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
         <span className="dot">·</span>
         <span className="street">{streetText(view.street)}</span>
         <span className="dot">·</span>
-        <span className="num wide">{blindText(view.format, view.blinds, view.h)}</span>
+        <span className="num wide">{blindText(view.format, view.blinds, view.h, view.level)}</span>
         <span className="num narrow">{blindTextShort(view.blinds)}</span>
         <span className="spacer" style={{ flex: 1 }} />
         {/* Both controls are always here. Verify used to appear beside Copy the

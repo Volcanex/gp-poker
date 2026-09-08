@@ -2,11 +2,21 @@
 
 The furniture that is not the table: `shell.tsx` (the site's chrome),
 `auth.tsx` (claim, log in, account menu),
-`settings.tsx` with its pure half `prefs.ts`, `presence.tsx`, `avatar.tsx`,
+`settings.tsx` with its pure half `prefs.ts`, `presence.tsx`,
+`ready-check.tsx`, `avatar.tsx`,
 `picture-dialog.tsx`, `flag.tsx` with `country-picker.tsx` and the generated
 `countries.ts`, `rating-graph.tsx`, `board-text.tsx`, `mode-tabs.tsx`,
-`share-link.tsx`, `site-footer.tsx`, `bits.tsx`, `format.ts`, `grid-entrance.ts`
-and `title.ts`.
+`share-link.tsx`, `site-footer.tsx`, `segmented.tsx`, `bits.tsx`, `format.ts`,
+`grid-entrance.ts` and `title.ts`.
+
+`segmented.tsx` is the two option switcher the home page's play panel is built
+from, and `mode-tabs.tsx` is now that component with the modes in it. It is
+**g's shipped tabs**, not a new component: g-system ships no segmented control,
+and building one in a consumer repo is the defect the design contract names.
+The co-ownership rules with g-ui live there in one copy: React renders the
+selection once at mount and never writes `aria-selected` again, both handlers
+read the selection back out of the DOM, and a value changed from outside is
+applied by clicking the tab so that g-ui does the moving.
 
 `grid-entrance.ts` is here rather than beside either grid that uses it because
 there are two of them and they have nothing else in common: the tools pages'
@@ -355,3 +365,20 @@ packs' notification cue and the nearest honest thing to it.
   Open Table's own copy and its own upload route.
 
 The table's own candidates are in `../table/CLAUDE.md`.
+
+## The ready check
+
+`ready-check.tsx` is the prompt that a matchmade table is waiting on you, and
+it is mounted once in `../app.tsx` beside `presence.tsx` for the same reason:
+the whole point of it is that it reaches you wherever you are on the site.
+
+It is g's shipped `dialog.dlg` with `.g-progress` counting the window down, and
+two rules of its own:
+
+- **The server opens and closes it, and nothing else does.** There is no
+  dismiss and Escape is refused, because a browser that closed it locally would
+  still be in the check and would still be charged for not answering.
+- **One cue per check, on the check rather than on the table it becomes.**
+  `presence.tsx` plays the same `yourTurn` cue on `q found`, so it skips its
+  own whenever a check announced the table first; a challenge, a home game and
+  practice have no check and still get it.

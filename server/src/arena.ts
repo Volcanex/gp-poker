@@ -16,7 +16,8 @@ import {
   type ArenaRow,
 } from './db.js';
 import { availableBots } from './bots/index.js';
-import { createMatchForPlayers, matchFormat, randomMatchId } from './matchmaking.js';
+import { chargeNoShow, checkFor, openReadyCheck } from './ready.js';
+import { createMatchForPlayers, matchFormat, randomMatchId, rankedUnlocked } from './matchmaking.js';
 import { getRoom, roomForPlayer } from './match/rooms.js';
 import { onMatchFinished } from './match/finished.js';
 import { hub } from './ws/hub.js';
@@ -60,6 +61,12 @@ const BOT_FILL_MS = 8_000;
 // some of it: an arena that could take every bot would starve the thing that
 // gives the bots their ratings in the first place.
 const MAX_ARENA_BOTS = 6;
+
+/* An arena's ready check is shorter than the queue's. A player here has
+   already said they are present by joining, is sitting on the arena page
+   watching a board, and is paired again the moment their last match ends, so
+   ten seconds is plenty and twenty out of a thirty minute event is not. */
+const ARENA_READY_MS = 10_000;
 
 // The pairing beat, and how often a board is pushed to the people watching it.
 const PAIR_EVERY_MS = 2_000;
@@ -246,6 +253,10 @@ function pruneLiveMatches(): void {
    background tab is still here, which is the same bargain the queue makes. */
 function pairable(row: ArenaPlayerRow): boolean {
   if (row.paused) return false;
+  // Already being asked whether they are ready for a table. Without this the
+  // pairing beat, which runs every two seconds, would offer them a second one
+  // while they were still deciding about the first.
+  if (checkFor(row.userId)) return false;
   if (!hub.isConnected(row.userId)) return false;
   if (roomForPlayer(row.userId)?.active) return false;
   return true;
@@ -291,7 +302,7 @@ async function pairArena(arena: ArenaRow): Promise<void> {
   for (let i = 0; i + 1 < ready.length; i += 2) {
     const a = ready[i];
     const b = ready[i + 1];
-    await start(arena, [a.userId, b.userId], 0);
+    await start(arena, [a.userId, b.userId], 0, [a.userId, b.userId]);
     paired.add(a.userId);
     paired.add(b.userId);
   }
@@ -303,15 +314,50 @@ async function pairArena(arena: ArenaRow): Promise<void> {
   if (countLiveBots() >= MAX_ARENA_BOTS) return;
   const [bot] = await availableBots(left.rating, 1, 'heads-up');
   if (!bot) return;
-  await start(arena, [left.userId, bot.id], 1);
+  await start(arena, [left.userId, bot.id], 1, [left.userId]);
 }
 
-async function start(arena: ArenaRow, userIds: string[], bots: number): Promise<void> {
+/* A pairing, offered rather than dealt. An arena can hand somebody a table
+   four minutes after they wandered off, exactly as the queue can, so it asks
+   the same question with the same machinery.
+
+   What it does with a no-show is different. There is no queue to go back to
+   and no cooldown that would mean anything inside a half-hour event, so the
+   person who did not answer is paused, which is the arena's own word for "not
+   to be paired", and their opponent is pairable again on the next beat with
+   nothing having happened to them. The cooldown is still charged, because it
+   is the queue's door they walk through next and a no-show is a no-show.
+
+   Bots are picked before the check rather than after it, unlike the queue's:
+   the window is ten seconds and the arena caps its own bot count, so a
+   re-pick would be a second place for MAX_ARENA_BOTS to be counted. */
+async function start(arena: ArenaRow, userIds: string[], bots: number, humans: string[]): Promise<void> {
   for (const id of userIds) waitingSince.delete(key(arena.id, id));
-  // Seat order decides who takes the first button, so it is a shuffle rather
-  // than an advantage for whoever the board happened to list first.
-  const matchId = await createMatchForPlayers(shuffled(userIds), arenaFormat(arena.id));
-  liveMatches.set(matchId, { arenaId: arena.id, bots });
+
+  const deal = async () => {
+    // Seat order decides who takes the first button, so it is a shuffle rather
+    // than an advantage for whoever the board happened to list first.
+    const matchId = await createMatchForPlayers(shuffled(userIds), arenaFormat(arena.id));
+    liveMatches.set(matchId, { arenaId: arena.id, bots });
+  };
+
+  const opened = openReadyCheck({
+    id: randomMatchId(),
+    format: arenaFormat(arena.id),
+    seats: userIds.length,
+    humans,
+    windowMs: ARENA_READY_MS,
+    start: deal,
+    onCancel: (failed) => {
+      for (const uid of failed) {
+        chargeNoShow(uid);
+        void pauseArena(arena.id, uid, true).catch(() => {
+          /* the arena may have closed under them; the pause was the nicety */
+        });
+      }
+    },
+  });
+  if (!opened) await deal();
 }
 
 /* --------------------------------------------------------------- scoring */
@@ -524,6 +570,15 @@ export async function joinArena(id: string, userId: string): Promise<{ ok: true 
   if (!arena) return { ok: false, status: 404, error: 'No such arena' };
   if (arena.status === 'finished') {
     return { ok: false, status: 409, error: 'This arena is over. The next one is on the hour.' };
+  }
+  // An arena is rated heads-up, so it is the same door as the rated queue and
+  // it asks the same thing first.
+  if (!(await rankedUnlocked(userId))) {
+    return {
+      ok: false,
+      status: 409,
+      error: 'Play one casual game first. Arenas open as soon as it finishes.',
+    };
   }
   await insertArenaPlayer(id, userId);
   await pushArena(id, true);

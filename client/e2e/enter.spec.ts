@@ -24,7 +24,7 @@ async function resting(page: import('@playwright/test').Page) {
 test('the home page is at rest within 600ms of loading', async ({ page }) => {
   await stubApi(page);
   await page.goto('/');
-  await expect(page.locator('.hero')).toBeVisible();
+  await expect(page.locator('.home-top')).toBeVisible();
 
   /* The entrance is on, which is what makes the assertion below mean
      something rather than pass because the rule went missing. */

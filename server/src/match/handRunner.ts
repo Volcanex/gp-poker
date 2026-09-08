@@ -11,7 +11,7 @@ import {
   type HandState,
 } from '@opentable/engine';
 import { extractDecisions, handStats, summarise } from '@opentable/preflop';
-import { HAND_HOLD_MS, blindsAt, holdFor } from '@opentable/protocol';
+import { HAND_HOLD_MS, blindsAt, holdFor, levelAt } from '@opentable/protocol';
 import type {
   ActionKind,
   Card,
@@ -69,6 +69,19 @@ export class EngineHandRunner implements HandRunner {
 
   private liveSeats: number[] = [];
   private button = 0; // table seat
+  /* When this match started, which is the other basis a blind schedule can
+     climb on. A short format has no hand basis at all: its levels advance on
+     the clock so that the table is over inside twenty minutes however slowly
+     it is being played, and a long one keeps a much coarser time basis behind
+     its hand one so that two people running the clock down on every decision
+     still cannot outlive two hours. `levelAt` takes whichever is further
+     along; see the schedules in @opentable/protocol for the arithmetic.
+
+     Read from the match row rather than stamped at construction, so a room
+     rebuilt over an existing match keeps the clock it was actually created
+     on rather than restarting the ladder. */
+  private startedAtMs: number;
+  private currentLevel = 0;
   private handStartStacks: number[];
   private handsPlayed = 0;
   private handNumber = 0;
@@ -89,6 +102,7 @@ export class EngineHandRunner implements HandRunner {
     this.stacks = this.seatsInfo.map(() => deps.match.format.stack);
     this.places = this.seatsInfo.map(() => null);
     this.handStartStacks = [...this.stacks];
+    this.startedAtMs = deps.match.createdAt?.getTime() ?? Date.now();
   }
 
   private get headsUp(): boolean {
@@ -134,7 +148,10 @@ export class EngineHandRunner implements HandRunner {
     const live = this.stillIn();
     const seed = newSeed();
     const hash = seedHash(seed);
-    const { sb, bb } = blindsAt(this.match.format, number);
+    const elapsed = Date.now() - this.startedAtMs;
+    const level = levelAt(this.match.format, number, elapsed);
+    const { sb, bb } = blindsAt(this.match.format, number, elapsed);
+    this.currentLevel = level;
     this.button = this.nextButton(live, number);
     this.liveSeats = live;
     const config: HandConfig = {
@@ -157,6 +174,11 @@ export class EngineHandRunner implements HandRunner {
       button: this.button,
       stacksStart: [...this.stacks],
       liveSeats: live,
+      // Recorded rather than left to be recomputed: a short schedule's level
+      // is a function of how long the match had been running, which nothing
+      // reading this row afterwards can know.
+      sb,
+      bb,
     });
 
     this.handDbId = handId;
@@ -355,6 +377,7 @@ export class EngineHandRunner implements HandRunner {
       seed: state.street === 'done' ? state.config.seed : null,
       format: this.match.format,
       blinds: { sb: state.config.sb, bb: state.config.bb },
+      level: this.currentLevel,
       handsPlayed: this.handsPlayed,
       last: this.lastEvent,
       result,

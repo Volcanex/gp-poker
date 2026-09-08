@@ -10,7 +10,8 @@ file covers the flat files and the subsystems that live in exactly one of them.
 | `auth.ts` | guest minting, scrypt password hashing, session cookies |
 | `userView.ts` | `UserRow` to wire `UserSummary` |
 | `routes.ts` | all REST endpoints |
-| `matchmaking.ts` | the in-memory queues, their tick, and match creation |
+| `matchmaking.ts` | the in-memory queues, their tick, the ranked gate and match creation |
+| `ready.ts` | the ready check: pending tables, who has accepted, and no-show cooldowns |
 | `challenges.ts` | play a friend: a link instead of a queue |
 | `home-games.ts` | the six-max version of that link, as a lobby |
 | `arena.ts` | the hourly competitive event |
@@ -219,15 +220,76 @@ what carries it onto a profile and a challenge page. Every one of those fields
 is optional; see `../../packages/protocol/CLAUDE.md` for which are omitted and
 which are sent as null, and why.
 
-## Modes and formats
+## Modes, speeds and formats
 
-Two modes, each rated or casual, so four independent queues. `formatFor(mode,
-rated)` in the protocol builds the `MatchFormat`; **the server never invents
-one.** Heads-up is two seats, 200 units, flat 1/2 blinds, 25 hands or bust.
-Six-max is a sit-and-go: six seats, `hands: null`, and a nine-level blind
-schedule (`levels`, `levelHands: 8`) so it always ends. Every hand asks
-`blindsAt(format, handNumber)` for its level and `TableView.blinds` reports it,
-which is the only place the client should read the current blinds from.
+Two modes and two speeds, each rated or casual, so **eight** independent
+queues. `formatFor(mode, rated, speed)` in the protocol builds the
+`MatchFormat`; **the server never invents one.** Six-max is the main game and
+`DEFAULT_MODE`: six seats, `hands: null`, blinds climbing so it always ends.
+Heads-up is two seats, best of 25 or bust.
+
+**Speed is a real third dimension of the queue and not a tag on a shared
+one.** `bucketKey(mode, rated, speed)` is what keeps the eight apart. It is
+*not* a dimension of the rating: there is one Glicko-2 pool per mode and the
+speed rides along, because four pools need four populations. Splitting them is
+a decision for when there is a crowd.
+
+A schedule climbs on two bases and takes whichever is further along
+(`levelAt`): hands, which is what six-max has always used, and elapsed match
+time, which is what a fast table uses and what keeps a standard one inside two
+hours. `levelHands: 0` means no hand basis at all. Every hand asks
+`blindsAt(format, handNumber, elapsedMs)` and `TableView.blinds` reports the
+answer, with `TableView.level` beside it, which is the only place the client
+should read either from: a fast table's level is a function of a wall clock
+only the room knows.
+
+**A hand records the blinds it was dealt at** (`hands.sb`, `hands.bb`) for the
+same reason. Read them through `handBlinds(hand, format)` in `db.ts`, never off
+the row and never by recomputing: a row written before the column existed has
+none, and every one of those belongs to a format whose level is a function of
+the hand number, which is exactly what the fallback recomputes.
+
+## The ranked gate
+
+Rated play opens after **one finished unrated match**: casual, practice or a
+casual home game, counted by `countUnratedFinished` and asked by
+`rankedUnlocked` in `matchmaking.ts`. Two doors ask it, `enqueue` when the
+search is rated and `joinArena` because an arena is rated heads-up. A refusal
+is an `err` with `c: 'ranked_locked'` carrying the sentence the client prints;
+`/api/me` sends `rankedUnlocked` so the picker can disable the control rather
+than let somebody press a button that answers no.
+
+Challenge links and home games are **not** gated. Those are two people who
+have arranged a game, and the point of the gate is a first hand against a
+stranger.
+
+## The ready check
+
+`ready.ts` owns it, and owns nothing about where the players came from: the
+caller hands it the humans, a `start` closure that deals the table and an
+`onCancel` that says what to do with the wreckage. Two callers today. The
+queue's `launch` opens one for every gathered table, charges a cooldown to
+whoever failed it and puts everybody else back with their **original
+`joinedAt`**, which is what "the front of the queue" means here, since both
+pairing functions order by how long somebody has waited. The arena's `start`
+opens a shorter one (10s rather than 20s) and answers a no-show by **pausing**
+them in the arena, because there is no queue there to go back to.
+
+Three things worth knowing:
+
+- **The bots are picked inside `start`, not before the check.** Twenty seconds
+  is long enough for another table to take them, and a table that starts with
+  a bot already in a match is a table with an empty chair. The arena is the
+  exception and picks first, because it caps its own bot count.
+- **A disconnect is not a decline.** `dequeueOnDisconnect` leaves a pending
+  check alone so somebody who reconnects inside the window can still accept;
+  an explicit `dequeue` *is* a decline, because pressing cancel while five
+  people wait on you is not "I stopped searching".
+- **Nothing is persisted.** A restart drops every check and every cooldown,
+  the same bargain the queue makes.
+
+Practice never opens one: it builds its table on the spot and there is nobody
+to wait for.
 
 ## The REST surface
 
@@ -296,9 +358,9 @@ was averaged over.
 
 One in-memory `Map<userId, QueuedPlayer>`. Nothing here is persisted, so a server
 restart drops the queue, which is acceptable because clients just re-send
-`queue`. Each entry carries its own `mode` and `rated`, and the tick buckets them
-by `(mode, rated)`, which is what makes the four queues independent without four
-maps. `enqueue` widens the user's RD for inactivity via `widenRd` before adding
+`queue`. Each entry carries its own `mode`, `rated` and `speed`, and the tick
+buckets them by all three, which is what makes the eight queues independent
+without eight maps. `enqueue` widens the user's RD for inactivity via `widenRd` before adding
 them (the rating row for the mode being queued for, not their heads-up one) and
 immediately replies `q searching` with the mode, the rated flag, the current
 `window()` range and, for a multiway table, `seated`.
@@ -310,18 +372,22 @@ and each other's. **An anchor that cannot fill a whole table is left in the queu
 rather than half-consumed.** Both pairing functions are `@opentable/rating`'s, so
 the arithmetic is pure and tested there.
 
-Creating the match allocates a short id (base32-ish, retried on the rare
-collision), inserts `matches` and `match_players`, builds a `MatchRoom`,
-registers it, and sends `q found` to every seat. **Seat order is shuffled**, so a
-human is not always on the first button.
+A gathered table is **offered before it is created**: `launch` takes everybody
+out of the queue and opens a ready check, and only an accepted one reaches
+`createMatchForPlayers`. That allocates a short id (base32-ish, retried on the
+rare collision), inserts `matches` and `match_players`, builds a `MatchRoom`,
+registers it, and sends `q found` to every seat. **Seat order is shuffled**, so
+a human is not always on the first button.
 
 ### Bot fill
 
 Two constants at the top of the file, both measured from the longest wait in that
 queue: `BOT_FILL_HEADS_UP_MS` (5s) and `BOT_FILL_SIX_MAX_MS` (20s). Heads-up
-gives a lone human one bot. Six-max launches on six humans, or after the
-threshold with bots in the remaining seats. **Bots never fill a table with no
-human**, and a roster too short to fill the table waits rather than seating a
+gives a lone human one bot. Six-max launches on six humans, or, **in casual
+only**, after the threshold with bots in the remaining seats: a **rated**
+six-max table is people or nothing, because five bots at a table whose result
+moves a Glicko-2 rating is a rating anybody could dial in. **Bots never fill a
+table with no human**, and a roster too short to fill the table waits rather than seating a
 short-handed one. Candidates come from `availableBots(rating, n)` in `bots/`:
 loaded in this process, not in a live match (a finished room lingers a minute, so
 this asks `room.active`, not whether the room exists), closest in rating first.

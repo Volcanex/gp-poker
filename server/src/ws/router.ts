@@ -1,6 +1,7 @@
-import type { ClientMsg } from '@opentable/protocol';
+import { DEFAULT_MODE, DEFAULT_SPEED, type ClientMsg, type Speed } from '@opentable/protocol';
 import { hub } from './hub.js';
-import { enqueue, enqueuePractice, dequeue } from '../matchmaking.js';
+import { dequeue, dequeueOnDisconnect, enqueue, enqueuePractice } from '../matchmaking.js';
+import { respondReady } from '../ready.js';
 import { getRoom, roomForPlayer, roomsForSpectator } from '../match/rooms.js';
 import { unwatchArena, watchArena } from '../arena.js';
 
@@ -9,13 +10,22 @@ import { unwatchArena, watchArena } from '../arena.js';
 export function routeClientMessage(userId: string, msg: ClientMsg): void {
   switch (msg.t) {
     case 'queue': {
-      const mode = msg.mode ?? 'heads-up';
+      const mode = msg.mode ?? DEFAULT_MODE;
+      const speed: Speed = msg.speed === 'fast' ? 'fast' : DEFAULT_SPEED;
       // A practice request never joins the human queue: it either gets a table
-      // of bots straight away or an error saying they are all busy.
-      if (msg.bots) void enqueuePractice(userId, mode, msg.bots.level);
-      else void enqueue(userId, mode, msg.rated ?? true);
+      // of bots straight away or an error saying they are all busy. It skips
+      // the ready check too, for the same reason: nobody is waiting on you at
+      // a table you asked for a second ago.
+      if (msg.bots) void enqueuePractice(userId, mode, msg.bots.level, speed);
+      else void enqueue(userId, mode, msg.rated ?? true, speed);
       return;
     }
+    case 'ready':
+      // Which table is not on the message: a player is only ever offered one
+      // at a time, so the server knows, and a client cannot answer a check
+      // that has already been settled by somebody else.
+      respondReady(userId, msg.a === true);
+      return;
     case 'dequeue':
       dequeue(userId);
       return;
@@ -65,7 +75,7 @@ export function routeConnect(userId: string): void {
 }
 
 export function routeDisconnect(userId: string): void {
-  dequeue(userId);
+  dequeueOnDisconnect(userId);
   unwatchArena(userId);
   roomForPlayer(userId)?.handleDisconnect(userId);
   // A player keeps their subscription through the grace window; a spectator

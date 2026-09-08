@@ -1,48 +1,100 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { BOT_LEVELS, botLevelInfo, formatFor } from '@opentable/protocol';
-import type { Mode } from '@opentable/protocol';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { BOT_LEVELS, SPEEDS, SPEED_NAME, botLevelInfo, ceilingFor, formatFor, speedOf } from '@opentable/protocol';
+import type { MatchFormat, Mode, Speed } from '@opentable/protocol';
+import { Robot } from '@phosphor-icons/react/dist/icons/Robot';
+import { Trophy } from '@phosphor-icons/react/dist/icons/Trophy';
+import { Link as LinkIcon } from '@phosphor-icons/react/dist/icons/Link';
+import { UsersThree } from '@phosphor-icons/react/dist/icons/UsersThree';
 import { api, ApiError } from '../net/api.ts';
-import { levelAverageRating, modeRating, avatarVersion } from '../net/adapt.ts';
-import type { ArenaListing, BotRow, CreatedChallenge, LeaderboardRow, Me } from '../net/types.ts';
+import { avatarSeed, avatarVersion, levelAverageRating, mainModeOf, modeRating } from '../net/adapt.ts';
+import type { ArenaListing, BotRow, CreatedChallenge, LeaderboardRow, LiveMatch, Me } from '../net/types.ts';
 import { readPlayChoice, useSession } from '../net/session.tsx';
 import { MODES, MODE_NAME } from '../ui/mode-tabs.tsx';
+import { Segmented } from '../ui/segmented.tsx';
 import { elapsed, useNow } from '../ui/bits.tsx';
 import { arenaCardLine } from './arena-bits.ts';
 import { int } from '../ui/format.ts';
 import { useTitle } from '../ui/title.ts';
-import { Link, useLocation } from 'react-router-dom';
 import { Avatar } from '../ui/avatar.tsx';
-import { avatarSeed } from '../net/adapt.ts';
+import { Flag } from '../ui/flag.tsx';
+import { LESSONS } from './learn/lessons.ts';
+import { readPuzzles } from '../puzzles/store.ts';
 import { RecentMatches, StatsStrip } from './feed.tsx';
 import { ShareLink } from '../ui/share-link.tsx';
 
-/* The line under each mode's name is built from that mode's format, so the
-   promise on the card cannot drift from the match it starts. Exported because
-   a challenge link promises the same match on a different page. */
-export function modeBlurb(mode: Mode): string {
-  const f = formatFor(mode, true);
-  if (mode === 'six-max') {
-    return `Last player standing. ${f.players} seats, ${f.stack} units each, blinds climb every ${f.levelHands} hands.`;
+/* The line under the play button is built from the format the button would
+   actually deal, so the promise cannot drift from the match it starts.
+   Exported because a challenge link promises the same match on another page. */
+export function modeBlurb(mode: Mode, speed: Speed = 'standard'): string {
+  const f = formatFor(mode, true, speed);
+  const shape =
+    mode === 'six-max'
+      ? `Last player standing. ${f.players} seats, ${f.stack} units each.`
+      : `Best of ${f.hands} hands. ${f.stack} units each.`;
+  return `${shape} ${scheduleLine(f)}`;
+}
+
+/* How the blinds move, and how long the table can therefore last. Both read
+   off the format rather than written down twice: the schedules are designed
+   against these ceilings and the arithmetic for each one is in the protocol
+   beside it. */
+function scheduleLine(f: MatchFormat): string {
+  const cap = capText(f);
+  if (speedOf(f) === 'fast') return `Blinds climb every ${f.levelSeconds} seconds, so it is over ${cap}.`;
+  if (f.levels.length > 1 && f.levelHands > 0 && f.mode === 'six-max') {
+    return `Blinds climb every ${f.levelHands} hands, ${cap}.`;
   }
-  return `Best of ${f.hands} hands. ${f.stack} units each, blinds fixed at ${f.sb} and ${f.bb}.`;
+  return `Blinds start at ${f.sb} and ${f.bb} and stay there, ${cap}.`;
+}
+
+function capText(f: MatchFormat): string {
+  const minutes = Math.round(ceilingFor(speedOf(f)) / 60_000);
+  return minutes >= 60 ? `up to ${minutes / 60} hours` : `inside ${minutes} minutes`;
+}
+
+/* The game this player is pinned to: whatever they last chose, and failing
+   that whatever they have played most, which is the same rule their profile
+   opens on. A player who has played nothing is pinned to six handed, because
+   that is the main game. */
+function pinnedMode(me: Me | null): Mode {
+  const last = readPlayChoice();
+  if (last) return last.mode;
+  return me ? mainModeOf(me) : 'six-max';
 }
 
 export function Home() {
-  const { me, queue, startQueue, startPractice, cancelQueue, offline, ready, conn, liveMatch, clearFound } = useSession();
+  const { me, queue, startQueue, startPractice, cancelQueue, offline, ready, conn, liveMatch, clearFound } =
+    useSession();
   const nav = useNavigate();
   const searching = queue.s === 'searching';
   const { hash } = useLocation();
   useTitle(null);
   const now = useNow(searching, 250);
 
-  /* The last choice reopens the picker where it was left: that mode's stake,
-     and a quiet mark on the card that was played. */
+  /* One pinned format, three toggles, one button. The panel opens on the
+     choice this player last made; a player who has made none is opened on the
+     game they play most, and a player with no matches at all on the default.
+     The pin is resolved again when the account lands, because the first
+     render happens before /api/me has answered. */
   const [last] = useState(() => readPlayChoice());
-  const [rated, setRated] = useState<Record<Mode, boolean>>(() => ({
-    'heads-up': last?.mode === 'heads-up' ? last.rated : true,
-    'six-max': last?.mode === 'six-max' ? last.rated : true,
-  }));
+  const [mode, setMode] = useState<Mode>(() => pinnedMode(null));
+  const [rated, setRated] = useState(last?.rated ?? true);
+  const [speed, setSpeed] = useState<Speed>(last?.speed ?? 'standard');
+  const [pinned, setPinned] = useState(last != null);
+
+  useEffect(() => {
+    if (pinned || !me) return;
+    setMode(mainModeOf(me));
+    setPinned(true);
+  }, [me, pinned]);
+
+  /* Rated play opens after one finished casual or practice match. The server
+     refuses it either way; the control says so rather than letting somebody
+     press a button that answers no. A page that has not heard from the server
+     yet assumes it is open, so the control does not flicker shut on load. */
+  const rankedLocked = me != null && me.rankedUnlocked === false;
+  const willBeRated = rated && !rankedLocked;
 
   /* The found state is a one-shot ticket to the table. Clearing it once it
      has been used is what lets somebody come back to this page mid-match
@@ -59,69 +111,86 @@ export function Home() {
     if (hash) document.querySelector(hash)?.scrollIntoView({ block: 'start' });
   }, [hash]);
 
-  const seats = formatFor(queue.mode, queue.rated).players;
-  const searchingFor = queue.practice ? 'Dealing you in against the bots' : `Searching for a ${MODE_NAME[queue.mode].toLowerCase()} table`;
+  const seats = formatFor(queue.mode, queue.rated, queue.speed).players;
+  const searchingFor = queue.practice
+    ? 'Dealing you in against the bots'
+    : `Searching for a ${SPEED_NAME[queue.speed].toLowerCase()} ${MODE_NAME[queue.mode].toLowerCase()} table`;
 
   return (
-    <main className="page stack">
-      <section className="hero">
-        <h1 className="h1">Ranked hold'em</h1>
-        <p className="lede">
-          Heads-up or six handed, <b>no money anywhere</b>. Chips are table units that reset every
-          match. The only thing you keep is your rating.
-        </p>
+    <main className="page wide stack home-page">
+      <PlayerBar me={me} mode={mode} />
 
-        {offline && ready && (
-          <div className="card" role="status">
-            <div className="empty">
-              <span className="e-title">The table server is not answering</span>
-              <span className="e-desc">
-                Matchmaking is unavailable until it is back. Reload to try the connection again.
-              </span>
-              <button type="button" className="btn btn-secondary btn-sm" onClick={() => location.reload()}>
-                Try again
-              </button>
-            </div>
+      {offline && ready && (
+        <div className="card" role="status">
+          <div className="empty">
+            <span className="e-title">The table server is not answering</span>
+            <span className="e-desc">
+              Matchmaking is unavailable until it is back. Reload to try the connection again.
+            </span>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => location.reload()}>
+              Try again
+            </button>
           </div>
-        )}
+        </div>
+      )}
 
+      <section className="home-top">
         {!searching ? (
-          <div className="modes">
-            {MODES.map((mode) => (
-              <div className="card mode" key={mode} data-last={last?.mode === mode ? '' : undefined}>
-                <div className="mode-head">
-                  <span className="t">{MODE_NAME[mode]}</span>
-                  {last?.mode === mode && <span className="muted">Last played</span>}
-                </div>
-                <span className="muted">{modeBlurb(mode)}</span>
-                {me && <YourRating mode={mode} me={me} />}
-                <div className="stakes">
-                  {[true, false].map((r) => (
-                    <label className="choice" key={String(r)}>
-                      <input
-                        type="radio"
-                        className="radio"
-                        name={`stake-${mode}`}
-                        checked={rated[mode] === r}
-                        onChange={() => setRated((prev) => ({ ...prev, [mode]: r }))}
-                      />
-                      {r ? 'Rated' : 'Casual'}
-                    </label>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  disabled={!ready || offline}
-                  onClick={() => startQueue(mode, rated[mode])}
-                >
-                  Play
-                </button>
-              </div>
-            ))}
-            <PracticeCard onPlay={startPractice} disabled={!ready || offline} error={queue.error} />
-            <ArenaCard />
-            <FriendCard disabled={!ready || offline} />
+          <div className="card play-panel">
+            <span className="t">Play</span>
+            <div className="play-toggles">
+              <Segmented
+                label="Speed"
+                options={SPEEDS.map((sp) => ({ value: sp, label: SPEED_NAME[sp] }))}
+                value={speed}
+                onPick={setSpeed}
+              />
+              <Segmented
+                label="Ranked or casual"
+                options={[
+                  { value: 'ranked', label: 'Ranked' },
+                  { value: 'casual', label: 'Casual' },
+                ]}
+                value={willBeRated ? 'ranked' : 'casual'}
+                onPick={(v) => setRated(v === 'ranked')}
+                disabled={(v) => v === 'ranked' && rankedLocked}
+              />
+              <Segmented
+                label="Table size"
+                options={MODES.map((m) => ({ value: m, label: MODE_NAME[m] }))}
+                value={mode}
+                onPick={setMode}
+              />
+            </div>
+
+            <span className="muted">{modeBlurb(mode, speed)}</span>
+            {rankedLocked && (
+              <span className="muted">Play one casual game first. Ranked opens as soon as it finishes.</span>
+            )}
+            {queue.error && <span className="badge badge-warn">{queue.error}</span>}
+
+            <button
+              type="button"
+              className="btn btn-primary btn-lg play-go"
+              disabled={!ready || offline}
+              onClick={() => startQueue(mode, willBeRated, speed)}
+            >
+              Play {MODE_NAME[mode].toLowerCase()}
+            </button>
+
+            <div className="play-ways">
+              <PracticeWay onPlay={startPractice} disabled={!ready || offline} pinnedMode={mode} />
+              <ArenaWay />
+              <LinkWay kind="challenge" disabled={!ready || offline} />
+              <LinkWay kind="home" disabled={!ready || offline} />
+            </div>
+
+            {liveMatch && (
+              <Link className="btn btn-secondary" to={`/m/${liveMatch}`}>
+                Return to your match
+              </Link>
+            )}
+            {!offline && conn === 'waiting' && <span className="muted">Connection dropped. Reconnecting.</span>}
           </div>
         ) : (
           <div className="card searching-card" role="status">
@@ -130,37 +199,45 @@ export function Home() {
               <span className="spinner" aria-hidden="true" />
               <span className="el num">{elapsed(now - queue.since)}</span>
               <span className="badge badge-plain">
-                {queue.practice ? 'Practice' : queue.rated ? 'Rated' : 'Casual'}
+                {queue.practice ? 'Practice' : queue.rated ? 'Ranked' : 'Casual'}
               </span>
+              <span className="badge badge-plain">{SPEED_NAME[queue.speed]}</span>
               {queue.mode === 'six-max' && queue.seated != null && (
-                <span className="badge badge-plain num">{queue.seated} of {seats} seated</span>
+                <span className="badge badge-plain num">
+                  {queue.seated} of {seats} seated
+                </span>
               )}
-              {queue.range != null && (
-                <span className="badge badge-plain num">Within {queue.range} rating</span>
-              )}
-              {queue.w != null && queue.w > 0 && (
-                <span className="badge badge-plain num">{queue.w} waiting</span>
-              )}
+              {queue.range != null && <span className="badge badge-plain num">Within {queue.range} rating</span>}
+              {queue.w != null && queue.w > 0 && <span className="badge badge-plain num">{queue.w} waiting</span>}
               <button type="button" className="btn btn-tertiary btn-sm" onClick={cancelQueue}>
                 Cancel search
               </button>
             </div>
+            {/* Why the last table did not happen, when there was one. It sits
+                on the searching card because that is where the answer is: the
+                search carried on without you having to restart it. */}
+            {queue.error && <span className="muted">{queue.error}</span>}
           </div>
         )}
 
-        <StatsStrip />
-
-        {liveMatch && (
-          <Link className="btn btn-secondary" to={`/m/${liveMatch}`}>
-            Return to your match
-          </Link>
-        )}
-
-        {!offline && conn === 'waiting' && (
-          <span className="muted">Connection dropped. Reconnecting.</span>
-        )}
+        <div className="home-side">
+          <PuzzlesCard />
+          <LearnCard />
+          <WatchCard />
+        </div>
       </section>
 
+      <StatsStrip />
+
+      <RecentMatches />
+
+      <Leaderboard mode={mode} />
+
+      {/* The three promises this site is built on. They sat above the picker
+          when the page led with a headline; the panel leads now, so they sit
+          under the board where somebody scrolling to the bottom meets them.
+          Kept rather than dropped with the headline: they are the only place
+          on the page that says there is no money in any of this. */}
       <section className="how">
         <div className="card">
           <span className="k">1</span>
@@ -170,7 +247,9 @@ export function Home() {
         <div className="card">
           <span className="k">2</span>
           <span className="t">Chips reset every match</span>
-          <span className="muted">Everyone starts on 200 units. Six-max blinds climb until one player has the lot.</span>
+          <span className="muted">
+            Everyone starts on 200 units. The blinds climb until one player has the lot.
+          </span>
         </div>
         <div className="card">
           <span className="k">3</span>
@@ -178,10 +257,6 @@ export function Home() {
           <span className="muted">Glicko-2, updated once per match. That is the whole ladder.</span>
         </div>
       </section>
-
-      <RecentMatches />
-
-      <Leaderboard mode={queue.mode} />
 
       <footer className="home-foot">
         Every hand is <Link to="/learn/fair">provably fair</Link>. Every match is public.{' '}
@@ -191,100 +266,80 @@ export function Home() {
   );
 }
 
-/* The third way to play: a table of bots at a level you pick, never rated.
-   The card spans the picker's row because it is one card, not a mode of its
-   own, and the level list reads better wide than squeezed into a column.
+/* Who is playing, at the top of their own page: the picture, the name, the
+   flag and the one rating that means anything to them, which is the rating
+   for the game the panel below is pinned to. A guest gets the same row, since
+   a guest plays here like anybody else.
 
-   The rating beside each level is the live average of the bots that play at
-   it, in the mode chosen above, so the number is what those opponents have
-   actually earned rather than a claim about the level. */
-function PracticeCard({
-  onPlay,
-  disabled,
-  error,
-}: {
-  onPlay: (mode: Mode, level: number) => void;
-  disabled: boolean;
-  error?: string;
-}) {
-  const [mode, setMode] = useState<Mode>('heads-up');
-  const [level, setLevel] = useState(2);
-  const [bots, setBots] = useState<BotRow[]>([]);
-
-  useEffect(() => {
-    let live = true;
-    api
-      .bots()
-      .then((rows) => live && setBots(rows))
-      .catch(() => {
-        /* the picker still works; it just cannot show what the bots are rated */
-      });
-    return () => {
-      live = false;
-    };
-  }, []);
-
+   A mode with no rated match behind it says so rather than printing the 1500
+   everybody starts on as though it were earned. */
+function PlayerBar({ me, mode }: { me: Me | null; mode: Mode }) {
+  if (!me) return <div className="player-bar" aria-hidden="true" />;
+  const r = modeRating(me, mode);
   return (
-    <div className="card mode" style={{ gridColumn: '1 / -1' }}>
-      <div className="mode-head">
-        <span className="t">Practice against bots</span>
+    <div className="player-bar">
+      <Avatar seed={avatarSeed(me.id, me.name)} name={me.name} size={44} avatarV={avatarVersion(me.avatarV)} />
+      <div className="pb-who">
+        {/* The page's heading is the player's own name, because that is what
+            this page is about. Nothing else on it is a heading of that rank. */}
+        <h1 className="pb-name">
+          {me.country && <Flag code={me.country} size={20} />}
+          {me.name}
+        </h1>
+        <span className="muted">{MODE_NAME[mode]}</span>
       </div>
-      <span className="muted">
-        Live equity and outs are shown at the table. Practice matches are never rated.
-      </span>
-      <div className="stakes">
-        {MODES.map((m) => (
-          <label className="choice" key={m}>
-            <input
-              type="radio"
-              className="radio"
-              name="practice-mode"
-              checked={mode === m}
-              onChange={() => setMode(m)}
-            />
-            {MODE_NAME[m]}
-          </label>
-        ))}
+      <div className="pb-rating">
+        {r.matches === 0 ? (
+          <span className="muted">No ranked matches yet</span>
+        ) : (
+          <>
+            <span className="v num">{int(r.rating)}</span>
+            {r.provisional && <span className="badge badge-warn">Provisional</span>}
+          </>
+        )}
       </div>
-      <label className="field">
-        <span className="label">Level</span>
-        <span className="select-wrap">
-          <select
-            className="select"
-            value={level}
-            onChange={(e) => setLevel(Number(e.target.value))}
-            aria-label="Bot level"
-          >
-            {BOT_LEVELS.map((b) => {
-              const avg = levelAverageRating(bots, b.level, mode);
-              const form = avg == null ? 'no rated matches yet' : `rated ${avg}`;
-              return (
-                <option key={b.level} value={b.level}>
-                  Level {b.level}, {b.name.toLowerCase()}, {form}
-                </option>
-              );
-            })}
-          </select>
-        </span>
-      </label>
-      <span className="muted">{botLevelInfo(level).description}</span>
-      {error && <span className="badge badge-warn">{error}</span>}
-      <button type="button" className="btn btn-primary" disabled={disabled} onClick={() => onPlay(mode, level)}>
-        Play against bots
-      </button>
     </div>
   );
 }
 
-/* The fifth way to play: an event rather than a table. The card is a pointer
-   at /arena and nothing more, because joining an arena is a thing you do on
-   its own page beside the board you are joining.
+/* One of the other ways to play. Closed it is a single line with an icon and
+   a name; open it is that line with the controls it needs underneath, which
+   is how a practice level and a link's stake keep existing without four more
+   cards on the page. `aria-expanded` is what says which it is. */
+function Way({
+  icon,
+  label,
+  note,
+  open,
+  onToggle,
+  children,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  note?: string;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="way" data-open={open ? '' : undefined}>
+      <button type="button" className="btn btn-secondary way-go" aria-expanded={open} onClick={onToggle}>
+        <span className="way-icon" aria-hidden="true">
+          {icon}
+        </span>
+        <span className="way-label">{label}</span>
+        {note && <span className="way-note muted">{note}</span>}
+      </button>
+      {open && <div className="way-body">{children}</div>}
+    </div>
+  );
+}
 
-   The line under the name is written by the same function the arena page's
-   clock is, so the card and the page cannot describe the same arena
-   differently. A card whose call failed simply says nothing about the time
-   rather than showing a countdown it made up. */
-function ArenaCard() {
+/* The arena is a pointer at its own page rather than something that opens
+   here, because joining one is a thing you do beside the board you are
+   joining. The line beside the name is written by the same function the arena
+   page's clock is, so the two cannot describe the same arena differently. */
+function ArenaWay() {
   const [listing, setListing] = useState<ArenaListing | null>(null);
   const [failed, setFailed] = useState(false);
   const now = useNow(listing !== null, 1000);
@@ -301,38 +356,18 @@ function ArenaCard() {
   }, []);
 
   const featured = listing?.featured ?? null;
+  const note = failed ? 'Every hour' : arenaCardLine(featured, now);
 
   return (
-    <div className="card mode" style={{ gridColumn: '1 / -1' }}>
-      <div className="mode-head">
-        <span className="t">Hourly arena</span>
-        {featured?.status === 'running' && <span className="badge badge-ok">Running</span>}
-      </div>
-      <span className="muted">
-        {failed
-          ? 'An arena runs every hour. Open the arena to see the next one.'
-          : arenaCardLine(featured, now)}
+    <Link className="btn btn-secondary way-go" to={featured ? `/arena/${featured.id}` : '/arena'}>
+      <span className="way-icon" aria-hidden="true">
+        <Trophy size={16} />
       </span>
-      <span className="muted">
-        Half an hour of heads-up, paired again the moment your match ends. A win is worth two, a draw
-        one, and a third win in a row is worth three.
-      </span>
-      <Link className="btn btn-primary" to={featured ? `/arena/${featured.id}` : '/arena'}>
-        {featured?.status === 'running' ? 'Open the arena' : 'See the next arena'}
-      </Link>
-    </div>
+      <span className="way-label">Hourly arena</span>
+      <span className="way-note muted">{note}</span>
+    </Link>
   );
 }
-
-/* The fourth way to play: a link instead of a queue, in two sizes. A heads-up
-   challenge seats exactly two people and starts itself the moment the second
-   one accepts. A home game is the six-max version: one private table, one
-   link, a lobby that friends gather in and a host who starts it, with the
-   seats nobody took filled by bots at a level the host picks.
-
-   A made link is remembered in this browser, because the link outlives the
-   page: without this a reload would strand it, and the only way back would be
-   to make another and spend one of the few allowed. */
 const CHALLENGE_KEY = 'ot-challenge';
 
 type LinkKind = 'challenge' | 'home';
@@ -369,8 +404,97 @@ const LINK_KINDS: { kind: LinkKind; label: string }[] = [
   { kind: 'home', label: 'Home game, up to six' },
 ];
 
-function FriendCard({ disabled }: { disabled: boolean }) {
-  const [kind, setKind] = useState<LinkKind>('challenge');
+
+/* A table of bots at a level you pick, never rated, and the one row that can
+   deal a table without the queue. The mode is not asked for again: practice
+   is played at whatever the panel above is pinned to, since the row exists to
+   answer "let me try this" and a second table-size control here would be the
+   same question twice.
+
+   The rating beside each level is the live average of the bots that play at
+   it, so the number is what those opponents have actually earned rather than
+   a claim about the level. */
+function PracticeWay({
+  onPlay,
+  disabled,
+  pinnedMode,
+}: {
+  onPlay: (mode: Mode, level: number) => void;
+  disabled: boolean;
+  pinnedMode: Mode;
+}) {
+  const [open, setOpen] = useState(false);
+  const [level, setLevel] = useState(2);
+  const [bots, setBots] = useState<BotRow[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    let live = true;
+    api
+      .bots()
+      .then((rows) => live && setBots(rows))
+      .catch(() => {
+        /* the picker still works; it just cannot show what the bots are rated */
+      });
+    return () => {
+      live = false;
+    };
+  }, [open]);
+
+  return (
+    <Way
+      icon={<Robot size={16} />}
+      label="Practice against bots"
+      open={open}
+      onToggle={() => setOpen((v) => !v)}
+    >
+      <span className="muted">
+        Live equity and outs are shown at the table. Practice matches are never rated.
+      </span>
+      <label className="field">
+        <span className="label">Level</span>
+        <span className="select-wrap">
+          <select
+            className="select"
+            value={level}
+            onChange={(e) => setLevel(Number(e.target.value))}
+            aria-label="Bot level"
+          >
+            {BOT_LEVELS.map((b) => {
+              const avg = levelAverageRating(bots, b.level, pinnedMode);
+              const form = avg == null ? 'no rated matches yet' : `rated ${avg}`;
+              return (
+                <option key={b.level} value={b.level}>
+                  Level {b.level}, {b.name.toLowerCase()}, {form}
+                </option>
+              );
+            })}
+          </select>
+        </span>
+      </label>
+      <span className="muted">{botLevelInfo(level).description}</span>
+      <button
+        type="button"
+        className="btn btn-primary"
+        disabled={disabled}
+        onClick={() => onPlay(pinnedMode, level)}
+      >
+        Play {MODE_NAME[pinnedMode].toLowerCase()} against bots
+      </button>
+    </Way>
+  );
+}
+
+/* The two shared links, one row each. A heads-up challenge seats exactly two
+   people and starts itself the moment the second one accepts; a home game is
+   the six handed version, a lobby friends gather in and a host starts, with
+   the seats nobody took filled by bots at a level the host picks.
+
+   They were one card with a kind toggle and are now two rows, which is one
+   control fewer and one less question to answer before making a link. The
+   kind is a prop rather than state; everything else is what it always was. */
+function LinkWay({ kind, disabled }: { kind: LinkKind; disabled: boolean }) {
+  const [open, setOpen] = useState(false);
   const [rated, setRated] = useState(true);
   const [level, setLevel] = useState(2);
   const [link, setLink] = useState<SavedLink | null>(null);
@@ -378,27 +502,30 @@ function FriendCard({ disabled }: { disabled: boolean }) {
   const [error, setError] = useState<string | null>(null);
 
   /* A remembered link is only shown once the server says it is still waiting,
-     the same bargain the remembered live match makes. Which of the two calls
-     asks is the only thing the kind changes. */
+     the same bargain the remembered live match makes. One link is remembered
+     per browser, so the row it belongs to is the one that shows it and the
+     other row never opens on somebody else's link. */
   useEffect(() => {
     const saved = readChallenge();
-    if (!saved) return;
+    if (!saved || saved.kind !== kind) return;
     let live = true;
     const still =
       saved.kind === 'home'
         ? api.homeGame(saved.id).then((g) => g.status === 'open')
         : api.challenge(saved.id).then((c) => c.status === 'open');
     still
-      .then((open) => {
+      .then((isOpen) => {
         if (!live) return;
-        if (open) setLink(saved);
-        else writeChallenge(null);
+        if (isOpen) {
+          setLink(saved);
+          setOpen(true);
+        } else writeChallenge(null);
       })
       .catch(() => writeChallenge(null));
     return () => {
       live = false;
     };
-  }, []);
+  }, [kind]);
 
   const make = async () => {
     setBusy(true);
@@ -421,37 +548,39 @@ function FriendCard({ disabled }: { disabled: boolean }) {
      link sits unused until it expires. */
   const drop = async () => {
     if (!link) return;
-    const { id, kind: made } = link;
+    const { id } = link;
     writeChallenge(null);
     setLink(null);
     setError(null);
     try {
-      if (made === 'home') await api.cancelHomeGame(id);
+      if (kind === 'home') await api.cancelHomeGame(id);
       else await api.cancelChallenge(id);
     } catch {
       /* it expires on its own within the day either way */
     }
   };
 
-  return (
-    <div className="card mode" style={{ gridColumn: '1 / -1' }}>
-      <div className="mode-head">
-        <span className="t">Play a friend</span>
-      </div>
-      <span className="muted">
-        Make a link and send it to whoever you want to play. A heads-up challenge starts the moment
-        they open it. A home game gathers up to six in a lobby and you start it.
-      </span>
+  const home = kind === 'home';
 
+  return (
+    <Way
+      icon={home ? <UsersThree size={16} /> : <LinkIcon size={16} />}
+      label={home ? 'Home game' : 'Play a friend'}
+      note={link ? 'Link waiting' : undefined}
+      open={open}
+      onToggle={() => setOpen((v) => !v)}
+    >
       {link ? (
         <>
-          <ShareLink url={link.url} what={link.kind === 'home' ? 'table' : 'challenge'} />
-          {link.kind === 'home' ? (
+          <ShareLink url={link.url} what={home ? 'table' : 'challenge'} />
+          {home ? (
             <>
               <span className="muted">
                 Your table is waiting. Open it to see who has arrived and start the game.
               </span>
-              <Link className="btn btn-primary" to={`/g/${link.id}`}>Open your table</Link>
+              <Link className="btn btn-primary" to={`/g/${link.id}`}>
+                Open your table
+              </Link>
             </>
           ) : (
             <span className="muted">Waiting for your friend. The link works for 24 hours.</span>
@@ -462,35 +591,21 @@ function FriendCard({ disabled }: { disabled: boolean }) {
         </>
       ) : (
         <>
-          <div className="stakes link-kinds">
-            {LINK_KINDS.map((k) => (
-              <label className="choice" key={k.kind}>
-                <input
-                  type="radio"
-                  className="radio"
-                  name="friend-kind"
-                  checked={kind === k.kind}
-                  onChange={() => setKind(k.kind)}
-                />
-                {k.label}
-              </label>
-            ))}
-          </div>
-          <div className="stakes">
-            {[true, false].map((r) => (
-              <label className="choice" key={String(r)}>
-                <input
-                  type="radio"
-                  className="radio"
-                  name="friend-stake"
-                  checked={rated === r}
-                  onChange={() => setRated(r)}
-                />
-                {r ? 'Rated' : 'Casual'}
-              </label>
-            ))}
-          </div>
-          {kind === 'home' && (
+          <span className="muted">
+            {home
+              ? 'A private six handed table. Gather up to six in a lobby and start it when you like.'
+              : 'A heads-up link that starts the match the moment your friend opens it.'}
+          </span>
+          <Segmented
+            label={home ? 'Home game stake' : 'Challenge stake'}
+            options={[
+              { value: 'ranked', label: 'Ranked' },
+              { value: 'casual', label: 'Casual' },
+            ]}
+            value={rated ? 'ranked' : 'casual'}
+            onPick={(v) => setRated(v === 'ranked')}
+          />
+          {home && (
             <>
               <label className="field">
                 <span className="label">Bots in the empty seats</span>
@@ -510,7 +625,7 @@ function FriendCard({ disabled }: { disabled: boolean }) {
                 </span>
               </label>
               <span className="muted">
-                A rated home game needs two people at it. One person and five bots plays casual.
+                A ranked home game needs two people at it. One person and five bots plays casual.
               </span>
             </>
           )}
@@ -520,29 +635,94 @@ function FriendCard({ disabled }: { disabled: boolean }) {
           </button>
         </>
       )}
+    </Way>
+  );
+}
+
+/* Puzzles, learning and watching: three cards beside the play panel, each one
+   fact and one button. None of them is a second way to start a match, which
+   is why they are here rather than in the column above.
+
+   The puzzle standing is kept in this browser and nowhere else, so the card
+   reads it straight rather than asking the server for something the server
+   does not know. Accuracy needs a denominator, so a player who has answered
+   nothing gets the count instead of a percentage of zero. */
+function PuzzlesCard() {
+  const puzzles = useMemo(() => readPuzzles(), []);
+  const totals = Object.values(puzzles.types).reduce(
+    (sum, t) => ({ right: sum.right + t.right, total: sum.total + t.total }),
+    { right: 0, total: 0 }
+  );
+
+  return (
+    <div className="card side-card">
+      <span className="t">Puzzles</span>
+      {totals.total > 0 ? (
+        <span className="muted">
+          <b className="num">{Math.round((totals.right / totals.total) * 100)}%</b> right, over{' '}
+          <b className="num">{totals.total}</b> {totals.total === 1 ? 'puzzle' : 'puzzles'}
+        </span>
+      ) : (
+        <span className="muted">Three kinds, all built from real hands played here.</span>
+      )}
+      <Link className="btn btn-secondary" to="/puzzles">
+        Solve a puzzle
+      </Link>
     </div>
   );
 }
 
-/* Your standing in that mode, on the card that starts it. A mode you have
-   never played says so rather than showing the 1500 everyone starts on as
-   though it were earned. */
-function YourRating({ mode, me }: { mode: Mode; me: Me }) {
-  const r = modeRating(me, mode);
-  if (r.matches === 0) return <span className="muted">No rated matches in this mode yet.</span>;
+/* The lessons in reading order. Nothing records which have been read, so the
+   card offers the first one rather than claiming to know where somebody got
+   to: a card that says "next" about a lesson you finished a week ago is worse
+   than one that simply points at the beginning. */
+function LearnCard() {
+  const lesson = LESSONS[0];
   return (
-    <span className="tags muted">
-      <span>
-        Your rating <span className="num">{int(r.rating)}</span>
-        <span className="rd num">+-{int(r.rd)}</span>
-      </span>
-      {r.provisional && <span className="badge badge-warn">Provisional</span>}
-    </span>
+    <div className="card side-card">
+      <span className="t">Learn</span>
+      <span className="muted">{lesson.title}. {lesson.blurb}</span>
+      <Link className="btn btn-secondary" to={`/learn/${lesson.slug}`}>
+        Read the first lesson
+      </Link>
+    </div>
   );
 }
 
-/* The peek follows the mode the picker is on, so the board underneath is the
-   ladder the button above it plays for. */
+/* A table being played right now, if there is one. Every match here is public
+   and every one has a permanent page, so this is the one card that is about
+   somebody else's game rather than yours. */
+function WatchCard() {
+  const [live, setLive] = useState<LiveMatch[] | null>(null);
+
+  useEffect(() => {
+    let running = true;
+    api
+      .live()
+      .then((rows) => running && setLive(rows))
+      .catch(() => running && setLive([]));
+    return () => {
+      running = false;
+    };
+  }, []);
+
+  const table = live?.[0] ?? null;
+  return (
+    <div className="card side-card">
+      <span className="t">Watch</span>
+      <span className="muted">
+        {table
+          ? `${table.players.map((p) => p.name).join(' and ')}, hand ${table.hand}`
+          : 'Nothing is being played right now.'}
+      </span>
+      <Link className="btn btn-secondary" to={table ? `/m/${table.id}` : '/watch'}>
+        {table ? 'Watch this table' : 'See the tables'}
+      </Link>
+    </div>
+  );
+}
+/* The peek follows the mode the panel is pinned to, so the board underneath
+   is the ladder the button above it plays for. */
 function Leaderboard({ mode }: { mode: Mode }) {
   const [list, setList] = useState<LeaderboardRow[] | null>(null);
   const [failed, setFailed] = useState(false);
