@@ -421,7 +421,7 @@ function StripRow({
       </td>
       {answers.map((answer, i) => (
         <td className="num ra-cell" key={points[i].street} title={answer?.note}>
-          {answer == null ? <span className="muted">·</span> : percent(answer.equity)}
+          {answer == null ? <span className="muted">n/a</span> : percent(answer.equity)}
         </td>
       ))}
     </tr>

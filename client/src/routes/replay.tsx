@@ -152,7 +152,7 @@ function HandReplay({ hand, handCount }: { hand: Hand; handCount: number | null 
           <h1 className="h1">Hand {hand.number}{handCount ? ` of ${handCount}` : ''}</h1>
           <span className="muted">
             Match <Link to={`/m/${hand.matchId}`}>{hand.matchId}</Link>
-            {hand.completedAt ? '' : ' · still being played'}
+            {hand.completedAt ? '' : ', still being played'}
           </span>
         </div>
         <div className="replay-links">
