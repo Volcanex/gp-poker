@@ -293,6 +293,23 @@ That is a deliberate bootstrap choice while there is nobody else to play:
 casual bot matches would leave every early human provisional forever with
 nothing to calibrate against. Revisit once humans are pairing with humans.
 
+## Spectating
+A `join` for a match you have no seat in makes you a spectator: `MatchRoom`
+keeps you in the same `subscribers` set the players are in and sends you
+`viewFor(userId, ...)` with no seat, which is the existing per-viewer view
+builder doing the existing stripping (`you: null`, `legal: null`, every hole
+card `['?','?']` until `state.result.shown` reveals it). There is no second
+view path to keep in step, which is the point. `handleAct` already refuses
+anybody without a seat. A finished room lingers a minute, so a link followed
+late still opens on the final board and the `end` that follows it.
+
+The only thing spectators need beyond that is a lifetime: a player's
+subscription survives their grace window, a spectator's does not, so
+`rooms.ts` keeps a `bySpectator` map and `routeDisconnect` drops every table
+that user was watching. Without it the subscriber set only ever grows.
+`room.spectatorCount` is reported on `/api/live` and deliberately never sent
+to the table.
+
 ## HandRunner seam
 `MatchRoom` (in `src/match/room.ts`) owns orchestration only — subscribers,
 the wall clock, disconnect grace, persistence, rating writeback on finish —

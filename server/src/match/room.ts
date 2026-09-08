@@ -1,7 +1,7 @@
 import type { ClientMsg, MatchResult } from '@opentable/protocol';
 import { hub } from '../ws/hub.js';
 import { finishMatch as persistFinishMatch, getRatingsForUsers, type MatchRow } from '../db.js';
-import { unregisterRoom } from './rooms.js';
+import { trackSpectator, unregisterRoom, untrackSpectator } from './rooms.js';
 import { EngineHandRunner } from './handRunner.js';
 import { computeMatchRatings } from './rating.js';
 import { roundRatings } from '../userView.js';
@@ -34,6 +34,11 @@ export class MatchRoom {
 
   private match: MatchRow;
   private subscribers = new Set<string>();
+  // Subscribers who have no seat. A subset of `subscribers`, kept apart only
+  // so the room can say how many people are watching and so a disconnect
+  // knows which subscriptions to drop: a player's stays through their grace
+  // window, a spectator's does not.
+  private spectators = new Set<string>();
   private disconnected = new Set<string>();
   private graceTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private timeoutStreak = new Map<string, number>();
@@ -86,8 +91,17 @@ export class MatchRoom {
     return this.match.status === 'playing';
   }
 
+  // Anyone may join. A player joins their own table; anybody else becomes a
+  // spectator and is sent exactly the view an opponent gets, with no seat and
+  // every hole card hidden until showdown. A finished room lingers a minute,
+  // and a join inside that window still gets the final view and the result,
+  // so a link followed moments too late reads rather than erroring.
   join(userId: string): void {
     this.subscribers.add(userId);
+    if (!this.playerIds.includes(userId) && !this.spectators.has(userId)) {
+      this.spectators.add(userId);
+      trackSpectator(userId, this);
+    }
     this.sendViewTo(userId);
     if (this.match.status === 'finished' && this.lastResult) {
       hub.send(userId, { t: 'end', m: this.id, r: this.lastResult });
@@ -96,6 +110,18 @@ export class MatchRoom {
 
   leave(userId: string): void {
     this.subscribers.delete(userId);
+    if (this.spectators.delete(userId)) untrackSpectator(userId, this);
+  }
+
+  // How many people are watching without a seat. Reported on /api/live and
+  // deliberately never sent to the table: a count that moves while somebody
+  // is deciding is a distraction, not information.
+  get spectatorCount(): number {
+    return this.spectators.size;
+  }
+
+  get spectatorIds(): string[] {
+    return [...this.spectators];
   }
 
   private connectedArray(): boolean[] {
