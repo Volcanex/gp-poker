@@ -34,6 +34,10 @@ export interface MatchFormat {
   // Overrides HAND_HOLD_MS for this format. A ladder hand has no one
   // watching it, so it does not pause four seconds to be watched.
   holdMs?: number;
+  // A home game: a private six-max table a host gathered by link, with bots
+  // in whatever seats nobody took. Optional for the same reason `practice`
+  // is: a format stored before home games existed simply has no key.
+  homeGame?: boolean;
 }
 
 export const HEADS_UP_FORMAT: MatchFormat = {
@@ -135,6 +139,20 @@ export function blindsAt(format: MatchFormat, handNumber: number): { sb: number;
   return format.levels[level];
 }
 
+/* A home game lobby: the private six-max table a host is gathering. The
+   status is derived from the row's clock when it is read, so `expired` is a
+   thing a lobby can be without anything having written it down. */
+export type HomeGameStatus = 'open' | 'started' | 'cancelled' | 'expired';
+
+/* One person sitting in a lobby. `uid` is what the avatar is drawn from, so
+   a seat carries everything the ring needs and nothing more. */
+export interface LobbySeat {
+  uid: string;
+  name: string;
+  rating: number; // their six-max standing, the mode a home game is played in
+  host: boolean;
+}
+
 /* Client -> server */
 export type ClientMsg =
   // defaults: heads-up, rated. `bots` asks for a practice table instead: no
@@ -152,6 +170,9 @@ export type ServerMsg =
   | { t: 'q'; s: 'searching' | 'found' | 'left'; w?: number; range?: number; m?: string; mode?: Mode; rated?: boolean; seated?: number } // seated = players gathered so far for a multiway table
   | { t: 'state'; s: TableView }
   | { t: 'end'; m: string; r: MatchResult }
+  // Who is sitting in a home game lobby, pushed to everyone seated in it so
+  // the lobby page updates without polling for it.
+  | { t: 'lobby'; g: string; seats: LobbySeat[]; status: HomeGameStatus }
   | { t: 'err'; c: 'illegal' | 'stale' | 'not_your_turn' | 'no_match' | 'bad_msg' | 'version' | 'bots_busy'; msg: string }
   | { t: 'pong' };
 

@@ -38,6 +38,14 @@ import { computeInsights, type Insights } from './insights.js';
 import { health } from './health.js';
 import { emptyExplorerCube, explorerQuery, foldExplorerHands, sliceExplorer, type ExplorerCube } from './explorer.js';
 import { acceptChallenge, cancelChallenge, challengeView, createChallenge } from './challenges.js';
+import {
+  cancelHomeGame,
+  createHomeGame,
+  homeGameView,
+  joinHomeGame,
+  leaveHomeGame,
+  startHomeGame,
+} from './home-games.js';
 
 function err(reply: { code: (n: number) => { send: (b: unknown) => unknown } }, status: number, message: string) {
   return reply.code(status).send({ error: message });
@@ -423,6 +431,51 @@ export function registerRoutes(app: FastifyInstance): void {
     if (!result.ok) return err(reply, result.status, result.error);
     return { ok: true };
   });
+
+  /* Home games: the six-max version of the same link. Every one of these goes
+     through requireUser like a challenge does, so a link works for somebody who
+     has never been here. The host starts the table; the match is created there
+     and announced with the same `q found` everyone else's is. */
+  app.post<{ Body: { rated?: boolean; botLevel?: number } }>('/api/home-games', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    const result = await createHomeGame(user.id, request.body?.rated !== false, Number(request.body?.botLevel));
+    if (!result.ok) return err(reply, result.status, result.error);
+    return { id: result.row.id, url: `${originOf(request)}/g/${result.row.id}` };
+  });
+
+  app.get<{ Params: { id: string } }>('/api/home-games/:id', async (request, reply) => {
+    const view = await homeGameView(request.params.id);
+    if (!view) return err(reply, 404, 'no such table');
+    return view;
+  });
+
+  app.post<{ Params: { id: string } }>('/api/home-games/:id/join', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    const result = await joinHomeGame(request.params.id, user.id);
+    if (!result.ok) return err(reply, result.status, result.error);
+    return { ok: true };
+  });
+
+  app.post<{ Params: { id: string } }>('/api/home-games/:id/leave', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    const result = await leaveHomeGame(request.params.id, user.id);
+    if (!result.ok) return err(reply, result.status, result.error);
+    return { ok: true };
+  });
+
+  app.post<{ Params: { id: string } }>('/api/home-games/:id/start', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    const result = await startHomeGame(request.params.id, user.id);
+    if (!result.ok) return err(reply, result.status, result.error);
+    return { matchId: result.matchId, rated: result.rated, reason: result.reason };
+  });
+
+  app.delete<{ Params: { id: string } }>('/api/home-games/:id', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    const result = await cancelHomeGame(request.params.id, user.id);
+    if (!result.ok) return err(reply, result.status, result.error);
+    return { ok: true };
+  });
 }
 
 /* The absolute address of this site as the caller reached it, which is the
@@ -523,6 +576,7 @@ function toFeedMatch(m: MatchRow) {
     mode: m.format.mode,
     rated: m.rated,
     practice: isPractice(m.format),
+    homeGame: m.format.homeGame === true,
     handsPlayed: m.handsPlayed,
     finishedAt: m.finishedAt,
     players,

@@ -7,6 +7,7 @@ import { Leaderboard } from './routes/leaderboard.tsx';
 import { Profile } from './routes/profile.tsx';
 import { Watch } from './routes/watch.tsx';
 import { Challenge } from './routes/challenge.tsx';
+import { HomeGame } from './routes/home-game.tsx';
 import { learnRoutes } from './routes/learn/index.tsx';
 import { puzzlesRoutes } from './puzzles/index.tsx';
 import { toolsRoutes } from './tools/index.tsx';
@@ -74,6 +75,7 @@ export function App() {
             <Route key={r.path} path={r.path} element={r.element} />
           ))}
           <Route path="/c/:id" element={<Challenge />} />
+          <Route path="/g/:id" element={<HomeGame />} />
           <Route path="/m/:id" element={<Match />} />
           <Route
             path="/m/:id/h/:n"

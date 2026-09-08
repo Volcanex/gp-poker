@@ -95,10 +95,22 @@ files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
   open per player and lives 24 hours; accepting it is what creates the match,
   through the same `createMatchForPlayers` the queue uses, so both sides are
   told by the same `q found` and the creator's waiting card navigates without
-  knowing a challenge existed. Heads-up only: a six-max link would have to
-  gather six people, which is a lobby wearing the same word. `expired` is
-  derived from `expires_at` when a row is read and never stored, so no sweep
-  has to run for a status to be true.
+  knowing a challenge existed. Heads-up only: a six-max link has to gather six
+  people, which is a lobby and a different feature (see the next bullet).
+  `expired` is derived from `expires_at` when a row is read and never stored,
+  so no sweep has to run for a status to be true.
+- A home game is that lobby (`home_games` / `home_game_seats`,
+  `server/src/home-games.ts`, `/g/:id` on the client): a private six-max table
+  a host gathers by link and starts when they like, because six seats cannot
+  start themselves the way two can. The host holds a seat like everybody else,
+  three lobbies are open per host at once, and the host's start creates the
+  match through the same `createMatchForPlayers`, filling whatever nobody took
+  with bots at their chosen level through the practice picker's own
+  nearest-level fallback. It is **rated only with two humans in it**, forced
+  casual otherwise with the answer saying so: six seats of Glicko-2 against
+  bots whose strength the host picked is a rating anyone could dial in.
+  `format.homeGame` marks the match for the feed, and everyone seated is
+  pushed a `lobby` message so the page fills in without polling.
 - The engine only sees seats with chips; `hands.live_seats` maps engine
   seat to table seat and every stored log is in table seats.
 - Insights (`/api/users/:name/insights`, the block under a profile's rating

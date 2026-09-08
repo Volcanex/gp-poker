@@ -1,6 +1,8 @@
 /* The REST payloads, mirroring server/src/routes.ts. Dates arrive as JSON
    strings, not Date objects, so every timestamp is typed as a string here. */
-import type { LoggedAction, MatchFormat, MatchResult, Mode, UserSummary } from '@opentable/protocol';
+import type {
+  HomeGameStatus, LobbySeat, LoggedAction, MatchFormat, MatchResult, Mode, UserSummary,
+} from '@opentable/protocol';
 import type { HandOutcome } from '@opentable/engine';
 import type { Decision } from '@opentable/preflop';
 
@@ -236,6 +238,9 @@ export interface FeedMatch {
   mode: Mode;
   rated: boolean;
   practice: boolean;
+  /* A private table somebody gathered by link. Absent means a server from
+     before home games existed. */
+  homeGame?: boolean;
   handsPlayed: number;
   finishedAt: string | null;
   players: FeedPlayer[]; // finishing order, winner first
@@ -330,4 +335,39 @@ export interface Challenge {
 export interface CreatedChallenge {
   id: string;
   url: string;
+}
+
+/* A home game lobby: the six-max version of a challenge link. The host holds a
+   seat like everybody else, so `seats` is the whole guest list and `host` only
+   says whose table it is. `players` is how many chairs there are, empty ones
+   included, so the ring is drawn from the server's answer rather than a six
+   written into the page. */
+export interface HomeGame {
+  id: string;
+  host: UserSummary;
+  seats: LobbySeat[];
+  players: number;
+  rated: boolean;
+  botLevel: number;
+  status: HomeGameStatus;
+  /* Set once the table has started, so a spent lobby can still offer the match
+     it turned into. */
+  matchId: string | null;
+  createdAt: string;
+  expiresAt: string;
+}
+
+/* What creating one hands back, the same shape a challenge link does: the id,
+   and the whole address to share. */
+export interface CreatedHomeGame {
+  id: string;
+  url: string;
+}
+
+/* What starting one hands back. `reason` is filled in only when the table is
+   playing for something other than what the host asked for. */
+export interface StartedHomeGame {
+  matchId: string;
+  rated: boolean;
+  reason: string | null;
 }

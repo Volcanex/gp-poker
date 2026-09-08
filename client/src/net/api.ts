@@ -1,6 +1,7 @@
 import type {
-  BotRow, Challenge, CreatedChallenge, Explorer, ExplorerFacing, ExplorerPlayers, FeedMatch, Hand, Insights,
-  LeaderboardRow, LiveMatch, Match, Me, PositionKey, Profile, PuzzleHand, SiteStats,
+  BotRow, Challenge, CreatedChallenge, CreatedHomeGame, Explorer, ExplorerFacing, ExplorerPlayers, FeedMatch,
+  Hand, HomeGame, Insights, LeaderboardRow, LiveMatch, Match, Me, PositionKey, Profile, PuzzleHand, SiteStats,
+  StartedHomeGame,
 } from './types.ts';
 import type { Mode, UserSummary } from '@opentable/protocol';
 
@@ -84,6 +85,17 @@ export const api = {
   acceptChallenge: (id: string) => post<{ matchId: string }>(`/api/challenges/${encodeURIComponent(id)}/accept`),
   cancelChallenge: (id: string) =>
     req<{ ok: true }>(`/api/challenges/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  /* Home games: the same link, six seats and a host who says when it starts.
+     Making one seats the host, so there is no separate call for that; starting
+     one is the only call an ordinary guest at the table cannot make. */
+  createHomeGame: (rated: boolean, botLevel: number) =>
+    post<CreatedHomeGame>('/api/home-games', { rated, botLevel }),
+  homeGame: (id: string) => req<HomeGame>(`/api/home-games/${encodeURIComponent(id)}`),
+  joinHomeGame: (id: string) => post<{ ok: true }>(`/api/home-games/${encodeURIComponent(id)}/join`),
+  leaveHomeGame: (id: string) => post<{ ok: true }>(`/api/home-games/${encodeURIComponent(id)}/leave`),
+  startHomeGame: (id: string) => post<StartedHomeGame>(`/api/home-games/${encodeURIComponent(id)}/start`),
+  cancelHomeGame: (id: string) =>
+    req<{ ok: true }>(`/api/home-games/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   claim: (name: string, password: string) => post<UserSummary>('/api/claim', { name, password }),
   login: (name: string, password: string) => post<UserSummary>('/api/login', { name, password }),
   logout: () => post<{ ok: true }>('/api/logout'),

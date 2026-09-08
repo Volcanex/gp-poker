@@ -165,3 +165,46 @@ create table if not exists challenges (
 -- The cap on open links per person is counted on every create, so it is the
 -- one query this table is read by other than the link's own page.
 create index if not exists challenges_creator on challenges(creator_id, status);
+
+-- Table chat. The room keeps the last messages in memory and replays them on
+-- join; this is the durable copy, written so a report about what was said at a
+-- table has something to read. Nothing reads it yet, on purpose: moderation is
+-- a tool to be built, not a route to leave open. `seat` is the sender's table
+-- seat, null for a spectator, which is also which channel the line was on.
+create table if not exists chat (
+  id bigserial primary key,
+  match_id text not null references matches(id) on delete cascade,
+  user_id uuid not null references users(id) on delete cascade,
+  seat int,
+  text text not null,
+  at timestamptz not null default now()
+);
+create index if not exists chat_match on chat(match_id, at);
+
+-- Home games: the six-max version of a challenge link. One row per private
+-- table, created when a host asks for one and spent when they start it. The
+-- host holds a seat like anybody else, so `home_game_seats` is the whole
+-- guest list and the host is simply the row that matches `host_id`. Status is
+-- only ever open, started or cancelled: an expired lobby is derived from
+-- expires_at at read time, exactly as a challenge link's is, so nothing has
+-- to sweep this table either.
+create table if not exists home_games (
+  id text primary key,                         -- short public id, the shareable URL
+  host_id uuid not null references users(id) on delete cascade,
+  rated boolean not null default true,         -- what the host asked for; two humans is what grants it
+  bot_level smallint not null default 4,       -- 1..5, the level any empty seat is filled at
+  status text not null default 'open',         -- open | started | cancelled
+  match_id text references matches(id) on delete set null,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null
+);
+create index if not exists home_games_host on home_games(host_id, status);
+
+create table if not exists home_game_seats (
+  game_id text not null references home_games(id) on delete cascade,
+  user_id uuid not null references users(id) on delete cascade,
+  joined_at timestamptz not null default now(),
+  primary key (game_id, user_id)               -- one seat per person per lobby
+);
+-- The lobby is read in join order, which is the order the seats fill in.
+create index if not exists home_game_seats_game on home_game_seats(game_id, joined_at);

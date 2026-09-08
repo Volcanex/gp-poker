@@ -867,6 +867,122 @@ export async function cancelOpenChallenge(id: string, creatorId: string): Promis
   return row ?? null;
 }
 
+// ---- home games ----
+
+/* A home game: the six-max version of a challenge link. The host holds a seat
+   like everybody else, so the seat table is the whole guest list and `hostId`
+   only says whose table it is. `expired` is derived from `expiresAt` at read
+   time and never stored, the same bargain the challenges table makes. */
+export interface HomeGameRow {
+  id: string;
+  hostId: string;
+  rated: boolean;
+  botLevel: number;
+  status: 'open' | 'started' | 'cancelled';
+  matchId: string | null;
+  createdAt: Date;
+  expiresAt: Date;
+}
+
+export interface HomeGameSeatRow {
+  userId: string;
+  name: string;
+  joinedAt: Date;
+}
+
+export async function insertHomeGame(
+  id: string,
+  hostId: string,
+  rated: boolean,
+  botLevel: number,
+  expiresAt: Date
+): Promise<HomeGameRow> {
+  const [row] = await sql<HomeGameRow[]>`
+    insert into home_games (id, host_id, rated, bot_level, expires_at)
+    values (${id}, ${hostId}, ${rated}, ${botLevel}, ${expiresAt})
+    returning *
+  `;
+  return row;
+}
+
+export async function getHomeGameById(id: string): Promise<HomeGameRow | null> {
+  const [row] = await sql<HomeGameRow[]>`select * from home_games where id = ${id}`;
+  return row ?? null;
+}
+
+// Lobbies still worth counting against the host's cap: started and cancelled
+// ones are spent, and an expired one is nobody's open table even though the
+// column still says open.
+export async function countOpenHomeGames(hostId: string): Promise<number> {
+  const [row] = await sql<{ n: number }[]>`
+    select count(*)::int as n from home_games
+    where host_id = ${hostId} and status = 'open' and expires_at > now()
+  `;
+  return row.n;
+}
+
+// In join order, which is the order the lobby fills its seats in.
+export async function getHomeGameSeats(gameId: string): Promise<HomeGameSeatRow[]> {
+  return sql<HomeGameSeatRow[]>`
+    select s.user_id, u.name, s.joined_at
+    from home_game_seats s join users u on u.id = s.user_id
+    where s.game_id = ${gameId}
+    order by s.joined_at asc
+  `;
+}
+
+/* Seats somebody, and says whether that seat was free. The capacity test is
+   inside the insert, so six people opening the link at the same moment cannot
+   all be seated at a table with six chairs: everyone past the sixth gets
+   false and reads "this table is full". */
+export async function insertHomeGameSeat(gameId: string, userId: string, capacity: number): Promise<boolean> {
+  const rows = await sql`
+    insert into home_game_seats (game_id, user_id)
+    select ${gameId}, ${userId}
+    where (select count(*) from home_game_seats where game_id = ${gameId}) < ${capacity}
+    on conflict do nothing
+    returning user_id
+  `;
+  return rows.length > 0;
+}
+
+export async function deleteHomeGameSeat(gameId: string, userId: string): Promise<void> {
+  await sql`delete from home_game_seats where game_id = ${gameId} and user_id = ${userId}`;
+}
+
+/* Claims a lobby for the one start that gets to happen. The status test is
+   inside the update, so a host double-clicking cannot open two tables. */
+export async function claimHomeGame(id: string, hostId: string): Promise<HomeGameRow | null> {
+  const [row] = await sql<HomeGameRow[]>`
+    update home_games set status = 'started'
+    where id = ${id} and host_id = ${hostId} and status = 'open' and expires_at > now()
+    returning *
+  `;
+  return row ?? null;
+}
+
+export async function setHomeGameMatch(id: string, matchId: string): Promise<void> {
+  await sql`update home_games set match_id = ${matchId} where id = ${id}`;
+}
+
+// Puts a claimed lobby back after the match it was claimed for failed to be
+// created, so a database error does not silently eat somebody's table.
+export async function releaseHomeGame(id: string): Promise<void> {
+  await sql`
+    update home_games set status = 'open'
+    where id = ${id} and status = 'started' and match_id is null
+  `;
+}
+
+export async function cancelOpenHomeGame(id: string, hostId: string): Promise<HomeGameRow | null> {
+  const [row] = await sql<HomeGameRow[]>`
+    update home_games set status = 'cancelled'
+    where id = ${id} and host_id = ${hostId} and status = 'open'
+    returning *
+  `;
+  return row ?? null;
+}
+
 // ---- insights ----
 
 /* The rows behind /api/users/:name/insights. Everything else on a profile is

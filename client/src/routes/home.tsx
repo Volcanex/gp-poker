@@ -274,28 +274,38 @@ function PracticeCard({
   );
 }
 
-/* The fourth way to play: a link instead of a queue. The creator makes one,
-   sends it to whoever they want to play, and the match starts the moment that
-   person opens it and accepts. Heads-up only for now, and the copy says so
-   rather than leaving it to be found out.
+/* The fourth way to play: a link instead of a queue, in two sizes. A heads-up
+   challenge seats exactly two people and starts itself the moment the second
+   one accepts. A home game is the six-max version: one private table, one
+   link, a lobby that friends gather in and a host who starts it, with the
+   seats nobody took filled by bots at a level the host picks.
 
-   A made link is remembered in this browser, because the challenge outlives
-   the page: without this a reload would strand it, and the only way back
-   would be to make another and spend one of the five allowed. */
+   A made link is remembered in this browser, because the link outlives the
+   page: without this a reload would strand it, and the only way back would be
+   to make another and spend one of the few allowed. */
 const CHALLENGE_KEY = 'ot-challenge';
 
-function readChallenge(): CreatedChallenge | null {
+type LinkKind = 'challenge' | 'home';
+
+interface SavedLink extends CreatedChallenge {
+  kind: LinkKind;
+}
+
+/* A link saved before home games existed has no kind and is a challenge, which
+   is why the field is read rather than required. */
+function readChallenge(): SavedLink | null {
   try {
     const raw = localStorage.getItem(CHALLENGE_KEY);
     if (!raw) return null;
-    const v = JSON.parse(raw) as Partial<CreatedChallenge>;
-    return v?.id && v?.url ? { id: v.id, url: v.url } : null;
+    const v = JSON.parse(raw) as Partial<SavedLink>;
+    if (!v?.id || !v?.url) return null;
+    return { id: v.id, url: v.url, kind: v.kind === 'home' ? 'home' : 'challenge' };
   } catch {
     return null;
   }
 }
 
-function writeChallenge(c: CreatedChallenge | null) {
+function writeChallenge(c: SavedLink | null) {
   try {
     if (c) localStorage.setItem(CHALLENGE_KEY, JSON.stringify(c));
     else localStorage.removeItem(CHALLENGE_KEY);
@@ -304,23 +314,34 @@ function writeChallenge(c: CreatedChallenge | null) {
   }
 }
 
+const LINK_KINDS: { kind: LinkKind; label: string }[] = [
+  { kind: 'challenge', label: 'Heads-up challenge' },
+  { kind: 'home', label: 'Home game, up to six' },
+];
+
 function FriendCard({ disabled }: { disabled: boolean }) {
+  const [kind, setKind] = useState<LinkKind>('challenge');
   const [rated, setRated] = useState(true);
-  const [link, setLink] = useState<CreatedChallenge | null>(null);
+  const [level, setLevel] = useState(2);
+  const [link, setLink] = useState<SavedLink | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   /* A remembered link is only shown once the server says it is still waiting,
-     the same bargain the remembered live match makes. */
+     the same bargain the remembered live match makes. Which of the two calls
+     asks is the only thing the kind changes. */
   useEffect(() => {
     const saved = readChallenge();
     if (!saved) return;
     let live = true;
-    api
-      .challenge(saved.id)
-      .then((c) => {
+    const still =
+      saved.kind === 'home'
+        ? api.homeGame(saved.id).then((g) => g.status === 'open')
+        : api.challenge(saved.id).then((c) => c.status === 'open');
+    still
+      .then((open) => {
         if (!live) return;
-        if (c.status === 'open') setLink(saved);
+        if (open) setLink(saved);
         else writeChallenge(null);
       })
       .catch(() => writeChallenge(null));
@@ -333,9 +354,11 @@ function FriendCard({ disabled }: { disabled: boolean }) {
     setBusy(true);
     setError(null);
     try {
-      const made = await api.createChallenge('heads-up', rated);
-      writeChallenge(made);
-      setLink(made);
+      const made =
+        kind === 'home' ? await api.createHomeGame(rated, level) : await api.createChallenge('heads-up', rated);
+      const saved: SavedLink = { ...made, kind };
+      writeChallenge(saved);
+      setLink(saved);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'the link could not be made. Try again in a moment.');
     } finally {
@@ -348,12 +371,13 @@ function FriendCard({ disabled }: { disabled: boolean }) {
      link sits unused until it expires. */
   const drop = async () => {
     if (!link) return;
-    const { id } = link;
+    const { id, kind: made } = link;
     writeChallenge(null);
     setLink(null);
     setError(null);
     try {
-      await api.cancelChallenge(id);
+      if (made === 'home') await api.cancelHomeGame(id);
+      else await api.cancelChallenge(id);
     } catch {
       /* it expires on its own within the day either way */
     }
@@ -365,20 +389,43 @@ function FriendCard({ disabled }: { disabled: boolean }) {
         <span className="t">Play a friend</span>
       </div>
       <span className="muted">
-        Make a link, send it to whoever you want to play, and the match starts when they open it.
-        Heads-up only for now.
+        Make a link and send it to whoever you want to play. A heads-up challenge starts the moment
+        they open it. A home game gathers up to six in a lobby and you start it.
       </span>
 
       {link ? (
         <>
-          <ShareLink url={link.url} />
-          <span className="muted">Waiting for your friend. The link works for 24 hours.</span>
+          <ShareLink url={link.url} what={link.kind === 'home' ? 'table' : 'challenge'} />
+          {link.kind === 'home' ? (
+            <>
+              <span className="muted">
+                Your table is waiting. Open it to see who has arrived and start the game.
+              </span>
+              <Link className="btn btn-primary" to={`/g/${link.id}`}>Open your table</Link>
+            </>
+          ) : (
+            <span className="muted">Waiting for your friend. The link works for 24 hours.</span>
+          )}
           <button type="button" className="btn btn-tertiary btn-sm" onClick={drop}>
             Cancel link
           </button>
         </>
       ) : (
         <>
+          <div className="stakes link-kinds">
+            {LINK_KINDS.map((k) => (
+              <label className="choice" key={k.kind}>
+                <input
+                  type="radio"
+                  className="radio"
+                  name="friend-kind"
+                  checked={kind === k.kind}
+                  onChange={() => setKind(k.kind)}
+                />
+                {k.label}
+              </label>
+            ))}
+          </div>
           <div className="stakes">
             {[true, false].map((r) => (
               <label className="choice" key={String(r)}>
@@ -393,6 +440,30 @@ function FriendCard({ disabled }: { disabled: boolean }) {
               </label>
             ))}
           </div>
+          {kind === 'home' && (
+            <>
+              <label className="field">
+                <span className="label">Bots in the empty seats</span>
+                <span className="select-wrap">
+                  <select
+                    className="select"
+                    value={level}
+                    onChange={(e) => setLevel(Number(e.target.value))}
+                    aria-label="Bot level for the empty seats"
+                  >
+                    {BOT_LEVELS.map((b) => (
+                      <option key={b.level} value={b.level}>
+                        Level {b.level}, {b.name.toLowerCase()}
+                      </option>
+                    ))}
+                  </select>
+                </span>
+              </label>
+              <span className="muted">
+                A rated home game needs two people at it. One person and five bots plays casual.
+              </span>
+            </>
+          )}
           {error && <span className="badge badge-warn">{error}</span>}
           <button type="button" className="btn btn-primary" disabled={disabled || busy} onClick={make}>
             Create a link

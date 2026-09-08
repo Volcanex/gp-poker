@@ -31,9 +31,20 @@ export function ago(iso: string | null): string {
   return fmtShortDate(iso);
 }
 
-/* Rated, casual or practice: one badge, because a match is exactly one of the
-   three and two badges would read as though it could be both. */
-export function StakeBadge({ rated, practice }: { rated: boolean; practice: boolean }) {
+/* Home game, practice, rated or casual: one badge, because a match is exactly
+   one of the four and two badges would read as though it could be both. A home
+   game is named ahead of its stake because the private table is the thing
+   somebody would look for it by. */
+export function StakeBadge({
+  rated,
+  practice,
+  homeGame,
+}: {
+  rated: boolean;
+  practice: boolean;
+  homeGame?: boolean;
+}) {
+  if (homeGame) return <span className="badge badge-plain">Home game</span>;
   if (practice) return <span className="badge badge-plain">Practice</span>;
   return <span className="badge badge-plain">{rated ? 'Rated' : 'Casual'}</span>;
 }
@@ -124,7 +135,7 @@ export function MatchRow({ match }: { match: FeedMatch }) {
       <Link className="row-link" to={`/m/${match.id}`} aria-label={`Match ${match.id}`} />
       <span className="tagset">
         <span className="badge badge-plain">{MODE_NAME[match.mode]}</span>
-        <StakeBadge rated={match.rated} practice={match.practice} />
+        <StakeBadge rated={match.rated} practice={match.practice} homeGame={match.homeGame === true} />
       </span>
       <span className="feed-players">
         {players.map((p, i) => (

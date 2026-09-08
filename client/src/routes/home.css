@@ -136,3 +136,56 @@
 @media (max-width: 560px) {
   .feed-row .watch-go { margin-left: auto; }
 }
+
+/* -------------------------------------------------------- home game lobby */
+
+/* The guest list for a private table: six chairs, one per row. A ring would
+   have to redraw itself at 390 and would buy nothing here, because a lobby is
+   a list of who has arrived and not a table in play. */
+.lobby-seats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.lobby-seat {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 7px var(--sp-3);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--font-size-ui);
+}
+.lobby-seat:last-child { border-bottom: none; }
+
+.lobby-who {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+.lobby-who .n { color: var(--text-primary); }
+.lobby-seat[data-empty] .lobby-who .n { color: var(--text-secondary); }
+.lobby-who .muted { font-size: 11px; }
+
+/* An empty chair, drawn as the room an avatar would have taken, so the rows
+   above and below it do not shift when somebody sits down. */
+.lobby-seat .pip {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  border: 1px dashed var(--border);
+}
+
+/* The two kinds of link carry the longest labels in the picker, and a `.choice`
+   splits its row evenly and clips what does not fit. Sizing these from their
+   own text instead lets the shorter one give its slack to the longer one, so
+   "Home game, up to six" reads whole at 390. */
+.stakes.link-kinds .choice { flex: 1 1 auto; }

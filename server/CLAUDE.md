@@ -95,6 +95,30 @@ decisions; this file covers what's not obvious from the code.
   `createMatchForPlayers`, which announces the table to both sides with the
   ordinary `q found`. `expired` is derived from `expires_at` at read time and
   never written, so the table needs no sweeper. Heads-up only.
+- `src/home-games.ts` — the six-max version of that link, and a different file
+  rather than a mode of the same one for a reason: two people can be seated by
+  the second one accepting, six cannot, so a home game is a **lobby** with a
+  host who says when it starts. Creating one writes a `home_games` row (capped
+  at three open per host, alive 24 hours) and seats the host in
+  `home_game_seats`, so the seat table is the whole guest list and `host_id`
+  only says whose table it is. The capacity test lives inside the seating
+  insert, so six people opening the link at the same moment cannot all sit at a
+  table with six chairs. Starting claims the row with a conditional UPDATE (a
+  host double-clicking cannot open two tables), fills the empty seats with
+  `availableBotsAtLevel` and calls the same `createMatchForPlayers` everything
+  else does, so every seat is told by the ordinary `q found`. **Rated needs two
+  humans**: one person and five bots of a strength they chose is a rating that
+  could be dialled in, so the match is forced casual and the response says
+  which choice was overridden rather than changing it quietly. The format
+  carries `homeGame: true` for the feed's badge. `expired` is derived from
+  `expires_at` at read time, like a challenge's. Everyone seated is pushed a
+  `lobby` message on every seat or status change, which is what lets the page
+  fill in without polling; a page whose socket is not open falls back to asking
+  again every five seconds.
+- `src/chat.ts` — the pure half of table chat: `cleanChatText` (control
+  characters out, one line, length, links) and `ChatLimiter` (a gap between one
+  person's messages and a total for the match). The clock is a parameter, so
+  the twenty-message cap is a unit test rather than forty seconds of waiting.
 - `src/bots/` — the bot roster (`index.ts`), one bot's message loop
   (`player.ts`) and the pure decision function (`strategy.ts`). The five
   levels, the roster's shape and why the ordering test looks the way it does
@@ -357,6 +381,30 @@ subscription survives their grace window, a spectator's does not, so
 that user was watching. Without it the subscriber set only ever grows.
 `room.spectatorCount` is reported on `/api/live` and deliberately never sent
 to the table.
+
+## Table chat
+`MatchRoom.handleChat` is the whole of it. **Two channels, one allowance.** A
+seated player's line goes to every subscriber; a spectator's goes only to the
+other spectators, which is what stops a table being coached from the rail, and
+is why `ChatFrom.seat` being null is both "who said it" and "where it lands".
+A player joining is replayed the table's channel, a spectator both of them
+merged back into the order they were said in.
+
+The two rings are capped separately (`CHAT_HISTORY` each) rather than as one
+list of a hundred: a busy rail would otherwise evict the conversation a
+reconnecting player came back for.
+
+**The allowance is spent synchronously, before the name lookup is awaited.**
+`handleChat` cleans the text, checks the limiter and records the send, and only
+then awaits `getUserById` to find out who is speaking. Two messages arriving in
+the same tick would otherwise both pass a check made after a database round
+trip, and the gap that stops a flood would not exist. Content refusals run
+before the limiter, so a rejected link costs nobody one of their twenty.
+
+Bots never chat: nothing in `src/bots/` sends one, and `deliverChat` drops a
+message from a `users.bot` row rather than repeating it as though a bot had.
+The `chat` table is written as it is said and read by nothing: moderation is a
+tool still to be built, not a route left open.
 
 ## HandRunner seam
 `MatchRoom` (in `src/match/room.ts`) owns orchestration only — subscribers,
@@ -729,6 +777,15 @@ opens its tables on a fast format the same way.
   view's legal set with an in-range integer amount, plus the specific
   behaviours (raise the best hand, fold the worst to a three-bet, bet a
   monster, fold air to a big bet, call a token bet on the odds, jam short).
+- `home-game.test.ts` — the lobby end to end against the real database, shaped
+  like `challenge.test.ts` and on the same fast format: creating seats the
+  host, joining pushes a `lobby` message to everyone already sitting there and
+  is idempotent, the host cannot leave their own table, a start by anyone but
+  the host is refused, a start with two humans opens a six-seat match with four
+  bots in it and sends both humans `q found`, a start with one human is forced
+  casual with a reason, the sixth seat is the last one, cancelling and expiring
+  both spend the table, and the fourth open lobby is refused until one is
+  cancelled.
 - `leaderboard.test.ts` — the board reads the `ratings` table, hides
   provisional players, and a six-max standing never shows on the heads-up
   board.
