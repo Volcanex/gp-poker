@@ -144,6 +144,17 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
 
   const potShown = phase >= 2 ? 0 : view.pot;
   const settled = phase >= 2;
+  /* Your own stack, held at what it was until the pot has actually moved. The
+     felt does this per seat two screens down (`landed || award === 0 ? s : s
+     less the award`) and the band is your seat now, so its figure has to tick
+     on the same beat: read off the same `settled` here rather than off the
+     view inside the band, because two readings of when a hand is paid is two
+     readings that drift. A result message arrives 700ms before the chips get
+     there, and the band was jumping the moment it landed. */
+  const myAward = view.you == null ? 0 : show.awarded.get(view.you) ?? 0;
+  const heroStack = mySeat == null || settled || myAward === 0
+    ? mySeat?.stack ?? 0
+    : mySeat.stack - myAward;
   /* v2: the pot's chips leave for the winner's seat. The pot's stack and the
      flight share one layout id, so the stack that was in the middle is the
      one that lands on the seat, then fades. A split pot flies to its first
@@ -367,7 +378,13 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
       {!bare && !ended && (
         <>
           {band ? (
-            <HeroBand view={view} onAct={onAct} sending={sending} best={show.best} />
+            <HeroBand
+              view={view}
+              onAct={onAct}
+              sending={sending}
+              best={show.best}
+              stack={heroStack}
+            />
           ) : (
             <>
               <Dock view={view} onAct={onAct} sending={sending} />
