@@ -322,11 +322,39 @@ zero layout shift as v1.
   so `.chip-col` is `0.72 + (rows - 1) * 0.14` widths tall and the reserved
   slots per denomination are unchanged. Colours are set per denomination on
   the stack and read through the `<use>` as `--_body`, `--_rim`, `--_mark`.
-- **The pot's stack flies to the winner.** `.pot-chips` is a fixed-height slot;
-  the stack inside it carries `layoutId="pot-chips"` and at settle a flight
-  with the same id mounts in the winner's `.seat-bet`, absolutely positioned,
-  because that seat's last bet can still be drawn there at a showdown and the
-  flight in flow pushed it sideways, which the observer counted (0.0003).
+- **Chips travel, they do not dissolve.** A flight is one opaque stack in
+  `.chip-flights`, a layer over `.felt-in` and out of its flow, placed by the
+  middle of its bottom edge and moved on a transform: 380ms on the house
+  ease-out, one stack a seat, 40ms apart, in the order a dealer collects them,
+  from the seat left of the button round to it. Nothing in it has an opacity at
+  either end. It replaced a `layoutId` shared between the seat's chip and the
+  pot's, which crossfaded two elements while it interpolated the box between
+  them and read as a dissolve, and as a blur with several seats in.
+- **Both ends are measured off the DOM**, because the felt has three geometries
+  (the heads-up stack, the ring, the phone's portrait grid) and only the browser
+  knows which is in force. `chipAt` in `table.tsx` remembers where each seat's
+  chips last stood: by the time a bet has been collected React has taken that
+  element off the felt, so the two layout effects that start a flight are
+  declared **before** the one that refreshes the cache, and read the felt as it
+  was drawn a moment ago. A flight scales between the chip sizes at its two
+  ends, which is how a 14px ring bet lands as part of a 24px pot.
+- **The middle's stack is the money collected, not the pot.** The protocol's
+  pot is the total *including* the bets still in front of players, and v2 draws
+  those at their seats, so `.pot-chips` holds the pot less what is still on the
+  line and a bet's stack landing is what makes it grow. It is held at its old
+  value while the chips are in the air. The figure beside it is the protocol's
+  total and so does not move when a street is collected: collecting adds no
+  money. The stack carries no margin and stands on the slot's floor, because
+  that floor is the point a flight is measured to; v1's 2px lift stood it short
+  of where a flight landed.
+- **The award lands and stays.** At settle the middle leaves for each winner in
+  turn, and a winner's number ticks up when their stack arrives rather than
+  when the result does (`paid` in `table.tsx`). The chips sit in front of them
+  until the next hand deals; there is nothing to fade them out for. On a ring
+  they land over the award line under the board, which is where a bottom seat's
+  bet slot hangs. Reduced motion draws no flights at all: chips are at the
+  destination and the numbers land with them. v1 keeps the shared-layout
+  flights it had.
 - **The reserved columns leave gaps** between present denominations (a pot of
   28 is a green chip, two empty slots, a white one). Packing them would move
   chips when a denomination appears; it could be done with a fixed-width
