@@ -1,4 +1,4 @@
-import type { Card } from '@opentable/protocol';
+import type { Card, HandResult } from '@opentable/protocol';
 
 /* Which five cards actually made the hand, so the showdown can outline them and
    dim the rest of the board.
@@ -103,4 +103,35 @@ export function bestFive(cards: Card[]): Card[] {
   };
   walk(0);
   return best;
+}
+
+export interface Showdown {
+  best: ReadonlySet<Card>; // the five that made the winning hand
+  names: Map<number, string>; // what to call each hand that was shown
+}
+
+/* What a finished hand shows. An uncontested pot reveals nothing and highlights
+   nothing: there is no winning five to point at when only one hand was ever
+   live, and outlining the last player standing's cards says nothing that the
+   fold did not already say. */
+export function readShowdown(result: HandResult | null, board: Card[]): Showdown {
+  const names = new Map<number, string>();
+  if (!result) return { best: new Set(), names };
+
+  const shown = Object.entries(result.shown ?? {});
+  if (shown.length < 2) return { best: new Set(), names };
+
+  let best: ReadonlySet<Card> = new Set();
+  for (const [key, holes] of shown) {
+    const seat = Number(key);
+    const five = bestFive([...holes, ...board]);
+    const win = result.awards.find((a) => a.seat === seat);
+    if (win) {
+      names.set(seat, (win.hand ?? handCategory(five)).toLowerCase());
+      if (five.length === 5 && best.size === 0) best = new Set(five);
+    } else {
+      names.set(seat, handCategory(five));
+    }
+  }
+  return { best, names };
 }

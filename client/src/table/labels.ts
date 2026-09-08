@@ -28,6 +28,17 @@ export function handText(hand: number, hands: number | null): string {
   return hands == null ? `Hand ${hand}` : `Hand ${hand} of ${hands}`;
 }
 
+/* The same two facts for a header 390 px wide. Both are rendered and CSS picks
+   one, because the long form does not fit beside the seed and its controls, and
+   the seed is the half of that header that matters. */
+export function handTextShort(hand: number, hands: number | null): string {
+  return hands == null ? `#${hand}` : `${hand}/${hands}`;
+}
+
+export function blindTextShort(blinds: { sb: number; bb: number }): string {
+  return `${blinds.sb}/${blinds.bb}`;
+}
+
 /* The blinds as they stand, and where they are in the schedule when there is
    one. The numbers come from the view, which is the server's word for the
    level in play; only the position in the schedule is derived here. */

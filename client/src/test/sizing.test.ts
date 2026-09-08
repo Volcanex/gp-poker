@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { clamp, presetsFor } from '../table/sizing.ts';
 import { actionText, shortHash, streetText } from '../table/labels.ts';
-import { bestFive, handCategory } from '../table/best-five.ts';
+import { bestFive, handCategory, readShowdown } from '../table/best-five.ts';
 import { amountToCall, isLastHand, resolvePreAction, survivesRaise } from '../table/preactions.ts';
 import type { LegalActions, SeatView, TableView } from '@opentable/protocol';
 import { formatFor } from '@opentable/protocol';
@@ -19,7 +19,7 @@ describe('bet sizes', () => {
   it('thinks in multiples of the bet before the flop', () => {
     // Opening on the button: the big blind is 2, so 3x is a raise to 6.
     const p = presetsFor({ actions: ['f', 'c', 'r'], call: 1, min: 4, max: 200 }, 3, 1, 'pre');
-    expect(p.map((x) => x.label)).toEqual(['Min', '2x', '2.5x', '3x', 'Pot', 'All in']);
+    expect(p.map((x) => x.label)).toEqual(['Min', '2×', '2.5×', '3×', 'Pot', 'All in']);
     expect(p.map((x) => x.value)).toEqual([4, 4, 5, 6, 6, 200]);
   });
 
@@ -71,6 +71,35 @@ describe('the five that count', () => {
   it('has no answer for fewer than five cards', () => {
     expect(bestFive(['Ah', 'Kd'])).toEqual([]);
     expect(handCategory([])).toBe('');
+  });
+});
+
+describe('reading a finished hand', () => {
+  const board = ['Qs', '9c', '4d', 'Qh', '2s'];
+
+  it('outlines the winner\'s five and names every hand that was shown', () => {
+    const { best, names } = readShowdown({
+      awards: [{ seat: 0, amount: 12, hand: 'Three Of A Kind, Queens' }],
+      shown: { 0: ['Ac', 'Qd'], 1: ['Kh', '9h'] },
+    }, board);
+    expect(new Set(best)).toEqual(new Set(['Qd', 'Qs', 'Qh', 'Ac', '9c']));
+    expect(names.get(0)).toBe('three of a kind, queens');
+    expect(names.get(1)).toBe('two pair');
+  });
+
+  /* Nobody called, so nobody showed: there is no winning five to point at, and
+     outlining the last hand standing says nothing the fold did not. */
+  it('highlights nothing when the pot was uncontested', () => {
+    const { best, names } = readShowdown({
+      awards: [{ seat: 0, amount: 12 }],
+      shown: { 0: ['Ac', 'Qd'] },
+    }, board);
+    expect(best.size).toBe(0);
+    expect(names.size).toBe(0);
+  });
+
+  it('has nothing to say about a hand still in play', () => {
+    expect(readShowdown(null, board).best.size).toBe(0);
   });
 });
 

@@ -12,7 +12,10 @@ Never hand-edit those; re-run `node scripts/vendor.mjs` from the g-system repo.
 - `npm run dev -w client` (port 5180, proxies to the server on 8130)
 - `npm run build -w client`, then `npx vite preview --port 4173` for the bundle
 - `npx tsc -p client/tsconfig.json` typechecks; `npm test -w client` runs the
-  unit tests for the pure logic (sizing, labels, replay stepping, fairness)
+  unit tests for the pure logic (sizing, labels, showdown reading, replay
+  stepping, fairness)
+- `npm run e2e -w client` runs the Playwright suite (see **The e2e suite**);
+  `npm run e2e:update -w client` rewrites the screenshot baselines
 
 `tsconfig.json` includes `../packages/engine/src/vendor.d.ts`: the client
 compiles the engine's TypeScript source directly, so it needs the same ambient
@@ -26,17 +29,163 @@ declaration for `phe` that the engine's own tsconfig provides.
 - `src/routes/` — `home.tsx`, `leaderboard.tsx`, `profile.tsx`, `match.tsx`
   (live table, finished summary and the mock), `replay.tsx`.
 - `src/table/` — the table. `table.tsx` renders one `TableView`; `seat.tsx`,
-  `playing-card.tsx`, `timer-ring.tsx`, `action-bar.tsx` are its parts.
-  `match-summary.tsx` is the finished-match page. `sizing.ts`, `labels.ts`,
-  `layout.ts` (where each seat sits) and `results.ts` (the finishing order)
-  are pure.
+  `playing-card.tsx`, `turn-clock.tsx` and `dock.tsx` are its parts.
+  `result-panel.tsx` is the result under a finished felt and
+  `match-summary.tsx` is the page a finished match opens on cold.
+  `sizing.ts`, `preactions.ts`, `best-five.ts`, `labels.ts`, `layout.ts`
+  (where each seat sits) and `results.ts` (the finishing order) are pure.
 - `src/replay/` — `to-view.ts` turns an engine `HandState` into a `TableView`;
   `fairness.ts` re-derives the deck and rehashes the commitment.
-- `src/ui/` — `auth.tsx` (claim, log in, account menu), `rating-graph.tsx`,
+- `src/ui/` — `auth.tsx` (claim, log in, account menu), `avatar.tsx`,
+  `rating-graph.tsx`,
   `board-text.tsx`, `mode-tabs.tsx` (the heads-up / six-max switch), `bits.tsx`,
   `format.ts`, `title.ts`.
-- `src/dev/mock.ts` — the scripted live table, dev only.
+- `src/dev/mock.ts` — the scripted live table, dev only. Both scripts end on a
+  showdown and hold it: the heads-up one on a hand you lose, the six-max one on
+  the hand that takes the table. That is what the e2e suite drives.
+- `e2e/` — the Playwright suite. `table.ts` is its shared kit.
 - `src/app.css` — page layout plus the poker-specific pieces. Tokens only.
+
+## One footprint, three states
+
+The table screen is a header of fixed height, a felt that takes what is left,
+and a dock of fixed height. **Nothing in that column may size to its content.**
+The old table mounted its action bar only when `legal` was non-null, so the felt
+re-divided the instant it became your turn and everything on it jumped; the
+audit that started this rebuild caught it in sixty frames.
+
+The rule is enforced, not remembered: `e2e/footprint.spec.ts` walks the mock
+through waiting, your turn, hand over and the next hand at 390 and 1280 in both
+shapes, asserts the header, felt, board, pot, hero seat and dock have byte
+identical boxes in every state, and asserts the browser's own layout-shift
+observer sums to **exactly zero**. It does today. Anything that reintroduces a
+shift is a regression, and the usual cause is a box sized to a string:
+
+- Text that changes must sit in a reserved slot. `.hand-head .n` and `.street`,
+  `.seat-last`, `.stack-v` and `.pot` all carry a `min-width` or a `width` for
+  that reason, and the phone gives `.seat-last` a fixed one because a phone seat
+  has no spare width to lend a long label.
+- Centred text that changes length moves. `.dock-status` is full width with
+  `text-align: center` rather than a box that shrinks to its string.
+- A marker that comes and goes moves everything after it. The button `D` is
+  always rendered and hidden with `visibility`.
+- **`data-state` lives on `.dock-in`, the element that fades, not on `.dock`
+  around it.** The dock's own attribute changes the moment the view does, while
+  the outgoing content is still on screen finishing its 120 ms exit: with the
+  grid rules keyed to the parent, that content spent those 120 ms laid out under
+  the incoming state's rows. It was the last layout shift left on the screen.
+
+## The dock
+
+One region, one height (128 px desktop, 150 px phone), three states rendered in
+the same box and cross-faded at 120 ms with `AnimatePresence mode="wait"`.
+Nothing slides.
+
+| State | What is in the box |
+| --- | --- |
+| `wait` | pre-action pills, and a status line saying who is being waited for |
+| `turn` | the sizing presets, the amount field and slider, then fold / check or call / raise |
+| `over` | the result line with a countdown, and the three choices as inert outlines that hold the height |
+
+**Pre-actions** (`preactions.ts`) are the reason the waiting state is worth
+having. Arm one and it fires the instant the action reaches you: check or fold
+checks if it can and folds if it cannot, call any calls, fold to any bet folds
+only if somebody bet and checks otherwise, which is what the words say. A pill
+that assumed a price is void once the price moves, so any change to the amount
+to call clears "check or fold" and leaves the other two armed. The price is read
+off the seats by `amountToCall`, because `legal` only exists on your own turn.
+
+The countdown says "next hand in" or "result in" depending on `isLastHand`,
+derived from the view the same way the server derives it. Its length is
+`HAND_HOLD_MS` **from `@opentable/protocol`**: the server sleeps that hold and
+the client counts it down, so it lives in the protocol rather than in either of
+them. Two copies of that number drift and the countdown starts lying.
+
+## Sizing
+
+**The typed field is the source of truth.** It holds a raise-to total, opens the
+numeric keypad on a phone, and submits on Enter. A number outside the legal
+range is clamped **into the field** and not sent: the next press sends the
+clamped number, so a size nobody chose never reaches the server. The primary
+button always prints the number it will send.
+
+`presetsFor` gives six slots, always the same six in the same order, because the
+number keys address them and a preset that moves is a preset nobody learns.
+Postflop they are min, a third, a half, two thirds, pot and all in; preflop the
+middle three become 2×, 2.5× and 3× the current bet, which is how people size a
+raise before a flop. Duplicates are no longer collapsed the way they were when a
+preset sent the action: a preset now only writes into the field.
+
+The slider is secondary and desktop only, and it carries no `data-output` bubble
+because the field beside it already prints the number. g still owns its fill.
+
+## Hand end
+
+`table.tsx` runs a three-step sequence off the arrival of `result`, and every
+step is in the felt, never in the layout:
+
+| At | What happens |
+| --- | --- |
+| 0 ms | shown cards flip **in place**, 180 ms each, staggered 60 ms. The flip is a remount keyed on face up, which is what keeps it where the card already lies instead of dealing it again |
+| 400 ms | the winning five are outlined and the rest of the board dims to 35%, hand names appear beside every seat that showed |
+| 700 ms | the pot counts to zero, a chip lands in the award zone and the winner's stack counts up |
+
+`readShowdown` in `best-five.ts` picks the five. The engine already knows them,
+but it knows them through `phe`, whose lookup table is why the replay route is
+lazy loaded: pulling that in would put 80 kB gzipped back into the bundle
+everyone loads to play, so the five are scored here over 21 combinations with no
+table. **An uncontested pot reveals nothing and highlights nothing**, because
+there is no winning five to point at when only one hand was ever live.
+
+The award chip lands in `.award-zone`, a reserved row under the board. The old
+flight targeted the pot badge and landed on top of the pot label.
+
+## When the match ends
+
+`end` no longer replaces the table. The server holds the last hand like any
+other, then sends the result; the client keeps the felt rendered and dims it to
+70% and slides `ResultPanel` in underneath. Losing a match used to swap the felt
+for a summary page one frame after the final hand, so the hand that decided it
+was never seen, which is exactly what the owner reported. `e2e/showdown.spec.ts`
+samples your cards at four moments through a lost showdown and again after the
+end message, and every frame has them face up. It also marks one of them before
+the decision and finds the same element afterwards: **your own cards are never
+turned over at a showdown**, because they were never face down. Only somebody
+else's flip, and the flip is a remount keyed on that, so the hero's cards are
+not even redrawn.
+
+A match opened cold from its URL has no felt to keep and still renders
+`MatchSummary`. Both share `HandsSection`, which is what "review hands" scrolls
+to.
+
+## The e2e suite
+
+`npm run e2e -w client`, config in `playwright.config.ts`, specs in `e2e/`.
+The webServer builds the client and serves the bundle with `vite preview`; the
+mock routes need no server and `stubApi` in `e2e/table.ts` fakes the three
+endpoints the pages around them ask for, so a run is identical whether or not a
+dev server happens to be up.
+
+| Spec | Guards |
+| --- | --- |
+| `footprint` | the boxes and the zero layout shift above, and that the dock is one height in all three states |
+| `ergonomics` | phone target sizes, the primary action in the bottom quarter, the sizing model and clamping, and a pre-action firing |
+| `showdown` | your cards face up through a lost showdown and after the end, the winning five, the award chip clear of the pot label |
+| `access` | axe-core per state with zero serious or critical, a keyboard-only decision, tab reachability, and typing in the field not triggering the shortcuts |
+| `reduced-motion` | the same information with the motion emulated off |
+| `screenshots` | 84 baselines: seven states at 360, 390, 430, 768, 1366 and 1920, dark and light |
+
+Baselines live in `e2e/__screenshots__/` and are updated with
+`npm run e2e:update -w client`. **Read the diff before you accept one.** The
+suite runs with reduced motion so a card mid-deal cannot decide a baseline, and
+masks the four things that cannot be pinned to a pixel: the pot figure
+mid-count, the depleting turn bar, the seconds beside it and the hand-end
+countdown.
+
+Two things the suite does not cover. The replay page draws a hand fetched from
+the API and the suite deliberately runs without one. And the mock has no
+uncontested pot, so that rule is pinned in the unit tests on `readShowdown`
+instead.
 
 ## The table, two to six seats
 
@@ -69,8 +218,16 @@ pure, so the rotation is unit tested rather than eyeballed:
   passes it to `PlayingCard` as the stagger index. In ring mode each card also
   starts from the middle of the table, so cards fan outwards.
 
-`SeatView.out` seats render dimmed with their place ("4th") where the stack
-would be, and `SeatView.bot` gets a small mark beside the name.
+`SeatView.out` seats render dimmed to 45% with their place ("4th") where the
+stack would be, and `SeatView.bot` gets a small mark beside the name.
+
+**A ring seat is 264 px and everything on it is fighting for that width**:
+cards, an avatar, a name with up to three badges, a stack, a hand name and a
+clock. Three things give way rather than the name, which is the identity: the
+rating (a click away on the profile the name leads to), the word "units" (every
+number on this felt is in units, and "all in" still shows), and on the narrowest
+ring the avatar itself. A name that still does not fit truncates with its full
+text in the title.
 
 ## Ratings are per mode
 
@@ -264,9 +421,15 @@ Four things to know:
    replay must still work right after someone clicks the "show all cards"
    switch, which is what a blanket "is it an input" test got wrong.
 
+A fifth thing, added with the dock: **a button is restyled through g's own
+slots.** The inert ghosts in the hand-over state set `--_fill`, `--_fg` and
+`--_edge` and take a dashed border, rather than being dimmed copies. A button at
+40% opacity is a button nobody can read, and axe says so.
+
 The accent slot is not overridden. g's default accent is the far end of the
 neutral scale, and that is the one accent this app uses: the acting seat's
-timer ring, the primary action, your own row on the leaderboard. A rebrand
+border and clock bar, the winning five at a showdown, the primary action, your
+own row on the leaderboard. A rebrand
 would set `--accent-fill/-hover/-fg/-edge` and nothing else.
 
 ## Keyboard
@@ -274,8 +437,15 @@ would set `--accent-fill/-hover/-fg/-edge` and nothing else.
 | --- | --- | --- |
 | `f` | your turn | fold |
 | `c` | your turn | check, or call |
-| `r` | your turn | focus the raise amount |
+| `r` | your turn | focus the amount field, from anywhere |
+| `1` to `6` | your turn | write that preset into the field |
+| Enter | the field | send the raise, or show the clamp |
 | left, right | replay | step back, step forward |
+
+The legend under the dock is desktop only, and it says the same thing in every
+state: a line that comes and goes is a line that moves the felt. `r` works while
+typing (it is how you get back to the field); every other shortcut is blocked by
+`isTextEntry`, so typing 137 into the field does not fold the hand.
 
 ## Bespoke components (promotion candidates for g-system)
 Poker-specific pieces live here only because g has nothing close. If one stops
@@ -286,13 +456,19 @@ being poker-specific, build it in g-system, not here.
   as streets arrive. Red suits use `--danger-text` as the palette's red;
   nothing destructive in this app is red (Fold is `btn-tertiary`), so the
   meaning colour is not overloaded. **Promotion: no, this is poker.**
-- **`timer-ring.tsx`** — a countdown driven by a server deadline rather than a
-  local duration, so a reconnecting client lands on the right remaining time.
-  **Promotion: yes.** g ships `.g-progress` and `.g-meter` but nothing that
-  counts down.
-- **`seat.tsx`**, **`action-bar.tsx`** — poker furniture. The action bar's
-  "bounded number with presets, a slider and a typed input, all clamped to one
-  range" is the generic half; the poker words are not. **Promotion: partly.**
+- **`turn-clock.tsx`** — a countdown driven by a server deadline rather than a
+  local duration, so a reconnecting client lands on the right remaining time. It
+  draws the depleting bar along the acting seat's top edge and the seconds
+  beside its last action. It replaced a 20 px ring at the far corner of the
+  seat, which the audit found people missed. **Promotion: yes.** g ships
+  `.g-progress` and `.g-meter` but nothing that counts down.
+- **`seat.tsx`**, **`dock.tsx`** — poker furniture. The dock's "bounded number
+  with presets, a typed field and a slider, all clamped to one range, in a box
+  that never changes height" is the generic half; the poker words are not.
+  **Promotion: partly.**
+- **`best-five.ts`** — a five card evaluator that exists only to avoid pulling
+  `phe` into the bundle everyone loads. **Promotion: no**, this is poker, and
+  the engine is the real evaluator.
 - **`rating-graph.tsx`** — a single line over time. g ships `g.chart`, but it
   draws into a node it owns and re-renders by being called again, which fights
   React. **Promotion: yes**, as a React-friendly sparkline. Note the line
@@ -300,17 +476,31 @@ being poker-specific, build it in g-system, not here.
   `vector-effect`, which is why it has no marker: a circle would stretch into
   an ellipse.
 - **`board-text.tsx`** — cards as text for dense tables. **Promotion: no.**
+- **`ui/avatar.tsx`** — not bespoke: it is g's shipped `.avatar` with its size
+  adjusted through `--avatar-size`, around the deterministic SVG from
+  `@opentable/identity`. 28 px at a seat, 24 px in a row, 56 px on a header.
 - The replay scrubber, action list and fairness panel are page furniture, not
   components. **Promotion: no.**
 
 ## Gotchas
 - There is no `--surface` token. Use `--surface-1` (page) and `--surface-2`
   (card, panel, bar).
-- `TableView.pot` **includes the current street's bets**. `raisePresets` in
+- **`--text-placeholder` is for placeholder text inside a field.** Anything
+  meant to be read fails axe's contrast check on it: the preset amounts, the key
+  legend and the "you" badge all had to move to `--text-secondary`.
+- **A NumberFlow's digits live in a shadow root as a reel**, so reading one as
+  text reads `0123456789`. Assert against something in plain markup instead. Its
+  host is `display: inline-block`, which is why the pot's counter is given
+  `display: block; width: 100%`: a counter that resizes itself is a counter that
+  shifts everything beside it.
+- The stack is `useGrouping: false`. A grouped `1,200` is five characters in a
+  four character slot, and it moved the word beside it.
+- `TableView.pot` **includes the current street's bets**. `presetsFor` in
   `sizing.ts` depends on that: a pot-sized raise is `myBet + call + (pot +
   call)`. The unit test pins it.
 - The engine's hand descriptions come from `phe` in Title Case ("One Pair").
-  They are lowercased at the display site to match the house voice.
+  They are lowercased at the display site to match the house voice, which is
+  also why `readShowdown` lowercases the name it takes off an award.
 - With no viewer seat (spectating, or a replay) seat 0 takes the bottom slot.
   Only a real `view.you` gets an action bar.
 - **`.seat-last` is always rendered**, empty or not. It is a grid column of its

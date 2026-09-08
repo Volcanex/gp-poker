@@ -126,6 +126,7 @@
    the flop comes. */
 .hand-head .n { color: var(--text-primary); font-variant-numeric: tabular-nums; min-width: 13ch; }
 .hand-head .street { min-width: 9ch; }
+.hand-head .narrow { display: none; }
 .hand-head .dot { color: var(--text-placeholder); }
 .hand-head .seed { display: inline-flex; align-items: center; gap: 6px; }
 .hand-head .seed code {
@@ -161,8 +162,8 @@
    column beside its action list, so the question is how wide this felt is, not
    how wide the window is. */
 .felt[data-mode="ring"] {
-  --felt-w: 960px; --seat-w: 252px; --seat-h: 78px; --ring-h: 404px;
-  --seat-card: 32px; --board-card: 40px;
+  --felt-w: 960px; --seat-w: 264px; --seat-h: 78px; --ring-h: 404px;
+  --seat-card: 30px; --board-card: 40px;
 }
 .felt[data-mode="ring"][data-seats="3"], .felt[data-mode="ring"][data-seats="4"] { --ring-h: 340px; }
 .felt[data-mode="ring"] .felt-in { position: relative; height: var(--ring-h); }
@@ -200,10 +201,16 @@
 .felt[data-mode="ring"] .board .pcard { --card-w: var(--board-card); }
 .felt[data-mode="ring"] .seat-cards { grid-area: cards; }
 .felt[data-mode="ring"] .avatar { grid-area: av; --avatar-size: 24px; }
-/* The ring seat is 252 px wide and now carries an avatar as well as cards, a
-   name, a stack and a hand name. The rating is the one thing on it that is a
-   click away on the profile the name leads to, so it goes. */
+/* A ring seat is 264 px and carries cards, an avatar, a name with its badges, a
+   stack, a hand name and a clock. Two things go: the rating, which is a click
+   away on the profile the name leads to, and the word "units", because every
+   number on this felt is in units. "All in" stays: that one is a fact about the
+   seat. */
 .felt[data-mode="ring"] .seat-rating { display: none; }
+/* Tighter gaps on the name line, because the reserved button marker and the bot
+   badge together are most of a ring seat's width. */
+.felt[data-mode="ring"] .seat-line { gap: 5px; }
+.felt[data-mode="ring"] .seat-stack .u:not([data-allin]) { display: none; }
 .felt[data-mode="ring"] .seat-id { grid-area: id; }
 .felt[data-mode="ring"] .seat-last { grid-area: last; min-height: 1.5em; min-width: 0; text-align: left; }
 .felt[data-mode="ring"] .seat-clock { grid-area: clock; }
@@ -228,20 +235,22 @@
   .felt[data-mode="ring"] .seat { top: var(--yt); grid-template-areas: "cards av id" "cards av last"; grid-template-columns: auto auto minmax(0, 1fr); }
   .felt[data-mode="ring"] .seat-bet {
     top: var(--yt);
-    inset: calc(var(--seat-h) / 2 + 12px) calc(var(--seat-w) / 2 + 30px);
+    inset: calc(var(--seat-h) / 2 + 12px) calc(var(--seat-w) / 2 + 46px);
   }
   .felt[data-mode="ring"] .seat-bet > * { top: var(--yt); }
   .felt[data-mode="ring"] .seat { padding: 5px 6px; }
-  .felt[data-mode="ring"] .seat-rating { display: none; }
+  /* Six seats on a felt 390 px wide. The avatar goes: it is decorative, the
+     name is the identity, and a seat that says "q..." where it could say
+     "quarrel" has thrown away the half that matters. Every wider ring keeps
+     it. */
+  .felt[data-mode="ring"] .avatar { display: none; }
   .felt[data-mode="ring"] .seat-name { font-size: 12px; }
   .felt[data-mode="ring"] .seat-stack { font-size: 14px; }
-  .felt[data-mode="ring"] .seat-stack .u { display: none; }
   .felt[data-mode="ring"] .seat-last { font-size: 10px; }
   .felt[data-mode="ring"] .seat-cards { gap: 3px; }
-  .felt[data-mode="ring"] .seat-line { gap: 5px; }
+  .felt[data-mode="ring"] .seat-line { gap: 4px; flex-wrap: nowrap; }
   .felt[data-mode="ring"] .seat-bot { font-size: 9px; padding: 0 3px; }
-  .felt[data-mode="ring"] .btn-marker { width: 15px; height: 15px; font-size: 9px; }
-  .felt[data-mode="ring"] .avatar { --avatar-size: 20px; }
+  .felt[data-mode="ring"] .btn-marker { width: 14px; height: 14px; font-size: 9px; }
   .felt[data-mode="ring"] .seat-clock { display: none; }
 }
 
@@ -349,8 +358,11 @@
 
 .avatar { width: var(--avatar-size, 26px); height: var(--avatar-size, 26px); overflow: hidden; }
 .avatar img { width: 100%; height: 100%; display: block; }
+.avatar[data-size="24"] { --avatar-size: 24px; }
+.avatar[data-size="28"] { --avatar-size: 28px; }
+.avatar[data-size="56"] { --avatar-size: 56px; }
 .seat[data-folded] { opacity: 0.62; }
-.seat[data-out] { opacity: 0.48; }
+.seat[data-out] { opacity: 0.45; }
 
 .seat-cards { display: flex; gap: 5px; }
 .seat-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -379,7 +391,7 @@
   color: var(--text-secondary);
   font-size: 10px; font-weight: 600; line-height: 1;
 }
-.seat-you { color: var(--text-placeholder); font-size: 11px; }
+.seat-you { color: var(--text-secondary); font-size: 11px; }
 .seat-bot {
   color: var(--text-secondary); font-size: 10px;
   padding: 0 4px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
@@ -396,7 +408,7 @@
 }
 /* Room for every stack a table can hold, so the word beside the digits
    never moves. */
-.stack-v { display: inline-block; min-width: 5ch; }
+.stack-v { display: inline-block; min-width: 4ch; }
 .btn-marker[data-off] { visibility: hidden; }
 .seat-bet { display: flex; justify-content: center; min-height: 22px; }
 
@@ -431,7 +443,7 @@
 .dock-pre, .dock-presets { display: flex; gap: 5px; align-items: stretch; }
 .dock-pre .btn, .dock-presets .btn { height: 100%; }
 .dock-presets .preset { flex: 1; min-width: 0; gap: 5px; }
-.dock-presets .p-v { color: var(--text-placeholder); }
+.dock-presets .p-v { color: var(--text-secondary); }
 .dock .pill { border-radius: var(--radius-full); }
 .dock .btn[data-on] {
   border-color: var(--accent-fill);
@@ -459,7 +471,14 @@
 
 .dock-acts { display: flex; gap: var(--sp-2); align-items: stretch; }
 .dock-acts > .btn { flex: 1; height: 100%; }
-.dock-acts .ghost { opacity: 0.4; pointer-events: none; }
+/* The three choices held open while the hand settles. They keep the dock's
+   height and the eye's place, so they are drawn as outlines rather than dimmed
+   copies: a button at 40% opacity is a button nobody can read. g's own button
+   slots are the way to restyle one. */
+.dock-acts .ghost {
+  --_fill: transparent; --_fg: var(--text-secondary); --_edge: var(--border-subtle);
+  border-style: dashed; box-shadow: none; pointer-events: none;
+}
 
 .dock-result { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
 .dock-result .r-line { font-size: var(--font-size-ui); color: var(--text-secondary); }
@@ -471,7 +490,7 @@
   grid-row: 4;
   height: var(--keys-h);
   display: flex; align-items: center; justify-content: center; gap: var(--sp-4);
-  font-size: 11px; color: var(--text-placeholder);
+  font-size: 11px; color: var(--text-secondary);
   background: var(--surface-2);
 }
 .dock-keys > span { display: inline-flex; align-items: center; gap: 5px; }
@@ -512,7 +531,7 @@
 .rp-who { display: inline-flex; align-items: center; gap: var(--sp-2); min-width: 0; }
 .rp-who .avatar { --avatar-size: 24px; }
 .rp-who a { color: var(--text-primary); text-decoration: none; }
-.rp-who a:hover { text-decoration: underline; text-decoration-color: var(--slate-a8); }
+.rp-who a:hover { text-decoration: underline; text-decoration-color: var(--border); }
 .rp-place { color: var(--text-secondary); min-width: 26px; }
 .rp-nums { display: inline-flex; align-items: baseline; gap: var(--sp-4); }
 .rp-stack { color: var(--text-secondary); }
@@ -542,7 +561,7 @@
   position: fixed; left: 6px; bottom: 2px; z-index: 5;
   max-width: 30%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
   display: inline-flex; align-items: center; gap: 6px;
-  font-size: 11px; color: var(--text-placeholder);
+  font-size: 11px; color: var(--text-secondary);
 }
 
 /* ------------------------------------------------------------------- phone */
@@ -567,6 +586,19 @@
   .hand-head .bar-in { gap: var(--sp-2); }
   .hand-head .bar-in > * { white-space: nowrap; }
   .hand-head .copy-btn { display: none; }
+  .hand-head .wide { display: none; }
+  .hand-head .narrow { display: inline; }
+  .hand-head .n { min-width: 5ch; }
+  .hand-head .street { min-width: 9ch; }
+
+  /* The wireframe's phone card sizes: the seat's cards are smaller than the
+     board's, which is what buys the name its room back. */
+  .seat .pcard { --card-w: 30px; }
+  .board .pcard { --card-w: 34px; }
+  /* A fixed slot, not a minimum: on a phone the seat has no spare width to
+     lend a long label, and a label that borrows it moves the name. A hand name
+     that does not fit is truncated here and printed in full in the dock. */
+  .seat-last { width: 88px; min-width: 0; font-size: 11px; }
   .hand-head .seed code { max-width: 62px; overflow: hidden; text-overflow: clip; }
 
   /* The phone dock. Taller, because the thumb lives at the bottom of the

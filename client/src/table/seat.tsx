@@ -38,6 +38,10 @@ export function Seat({
   const faded = useFading(last ? actionText(last.a, last.v) : null, `${handNo}:${n}:${seat.i}`);
   const label = handLabel ?? faded;
   const cards: (Card | null)[] = reveal ?? seat.cards ?? [null, null];
+  /* Your own cards were never face down, so a showdown does not turn them over:
+     they stay exactly where they are, which is the whole point of holding the
+     hand on screen. Only somebody else's cards flip. */
+  const turned = reveal != null && !you;
 
   return (
     <div
@@ -55,12 +59,12 @@ export function Seat({
           <PlayingCard
             /* Turning face up is a remount, which is what makes the flip run
                where the card already lies rather than dealing it again. */
-            key={`${handNo}-${seat.i}-${i}-${reveal ? 'up' : 'down'}`}
+            key={`${handNo}-${seat.i}-${i}-${turned ? 'up' : 'down'}`}
             card={c}
             index={dealAt + i * seatCount}
             dim={seat.folded}
             best={c != null && best != null && best.has(c)}
-            flip={reveal != null}
+            flip={turned}
             origin={origin}
           />
         ))}
@@ -70,7 +74,7 @@ export function Seat({
 
       <div className="seat-id">
         <span className="seat-line">
-          <span className="seat-name">{seat.name}</span>
+          <span className="seat-name" title={seat.name}>{seat.name}</span>
           {you && <span className="seat-you">you</span>}
           {/* Always here, hidden when the button is elsewhere: a marker that
               comes and goes moves every badge after it once a hand. */}
@@ -81,7 +85,9 @@ export function Seat({
         </span>
         {seat.out ? (
           <span className="seat-stack num">
-            {seat.place == null ? 'Out' : ordinal(seat.place)}
+            {/* The same reserved slot the digits use, so a seat busting out
+                does not move the word beside it. */}
+            <span className="stack-v">{seat.place == null ? 'Out' : ordinal(seat.place)}</span>
             <span className="u">{seat.place == null ? '' : 'out'}</span>
           </span>
         ) : (
@@ -93,7 +99,9 @@ export function Seat({
                 <NumberFlow value={seat.stack} format={{ useGrouping: false }} respectMotionPreference />
               )}
             </span>
-            <span className="u">{seat.allin ? 'all in' : 'units'}</span>
+            <span className="u" data-allin={seat.allin ? '' : undefined}>
+              {seat.allin ? 'all in' : 'units'}
+            </span>
           </span>
         )}
       </div>

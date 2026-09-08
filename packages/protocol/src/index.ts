@@ -24,6 +24,9 @@ export interface MatchFormat {
   levelHands: number; // hands per level (ignored with a single level)
   clockMs: number; // per-decision clock
   graceMs: number; // reconnect grace before the clock runs while disconnected
+  // A practice table: one human, the rest bots of a chosen level, never
+  // rated. Optional so a format stored before practice existed still parses.
+  practice?: boolean;
 }
 
 export const HEADS_UP_FORMAT: MatchFormat = {
@@ -65,7 +68,47 @@ export const SIX_MAX_FORMAT: MatchFormat = {
   graceMs: 15_000,
 };
 
+/* How long a finished hand is held on screen before the next one deals, or
+   before the match result is sent. The server sleeps it and the client counts
+   it down, so it lives here rather than in either of them: two copies of this
+   number drift and the countdown starts lying. Capped at the decision clock,
+   so a test running a 300 ms clock does not spend four seconds a hand. */
+export const HAND_HOLD_MS = 4_000;
+
 export const DEFAULT_FORMAT = HEADS_UP_FORMAT;
+
+/* The five bot levels, one table shared by the server (which plays them and
+   labels the roster) and the client (which offers them in the practice
+   picker). Level 4 is the bot that existed before levels did; 1 to 3 are
+   progressively looser or more passive, 5 is sharper. Monotonic: a higher
+   level beats a lower one over a long enough sample. */
+export type BotLevel = 1 | 2 | 3 | 4 | 5;
+
+export const DEFAULT_BOT_LEVEL: BotLevel = 4;
+
+export interface BotLevelInfo {
+  level: BotLevel;
+  name: string; // short label for a picker option
+  description: string; // the one line shown beside a bot's name
+}
+
+export const BOT_LEVELS: BotLevelInfo[] = [
+  { level: 1, name: 'Loose and passive', description: 'Level 1: loose and passive, calls almost everything' },
+  { level: 2, name: 'Loose', description: 'Level 2: loose, raises only with strong hands' },
+  { level: 3, name: 'Tight and passive', description: 'Level 3: tight but rarely raises' },
+  { level: 4, name: 'Solid', description: 'Level 4: solid, plays the charts and pot odds' },
+  { level: 5, name: 'Sharp', description: 'Level 5: sharp, semi-bluffs and sizes bets by the board' },
+];
+
+export function isBotLevel(n: unknown): n is BotLevel {
+  return typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= 5;
+}
+
+// Anything outside 1..5 reads as the default rather than erroring: a level is
+// a preference, and a stored or hand-typed one should not break a table.
+export function botLevelInfo(level: number): BotLevelInfo {
+  return BOT_LEVELS.find((b) => b.level === level) ?? BOT_LEVELS[DEFAULT_BOT_LEVEL - 1];
+}
 
 export function formatFor(mode: Mode, rated: boolean): MatchFormat {
   const base = mode === 'six-max' ? SIX_MAX_FORMAT : HEADS_UP_FORMAT;
@@ -80,7 +123,9 @@ export function blindsAt(format: MatchFormat, handNumber: number): { sb: number;
 
 /* Client -> server */
 export type ClientMsg =
-  | { t: 'queue'; mode?: Mode; rated?: boolean } // defaults: heads-up, rated
+  // defaults: heads-up, rated. `bots` asks for a practice table instead: no
+  // human queue, seats filled from the roster at that level, never rated.
+  | { t: 'queue'; mode?: Mode; rated?: boolean; bots?: { level: number } }
   | { t: 'dequeue' }
   | { t: 'join'; m: string } // subscribe to a match as player or spectator
   | { t: 'leave'; m: string }
@@ -93,7 +138,7 @@ export type ServerMsg =
   | { t: 'q'; s: 'searching' | 'found' | 'left'; w?: number; range?: number; m?: string; mode?: Mode; rated?: boolean; seated?: number } // seated = players gathered so far for a multiway table
   | { t: 'state'; s: TableView }
   | { t: 'end'; m: string; r: MatchResult }
-  | { t: 'err'; c: 'illegal' | 'stale' | 'not_your_turn' | 'no_match' | 'bad_msg' | 'version'; msg: string }
+  | { t: 'err'; c: 'illegal' | 'stale' | 'not_your_turn' | 'no_match' | 'bad_msg' | 'version' | 'bots_busy'; msg: string }
   | { t: 'pong' };
 
 /* One mode's Glicko-2 standing. Ratings are per mode, the way a chess site
@@ -116,6 +161,7 @@ export interface UserSummary {
   name: string;
   guest: boolean;
   bot: boolean;
+  botLevel?: number; // 1..5, present only on a bot
   // Flat fields are the heads-up standing, kept so anything reading a single
   // rating still works. `ratings` is the real answer.
   rating: number;

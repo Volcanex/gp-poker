@@ -7,9 +7,11 @@ import type { ActionKind, Card, TableView } from '@opentable/protocol';
 import { Seat } from './seat.tsx';
 import { PlayingCard } from './playing-card.tsx';
 import { Dock, KeyLegend } from './dock.tsx';
-import { blindText, cardsOf, handText, shortHash, streetText } from './labels.ts';
+import {
+  blindText, blindTextShort, cardsOf, handText, handTextShort, shortHash, streetText,
+} from './labels.ts';
 import { dealOrder, layoutMode, seatOrder, slotAt } from './layout.ts';
-import { bestFive, handCategory } from './best-five.ts';
+import { readShowdown } from './best-five.ts';
 import { useGInit } from '../ui/bits.tsx';
 
 export interface TableProps {
@@ -88,11 +90,13 @@ export function Table({ view, onAct, sending, bare, ended }: TableProps) {
       {!bare && (
       <div className="hand-head" ref={headRef}>
        <div className="bar-in">
-        <span className="n">{handText(view.h, view.format.hands)}</span>
+        <span className="n wide">{handText(view.h, view.format.hands)}</span>
+        <span className="n narrow">{handTextShort(view.h, view.format.hands)}</span>
         <span className="dot">·</span>
         <span className="street">{streetText(view.street)}</span>
         <span className="dot">·</span>
-        <span className="num">{blindText(view.format, view.blinds, view.h)}</span>
+        <span className="num wide">{blindText(view.format, view.blinds, view.h)}</span>
+        <span className="num narrow">{blindTextShort(view.blinds)}</span>
         <span className="spacer" style={{ flex: 1 }} />
         {/* Both controls are always here. Verify used to appear beside Copy the
             moment the seed was published, which moved the header at the end of
@@ -257,48 +261,26 @@ function useHandEnd(key: string | null, reduced: boolean | null): number {
   return phase;
 }
 
-interface Showdown {
-  best: ReadonlySet<Card>; // the five that made the winning hand
-  names: Map<number, string>; // hand name beside each seat that showed
+interface Awarded {
+  best: ReadonlySet<Card>;
+  names: Map<number, string>;
   awarded: Map<number, number>; // what each seat was just paid
   awards: { seat: number; amount: number }[];
 }
 
-const EMPTY_SHOWDOWN: Showdown = {
-  best: new Set(), names: new Map(), awarded: new Map(), awards: [],
-};
+const NOTHING: Awarded = { best: new Set(), names: new Map(), awarded: new Map(), awards: [] };
 
-/* An uncontested pot shows nothing and skips the highlight: there is no
-   winning five to point at when only one hand was ever live. */
-function useShowdown(view: TableView, result: TableView['result'], phase: number): Showdown {
+/* The highlight waits for the reveal: nothing is outlined until the cards have
+   turned over, which is why the phase is an input here. */
+function useShowdown(view: TableView, result: TableView['result'], phase: number): Awarded {
   return useMemo(() => {
-    if (!result) return EMPTY_SHOWDOWN;
-
+    if (!result) return NOTHING;
     const awarded = new Map<number, number>();
     for (const a of result.awards) awarded.set(a.seat, (awarded.get(a.seat) ?? 0) + a.amount);
     const awards = result.awards.map((a) => ({ seat: a.seat, amount: a.amount }));
-
-    const shown = Object.entries(result.shown ?? {});
-    if (phase < 1 || shown.length < 2) {
-      return { best: new Set(), names: new Map(), awarded, awards };
-    }
-
+    if (phase < 1) return { best: new Set(), names: new Map(), awarded, awards };
     const board = view.board.filter((c): c is Card => typeof c === 'string');
-    const names = new Map<number, string>();
-    let best: ReadonlySet<Card> = new Set();
-
-    for (const [key, holes] of shown) {
-      const seat = Number(key);
-      const five = bestFive([...holes, ...board]);
-      const win = result.awards.find((a) => a.seat === seat);
-      if (win) {
-        names.set(seat, (win.hand ?? handCategory(five)).toLowerCase());
-        if (five.length === 5 && best.size === 0) best = new Set(five);
-      } else {
-        names.set(seat, handCategory(five));
-      }
-    }
-
+    const { best, names } = readShowdown(result, board);
     return { best, names, awarded, awards };
   }, [result, phase, view.board]);
 }

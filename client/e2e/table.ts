@@ -43,10 +43,12 @@ export async function stubApi(page: Page) {
     route.fulfill({ status: 404, json: { error: 'not found' } }));
 }
 
-/* An explicit theme, set the way g does it. "system" leaves the attribute off
-   and follows the browser, which is not a thing a baseline can pin. */
+/* An explicit theme, stored the way g stores it: g-ui reads its own key at load
+   and writes the attribute itself, so setting the attribute alone is undone a
+   moment later. "system" is not a thing a baseline can pin. */
 export async function setTheme(page: Page, theme: 'dark' | 'light') {
   await page.addInitScript((t) => {
+    localStorage.setItem('g-theme', t as string);
     document.documentElement.setAttribute('data-theme', t as string);
   }, theme);
 }
@@ -59,7 +61,6 @@ export function masks(page: Page): Locator[] {
     page.locator('.turn-bar'),
     page.locator('.turn-secs'),
     page.locator('.dock-result .badge'),
-    page.locator('.devnote'),
   ];
 }
 

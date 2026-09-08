@@ -39,9 +39,9 @@ export function presetsFor(
   const middle: Preset[] =
     street === 'pre'
       ? [
-          { key: '2x', label: '2x', value: multiple(2) },
-          { key: '2.5x', label: '2.5x', value: multiple(2.5) },
-          { key: '3x', label: '3x', value: multiple(3) },
+          { key: '2x', label: '2×', value: multiple(2) },
+          { key: '2.5x', label: '2.5×', value: multiple(2.5) },
+          { key: '3x', label: '3×', value: multiple(3) },
         ]
       : [
           { key: 'third', label: '⅓', value: fraction(1 / 3) },
