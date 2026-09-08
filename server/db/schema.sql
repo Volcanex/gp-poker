@@ -305,3 +305,12 @@ alter table users add column if not exists avatar_v integer not null default 0;
 -- something a player says about themselves, and guests may say it too.
 -- Validated against server/src/countries.ts before it is written here.
 alter table users add column if not exists country char(2);
+
+-- The blinds this hand was actually dealt at. Derived until speed existed:
+-- the level was a function of the hand number, so anything reading a stored
+-- hand could recompute it. A short format climbs its schedule on elapsed match
+-- time instead, which is a thing only the room that dealt the hand knew, so
+-- the answer is recorded rather than re-derived. Null on every hand written
+-- before this, which is what `handBlinds` in server/src/db.ts falls back from.
+alter table hands add column if not exists sb int;
+alter table hands add column if not exists bb int;

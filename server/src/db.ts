@@ -251,8 +251,29 @@ export interface HandRow {
   result: HandOutcome | null;
   stats: Record<number, SeatStats> | null;
   study: Record<number, HandStudy> | null;
+  // The blinds this hand was dealt at. Null on every hand written before the
+  // column existed; read them through `handBlinds`, never straight off here.
+  sb: number | null;
+  bb: number | null;
   startedAt: Date;
   completedAt: Date | null;
+}
+
+/* The blinds a stored hand was dealt at. The row records them now, because a
+   short format climbs its schedule on elapsed match time and nothing reading
+   the row afterwards knows how long the match had been running. A row written
+   before the column existed has none, and every one of those belongs to a
+   format whose level is a function of the hand number alone, so recomputing
+   it is exactly right for them and only for them. */
+export function handBlinds(
+  hand: { number: number; sb?: number | null; bb?: number | null },
+  format: MatchFormat
+): { sb: number; bb: number } {
+  if (typeof hand.sb === 'number' && typeof hand.bb === 'number') return { sb: hand.sb, bb: hand.bb };
+  // A format written before blind levels existed has no `levels` array at all
+  // and never escalated, so its level-1 blinds are its blinds for every hand.
+  if (!format.levels) return { sb: format.sb, bb: format.bb };
+  return blindsAt(format, hand.number);
 }
 
 // Per seat, per hand: the preflop decisions extracted from the action log
@@ -745,6 +766,28 @@ export async function finishMatch(matchId: string, result: FinishMatchResult): P
 
 // ---- hands ----
 
+/* How many unrated matches this player has finished: casual, practice and a
+   casual home game all count, because all three are somewhere to learn the
+   controls without a rating moving. This is the ranked gate's whole question
+   (`RANKED_GATE_MATCHES` in the protocol), asked at the moment somebody
+   queues rated, which happens once a search rather than once a request.
+
+   Counted off the match rows rather than kept as a column: a counter would
+   be a second copy of something `matches` already knows, and the answer stops
+   mattering the moment it is one. */
+export async function countUnratedFinished(userId: string, limit = 4): Promise<number> {
+  const rows = await sql<{ id: string }[]>`
+    select m.id
+    from match_players mp
+    join matches m on m.id = mp.match_id
+    where mp.user_id = ${userId}
+      and m.status = 'finished'
+      and m.rated = false
+    limit ${limit}
+  `;
+  return rows.length;
+}
+
 export async function insertHand(hand: {
   id: string;
   matchId: string;
@@ -753,10 +796,12 @@ export async function insertHand(hand: {
   button: number;
   stacksStart: number[];
   liveSeats: number[];
+  sb: number;
+  bb: number;
 }): Promise<HandRow> {
   const [row] = await sql<HandRow[]>`
-    insert into hands (id, match_id, number, seed_hash, button, stacks_start, live_seats)
-    values (${hand.id}, ${hand.matchId}, ${hand.number}, ${hand.seedHash}, ${hand.button}, ${sql.json(jsonb(hand.stacksStart))}, ${hand.liveSeats})
+    insert into hands (id, match_id, number, seed_hash, button, stacks_start, live_seats, sb, bb)
+    values (${hand.id}, ${hand.matchId}, ${hand.number}, ${hand.seedHash}, ${hand.button}, ${sql.json(jsonb(hand.stacksStart))}, ${hand.liveSeats}, ${hand.sb}, ${hand.bb})
     returning *
   `;
   return row;
@@ -1174,6 +1219,8 @@ export async function getInsightHandsForUser(
       stacksStart: number[];
       liveSeats: number[] | null;
       actions: LoggedAction[];
+      sb: number | null;
+      bb: number | null;
       format: MatchFormat;
       startedAt: Date;
       completedAt: Date | null;
@@ -1181,7 +1228,7 @@ export async function getInsightHandsForUser(
   >`
     select
       h.id, h.match_id, h.number, h.seed, h.button, h.stacks_start, h.live_seats,
-      h.actions, h.started_at, h.completed_at, mp.seat, m.format
+      h.actions, h.sb, h.bb, h.started_at, h.completed_at, mp.seat, m.format
     from hands h
     join matches m on m.id = h.match_id
     join match_players mp on mp.match_id = h.match_id and mp.user_id = ${userId}
@@ -1193,7 +1240,7 @@ export async function getInsightHandsForUser(
     limit ${limit}
   `;
   return rows.map((r) => {
-    const { sb, bb } = blindsAt(r.format, r.number);
+    const { sb, bb } = handBlinds(r, r.format);
     return {
       id: r.id,
       matchId: r.matchId,
@@ -1275,13 +1322,15 @@ export async function getExplorerHands(mode: Mode, window: ExplorerWindow): Prom
       stacksStart: number[];
       liveSeats: number[] | null;
       actions: LoggedAction[];
+      sb: number | null;
+      bb: number | null;
       format: MatchFormat;
       seats: MatchSeat[];
       finishedAt: Date | null;
     }[]
   >`
     select
-      h.match_id, h.number, h.seed, h.button, h.stacks_start, h.live_seats, h.actions,
+      h.match_id, h.number, h.seed, h.button, h.stacks_start, h.live_seats, h.actions, h.sb, h.bb,
       m.format, m.seats, m.finished_at
     from hands h
     join matches m on m.id = h.match_id
@@ -1297,11 +1346,7 @@ export async function getExplorerHands(mode: Mode, window: ExplorerWindow): Prom
     limit ${window.limit ?? EXPLORER_HAND_LIMIT}
   `;
   return rows.map((r) => {
-    // A format written before blind levels existed has no `levels` array and
-    // never escalated, so its level-1 blinds are its blinds for every hand.
-    // blindsAt reads the array without checking, which is a throw on those
-    // rows rather than a fallback.
-    const { sb, bb } = r.format.levels ? blindsAt(r.format, r.number) : { sb: r.format.sb, bb: r.format.bb };
+    const { sb, bb } = handBlinds(r, r.format);
     // Dense by table seat, so a seat the match never names still reads as a
     // person rather than as a hole in the array.
     const bots: boolean[] = r.stacksStart.map(() => false);
