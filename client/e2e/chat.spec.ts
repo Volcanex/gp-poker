@@ -65,7 +65,7 @@ for (const size of SIZES) {
    gutter beside the felt when there is one, and covers the felt when there is
    not, and either way it never lands on top of a seat. */
 test('the panel takes the gutter beside a felt wide enough to have one', async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.setViewportSize({ width: 1920, height: 1080 });
   await stubApi(page);
   await page.goto('/m/mock');
   await waitForDock(page, 'turn');
@@ -75,7 +75,7 @@ test('the panel takes the gutter beside a felt wide enough to have one', async (
   const panel = await page.locator('#table-chat').boundingBox();
   if (!felt || !panel) throw new Error('the felt and the panel must both be on the page');
   expect(panel.x, 'the panel starts after the felt ends').toBeGreaterThanOrEqual(felt.x + felt.width);
-  expect(panel.x + panel.width, 'the panel stays inside the window').toBeLessThanOrEqual(1280);
+  expect(panel.x + panel.width, 'the panel stays inside the window').toBeLessThanOrEqual(1920);
 });
 
 test('the panel is a sheet above the dock where there is no gutter', async ({ page }) => {

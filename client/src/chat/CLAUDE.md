@@ -14,9 +14,9 @@ it the panel shares the felt's own row (`grid-row: 3`, `justify-self: end`) and
 sits in that gutter; anywhere narrower it is a sheet fixed over the felt and
 above the dock.
 
-There are two thresholds because there are two felts: 680px heads-up needs
-1240px of container, 960px six-max needs 1520px, and below its own threshold
-each keeps the sheet rather than laying a column over a seat.
+One threshold, because both shapes draw the same 1120px felt now that the
+seats sit in two wings round the board: the panel docks at 1440px of container
+and below that keeps the sheet rather than laying a column over a seat.
 
 ## The toggle goes at the end of the header's row
 

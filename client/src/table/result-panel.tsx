@@ -61,7 +61,7 @@ export function ResultPanel({ match, meId, onAgain, onReview, againLabel }: Resu
         <div className="rp-verdict">
           <span className="rp-t">{verdict}</span>
           <span className="muted num">
-            {match.handsPlayed} {match.handsPlayed === 1 ? 'hand' : 'hands'} ·{' '}
+            {match.handsPlayed} {match.handsPlayed === 1 ? 'hand' : 'hands'},{' '}
             {stake === 'rated' ? 'rated' : `${stake}, no rating change`}
           </span>
         </div>

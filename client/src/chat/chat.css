@@ -25,14 +25,11 @@
   box-shadow: var(--shadow-overlay);
 }
 
-/* The column, and the only two widths it needs: a heads-up felt is 680px and
-   a six-max ring is 960px, so each needs its own gutter before a 264px panel
-   fits beside it. Below its own threshold a table keeps the sheet, which is
-   the honest answer to "there is no room here" rather than a column laid over
-   a seat. */
-/* A sheet on a screen that is not a phone is still a sheet, but it sits off
-   the corner rather than flush into it: a square edge cut by the window reads
-   as something that failed to fit. */
+/* The column: the felt is 1120px in both shapes now that the seats sit in
+   two wings round the board, so one gutter width serves both, and a 264px
+   panel needs the container to be 1440px before it fits beside the felt.
+   Below that a table keeps the sheet, which is the honest answer to "there is
+   no room here" rather than a column laid over a seat. */
 @container (min-width: 700px) {
   .chat-panel {
     right: var(--sp-4);
@@ -41,8 +38,8 @@
   }
 }
 
-@container (min-width: 1240px) {
-  .match:has(.felt[data-mode="stack"]) > .chat-panel {
+@container (min-width: 1440px) {
+  .match > .chat-panel {
     position: static;
     /* Row 3 AND column 1: the felt's own cell, shared with it. Naming the row
        alone puts the panel in an implicit second column, and the whole table
@@ -59,23 +56,6 @@
   }
 }
 
-@container (min-width: 1520px) {
-  .match:has(.felt[data-mode="ring"]) > .chat-panel {
-    position: static;
-    /* Row 3 AND column 1: the felt's own cell, shared with it. Naming the row
-       alone puts the panel in an implicit second column, and the whole table
-       narrows to make room for it. */
-    grid-row: 3;
-    grid-column: 1;
-    justify-self: end;
-    align-self: stretch;
-    width: var(--chat-w);
-    max-height: none;
-    margin: var(--sp-3) var(--sp-4);
-    border-radius: var(--radius);
-    box-shadow: none;
-  }
-}
 
 .chat-head {
   display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
