@@ -75,8 +75,10 @@ that is non-null once the whole match is decided.
 - **startHand** collects the seats that still have chips, moves the button to the
   next live one (hand 1 puts it on the lowest live seat, which heads-up
   reproduces the old `(number - 1) % 2` rotation), reads the level from
-  `blindsAt(format, number)`, allocates a fresh `newSeed()`, and `insertHand`s the
-  row (seed hash, button, starting stacks for all N seats, `live_seats`) **before**
+  `levelAt(format, number, elapsed)` and its blinds from `blindsAt` with the same
+  elapsed time, allocates a fresh `newSeed()`, and `insertHand`s the
+  row (seed hash, button, starting stacks for all N seats, `live_seats`, **and the
+  blinds it settled on**) **before**
   calling `createHand`, so the commitment exists before any card is dealt even if
   the process dies immediately after. If everyone left is covered by the blinds
   alone, `createHand` itself resolves straight to `'done'` (see
@@ -254,3 +256,19 @@ and it is how the arena scores its matches. A room knows how to play poker and
 how to persist a result; it does not know what an arena is, and a table that
 imported the scoreboard would have to import the next thing that wants to hear
 too. Same injection shape as `setBotDispatch`.
+
+## The blind schedule has two bases
+
+`startHand` measures elapsed match time from `match.createdAt`, not from when
+the runner was constructed, so a room rebuilt over an existing match keeps the
+clock the match was actually created on rather than restarting the ladder.
+`levelAt` takes whichever basis is further along, hands or the clock, which is
+what makes a short format (no hand basis at all) climb on time and a long one
+climb on hands with the clock only catching a table that is running long.
+
+**The level the runner settled on is written to the hand row and reported on
+`TableView.level`.** Neither is a convenience. A short format's level is a
+function of a wall clock, so nothing reading the hand back afterwards, a
+replay, the explorer, the insights walk, could recompute it, and the client's
+header would print a level the table was not on. See `../CLAUDE.md` for
+`handBlinds`, which is the one place a stored hand's blinds are read through.

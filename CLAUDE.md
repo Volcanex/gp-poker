@@ -2,8 +2,9 @@
 
 **Owner:** Gabriel Penman
 **What:** Open Table, free ranked no-limit hold'em at
-poker.gabrielpenman.com: heads-up (best of 25) and six-max sit-and-go,
-each rated or casual, with bots filling empty seats. Lichess for poker: no money, no chips to buy, no
+poker.gabrielpenman.com: six-max sit-and-go (the main game) and heads-up
+(best of 25), each short or long and each rated or casual, with bots filling
+empty seats in casual play. Lichess for poker: no money, no chips to buy, no
 rake, no ads. Chips are table units that reset every match; the scarce
 currency is Glicko-2 rating. Instant play as a guest, claim the account
 later. Every match has a permanent public URL with hand histories, a
@@ -63,16 +64,46 @@ files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
   `client/public/g/` (never hand-edited; re-vendor from the g-system repo).
 
 ## Decisions
-- Modes: heads-up (200 units, blinds 1/2 flat, best of 25 hands or bust,
-  equal stacks is a draw) and six-max (6 seats, blind levels every 8 hands,
-  last player standing, places by elimination order). Each rated or casual.
-  20s decision clock, 15s reconnect grace; three consecutive timeouts
-  forfeit heads-up but only sit a player out in six-max.
-- Ratings are per mode (`ratings` table), like chess time controls. Six-max
-  gives each player one Glicko-2 period against every other seat by place.
-- Bots (`users.bot`) fill a heads-up seat after 5s and a six-max table after
-  20s of waiting, never a table with no human. Bot matches are rated for
-  now: a bootstrap choice to revisit once there are users.
+- Modes: **six-max is the main game** (6 seats, last player standing, places
+  by elimination order) with heads-up beside it (200 units, best of 25 hands
+  or bust, equal stacks is a draw). Every table is 200 units a seat.
+  `DEFAULT_FORMAT` and a bare `queue` message both mean long six-max.
+- **Speed is the second dimension**: `format.speed`, short or long, so there
+  are four formats and eight queues (mode x rated x speed). A **long** table
+  is the game this site started with, a 20s clock and blinds climbing every
+  8 hands six handed, with a ceiling of two hours. A **short** table is the
+  bullet game: a 10s clock and blinds climbing every 90 seconds of elapsed
+  match time, with a ceiling of twenty minutes. Both ceilings are enforced by
+  the blinds and not by a timer that stops a hand: the top level of every
+  schedule has a big blind worth at least half the chips on the table, so
+  each hand from there busts somebody. The arithmetic per format is written
+  above it in `packages/protocol/src/index.ts` and held to its ceiling by
+  `server/test/speed.test.ts`.
+- **Ratings are per mode, not per speed** (`ratings` table). Four pools need
+  four populations and this site has one, so speed rides along as a tag.
+  Split them when the population supports it. Six-max gives each player one
+  Glicko-2 period against every other seat by place.
+- **A matchmade table asks before it deals.** Everybody at it accepts inside
+  20 seconds (`server/src/ready.ts`); a decline or a silence drops the table,
+  puts everybody who did accept back at the front of the queue, and costs the
+  no-show two minutes, doubling for every further one inside the hour. The
+  queue and the arena both use it. A link does not: a challenge and a home
+  game are opened on purpose, and practice has nobody to wait for.
+- **Rated play opens after one finished casual or practice match**
+  (`RANKED_GATE_MATCHES`). Enforced at the queue and at an arena join, so a
+  first ever hand cannot move a rating nobody knew they had. It is the only
+  gate on this site: level unlocks nothing.
+- **Level is matches finished**, level L at L(L+1)/2 of them, derived from the
+  per-mode counters at read time rather than stored. It sits beside the name
+  on a profile and in the top bar, and it unlocks nothing at all. Six badges
+  hang off the same counters (`BADGES`, `badgesFor`), also derived and also
+  functionally inert.
+- Bots (`users.bot`) fill a heads-up seat after 5s and a **casual** six-max
+  table after 20s of waiting, never a table with no human. **Rated six-max is
+  people only** and waits for them: five bots at a table whose result moves a
+  Glicko-2 rating is a rating anybody could dial in. Bot matches are
+  otherwise rated for now, a bootstrap choice to revisit once there are
+  users.
 - Bots play at one of five levels (`users.bot_level`, `BOT_LEVELS` in the
   protocol), 1 loose and passive up to 5 sharp. Level 4 is the bot that
   existed before levels and is still the default. The roster is 15, three per
