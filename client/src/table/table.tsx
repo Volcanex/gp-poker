@@ -7,11 +7,13 @@ import type { ActionKind, Card, SeatView, TableView } from '@opentable/protocol'
 import { Seat } from './seat.tsx';
 import { PlayingCard } from './playing-card.tsx';
 import { ChipStack } from './chip-stack.tsx';
-import { Dock, KeyLegend } from './dock.tsx';
+import { Dock, KeyLegend, playerList } from './dock.tsx';
+import { StakeBadge } from '../routes/feed.tsx';
+import { MODE_NAME } from '../ui/mode-tabs.tsx';
 import {
   blindText, blindTextShort, cardsOf, handText, handTextShort, shortHash, streetText,
 } from './labels.ts';
-import { dealOrder, layoutMode, seatOrder, slotAt } from './layout.ts';
+import { dealOrder, layoutMode, portraitSlot, seatOrder, slotAt } from './layout.ts';
 import { readShowdown } from './best-five.ts';
 import { useTableSounds } from './sounds.ts';
 import { useGInit } from '../ui/bits.tsx';
@@ -88,6 +90,9 @@ export function Table({ view, onAct, sending, bare, ended }: TableProps) {
      not only while you hold cards, for the same reason. */
   const mySeat = view.you == null ? null : view.seats.find((s) => s.i === view.you) ?? null;
   const strip = view.format.practice === true && !bare && !ended;
+  /* Nobody's seat is yours, so you are watching. A replay has no seat either
+     and is drawn bare, without any of this. */
+  const watching = view.you == null && !bare && !ended;
   const hole = holeOf(mySeat);
   const opponents = view.seats.filter(
     (s) => s.i !== view.you && !s.folded && !s.out && s.cards != null,
@@ -108,6 +113,8 @@ export function Table({ view, onAct, sending, bare, ended }: TableProps) {
       data-ended={ended ? '' : undefined}
       data-practice={strip ? '' : undefined}
     >
+      {watching && <WatchBar view={view} />}
+
       {!bare && (
       <div className="hand-head" ref={headRef}>
        <div className="bar-in">
@@ -150,6 +157,10 @@ export function Table({ view, onAct, sending, bare, ended }: TableProps) {
         <div className="felt-in">
           {order.map((s, k) => {
             const slot = slotAt(k, order.length);
+            /* Two geometries, one set of elements: the ellipse reads --x and
+               --y, the phone's portrait grid reads --gr, --gc and --gs, and
+               which one applies is a container query. */
+            const cell = portraitSlot(k, order.length);
             const award = show.awarded.get(s.i) ?? 0;
             const seat = settled || award === 0 ? s : { ...s, stack: s.stack - award };
             return (
@@ -157,10 +168,14 @@ export function Table({ view, onAct, sending, bare, ended }: TableProps) {
                 className="pos"
                 key={s.i}
                 data-half={slot.half}
+                data-k={k}
                 style={{
                   '--x': `${slot.x}%`,
                   '--y': `${slot.y}%`,
                   '--yt': `${slot.yTight}%`,
+                  '--gr': cell.row,
+                  '--gc': cell.col,
+                  '--gs': cell.span,
                 } as CSSProperties}
               >
                 <div className="seat-bet">
@@ -323,4 +338,22 @@ function useShowdown(view: TableView, result: TableView['result'], phase: number
     const { best, names } = readShowdown(result, board);
     return { best, names, awarded, awards };
   }, [result, phase, view.board]);
+}
+
+/* Who is at the table, for somebody who is not. The first row of the grid, so
+   it takes its height from the table rather than from the page above it. */
+function WatchBar({ view }: { view: TableView }) {
+  return (
+    <div className="watch-bar">
+      <div className="bar-in">
+        <span className="tagset">
+          <span className="badge badge-plain">{MODE_NAME[view.format.mode]}</span>
+          <StakeBadge rated={view.format.rated} practice={view.format.practice === true} />
+        </span>
+        <span className="w-who">
+          Watching <b>{playerList(view)}</b>
+        </span>
+      </div>
+    </div>
+  );
 }

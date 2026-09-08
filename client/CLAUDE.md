@@ -68,11 +68,32 @@ declaration for `phe` that the engine's own tsconfig provides.
 
 ## One footprint, three states
 
-The table screen is a header of fixed height, a felt that takes what is left,
-and a dock of fixed height. **Nothing in that column may size to its content.**
-The old table mounted its action bar only when `legal` was non-null, so the felt
-re-divided the instant it became your turn and everything on it jumped; the
-audit that started this rebuild caught it in sixty frames.
+The table screen is a column of six grid rows, every one of them placed
+explicitly. **Nothing in that column may size to its content.**
+
+| Row | What |
+| --- | --- |
+| 1 | the spectator's strip, for a viewer with no seat |
+| 2 | the hand header |
+| 3 | the felt, the only row that takes what is left |
+| 4 | the practice table's live stats strip |
+| 5 | the dock |
+| 6 | the key legend, desktop only |
+
+Two of those rows are optional and an empty grid row is nought pixels, so the
+four combinations are one template rather than four, and a strip can only take
+room from the felt. Both strips are settled before the first card: who is
+watching and whether a table is a practice table cannot change mid-hand, which
+is what makes them safe to put in this column at all. The spectator's strip used
+to sit outside the grid on the argument that a strip only some viewers see does
+not belong in it, which was true of a strip that could arrive mid-hand.
+`e2e/footprint.spec.ts` measures every row and asserts they tile the table
+exactly.
+
+The rule came from the defect this rebuild started with: the old table mounted
+its action bar only when `legal` was non-null, so the felt re-divided the
+instant it became your turn and everything on it jumped. The audit caught it in
+sixty frames.
 
 The rule is enforced, not remembered: `e2e/footprint.spec.ts` walks the mock
 through waiting, your turn, hand over and the next hand at 390 and 1280 in both
@@ -214,7 +235,7 @@ dev server happens to be up.
 
 | Spec | Guards |
 | --- | --- |
-| `footprint` | the boxes and the zero layout shift above, and that the dock is one height in all three states |
+| `footprint` | the boxes and the zero layout shift above, playing and watching, that the dock is one height in all three states, and that the strips tile the grid |
 | `ergonomics` | phone target sizes, the primary action in the bottom quarter, the sizing model and clamping, and a pre-action firing |
 | `showdown` | your cards face up through a lost showdown and after the end, the winning five, the award chip clear of the pot label |
 | `access` | axe-core per state with zero serious or critical, a keyboard-only decision, tab reachability, and typing in the field not triggering the shortcuts |
@@ -339,9 +360,25 @@ pure, so the rotation is unit tested rather than eyeballed:
 - **The felt sizes itself with container queries**, not media queries: the
   replay draws this table in a narrow column beside its action list, so the
   question is how wide the felt is, not how wide the window is. `.match` is the
-  container. Below 640px the seat drops to three rows (the name gets the width
-  of the box), the rating goes, and seats move to `--yt`, a pinched ellipse
-  that keeps them off the board when there is no room to clear it sideways.
+  container.
+- **Below 640px the ring gives up and the felt goes portrait.** Six seats
+  across a 366 px felt leave 120 px each, which is not a seat: the ellipse was
+  truncating every name and the avatar had been dropped to buy room. So the
+  felt becomes four rows instead, the way a phone poker client has always done
+  it: the players furthest round the table along the top, your two neighbours
+  under them either side, the board across the middle, and your own seat across
+  the bottom at the size every other table draws it, because your two cards are
+  the ones you have to read. `portraitSlot` in `layout.ts` says which cell each
+  seat takes and is unit tested; the CSS under the container query is mostly
+  undoing the ellipse's absolute positioning. Row 1 is empty at three and four
+  seats, and an empty grid row is nought pixels, so four rows draw every table.
+- **On that felt the bet sits on its seat's own inner edge**, facing the board,
+  rather than flying toward the middle: every seat is nearly touching the pot at
+  that width, and a chip aimed at it landed on the label.
+- **Two things hang off the seat rather than sitting in it there**: the dealer
+  button on the top right corner and the avatar on the top left. Out of the flow
+  they cost no width, which is what buys the name back, and they still cannot
+  shift anything by arriving.
 - **Dealing.** `dealOrder` is round robin from the seat left of the button, one
   card each then the second, which is the order the engine deals in; the seat
   passes it to `PlayingCard` as the stagger index. In ring mode each card also

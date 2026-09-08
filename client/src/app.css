@@ -184,13 +184,18 @@
   container-type: inline-size;
   flex: 1;
   display: grid;
-  grid-template-rows: var(--head-h) minmax(0, 1fr) auto auto;
+  /* Six rows, every one of them placed explicitly. Two are optional (a
+     spectator's strip and a practice table's) and an empty row is nought
+     pixels, so the four combinations are one template rather than four, and
+     neither strip can push the felt around by appearing. */
+  grid-template-rows: auto var(--head-h) minmax(0, 1fr) auto auto auto;
   min-height: 0;
   position: relative;
   --head-h: 40px;
   --dock-h: 128px;
   --keys-h: 24px;
   --stats-h: 34px;
+  --watch-h: 32px;
   --dock-r1: 28px; /* pills and presets */
   --dock-r2: 32px; /* the amount field and the slider */
   --dock-r3: 34px; /* fold, call, raise */
@@ -206,12 +211,12 @@
    the analysis strip. Fixed, like every other row here: see live-stats.css.
    The dock and its legend name their own rows, so they are renumbered here
    rather than left to auto-placement, which would have put the strip last. */
-.match[data-practice] {
-  grid-template-rows: var(--head-h) minmax(0, 1fr) var(--stats-h) auto auto;
-}
-.match[data-practice] .practice-strip { grid-row: 3; }
-.match[data-practice] .dock { grid-row: 4; }
-.match[data-practice] .dock-keys { grid-row: 5; }
+.match > .watch-bar { grid-row: 1; }
+.match > .hand-head { grid-row: 2; }
+.match > .felt { grid-row: 3; }
+.match > .practice-strip { grid-row: 4; }
+.match > .dock { grid-row: 5; }
+.match > .dock-keys { grid-row: 6; }
 
 .hand-head {
   height: var(--head-h);
@@ -330,33 +335,111 @@
 /* Narrow: a phone, or the replay's column. Three rows to a seat so the name
    has the width of the box, the rating goes (it is on the profile the name
    leads to), and the ellipse pinches so no seat sits level with the board. */
+/* Narrow: a phone, or the replay's column. The ellipse gives up here. Six seats
+   across a 366 px felt leave 120 px each, which is not a seat: it was
+   truncating every name and the avatar had been dropped to buy room. So the
+   felt becomes four rows instead, the way a phone poker client has always done
+   it. `layout.ts` says which cell each seat takes; everything below is undoing
+   the ellipse's absolute positioning. */
 @container (max-width: 640px) {
-  .felt[data-mode="ring"] {
-    --seat-w: 152px; --seat-h: 78px; --ring-h: 448px;
-    --seat-card: 24px; --board-card: 26px;
+  .felt[data-mode="ring"] .felt-in {
+    position: static;
+    height: auto;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: auto auto auto auto;
+    gap: 5px;
   }
-  .felt[data-mode="ring"][data-seats="3"], .felt[data-mode="ring"][data-seats="4"] { --ring-h: 400px; }
-  .felt[data-mode="ring"] .seat { top: var(--yt); grid-template-areas: "cards av id" "cards av last"; grid-template-columns: auto auto minmax(0, 1fr); }
+
+  /* The bet sits on the seat's own inner edge, facing the board, rather than
+     being flown toward the middle: on a felt this narrow every seat is already
+     nearly touching the pot, and a chip aimed at it landed on the label. */
+  .felt[data-mode="ring"] .pos {
+    position: static; inset: auto;
+    grid-row: var(--gr);
+    grid-column: var(--gc) / span var(--gs);
+    display: flex; flex-direction: column-reverse; gap: 2px;
+    min-width: 0;
+  }
+  .felt[data-mode="ring"] .pos[data-k="0"] { flex-direction: column; }
+
   .felt[data-mode="ring"] .seat-bet {
-    top: var(--yt);
-    inset: calc(var(--seat-h) / 2 + 12px) calc(var(--seat-w) / 2 + 46px);
+    position: static; inset: auto;
+    display: flex; justify-content: center;
+    /* Smaller chips than the rest of the felt: five denominations and a figure
+       have to fit a third of a phone. */
+    --chip: 10px;
+    min-height: calc(var(--chip) + (var(--chip-rows) - 1) * 3px);
   }
-  .felt[data-mode="ring"] .seat-bet > * { top: var(--yt); }
-  .felt[data-mode="ring"] .seat { padding: 5px 6px; }
-  /* Six seats on a felt 390 px wide. The avatar goes: it is decorative, the
-     name is the identity, and a seat that says "q..." where it could say
-     "quarrel" has thrown away the half that matters. Every wider ring keeps
-     it. */
-  .felt[data-mode="ring"] .avatar { display: none; }
-  .felt[data-mode="ring"] .seat-name { font-size: 12px; }
-  .felt[data-mode="ring"] .seat-stack { font-size: 14px; }
-  .felt[data-mode="ring"] .seat-last { font-size: 10px; }
-  .felt[data-mode="ring"] .seat-cards { gap: 3px; }
+  .felt[data-mode="ring"] .seat-bet .chips { gap: 2px; }
+  .felt[data-mode="ring"] .bet-chip { gap: 4px; font-size: 11px; }
+  .felt[data-mode="ring"] .seat-bet > * { position: static; left: auto; top: auto; translate: none; }
+
+  .felt[data-mode="ring"] .middle {
+    position: static;
+    grid-row: 3; grid-column: 1 / -1;
+    padding: var(--sp-2) 0;
+  }
+
+  /* An opponent's seat is a third of the felt: cards, then a name over a
+     stack. Your own is the full width and keeps the seat every other table
+     draws, because your two cards are the ones you have to read. */
+  .felt[data-mode="ring"] .seat {
+    /* Relative, not static, because the dealer button hangs off the corner.
+       The ellipse's own offsets have to go with it: a relatively positioned
+       element still reads left and top. */
+    position: relative; left: auto; top: auto; translate: none;
+    width: auto;
+    padding: 4px 5px;
+    grid-template-areas: "cards id" "cards stack";
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 5px;
+  }
+  .felt[data-mode="ring"] .seat .pcard { --card-w: 16px; }
+  .felt[data-mode="ring"] .board .pcard { --card-w: 30px; }
+  .felt[data-mode="ring"] .seat-cards { grid-area: cards; gap: 2px; }
+  .felt[data-mode="ring"] .seat-id { grid-area: id; }
+  .felt[data-mode="ring"] .seat-stack { grid-area: stack; font-size: 13px; }
+  /* The avatar is pinned to the corner of the seat rather than dropped. A
+     third of a phone has no room for it in the name line, but it is decorative
+     and out of the flow it costs nothing and cannot shift anything by
+     arriving. */
+  .felt[data-mode="ring"] .avatar {
+    position: absolute; top: -6px; left: -6px; z-index: 1;
+    --avatar-size: 18px;
+    box-shadow: 0 0 0 2px var(--surface-1);
+  }
+  .felt[data-mode="ring"] .seat-last, .felt[data-mode="ring"] .seat-clock { display: none; }
+  .felt[data-mode="ring"] .seat-name { font-size: 11px; }
   .felt[data-mode="ring"] .seat-line { gap: 4px; flex-wrap: nowrap; }
   .felt[data-mode="ring"] .seat-bot { font-size: 9px; padding: 0 3px; }
-  .felt[data-mode="ring"] .btn-marker { width: 14px; height: 14px; font-size: 9px; }
-  .felt[data-mode="ring"] .seat-clock { display: none; }
+  /* The dealer button leaves the name line and sits on the corner of the seat,
+     where it costs no width and reads like the button on a real table. It is
+     out of the flow, so it still cannot move anything by arriving. */
+  .felt[data-mode="ring"] .btn-marker {
+    position: absolute; top: 3px; right: 3px; z-index: 1;
+    width: 14px; height: 14px; font-size: 9px;
+  }
+  .felt[data-mode="ring"] .seat-stack .u { display: none; }
+
+  /* Your own row, across the bottom: the seat every other table draws. */
+  .felt[data-mode="ring"] .pos[data-k="0"] .seat {
+    grid-template-areas: "cards av id last clock";
+    grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+    padding: 6px var(--sp-2);
+  }
+  .felt[data-mode="ring"] .pos[data-k="0"] .seat .pcard { --card-w: 30px; }
+  .felt[data-mode="ring"] .pos[data-k="0"] .btn-marker { position: static; }
+  .felt[data-mode="ring"] .pos[data-k="0"] .avatar {
+    position: static; grid-area: av; --avatar-size: 24px; box-shadow: none;
+  }
+  .felt[data-mode="ring"] .pos[data-k="0"] .seat-stack { grid-area: stack; font-size: 16px; }
+  .felt[data-mode="ring"] .pos[data-k="0"] .seat-id { grid-area: id; }
+  .felt[data-mode="ring"] .pos[data-k="0"] .seat-last { display: block; grid-area: last; }
+  .felt[data-mode="ring"] .pos[data-k="0"] .seat-clock { display: inline-flex; grid-area: clock; }
+  .felt[data-mode="ring"] .pos[data-k="0"] .seat-name { font-size: 13px; }
 }
+
 
 .middle {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -665,7 +748,7 @@
    dimmed and still rendered: the hand that decided the match is the one thing
    you want to look at when it ends. */
 .match[data-ended] .felt { opacity: 0.7; transition: opacity var(--dur-slow) var(--ease-out); }
-.match[data-ended] { grid-template-rows: var(--head-h) minmax(160px, 1fr); }
+.match[data-ended] { grid-template-rows: auto var(--head-h) minmax(160px, 1fr); }
 
 .result-panel {
   width: 100%; max-width: 680px; margin: var(--sp-4) auto 0;
@@ -960,17 +1043,21 @@ a.btn { text-decoration: none; }
 
 /* ---------------------------------------------------------------- watching */
 
-/* A spectator's strip, between the top bar and the table. Deliberately not a
-   row of .match's grid: the header, the felt and the dock each hold one box in
-   every state of a hand, and a strip only some viewers see does not belong in
-   that column. Out here it takes its own height and the felt keeps all of its
-   own rules. */
+/* A spectator's strip, the first row of the table's own grid and the same
+   shape as the practice strip below the felt: a fixed height that is there for
+   as long as the strip is, so the felt divides once and stays divided. It used
+   to sit outside the grid on the argument that a strip only some viewers see
+   does not belong in that column, which was true of a strip that could appear
+   mid-hand. Neither of these can: who is watching and whether a table is a
+   practice table are both settled before the first card. */
 .watch-bar {
-  flex: none;
-  padding: 7px var(--sp-4);
+  height: var(--watch-h);
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 var(--sp-4);
   border-bottom: 1px solid var(--border-subtle);
   background: var(--surface-2);
   font-size: 12px; color: var(--text-secondary);
+  overflow: hidden;
 }
 .watch-bar .bar-in { display: flex; align-items: center; justify-content: center; gap: var(--sp-3); }
 .watch-bar .tagset { display: flex; align-items: center; gap: 5px; flex: none; }

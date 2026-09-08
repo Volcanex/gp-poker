@@ -60,6 +60,40 @@ export function slotAt(k: number, n: number): Slot {
   };
 }
 
+/* Portrait: the same table on a phone, where an ellipse cannot work. Six seats
+   on a 366 px felt leave about 120 px each, and a seat that narrow cannot hold
+   a name, so the ellipse was truncating every one of them and dropping the
+   avatar to make room.
+
+   Instead the felt becomes four rows: the opponents furthest round the table at
+   the top, the two either side of you under them, the board across the middle
+   and your own seat across the bottom. Your cards stay the size they were, the
+   board keeps the full width, and the order round the table is the one the
+   ellipse used: k grows to your left.
+
+   Row 1 is empty at three and four seats, and an empty grid row is nought
+   pixels, so the same four rows draw every table. */
+export interface GridSlot {
+  row: number;
+  col: number;
+  span: number;
+}
+
+const HERO: GridSlot = { row: 4, col: 1, span: 3 };
+/* One seat sits centred, two take the outer columns, three take all three. */
+const FAR_COLUMNS: Record<number, number[]> = { 1: [2], 2: [1, 3], 3: [1, 2, 3] };
+
+export function portraitSlot(k: number, n: number): GridSlot {
+  if (k <= 0) return HERO;
+  /* The two players either side of you sit nearest the board, on the outside,
+     which is where they are on the ellipse too. */
+  if (k === 1) return { row: 2, col: 1, span: 1 };
+  if (k === n - 1) return { row: 2, col: 3, span: 1 };
+  const far = n - 3; // the seats between your two neighbours
+  const cols = FAR_COLUMNS[far] ?? FAR_COLUMNS[3];
+  return { row: 1, col: cols[k - 2] ?? 2, span: 1 };
+}
+
 /* Deal order: round robin from the seat left of the button, one card each and
    then the second, which is the order the engine deals in. Seats with no cards
    (eliminated, or sitting out the hand) are skipped rather than left a gap. */

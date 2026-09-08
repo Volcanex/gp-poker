@@ -169,7 +169,6 @@ function LiveMatch({ id }: { id: string }) {
 
   return (
     <>
-      {watching && !ended && <WatchBar view={view} />}
       <Table view={view} onAct={onAct} sending={sending} ended={ended != null} />
       {ended ? (
         <>
@@ -188,26 +187,6 @@ function LiveMatch({ id }: { id: string }) {
         error && <div className="dock-error" role="alert">{error}</div>
       )}
     </>
-  );
-}
-
-/* Above the felt, not inside it: the table's header, felt and dock each keep
-   one box in every state of a hand, and a strip that only some viewers see has
-   no business in that column. It sits between the top bar and the table
-   instead, where taking its own height costs the felt nothing. */
-function WatchBar({ view }: { view: TableView }) {
-  return (
-    <div className="watch-bar">
-      <div className="bar-in">
-        <span className="tagset">
-          <span className="badge badge-plain">{MODE_NAME[view.format.mode]}</span>
-          <StakeBadge rated={view.format.rated} practice={view.format.practice === true} />
-        </span>
-        <span className="w-who">
-          Watching <b>{playerList(view)}</b>
-        </span>
-      </div>
-    </div>
   );
 }
 
@@ -274,7 +253,6 @@ function MockMatch(
 
   return (
     <>
-      {watch && !ended && <WatchBar view={view} />}
       <Table view={view} onAct={advance} sending={false} ended={ended != null} />
       {ended ? (
         <>

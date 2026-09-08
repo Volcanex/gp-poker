@@ -69,11 +69,17 @@ export function masks(page: Page): Locator[] {
    because a felt that keeps its box can still shuffle its contents. */
 export const FOOTPRINT = ['.hand-head', '.felt', '.board', '.pot', '.seat:has(.seat-you)', '.dock'];
 
+/* The same regions for somebody with no seat of their own: the bottom slot is
+   seat 0's when nobody is sitting in it for you. */
+export const WATCHING_FOOTPRINT = [
+  '.hand-head', '.felt', '.board', '.pot', '.pos[data-half="bottom"] .seat', '.dock',
+];
+
 export interface Box { x: number; y: number; width: number; height: number }
 
-export async function boxes(page: Page): Promise<Record<string, Box>> {
+export async function boxes(page: Page, which = FOOTPRINT): Promise<Record<string, Box>> {
   const out: Record<string, Box> = {};
-  for (const sel of FOOTPRINT) {
+  for (const sel of which) {
     const box = await page.locator(sel).first().boundingBox();
     if (!box) throw new Error(`${sel} is not on the page`);
     out[sel] = {
