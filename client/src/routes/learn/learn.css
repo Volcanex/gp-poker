@@ -1,0 +1,118 @@
+/* The Learn section: the index cards, the lesson shell and the diagrams the
+   lessons draw. Tokens only. The prose itself is g's .prose, unchanged. */
+
+.learn-index .lesson-cards {
+  display: grid;
+  gap: var(--sp-3);
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.learn-index .lesson-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  transition: border-color var(--dur-base) var(--ease-out);
+}
+.learn-index .lesson-card:hover { border-color: var(--border); }
+.learn-index .lesson-card .n { font-size: 12px; color: var(--text-placeholder); font-variant-numeric: tabular-nums; }
+.learn-index .lesson-card .t { font-size: var(--font-size-ui); font-weight: 500; }
+.learn-index .lesson-card a.stretch { position: absolute; inset: 0; border-radius: var(--radius-card); }
+.learn-index .lesson-card a.stretch:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+.crumb { display: flex; align-items: center; gap: var(--sp-2); font-size: 12px; color: var(--text-secondary); }
+.crumb a { color: var(--text-secondary); }
+.crumb a:hover { color: var(--text-primary); }
+.crumb .sep { color: var(--text-placeholder); }
+
+.lesson-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--border-subtle);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.lesson-foot .spacer { flex: 1; }
+
+/* A figure inside a lesson: a card with a caption under it, so a diagram is
+   never mistaken for the paragraph it sits between. */
+.figure { display: flex; flex-direction: column; gap: var(--sp-3); margin: 0 0 0.9em; }
+.figure .cap { font-size: 12px; color: var(--text-secondary); }
+.figure .scroll { overflow-x: auto; }
+
+/* ------------------------------------------------------- hand rankings */
+
+.rank-table td .ctext { font-size: var(--font-size-ui); }
+.rank-table td:first-child { white-space: nowrap; }
+
+/* ------------------------------------------------------------ positions */
+
+.seats-row {
+  display: grid;
+  gap: var(--sp-2);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+.seat-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  padding: 7px 9px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  background: var(--well-bg);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.seat-chip .t { font-size: var(--font-size-ui); color: var(--text-primary); }
+.seat-chip[data-button] { border-color: var(--border); }
+.seat-chip .mark {
+  font-size: 11px;
+  color: var(--text-placeholder);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------- ranges */
+
+.range-grid-wrap { overflow-x: auto; }
+.range-grid {
+  display: grid;
+  grid-template-columns: repeat(13, minmax(26px, 1fr));
+  gap: 1px;
+  min-width: 350px;
+}
+.range-cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  background: var(--well-bg);
+  color: var(--text-placeholder);
+}
+.range-cell[data-region='aggr'] {
+  background: color-mix(in srgb, var(--ok-text) 20%, transparent);
+  color: var(--ok-text);
+}
+.range-cell[data-region='passive'] {
+  background: color-mix(in srgb, var(--warn-text) 20%, transparent);
+  color: var(--warn-text);
+}
+
+.legend {
+  display: flex;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  margin: 0 0 0.9em;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.legend .key { display: inline-flex; align-items: center; gap: 6px; }
+.legend .sw { width: 10px; height: 10px; border-radius: 2px; background: var(--well-bg); }
+.legend .sw[data-region='aggr'] { background: color-mix(in srgb, var(--ok-text) 20%, transparent); }
+.legend .sw[data-region='passive'] { background: color-mix(in srgb, var(--warn-text) 20%, transparent); }
+.legend .num { font-variant-numeric: tabular-nums; color: var(--text-primary); }

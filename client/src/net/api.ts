@@ -1,4 +1,4 @@
-import type { Hand, LeaderboardRow, Match, Me, Profile } from './types.ts';
+import type { FeedMatch, Hand, LeaderboardRow, LiveMatch, Match, Me, Profile, SiteStats } from './types.ts';
 import type { Mode, UserSummary } from '@opentable/protocol';
 
 export class ApiError extends Error {
@@ -46,6 +46,12 @@ export const api = {
   /* A hand's primary key is '<match id>-<number>' (server/db/schema.sql), so a
      hand is addressable from a match URL without a lookup table. */
   hand: (matchId: string, n: number) => req<Hand>(`/api/hands/${encodeURIComponent(`${matchId}-${n}`)}`),
+  /* The home feed. `recent` and `live` are lists a page renders whole;
+     `stats` is polled, and the server caches it for five seconds so a room
+     full of open tabs costs one query. */
+  recent: (limit = 20) => req<FeedMatch[]>(`/api/recent?limit=${limit}`),
+  stats: () => req<SiteStats>('/api/stats'),
+  live: () => req<LiveMatch[]>('/api/live'),
   claim: (name: string, password: string) => post<UserSummary>('/api/claim', { name, password }),
   login: (name: string, password: string) => post<UserSummary>('/api/login', { name, password }),
   logout: () => post<{ ok: true }>('/api/logout'),

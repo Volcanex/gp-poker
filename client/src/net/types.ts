@@ -104,6 +104,47 @@ export interface Match {
   hands: MatchHandSummary[];
 }
 
+/* The home feed and the watch list: /api/recent, /api/stats and /api/live.
+   These three routes read the match rows rather than the live rooms, so the
+   count in the strip and the list underneath it always agree. */
+
+export interface FeedPlayer {
+  name: string;
+  bot: boolean;
+  place: number | null; // 1 = winner; null on a match stored before places existed
+  ratingBefore: number | null; // null when the match was casual or practice
+  ratingAfter: number | null;
+}
+
+export interface FeedMatch {
+  id: string;
+  mode: Mode;
+  rated: boolean;
+  practice: boolean;
+  handsPlayed: number;
+  finishedAt: string | null;
+  players: FeedPlayer[]; // finishing order, winner first
+}
+
+export interface SiteStats {
+  online: number;
+  inQueue: number;
+  playing: number;
+  matchesToday: number;
+  handsTotal: number;
+  playersTotal: { registered: number; guest: number };
+}
+
+export interface LiveMatch {
+  id: string;
+  mode: Mode;
+  rated: boolean;
+  practice: boolean;
+  hand: number; // the hand being dealt now, 1-based
+  players: { name: string; bot: boolean }[];
+  startedAt: string;
+}
+
 /* study is written by the server as {seat: {decisions, evLost, accuracy}}
    (server/db/schema.sql). Every field is optional here: a hand scored before
    the study writer existed, or a hand with no preflop decision, has none. */

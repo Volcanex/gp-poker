@@ -5,7 +5,10 @@ import { Home } from './routes/home.tsx';
 import { Match } from './routes/match.tsx';
 import { Leaderboard } from './routes/leaderboard.tsx';
 import { Profile } from './routes/profile.tsx';
+import { Watch } from './routes/watch.tsx';
+import { learnRoutes } from './routes/learn/index.tsx';
 import { AccountMenu } from './ui/auth.tsx';
+import { SiteFooter } from './ui/site-footer.tsx';
 
 /* The replay is the only page that runs the engine, and the engine carries a
    hand evaluator with a large lookup table. Splitting it here keeps that table
@@ -49,6 +52,9 @@ function TopBar() {
       <Link className="wordmark" to="/">Open Table</Link>
       <nav>
         <NavLink to="/" end>Play</NavLink>
+        <NavLink to="/learn">Learn</NavLink>
+        <NavLink to="/tools">Tools</NavLink>
+        <NavLink to="/watch">Watch</NavLink>
         <NavLink to="/leaderboard">Leaderboard</NavLink>
       </nav>
       <span className="spacer" />
@@ -66,6 +72,8 @@ export function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/watch" element={<Watch />} />
+          {learnRoutes}
           <Route path="/m/:id" element={<Match />} />
           <Route
             path="/m/:id/h/:n"
@@ -78,6 +86,7 @@ export function App() {
           <Route path="/u/:name" element={<Profile />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        <SiteFooter />
       </SessionProvider>
     </BrowserRouter>
   );

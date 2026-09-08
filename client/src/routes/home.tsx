@@ -12,6 +12,7 @@ import { int } from '../ui/format.ts';
 import { useTitle } from '../ui/title.ts';
 import { Link, useLocation } from 'react-router-dom';
 import { Avatar } from '../ui/avatar.tsx';
+import { RecentMatches, StatsStrip } from './feed.tsx';
 
 /* The line under each mode's name is built from that mode's format, so the
    promise on the card cannot drift from the match it starts. */
@@ -130,6 +131,8 @@ export function Home() {
           </div>
         )}
 
+        <StatsStrip />
+
         {liveMatch && (
           <Link className="btn btn-secondary" to={`/m/${liveMatch}`}>
             Return to your match
@@ -159,11 +162,13 @@ export function Home() {
         </div>
       </section>
 
+      <RecentMatches />
+
       <Leaderboard mode={queue.mode} />
 
       <footer className="home-foot">
-        Every hand is provably fair. Every match is public.{' '}
-        <Link to="/leaderboard">See the leaderboard</Link>
+        Every hand is <Link to="/learn/fair">provably fair</Link>. Every match is public.{' '}
+        <Link to="/learn">Learn how to play</Link>
       </footer>
     </main>
   );

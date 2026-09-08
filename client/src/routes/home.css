@@ -1,0 +1,121 @@
+/* The home feed: the strip of live counts and the list of finished matches
+   under the mode cards. The watch page renders the same rows, so it imports
+   this file too. Tokens only, like everything else in the app layer. */
+
+.stats-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-3);
+  font-size: 12px;
+  color: var(--text-secondary);
+  min-height: 18px;
+}
+.stats-strip b {
+  color: var(--text-primary);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.stats-strip .sep { color: var(--text-placeholder); }
+
+.feed-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+}
+.feed-head .spacer { flex: 1; }
+
+.feed-card { padding: 0; overflow: hidden; }
+
+/* One row per match. The whole row opens the match, and the player names are
+   their own links inside it, so the row cannot be an anchor: an anchor
+   stretched over the row sits underneath, and the names are lifted above it.
+   Nesting one anchor in another is not markup a browser will keep. */
+.feed-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 9px var(--pad-card);
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: var(--font-size-ui);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.feed-row:last-child { border-bottom: none; }
+.feed-row:hover { background: var(--fill-hover); }
+.feed-row .row-link {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: var(--radius-sm);
+}
+.feed-row .row-link:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+
+.feed-row .tagset {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+}
+
+.feed-players {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px var(--sp-2);
+  flex: 1;
+  min-width: 0;
+}
+.feed-players a { color: var(--text-primary); text-decoration: none; }
+.feed-players a:hover { text-decoration: underline; }
+.feed-players .beat { color: var(--text-placeholder); font-size: 12px; }
+/* The comma belongs to the name before it, not to the gap after it. */
+.feed-players .punct { color: var(--text-placeholder); margin-left: -4px; }
+.feed-players .name { display: inline-flex; align-items: baseline; gap: 4px; }
+.feed-players .delta { font-size: 12px; font-variant-numeric: tabular-nums; }
+.feed-players .bot-tag {
+  font-size: 11px;
+  color: var(--text-placeholder);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  padding: 0 5px;
+  line-height: 15px;
+}
+
+.feed-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex: none;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 560px) {
+  .feed-row { flex-wrap: wrap; gap: var(--sp-2); }
+  .feed-meta { width: 100%; }
+  /* The subtitle is the first thing to go: the heading and the button both
+     have somewhere to be. */
+  .feed-head .muted { display: none; }
+}
+
+/* ------------------------------------------------------------------ footer */
+
+.site-foot {
+  flex: none;
+  border-top: 1px solid var(--border-subtle);
+  padding: var(--sp-4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-3);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.site-foot a { color: var(--text-secondary); }
+.site-foot a:hover { color: var(--text-primary); }
+.site-foot .sep { color: var(--text-placeholder); }
