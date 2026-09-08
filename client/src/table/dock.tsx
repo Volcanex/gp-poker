@@ -4,7 +4,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import type { ActionKind, TableView } from '@opentable/protocol';
 import { holdFor } from '@opentable/protocol';
 import { isTextEntry, useGInit } from '../ui/bits.tsx';
-import { clamp, presetsFor } from './sizing.ts';
+import { clamp, presetsFor, raiseAction, raiseShape } from './sizing.ts';
 import {
   PRE_ACTIONS, amountToCall, isLastHand, resolvePreAction, survivesRaise,
 } from './preactions.ts';
@@ -21,12 +21,18 @@ export interface DockProps {
 
 export type DockState = 'wait' | 'turn' | 'over' | 'watch';
 
-/* The dock is the hand. One region at the bottom of the table, one fixed
-   height, three states rendered in the same box: waiting, your turn, hand
-   over. Nothing here mounts or unmounts the box itself, which is the whole
-   point: the old action bar appeared only on your turn and the felt above it
-   re-divided the moment it did. Contents cross-fade; nothing slides. */
-export function Dock({ view, onAct, sending }: DockProps) {
+export interface DockLogic {
+  state: DockState;
+  pre: PreAction | null;
+  setPre: (p: PreAction | null) => void;
+  canPre: boolean;
+}
+
+/* Which of the four states the hand is in, and the pre-action that is armed
+   for it. Lifted out of the dock because the phone's hero band is a second
+   rendering of the same decision: two copies of "arm a pill, fire it the
+   instant the action reaches you" would drift the first time either changed. */
+export function useDockLogic(view: TableView, onAct: DockProps['onAct'], sending: boolean): DockLogic {
   const legal = view.legal;
   const seated = view.you != null;
   const yourTurn = legal != null && seated;
@@ -62,6 +68,21 @@ export function Dock({ view, onAct, sending }: DockProps) {
     if (a) onAct(a);
   }, [yourTurn, legal, pre, sending, view.h, view.n, onAct]);
 
+  const mine = view.you == null ? null : view.seats.find((s) => s.i === view.you) ?? null;
+  const canPre = seated && mine != null && !mine.folded && !mine.out && !mine.allin;
+
+  return { state, pre, setPre, canPre };
+}
+
+/* The dock is the hand. One region at the bottom of the table, one fixed
+   height, three states rendered in the same box: waiting, your turn, hand
+   over. Nothing here mounts or unmounts the box itself, which is the whole
+   point: the old action bar appeared only on your turn and the felt above it
+   re-divided the moment it did. Contents cross-fade; nothing slides. */
+export function Dock({ view, onAct, sending }: DockProps) {
+  const legal = view.legal;
+  const { state, pre, setPre, canPre } = useDockLogic(view, onAct, sending);
+
   return (
     <div className="dock" data-state={state}>
       <AnimatePresence mode="wait" initial={false}>
@@ -73,7 +94,7 @@ export function Dock({ view, onAct, sending }: DockProps) {
           ) : state === 'watch' ? (
             <Watching view={view} />
           ) : (
-            <Waiting view={view} pre={pre} onPre={setPre} disabled={!seated} />
+            <Waiting view={view} pre={pre} onPre={setPre} canPre={canPre} />
           )}
         </Fade>
       </AnimatePresence>
@@ -105,35 +126,48 @@ function Fade({ children, state }: { children: ReactNode; state: DockState }) {
 /* ------------------------------------------------------------------ waiting */
 
 function Waiting({
-  view, pre, onPre, disabled,
+  view, pre, onPre, canPre,
 }: {
   view: TableView;
   pre: PreAction | null;
   onPre: (p: PreAction | null) => void;
-  disabled: boolean;
+  canPre: boolean;
 }) {
-  const mine = view.you == null ? null : view.seats.find((s) => s.i === view.you) ?? null;
-  const canPre = !disabled && mine != null && !mine.folded && !mine.out && !mine.allin;
-
   return (
     <>
-      <div className="dock-pre" role="group" aria-label="Pre-actions">
-        {PRE_ACTIONS.map((p) => (
-          <button
-            key={p.key}
-            type="button"
-            className="btn btn-tertiary btn-sm pill"
-            disabled={!canPre}
-            aria-pressed={pre === p.key}
-            data-on={pre === p.key ? '' : undefined}
-            onClick={() => { playClick(); onPre(pre === p.key ? null : p.key); }}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
+      <PreActionPills pre={pre} onPre={onPre} canPre={canPre} className="dock-pre" />
       <div className="dock-status">{waitingText(view)}</div>
     </>
+  );
+}
+
+/* The three pills, in one place. The dock lays them in a row and the phone's
+   hero band stacks them up the thumb's column; what they do is the same. */
+export function PreActionPills({
+  pre, onPre, canPre, className, size = 'btn-sm',
+}: {
+  pre: PreAction | null;
+  onPre: (p: PreAction | null) => void;
+  canPre: boolean;
+  className: string;
+  size?: string;
+}) {
+  return (
+    <div className={className} role="group" aria-label="Pre-actions">
+      {PRE_ACTIONS.map((p) => (
+        <button
+          key={p.key}
+          type="button"
+          className={`btn btn-tertiary ${size} pill`}
+          disabled={!canPre}
+          aria-pressed={pre === p.key}
+          data-on={pre === p.key ? '' : undefined}
+          onClick={() => { playClick(); onPre(pre === p.key ? null : p.key); }}
+        >
+          {p.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -159,12 +193,7 @@ function Watching({ view }: { view: TableView }) {
   return (
     <>
       <div className="dock-status">{watchingText(view)}</div>
-      <div className="dock-watch">
-        <span className="w-note">Hole cards turn over at showdown</span>
-        <Link className="btn btn-secondary btn-sm" to="/watch">
-          Stop watching
-        </Link>
-      </div>
+      <StopWatching />
     </>
   );
 }
@@ -185,7 +214,10 @@ export function watchingText(view: TableView): string {
 
 /* ----------------------------------------------------------------- hand over */
 
-function HandOver({ view }: { view: TableView }) {
+/* Who won what, and how long the hand is held for. Its own component because
+   the phone's hero band shows the same two things in a column half the width,
+   and the countdown's length has to come off `holdFor` in both. */
+export function HandResult({ view }: { view: TableView }) {
   const hold = holdFor(view.format);
   const left = useCountdown(`${view.m}:${view.h}`, hold);
   const last = isLastHand(view);
@@ -193,38 +225,52 @@ function HandOver({ view }: { view: TableView }) {
   const name = (seat: number) => view.seats.find((s) => s.i === seat)?.name ?? `Seat ${seat}`;
 
   return (
+    <div className="dock-result">
+      <span className="r-line">
+        {awards.length === 0 ? (
+          'The hand is over.'
+        ) : (
+          awards.map((a) => (
+            <span key={`${a.seat}-${a.amount}`}>
+              <b>
+                {a.seat === view.you ? 'You win' : `${name(a.seat)} wins`}{' '}
+                <span className="num">{a.amount}</span>
+              </b>
+              {a.hand ? ` with ${a.hand.toLowerCase()}` : ''}
+            </span>
+          ))
+        )}
+      </span>
+      <span className="badge num" role="timer">
+        {last ? 'Result in' : 'Next hand in'} {left}
+      </span>
+    </div>
+  );
+}
+
+/* The way out, for somebody with no seat. The same row in the watching state
+   and at hand end, because a spectator's one control does not change. */
+export function StopWatching() {
+  return (
+    <div className="dock-watch">
+      <span className="w-note">Hole cards turn over at showdown</span>
+      <Link className="btn btn-secondary btn-sm" to="/watch">
+        Stop watching
+      </Link>
+    </div>
+  );
+}
+
+function HandOver({ view }: { view: TableView }) {
+  return (
     <>
-      <div className="dock-result">
-        <span className="r-line">
-          {awards.length === 0 ? (
-            'The hand is over.'
-          ) : (
-            awards.map((a) => (
-              <span key={`${a.seat}-${a.amount}`}>
-                <b>
-                  {a.seat === view.you ? 'You win' : `${name(a.seat)} wins`}{' '}
-                  <span className="num">{a.amount}</span>
-                </b>
-                {a.hand ? ` with ${a.hand.toLowerCase()}` : ''}
-              </span>
-            ))
-          )}
-        </span>
-        <span className="badge num" role="timer">
-          {last ? 'Result in' : 'Next hand in'} {left}
-        </span>
-      </div>
+      <HandResult view={view} />
       {/* The three choices stay in the box as inert ghosts: the dock's height
           is the same in every state, and the eye keeps its place. A spectator
           has no choices to hold open, so the same row carries the one thing
           that is theirs to press. */}
       {view.you == null ? (
-        <div className="dock-watch">
-          <span className="w-note">Hole cards turn over at showdown</span>
-          <Link className="btn btn-secondary btn-sm" to="/watch">
-            Stop watching
-          </Link>
-        </div>
+        <StopWatching />
       ) : (
         <div className="dock-acts" aria-hidden="true">
           <span className="btn btn-tertiary ghost">Fold</span>
@@ -263,9 +309,9 @@ function TurnControls({
   onAct: (a: ActionKind, v?: number) => void;
 }) {
   const { actions, call, min, max } = legal;
-  const canRaise = (actions.includes('b') || actions.includes('r') || actions.includes('a')) && max > min;
-  const raiseKind: ActionKind = actions.includes('b') ? 'b' : 'r';
-  const isBet = raiseKind === 'b';
+  /* What raising means in this spot, read off `legal` in one place, because
+     the phone's hero band draws the same decision (see `sizing.ts`). */
+  const { canRaise, isBet, checkOrCall } = raiseShape(legal);
   const myBet = view.seats.find((s) => s.i === view.you)?.bet ?? 0;
 
   const presets = useMemo(
@@ -311,11 +357,10 @@ function TurnControls({
       fieldRef.current?.select();
       return;
     }
-    if (fixed >= max && actions.includes('a')) onAct('a');
-    else onAct(raiseKind, fixed);
-  }, [sending, canRaise, value, min, max, actions, onAct, raiseKind]);
-
-  const checkOrCall = actions.includes('x') ? 'x' : actions.includes('c') ? 'c' : null;
+    const { kind, value: amount } = raiseAction(legal, fixed);
+    if (amount == null) onAct(kind);
+    else onAct(kind, amount);
+  }, [sending, canRaise, value, min, max, legal, onAct]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

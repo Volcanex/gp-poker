@@ -8,6 +8,7 @@ import { Seat } from './seat.tsx';
 import { PlayingCard } from './playing-card.tsx';
 import { ChipStack } from './chip-stack.tsx';
 import { Dock, KeyLegend, playerList } from './dock.tsx';
+import { HeroBand } from './hero-band.tsx';
 import { StakeBadge } from '../routes/feed.tsx';
 import { MODE_NAME } from '../ui/mode-tabs.tsx';
 import {
@@ -16,7 +17,7 @@ import {
 import { dealOrder, layoutMode, portraitSlot, seatOrder, slotAt } from './layout.ts';
 import { readShowdown } from './best-five.ts';
 import { useTableSounds } from './sounds.ts';
-import { useGInit } from '../ui/bits.tsx';
+import { useGInit, useMediaQuery } from '../ui/bits.tsx';
 import { LiveStats } from '../analysis/live-stats.tsx';
 import { ChatPanel, ChatToggle } from '../chat/chat.tsx';
 import type { ChatController } from '../chat/use-chat.ts';
@@ -129,6 +130,14 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
     (s) => s.i !== view.you && !s.folded && !s.out && s.cards != null,
   ).length;
 
+  /* The phone's v2 table swaps the dock for the hero band: your own cards
+     drawn large in one corner and the controls under the thumb in the other.
+     A media query cannot make that swap, because the two are different
+     components rather than two sets of rules on one. Desktop v2 keeps the
+     dock it has. */
+  const phone = useMediaQuery('(max-width: 560px)');
+  const band = look === 'v2' && phone && !bare && !ended;
+
   const result = view.street === 'done' ? view.result : null;
   const phase = useHandEnd(result ? `${view.m}:${view.h}` : null, reduced);
 
@@ -150,6 +159,10 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
     <div
       className="match"
       data-look={look === 'v2' ? 'v2' : undefined}
+      /* The felt stops drawing your own seat only when the band is actually
+         on screen and it is actually yours: a spectator's bottom seat belongs
+         to a player, and hiding it would leave nothing in its place. */
+      data-band={band && view.you != null ? '' : undefined}
       data-bare={bare ? '' : undefined}
       data-ended={ended ? '' : undefined}
       data-practice={strip ? '' : undefined}
@@ -350,7 +363,9 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
 
       {!bare && !ended && (
         <>
-          <Dock view={view} onAct={onAct} sending={sending} />
+          {band
+            ? <HeroBand view={view} onAct={onAct} sending={sending} best={show.best} />
+            : <Dock view={view} onAct={onAct} sending={sending} />}
           <KeyLegend watching={view.you == null} />
         </>
       )}

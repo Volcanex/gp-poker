@@ -82,6 +82,54 @@ derived from the view the same way the server derives it. Its length is
 the client counts it down, so it lives in the protocol rather than in either of
 them. Two copies of that number drift and the countdown starts lying.
 
+## The hero band
+
+The phone's v2 table swaps the dock for `hero-band.tsx`: your own two cards
+drawn at 104 px in one bottom corner, the controls in a column under the thumb
+in the other. `table.tsx` picks between them with `useMediaQuery` in
+`../ui/bits.tsx`, because the two are different components rather than two sets
+of rules on one; desktop v2 keeps the dock. v1 never sees any of it, and
+`hero-band.css` is scoped to `.hero-band` and `.match[data-band]` so it cannot.
+
+**The dock's rule holds, and the band is a harder case for it.** One box, four
+states, nothing sized to its content: `../../e2e/hero-band.spec.ts` walks a hand
+through turn, waiting, hand over and the next turn at 390 and asserts the
+header, the felt, the board, the pot and the band have byte identical boxes and
+that the layout-shift observer sums to exactly zero. The felt's own footprint
+list cannot be used, because the band **is** your seat: `.match[data-band]`
+hides `.pos[data-k="0"] .seat` and keeps its `.seat-bet`, which is what a chip
+flies from. `data-band` is stamped by `table.tsx` only when the band is on
+screen **and** the viewer has a seat, because a spectator's bottom seat belongs
+to a player and hiding it would leave a hole.
+
+**Fold is a slide.** Drag the handle 70% of the way across and the hand goes;
+release earlier and it springs back; a tap nudges it 12 px and springs back, so
+the gesture teaches itself rather than needing a caption. Pointer events with
+`setPointerCapture`, because capture is what keeps a drag alive when the finger
+leaves the track, and the handle is moved with a transform rather than an
+offset: an offset is a layout change and this control is 48 px from the felt.
+A keyboard press folds outright (`e.detail === 0` is the only way to tell one
+from the click a slide leaves behind), which is the sole route to Fold without
+a thumb. Where folding is not legal the bar is disabled, never dropped.
+
+**The sizer is a sweep, not a grab.** Pressing anywhere on the track jumps to
+that point and drags on from there, so a size is one thumb movement; min is at
+the bottom and all in at the top, the way a stack reads. The `input type=range`
+under it is invisible and carries no pointer events: it is there for a keyboard
+and a screen reader, and the track owns the gesture. Only three marks are
+drawn, and one that lands within 8% of another is dropped, because a pot sized
+raise is often all in and two labels three pixels apart say less than one. The
+clamp and all-in semantics come from `raiseAction` and `raiseLabel` in
+`sizing.ts`, which the dock's `submitRaise` also calls: the dock's typed field
+is still the source of truth for the rules, this is the same rules in one place.
+
+**Handedness is a setting** (`hand` in `../ui/prefs.ts`), stamped as
+`data-hand="left"` on the root by the pre-paint script in `../../index.html` as well
+as by `applyPrefs`, so a left handed player never sees the right handed layout
+flash past. The band mirrors by swapping its grid areas, the fan tilts the
+other way, the sweep moves to the near edge and the arrow on the fold handle
+turns round.
+
 ## Sizing
 
 **The typed field is the source of truth.** It holds a raise-to total, opens the

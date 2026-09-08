@@ -1,4 +1,4 @@
-import type { LegalActions, Street } from '@opentable/protocol';
+import type { ActionKind, LegalActions, Street } from '@opentable/protocol';
 
 export interface Preset {
   key: string; // stable across states, so the number keys always mean the same thing
@@ -55,4 +55,43 @@ export function presetsFor(
     { key: 'pot', label: 'Pot', value: fraction(1) },
     { key: 'allin', label: 'All in', value: max },
   ];
+}
+
+/* What the primary button on a turn does, read off `legal` in one place. The
+   dock and the phone's hero band both draw a "raise to" control and both have
+   to agree on three things: whether raising is even on the table, whether the
+   word is bet or raise, and whether the top of the range is an all in of its
+   own. */
+export interface RaiseShape {
+  canRaise: boolean;
+  isBet: boolean;
+  kind: ActionKind; // 'b' or 'r', the action a sized raise sends
+  checkOrCall: ActionKind | null;
+}
+
+export function raiseShape(legal: LegalActions): RaiseShape {
+  const { actions, min, max } = legal;
+  const canRaise = (actions.includes('b') || actions.includes('r') || actions.includes('a')) && max > min;
+  const kind: ActionKind = actions.includes('b') ? 'b' : 'r';
+  return {
+    canRaise,
+    isBet: kind === 'b',
+    kind,
+    checkOrCall: actions.includes('x') ? 'x' : actions.includes('c') ? 'c' : null,
+  };
+}
+
+/* At the top of the range an all in is its own action, so a table that offers
+   one sends it rather than a raise that happens to be everything. */
+export function raiseAction(legal: LegalActions, value: number): { kind: ActionKind; value?: number } {
+  const v = clamp(Math.round(value), legal.min, legal.max);
+  if (v >= legal.max && legal.actions.includes('a')) return { kind: 'a' };
+  return { kind: raiseShape(legal).kind, value: v };
+}
+
+/* The button prints the number it will send. */
+export function raiseLabel(legal: LegalActions, value: number): string {
+  const v = clamp(Math.round(value), legal.min, legal.max);
+  if (v >= legal.max) return `All in ${legal.max}`;
+  return raiseShape(legal).isBet ? `Bet ${v}` : `Raise to ${v}`;
 }
