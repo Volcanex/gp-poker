@@ -76,6 +76,12 @@ const LEARN_PAGES: { slug: string; title: string; description: string }[] = [
 
 export const STATIC_PAGES: Record<string, PageMeta> = {
   '/': DEFAULT_META,
+  '/arena': {
+    title: 'Arena',
+    description:
+      'An arena every hour, half an hour long. Join it and you are paired again the moment your match ends.',
+    type: 'website',
+  },
   '/leaderboard': {
     title: 'Leaderboard',
     description: 'The top 100 by rating in each mode. A player joins the board once their deviation settles.',

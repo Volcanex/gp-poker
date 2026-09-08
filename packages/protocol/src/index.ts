@@ -1,11 +1,11 @@
-/* Wire protocol v3. JSON over WebSocket, short keys, every message carries t.
+/* Wire protocol v4. JSON over WebSocket, short keys, every message carries t.
    The server is authoritative: clients send intent only. Any change to the
    shapes below is a protocol change: bump PROTOCOL_VERSION and keep the
-   server accepting the previous one for a deploy cycle. v3 is additive: the
-   `chat` message in both directions and nothing else, so a v2 client that
+   server accepting the previous one for a deploy cycle. v4 is additive: the
+   `arena` message in both directions and `format.arena`, so a v3 client that
    never sends one is served unchanged. */
 
-export const PROTOCOL_VERSION = 3;
+export const PROTOCOL_VERSION = 4;
 
 export type Card = string; // 'As', 'Td', '2c' (rank + suit, lowercase suit)
 
@@ -40,6 +40,10 @@ export interface MatchFormat {
   // in whatever seats nobody took. Optional for the same reason `practice`
   // is: a format stored before home games existed simply has no key.
   homeGame?: boolean;
+  // The arena this match was paired for, by arena id. An arena match is an
+  // ordinary rated heads-up match in every other way, so this is the only
+  // thing that tells the scorer, the feed and the table it belongs to one.
+  arena?: string;
 }
 
 export const HEADS_UP_FORMAT: MatchFormat = {
@@ -155,6 +159,48 @@ export interface LobbySeat {
   host: boolean;
 }
 
+/* An arena: a half-hour heads-up event that pairs you again the moment your
+   match ends. Three statuses and no more: it is upcoming until its clock
+   starts, running until its clock ends, and finished for good after that. */
+export type ArenaStatus = 'upcoming' | 'running' | 'finished';
+
+/* One row of an arena's board. Everything the standings table draws, so a row
+   never needs a second lookup: `rank` is the server's ordering (score, then
+   wins, then rating) rather than the row's index, because a page shows the top
+   twenty plus you and you may be neither. */
+export interface ArenaStanding {
+  uid: string;
+  name: string;
+  bot: boolean;
+  rating: number; // heads-up standing, the mode an arena is played in
+  rank: number; // 1-based
+  score: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  streak: number; // consecutive wins; two of them and the next win is worth three
+  matches: number;
+  paused: boolean;
+}
+
+/* What a result is worth on the board, and when a run of wins starts paying
+   more. Here rather than in the server that applies it, because the client
+   draws the flame that promises the next win is worth three and two copies of
+   that threshold drift until the promise stops being true. */
+export const ARENA_WIN_POINTS = 2;
+export const ARENA_DRAW_POINTS = 1;
+export const ARENA_LOSS_POINTS = 0;
+export const ARENA_FIRE_POINTS = 3;
+// Wins in a row already banked before a win pays ARENA_FIRE_POINTS. Two, so
+// the third consecutive win is the first one worth three.
+export const ARENA_FIRE_FROM = 2;
+
+export function arenaPoints(outcome: 'win' | 'loss' | 'draw', streakBefore: number): number {
+  if (outcome === 'draw') return ARENA_DRAW_POINTS;
+  if (outcome === 'loss') return ARENA_LOSS_POINTS;
+  return streakBefore >= ARENA_FIRE_FROM ? ARENA_FIRE_POINTS : ARENA_WIN_POINTS;
+}
+
 /* Client -> server */
 export type ClientMsg =
   // defaults: heads-up, rated. `bots` asks for a practice table instead: no
@@ -167,6 +213,10 @@ export type ClientMsg =
   // Table chat. Anyone subscribed to the match may send one; where it lands is
   // the server's decision, not the sender's (see ChatFrom).
   | { t: 'chat'; m: string; text: string }
+  // Watch one arena's board, or `null` to stop. A page on the arena is what
+  // the pushes go to, and that is a thing only the page knows, so it says so
+  // rather than the server guessing from who joined.
+  | { t: 'arena'; a: string | null }
   | { t: 'ping' };
 
 /* Who said something at a table. `seat` is null for a spectator, which is also
@@ -198,6 +248,17 @@ export type ServerMsg =
   // the lobby page updates without polling for it.
   | { t: 'lobby'; g: string; seats: LobbySeat[]; status: HomeGameStatus }
   | { t: 'chat'; m: string; from: ChatFrom; text: string; at: number } // at = epoch ms
+  // An arena's board, pushed to everyone watching it on a five second beat and
+  // on every score change. `standings` is the top twenty plus you.
+  | {
+      t: 'arena';
+      a: string;
+      standings: ArenaStanding[];
+      you: ArenaStanding | null;
+      status: ArenaStatus;
+      endsAt: number; // epoch ms
+      playing: number; // arena matches in progress
+    }
   | { t: 'err'; c: 'illegal' | 'stale' | 'not_your_turn' | 'no_match' | 'bad_msg' | 'version' | 'bots_busy' | 'chat'; msg: string }
   | { t: 'pong' };
 

@@ -10,6 +10,7 @@ import {
   type MatchRow,
 } from '../db.js';
 import { trackSpectator, unregisterRoom, untrackSpectator } from './rooms.js';
+import { emitMatchFinished } from './finished.js';
 import { EngineHandRunner } from './handRunner.js';
 import { computeMatchRatings } from './rating.js';
 import { roundRatings } from '../userView.js';
@@ -456,6 +457,16 @@ export class MatchRoom {
     };
     this.lastResult = result;
     for (const uid of this.subscribers) hub.send(uid, { t: 'end', m: this.id, r: result });
+    // After the result has been persisted and sent, so anything scoring off it
+    // (the arena board) is reading a match that is finished everywhere else.
+    emitMatchFinished({
+      id: this.id,
+      format: this.match.format,
+      playerIds: this.playerIds,
+      winner: outcome.winner,
+      reason: outcome.reason,
+      places: outcome.places,
+    });
     setTimeout(() => unregisterRoom(this.id), ROOM_LINGER_MS);
   }
 }

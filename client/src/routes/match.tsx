@@ -148,18 +148,29 @@ function LiveMatch({ id }: { id: string }) {
 
   /* Play again means the match just played: the same mode, rated or not.
      Somebody who was watching it has no match to play again, so the primary
-     button sends them back to the tables that are still running. */
+     button sends them back to the tables that are still running.
+
+     An arena match is the exception: the next match is the arena's to give,
+     not the queue's, so the way on from this table is back to the board. */
   const done = ended ?? opened;
+  const arena = done?.format.arena ?? null;
   const playAgain = useCallback(() => {
     if (watching) {
       nav('/watch');
       return;
     }
+    if (arena) {
+      nav(`/arena/${arena}`);
+      return;
+    }
     startQueue(done?.format.mode, done?.rated);
     nav('/');
-  }, [startQueue, nav, done, watching]);
+  }, [startQueue, nav, done, watching, arena]);
+  const againLabel = watching ? 'Watch another table' : arena ? 'Back to the arena' : undefined;
 
-  if (opened) return <MatchSummary match={opened} meId={me?.id ?? null} onAgain={playAgain} />;
+  if (opened) {
+    return <MatchSummary match={opened} meId={me?.id ?? null} onAgain={playAgain} againLabel={againLabel} />;
+  }
 
   if (offline && !view) return <Pending text="The table server is not answering. Reload once it is back." />;
   if (!view) {
@@ -180,7 +191,7 @@ function LiveMatch({ id }: { id: string }) {
             match={ended}
             meId={me?.id ?? null}
             onAgain={playAgain}
-            againLabel={watching ? 'Watch another table' : undefined}
+            againLabel={againLabel}
             onReview={scrollToHands}
           />
           <main className="page">

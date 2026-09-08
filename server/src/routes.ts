@@ -16,6 +16,7 @@ import {
   getInsightHandsForUser,
   getInsightMatchesForUser,
   getExplorerHands,
+  getArenasForUser,
   getRatingHistoryForUser,
   getMatchById,
   getHandsForMatch,
@@ -46,6 +47,7 @@ import {
   leaveHomeGame,
   startHomeGame,
 } from './home-games.js';
+import { arenaListing, arenaView, joinArena, leaveArena, pauseArena } from './arena.js';
 
 function err(reply: { code: (n: number) => { send: (b: unknown) => unknown } }, status: number, message: string) {
   return reply.code(status).send({ error: message });
@@ -133,6 +135,10 @@ export function registerRoutes(app: FastifyInstance): void {
     const stats = await getUserHandStats(user.id);
     const accuracy = await getUserPreflopAccuracy(user.id);
     const lastMatches = await getMatchesForUser(user.id, 20);
+    // Arenas this player has finished, newest first. On the profile rather
+    // than on a page of its own: an arena result is a thing you did, and the
+    // place it belongs is beside the matches you played.
+    const arenas = await getArenasForUser(user.id, 20);
 
     const headsUp = ratings['heads-up'];
     // The one heads-up standing every flat field on this route is read from,
@@ -175,6 +181,7 @@ export function registerRoutes(app: FastifyInstance): void {
         foldTo3bet,
       },
       lastMatches,
+      arenas,
     };
   });
 
@@ -389,6 +396,7 @@ export function registerRoutes(app: FastifyInstance): void {
       rated: m.rated,
       practice: isPractice(m.format),
       homeGame: m.format.homeGame === true,
+      arena: m.format.arena ?? null,
       // handsPlayed counts completed hands, so the hand being dealt is the
       // next one along.
       hand: m.handsPlayed + 1,
@@ -477,6 +485,49 @@ export function registerRoutes(app: FastifyInstance): void {
     if (!result.ok) return err(reply, result.status, result.error);
     return { ok: true };
   });
+
+  /* Arenas. Every one of these goes through requireUser like a challenge does,
+     so an arena is joinable by somebody who has never been here: they arrive,
+     a guest is minted, and they are on the board. The listing stocks the
+     schedule on its way past, so a database with no arenas in it answers the
+     first request with one rather than with nothing. */
+  app.get('/api/arenas', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    return arenaListing(user.id);
+  });
+
+  app.get<{ Params: { id: string } }>('/api/arenas/:id', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    const view = await arenaView(request.params.id, user.id);
+    if (!view) return err(reply, 404, 'no such arena');
+    return view;
+  });
+
+  app.post<{ Params: { id: string } }>('/api/arenas/:id/join', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    const result = await joinArena(request.params.id, user.id);
+    if (!result.ok) return err(reply, result.status, result.error);
+    return { ok: true };
+  });
+
+  app.post<{ Params: { id: string } }>('/api/arenas/:id/leave', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    const result = await leaveArena(request.params.id, user.id);
+    if (!result.ok) return err(reply, result.status, result.error);
+    return { ok: true };
+  });
+
+  /* Pause and resume are the same route: the page says which state it wants
+     rather than asking for a toggle, so two tabs cannot flip each other. */
+  app.post<{ Params: { id: string }; Body: { paused?: boolean } }>(
+    '/api/arenas/:id/pause',
+    async (request, reply) => {
+      const user = await requireUser(request, reply);
+      const result = await pauseArena(request.params.id, user.id, request.body?.paused !== false);
+      if (!result.ok) return err(reply, result.status, result.error);
+      return { ok: true };
+    }
+  );
 }
 
 /* The absolute address of this site as the caller reached it, which is the
@@ -578,6 +629,7 @@ function toFeedMatch(m: MatchRow) {
     rated: m.rated,
     practice: isPractice(m.format),
     homeGame: m.format.homeGame === true,
+    arena: m.format.arena ?? null,
     handsPlayed: m.handsPlayed,
     finishedAt: m.finishedAt,
     players,

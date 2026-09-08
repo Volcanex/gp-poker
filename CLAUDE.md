@@ -111,6 +111,16 @@ files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
   bots whose strength the host picked is a rating anyone could dial in.
   `format.homeGame` marks the match for the feed, and everyone seated is
   pushed a `lobby` message so the page fills in without polling.
+- Arenas (`server/src/arena.ts`, `format.arena`) are the competitive loop: one
+  half-hour heads-up event on every hour, created ahead of time by the
+  scheduler and needing no admin. Join and you are paired again the moment your
+  match ends, by closest score then rating, with a bot after eight seconds
+  alone and never more than six bots across the arena at once. Win two, draw
+  one, three for a win with two already banked. The matches are ordinary rated
+  heads-up matches, so the only running total on this site is the board itself
+  (`arena_players`), which the streak bonus makes unavoidable: each result
+  depends on the ones before it. Pairing stops three minutes before the end and
+  started matches play out, so the board freezes when the last one settles.
 - The engine only sees seats with chips; `hands.live_seats` maps engine
   seat to table seat and every stored log is in table seats.
 - Insights (`/api/users/:name/insights`, the block under a profile's rating

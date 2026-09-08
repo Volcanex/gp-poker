@@ -53,6 +53,10 @@ export const config = {
   // ladder is meant to trickle, not to grind: it exists to make the numbers
   // real, and it gives the box back between matches.
   ladderPauseMs: Number(process.env.LADDER_PAUSE_MS ?? 60_000),
+  // Arenas: the hourly heads-up event. Off under vitest unless a test turns it
+  // on through `configureArena`, for the reason the ladder is: a suite that
+  // quietly pairs matches in the background has timings that are not its own.
+  arenaEnabled: process.env.ARENA_ENABLED ? process.env.ARENA_ENABLED === 'true' : !inTest,
   /* How far behind the present the opening explorer reads. A hand row is
      written when the hand completes, and two matches running side by side can
      commit out of order, so the window stops short of now and never closes

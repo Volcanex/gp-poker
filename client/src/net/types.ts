@@ -1,7 +1,8 @@
 /* The REST payloads, mirroring server/src/routes.ts. Dates arrive as JSON
    strings, not Date objects, so every timestamp is typed as a string here. */
 import type {
-  HomeGameStatus, LobbySeat, LoggedAction, MatchFormat, MatchResult, Mode, UserSummary,
+  ArenaStanding, ArenaStatus, HomeGameStatus, LobbySeat, LoggedAction, MatchFormat, MatchResult, Mode,
+  UserSummary,
 } from '@opentable/protocol';
 import type { HandOutcome } from '@opentable/engine';
 import type { Decision } from '@opentable/preflop';
@@ -100,6 +101,21 @@ export interface Profile {
     foldTo3bet: number;
   };
   lastMatches: UserMatchSummary[];
+  /* Finished arenas this player took part in, newest first. Absent means a
+     server from before arenas existed, which the page renders as no section
+     rather than as an empty one. */
+  arenas?: ProfileArena[];
+}
+
+/* One line of the arenas block on a profile: which arena, when it ended, where
+   they came and what they scored. */
+export interface ProfileArena {
+  id: string;
+  name: string;
+  endsAt: string;
+  place: number | null;
+  score: number;
+  players: number;
 }
 
 /* /api/users/:name/insights. Derived from the player's stored hands rather
@@ -241,6 +257,9 @@ export interface FeedMatch {
   /* A private table somebody gathered by link. Absent means a server from
      before home games existed. */
   homeGame?: boolean;
+  /* The arena this match was paired for, by id. Null on an ordinary match, and
+     absent on a server from before arenas existed. */
+  arena?: string | null;
   handsPlayed: number;
   finishedAt: string | null;
   players: FeedPlayer[]; // finishing order, winner first
@@ -261,6 +280,7 @@ export interface LiveMatch {
   rated: boolean;
   practice: boolean;
   homeGame?: boolean;
+  arena?: string | null;
   hand: number; // the hand being dealt now, 1-based
   // rating and spectators are optional because a server that predates
   // watching sends neither, and a missing number is hidden rather than
@@ -371,4 +391,47 @@ export interface StartedHomeGame {
   matchId: string;
   rated: boolean;
   reason: string | null;
+}
+
+/* An arena, from /api/arenas/:id. The board is the top twenty with your own row
+   appended when you are outside them, and `you` is that row again so the page
+   can say where you are without searching the list. `podium` is written when
+   the arena closes and is null until then. */
+export interface Arena {
+  id: string;
+  name: string;
+  status: ArenaStatus;
+  startsAt: string;
+  endsAt: string;
+  players: number;
+  playing: number;
+  standings: ArenaStanding[];
+  you: ArenaStanding | null;
+  podium: ArenaPodiumPlace[] | null;
+}
+
+export interface ArenaPodiumPlace {
+  uid: string;
+  name: string;
+  score: number;
+  place: number;
+}
+
+/* A finished arena in the list under the hero card: enough to draw a podium
+   and link to the full board. */
+export interface ArenaSummary {
+  id: string;
+  name: string;
+  status: ArenaStatus;
+  startsAt: string;
+  endsAt: string;
+  players: number;
+  podium: ArenaPodiumPlace[] | null;
+}
+
+/* What /api/arenas answers: the arena to play now or next, and the last few
+   that are already over. */
+export interface ArenaListing {
+  featured: Arena | null;
+  finished: ArenaSummary[];
 }

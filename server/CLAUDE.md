@@ -302,6 +302,72 @@ asks `room.active`, not whether the room exists), closest in rating first.
 `createMatchForPlayers`: it swaps `formatFor` so the real queue path can run
 against a short clock and a small stack.
 
+## Arenas
+`src/arena.ts` is the competitive loop: an event on every hour, half an hour
+long, heads-up and rated. You join, and from then on you are paired again the
+moment your match ends. Nothing about it needs an admin: the scheduler keeps
+the current arena plus three ahead in the `arenas` table, opens each one when
+its clock starts and closes it when its clock runs out.
+
+An arena match is an **ordinary rated heads-up match**. `format.arena` carries
+the arena's id and is the only thing that makes it one: the same
+`createMatchForPlayers`, the same Glicko-2, the same public page, the same
+feed row (badged "Arena").
+
+**Pairing**, once every two seconds. Everyone in the arena who is pairable is
+ordered by score, then wins, then rating (which is the order
+`getArenaPlayers` already returns), and neighbours in that order are paired:
+closest score, rating breaking the tie. Whoever is left over waits, and after
+`BOT_FILL_MS` (8s) with nobody to meet gets a bot at the nearest rating, the
+same way the lone-human queue fills a table. Never two bots at an arena table,
+and at most `MAX_ARENA_BOTS` (6) bots in arena matches at once, because a
+roster of fifteen that an arena could take all of would starve the ladder that
+gives the bots their ratings.
+
+**Pairable** is three things: not paused, not already at a live table, and
+connected. The socket is what stands in for presence and the pause toggle is
+what stands in for choice; there is no page-scoped heartbeat, so a tab left
+open in the background is still here. That is the same bargain the queue
+makes, and it is why `pause` exists at all.
+
+**Scoring** is the one running total on this site. `arenaPoints` in the
+protocol is the table (2 for a win, 1 for a draw, 0 for a loss, 3 for a win
+with two already banked) and it lives there rather than here because the
+client draws the flame that promises the next win is worth three. The
+counters are on `arena_players` rather than derived from the matches, unlike
+everything else here: the streak bonus makes each result depend on the ones
+before it, so a board rebuilt from the matches would have to replay them in
+order anyway. A bot opponent counts exactly like a person.
+
+**The end.** Pairing stops `LAST_PAIRING_BEFORE_END_MS` (3 min) before the
+clock runs out, and a match that started before then is played out and scored:
+that is the Lichess bargain, and freezing the board while one was still live
+would throw away a result somebody earned. The arena closes on the first tick
+after its clock has run out *and* no arena match is still live, which writes
+every place onto `arena_players` and the top three onto `arenas.podium` in one
+transaction. Nothing scores after that: `scoreMatch` refuses an arena that is
+not `running`, which is the freeze.
+
+**How the score gets here.** `src/match/finished.ts` is a listener registry a
+match room emits to at the end of `finishMatch`. A room knows how to play
+poker and how to persist a result; it does not know what an arena is, and a
+table that imported the scoreboard would have to import the next thing that
+wants to hear too. Same injection shape as `setBotDispatch`.
+
+**Live updates.** A page says which arena it is looking at (`{t:'arena', a}`,
+`null` to stop) and gets `{t:'arena', a, standings, you, status, endsAt,
+playing}` back: on a five second beat while running, and at once on any score
+or status change. The subscription is dropped on disconnect, so the client
+re-sends it on every reconnect rather than only on mount. A page whose socket
+never opened polls `GET /api/arenas/:id` instead.
+
+`configureArena` is the test seam, wider than the ladder's because an arena
+has a clock: `now`, `format`, `everyMs`, `durationMs`, `botFillMs` and
+`lastPairingBeforeEndMs` are all injectable, which is how `test/arena.test.ts`
+watches an arena open, run and close in a few assignments. `arenaTick` is one
+pass, exported the way `tick` and `ladderTick` are. Off under vitest
+(`config.arenaEnabled`, `ARENA_ENABLED` on the box) unless a test asks for it.
+
 ## Bots
 `src/bots/` exists so one human can play right now. A bot is an ordinary
 `users` row with `bot = true`: a real name (a fixed list of fifteen CamelCase

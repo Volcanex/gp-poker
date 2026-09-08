@@ -8,6 +8,7 @@ import { Profile } from './routes/profile.tsx';
 import { Watch } from './routes/watch.tsx';
 import { Challenge } from './routes/challenge.tsx';
 import { HomeGame } from './routes/home-game.tsx';
+import { ArenaPage } from './routes/arena.tsx';
 import { learnRoutes } from './routes/learn/index.tsx';
 import { puzzlesRoutes } from './puzzles/index.tsx';
 import { toolsRoutes } from './tools/index.tsx';
@@ -29,6 +30,7 @@ function TopBar() {
       <Link className="wordmark" to="/">Open Table</Link>
       <nav>
         <NavLink to="/" end>Play</NavLink>
+        <NavLink to="/arena">Arena</NavLink>
         <NavLink to="/learn">Learn</NavLink>
         <NavLink to="/puzzles">Puzzles</NavLink>
         <NavLink to="/tools">Tools</NavLink>
@@ -68,6 +70,8 @@ export function App() {
         <MatchFoundAlert />
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/arena" element={<ArenaPage />} />
+          <Route path="/arena/:id" element={<ArenaPage />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/watch" element={<Watch />} />
           {learnRoutes}

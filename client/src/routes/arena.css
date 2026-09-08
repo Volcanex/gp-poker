@@ -1,0 +1,75 @@
+/* The arena page. Everything here is either a g-system component used as it
+   ships or a piece of page furniture the shared stylesheets do not carry: the
+   flame beside a score, the podium in a finished arena's row, and the break in
+   the board where your own row was appended to the top twenty. */
+
+.arena-hero .mode-head .spacer { flex: 1; }
+
+/* The score and its flame are one cell, so a run starting does not widen the
+   column and move the ones beside it. */
+.arena-score {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-width: 4ch;
+}
+
+.arena-fire {
+  display: inline-flex;
+  color: var(--accent-fill);
+  line-height: 0;
+}
+
+/* Your own row when you are outside the top twenty. The rule above it says the
+   board skipped, which a bare row next to rank 1 would not. */
+.table tr[data-gap] td { border-top: 1px dashed var(--border); }
+
+.table .bot-tag {
+  font-size: 10px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0 4px;
+}
+
+/* A finished arena reads as its podium: three names in order. In a list row it
+   is one place per line at every width, because three of them beside a badge
+   and a player count do not fit the page's 720 px and a row that wraps at 1280
+   and not at 1400 is a row that reads differently on two desks. On the arena's
+   own card it is the headline and has the width to itself, so it runs across. */
+.arena-past { align-items: flex-start; }
+.arena-past .arena-podium { flex-direction: column; align-items: flex-start; gap: 6px; }
+/* Stacked, the place names have to line their avatars up, so the label takes a
+   slot rather than the width of its word. */
+.arena-past .arena-podium li > .muted:first-child { min-width: 4.2em; }
+
+.arena-podium {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+  flex: 1;
+  min-width: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.arena-podium li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.arena-podium .n {
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 560px) {
+  .arena-podium { flex-direction: column; align-items: flex-start; gap: 6px; }
+}

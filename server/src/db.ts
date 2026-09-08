@@ -1175,3 +1175,181 @@ export async function getExplorerHands(mode: Mode, window: ExplorerWindow): Prom
     };
   });
 }
+
+// ---- arenas ----
+
+/* An arena and the people in it. The board is a set of counters rather than a
+   derivation, which is the one place on this site that keeps a running score:
+   the streak bonus makes each result depend on the ones before it, so a board
+   rebuilt from the matches would have to replay them in order anyway. */
+
+export interface ArenaRow {
+  id: string;
+  name: string;
+  startsAt: Date;
+  endsAt: Date;
+  status: 'upcoming' | 'running' | 'finished';
+  podium: { uid: string; name: string; score: number; place: number }[] | null;
+  createdAt: Date;
+}
+
+export interface ArenaPlayerRow {
+  arenaId: string;
+  userId: string;
+  name: string;
+  bot: boolean;
+  rating: number; // heads-up, filled in by the join below
+  joinedAt: Date;
+  score: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  streak: number;
+  matches: number;
+  paused: boolean;
+  place: number | null;
+}
+
+/* Creates the arena that starts at this hour, or does nothing because it is
+   already there. `starts_at` is unique, so two processes scheduling the same
+   hour cannot both win: the second one inserts nothing and reads the first
+   one's row. */
+export async function ensureArena(id: string, name: string, startsAt: Date, endsAt: Date): Promise<ArenaRow> {
+  const [row] = await sql<ArenaRow[]>`
+    insert into arenas (id, name, starts_at, ends_at)
+    values (${id}, ${name}, ${startsAt}, ${endsAt})
+    on conflict (starts_at) do nothing
+    returning *
+  `;
+  if (row) return row;
+  const [existing] = await sql<ArenaRow[]>`select * from arenas where starts_at = ${startsAt}`;
+  return existing;
+}
+
+export async function getArenaById(id: string): Promise<ArenaRow | null> {
+  const [row] = await sql<ArenaRow[]>`select * from arenas where id = ${id}`;
+  return row ?? null;
+}
+
+// Every arena that has not finished, soonest first. Short by construction: the
+// scheduler keeps three ahead and closes each one as its clock runs out.
+export async function getOpenArenas(): Promise<ArenaRow[]> {
+  return sql<ArenaRow[]>`
+    select * from arenas where status <> 'finished' order by starts_at asc
+  `;
+}
+
+export async function getFinishedArenas(limit = 3): Promise<ArenaRow[]> {
+  return sql<ArenaRow[]>`
+    select * from arenas where status = 'finished' order by ends_at desc limit ${limit}
+  `;
+}
+
+export async function setArenaStatus(id: string, status: 'running' | 'finished'): Promise<void> {
+  await sql`update arenas set status = ${status} where id = ${id}`;
+}
+
+/* Closes an arena in one transaction: the places go onto the rows, the podium
+   onto the arena, and the status last. Nothing may score after this, which is
+   what the caller's status check rests on, so the three writes are one. */
+export async function finishArena(
+  id: string,
+  places: { userId: string; place: number }[],
+  podium: ArenaRow['podium']
+): Promise<void> {
+  await sql.begin(async (tx) => {
+    for (const p of places) {
+      await tx`
+        update arena_players set place = ${p.place}
+        where arena_id = ${id} and user_id = ${p.userId}
+      `;
+    }
+    await tx`
+      update arenas set status = 'finished', podium = ${sql.json(jsonb(podium))} where id = ${id}
+    `;
+  });
+}
+
+/* The board, already in the order it is read in: score, then wins, then
+   rating. The rating is the player's heads-up standing, which is the mode an
+   arena is played in, and a player with no row there reads as the 1500
+   everyone starts on rather than being left out of the ordering. */
+export async function getArenaPlayers(arenaId: string): Promise<ArenaPlayerRow[]> {
+  return sql<ArenaPlayerRow[]>`
+    select
+      ap.arena_id, ap.user_id, u.name, u.bot, ap.joined_at, ap.score, ap.wins,
+      ap.losses, ap.draws, ap.streak, ap.matches, ap.paused, ap.place,
+      coalesce(r.rating, 1500) as rating
+    from arena_players ap
+    join users u on u.id = ap.user_id
+    left join ratings r on r.user_id = ap.user_id and r.mode = 'heads-up'
+    where ap.arena_id = ${arenaId}
+    order by ap.score desc, ap.wins desc, coalesce(r.rating, 1500) desc, u.name asc
+  `;
+}
+
+export async function insertArenaPlayer(arenaId: string, userId: string): Promise<void> {
+  await sql`
+    insert into arena_players (arena_id, user_id) values (${arenaId}, ${userId})
+    on conflict (arena_id, user_id) do update set paused = false
+  `;
+}
+
+export async function deleteArenaPlayer(arenaId: string, userId: string): Promise<void> {
+  await sql`delete from arena_players where arena_id = ${arenaId} and user_id = ${userId}`;
+}
+
+export async function setArenaPaused(arenaId: string, userId: string, paused: boolean): Promise<boolean> {
+  const rows = await sql`
+    update arena_players set paused = ${paused}
+    where arena_id = ${arenaId} and user_id = ${userId}
+    returning user_id
+  `;
+  return rows.length > 0;
+}
+
+/* One result onto the board. The streak is written rather than incremented so
+   the caller, which already worked out what the run was worth, is the only
+   thing that decides what a run is: two places computing "consecutive wins"
+   is exactly the drift this avoids. */
+export async function addArenaResult(
+  arenaId: string,
+  userId: string,
+  result: { points: number; outcome: 'win' | 'loss' | 'draw'; streak: number }
+): Promise<void> {
+  await sql`
+    update arena_players set
+      score = score + ${result.points},
+      wins = wins + ${result.outcome === 'win' ? 1 : 0},
+      losses = losses + ${result.outcome === 'loss' ? 1 : 0},
+      draws = draws + ${result.outcome === 'draw' ? 1 : 0},
+      streak = ${result.streak},
+      matches = matches + 1
+    where arena_id = ${arenaId} and user_id = ${userId}
+  `;
+}
+
+/* What a profile shows: every finished arena this player took part in, newest
+   first. `place` is null on a row that somehow escaped the freeze, which the
+   profile renders as a dash rather than as a placing nobody earned. */
+export interface UserArenaSummary {
+  id: string;
+  name: string;
+  endsAt: Date;
+  place: number | null;
+  score: number;
+  players: number;
+}
+
+export async function getArenasForUser(userId: string, limit = 20): Promise<UserArenaSummary[]> {
+  return sql<UserArenaSummary[]>`
+    select
+      a.id, a.name, a.ends_at, ap.place, ap.score,
+      (select count(*)::int from arena_players x where x.arena_id = a.id) as players
+    from arena_players ap
+    join arenas a on a.id = ap.arena_id
+    where ap.user_id = ${userId} and a.status = 'finished'
+    order by a.ends_at desc
+    limit ${limit}
+  `;
+}

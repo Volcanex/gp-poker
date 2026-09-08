@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { botLevelInfo, type Mode } from '@opentable/protocol';
 import { api, ApiError } from '../net/api.ts';
-import type { Insights, PositionKey, Profile as ProfileData } from '../net/types.ts';
+import type { Insights, PositionKey, Profile as ProfileData, ProfileArena } from '../net/types.ts';
 import { useSession } from '../net/session.tsx';
 import { useTitle } from '../ui/title.ts';
 import { RatingGraph } from '../ui/rating-graph.tsx';
@@ -259,7 +259,55 @@ export function Profile() {
           </div>
         )}
       </section>
+
+      <ArenasSection arenas={data.arenas ?? []} />
     </main>
+  );
+}
+
+/* Arenas this player has finished. Absent on a server from before arenas
+   existed and empty for somebody who has never entered one, and both read as
+   no section at all rather than as an empty table with a heading over it. */
+function ArenasSection({ arenas }: { arenas: ProfileArena[] }) {
+  if (arenas.length === 0) return null;
+  return (
+    <section className="stack" style={{ gap: 'var(--sp-3)' }}>
+      <span className="h2">Arenas</span>
+      <div className="card lb-card">
+        <div className="table-wrap">
+          <table className="table" aria-label="Arenas">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Arena</th>
+                <th className="r">Place</th>
+                <th className="r">Score</th>
+                <th className="r">Board</th>
+              </tr>
+            </thead>
+            <tbody>
+              {arenas.map((a) => (
+                <tr key={a.id}>
+                  <td>{fmtDate(a.endsAt)}</td>
+                  <td>{a.name}</td>
+                  <td className="r">
+                    {a.place === null ? (
+                      <span className="muted">unplaced</span>
+                    ) : (
+                      <span className="badge badge-plain num">
+                        {ordinal(a.place)} of {a.players}
+                      </span>
+                    )}
+                  </td>
+                  <td className="r num">{a.score}</td>
+                  <td className="r"><Link to={`/arena/${a.id}`}>Open</Link></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
   );
 }
 

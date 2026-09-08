@@ -4,10 +4,11 @@ import { BOT_LEVELS, botLevelInfo, formatFor } from '@opentable/protocol';
 import type { Mode } from '@opentable/protocol';
 import { api, ApiError } from '../net/api.ts';
 import { levelAverageRating, modeRating } from '../net/adapt.ts';
-import type { BotRow, CreatedChallenge, LeaderboardRow, Me } from '../net/types.ts';
+import type { ArenaListing, BotRow, CreatedChallenge, LeaderboardRow, Me } from '../net/types.ts';
 import { readPlayChoice, useSession } from '../net/session.tsx';
 import { MODES, MODE_NAME } from '../ui/mode-tabs.tsx';
 import { elapsed, useNow } from '../ui/bits.tsx';
+import { arenaCardLine } from './arena-bits.ts';
 import { int } from '../ui/format.ts';
 import { useTitle } from '../ui/title.ts';
 import { Link, useLocation } from 'react-router-dom';
@@ -119,6 +120,7 @@ export function Home() {
               </div>
             ))}
             <PracticeCard onPlay={startPractice} disabled={!ready || offline} error={queue.error} />
+            <ArenaCard />
             <FriendCard disabled={!ready || offline} />
           </div>
         ) : (
@@ -270,6 +272,54 @@ function PracticeCard({
       <button type="button" className="btn btn-primary" disabled={disabled} onClick={() => onPlay(mode, level)}>
         Play against bots
       </button>
+    </div>
+  );
+}
+
+/* The fifth way to play: an event rather than a table. The card is a pointer
+   at /arena and nothing more, because joining an arena is a thing you do on
+   its own page beside the board you are joining.
+
+   The line under the name is written by the same function the arena page's
+   clock is, so the card and the page cannot describe the same arena
+   differently. A card whose call failed simply says nothing about the time
+   rather than showing a countdown it made up. */
+function ArenaCard() {
+  const [listing, setListing] = useState<ArenaListing | null>(null);
+  const [failed, setFailed] = useState(false);
+  const now = useNow(listing !== null, 1000);
+
+  useEffect(() => {
+    let live = true;
+    api
+      .arenas()
+      .then((l) => live && setListing(l))
+      .catch(() => live && setFailed(true));
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const featured = listing?.featured ?? null;
+
+  return (
+    <div className="card mode" style={{ gridColumn: '1 / -1' }}>
+      <div className="mode-head">
+        <span className="t">Hourly arena</span>
+        {featured?.status === 'running' && <span className="badge badge-ok">Running</span>}
+      </div>
+      <span className="muted">
+        {failed
+          ? 'An arena runs every hour. Open the arena to see the next one.'
+          : arenaCardLine(featured, now)}
+      </span>
+      <span className="muted">
+        Half an hour of heads-up, paired again the moment your match ends. A win is worth two, a draw
+        one, and a third win in a row is worth three.
+      </span>
+      <Link className="btn btn-primary" to={featured ? `/arena/${featured.id}` : '/arena'}>
+        {featured?.status === 'running' ? 'Open the arena' : 'See the next arena'}
+      </Link>
     </div>
   );
 }

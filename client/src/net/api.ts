@@ -1,7 +1,7 @@
 import type {
-  BotRow, Challenge, CreatedChallenge, CreatedHomeGame, Explorer, ExplorerFacing, ExplorerPlayers, FeedMatch,
-  Hand, HomeGame, Insights, LeaderboardRow, LiveMatch, Match, Me, PositionKey, Profile, PuzzleHand, SiteStats,
-  StartedHomeGame,
+  Arena, ArenaListing, BotRow, Challenge, CreatedChallenge, CreatedHomeGame, Explorer, ExplorerFacing,
+  ExplorerPlayers, FeedMatch, Hand, HomeGame, Insights, LeaderboardRow, LiveMatch, Match, Me, PositionKey,
+  Profile, PuzzleHand, SiteStats, StartedHomeGame,
 } from './types.ts';
 import type { Mode, UserSummary } from '@opentable/protocol';
 
@@ -96,6 +96,17 @@ export const api = {
   startHomeGame: (id: string) => post<StartedHomeGame>(`/api/home-games/${encodeURIComponent(id)}/start`),
   cancelHomeGame: (id: string) =>
     req<{ ok: true }>(`/api/home-games/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  /* Arenas. The listing stocks the schedule on the server's way past, so the
+     first call of the day is what creates the arena it answers with. Joining,
+     leaving and pausing all work for a guest, like every other way to play. */
+  arenas: () => req<ArenaListing>('/api/arenas'),
+  arena: (id: string) => req<Arena>(`/api/arenas/${encodeURIComponent(id)}`),
+  joinArena: (id: string) => post<{ ok: true }>(`/api/arenas/${encodeURIComponent(id)}/join`),
+  leaveArena: (id: string) => post<{ ok: true }>(`/api/arenas/${encodeURIComponent(id)}/leave`),
+  /* The page says which state it wants rather than asking for a toggle, so two
+     tabs cannot flip each other. */
+  pauseArena: (id: string, paused: boolean) =>
+    post<{ ok: true }>(`/api/arenas/${encodeURIComponent(id)}/pause`, { paused }),
   claim: (name: string, password: string) => post<UserSummary>('/api/claim', { name, password }),
   login: (name: string, password: string) => post<UserSummary>('/api/login', { name, password }),
   logout: () => post<{ ok: true }>('/api/logout'),

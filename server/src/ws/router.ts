@@ -2,6 +2,7 @@ import type { ClientMsg } from '@opentable/protocol';
 import { hub } from './hub.js';
 import { enqueue, enqueuePractice, dequeue } from '../matchmaking.js';
 import { getRoom, roomForPlayer, roomsForSpectator } from '../match/rooms.js';
+import { unwatchArena, watchArena } from '../arena.js';
 
 // Dispatches everything the hub hands it except `ping`, which the hub
 // answers itself before this is ever called.
@@ -49,6 +50,11 @@ export function routeClientMessage(userId: string, msg: ClientMsg): void {
       room.handleChat(userId, msg);
       return;
     }
+    case 'arena':
+      // Watching a board is not joining an arena: a page says which one it is
+      // showing, and `null` says it has stopped showing one.
+      watchArena(userId, msg.a);
+      return;
     default:
       hub.send(userId, { t: 'err', c: 'bad_msg', msg: 'unknown message type' });
   }
@@ -60,6 +66,7 @@ export function routeConnect(userId: string): void {
 
 export function routeDisconnect(userId: string): void {
   dequeue(userId);
+  unwatchArena(userId);
   roomForPlayer(userId)?.handleDisconnect(userId);
   // A player keeps their subscription through the grace window; a spectator
   // has nothing to come back to, so every table they were watching drops

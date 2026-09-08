@@ -208,3 +208,44 @@ create table if not exists home_game_seats (
 );
 -- The lobby is read in join order, which is the order the seats fill in.
 create index if not exists home_game_seats_game on home_game_seats(game_id, joined_at);
+
+-- Arenas: a half-hour heads-up event on every hour, the competitive loop this
+-- site did not have. A row per event, created ahead of time by the scheduler
+-- (server/src/arena.ts) rather than by an admin, so there is always a next one
+-- to join. Status is stored rather than derived, unlike a challenge link's,
+-- because finishing an arena is an event with work in it: the standings are
+-- frozen, places are written and the podium is recorded. `podium` is the top
+-- three as they stood at the end, kept on the row so a finished arena reads
+-- without a join.
+create table if not exists arenas (
+  id text primary key,                         -- short public id, the shareable URL
+  name text not null,
+  starts_at timestamptz not null,
+  ends_at timestamptz not null,
+  status text not null default 'upcoming',     -- upcoming | running | finished
+  podium jsonb,                                -- [{uid, name, score, place}], written at the end
+  created_at timestamptz not null default now()
+);
+create unique index if not exists arenas_starts on arenas(starts_at);
+
+-- One row per person in an arena. The counters are kept here rather than
+-- derived from the matches, unlike everything else on this site, because an
+-- arena's score is not a function of its matches alone: the streak bonus makes
+-- each result depend on the ones before it, and a board that is recomputed
+-- from scratch on every finish is a board that pays to say the same number.
+-- `paused` is the Lichess pause: a player who is here but not to be paired.
+create table if not exists arena_players (
+  arena_id text not null references arenas(id) on delete cascade,
+  user_id uuid not null references users(id) on delete cascade,
+  joined_at timestamptz not null default now(),
+  score int not null default 0,
+  wins int not null default 0,
+  losses int not null default 0,
+  draws int not null default 0,
+  streak int not null default 0,               -- consecutive wins, reset by a draw or a loss
+  matches int not null default 0,
+  paused boolean not null default false,
+  place int,                                   -- written when the arena ends, 1 = winner
+  primary key (arena_id, user_id)
+);
+create index if not exists arena_players_board on arena_players(arena_id, score desc);

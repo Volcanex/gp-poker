@@ -33,7 +33,8 @@ declaration for `phe` that the engine's own tsconfig provides.
   `socket.ts` is the single WebSocket, `session.tsx` owns the session, the
   connection state, the queue and the match to return to.
 - `src/routes/` — `home.tsx`, `leaderboard.tsx`, `profile.tsx`, `match.tsx`
-  (live table, finished summary and the mock), `replay.tsx`. `profile.css` is
+  (live table, finished summary and the mock), `arena.tsx` with its pure half
+  `arena-bits.ts` (see **The arena**), `replay.tsx`. `profile.css` is
   the insights block on a profile: the two small charts (net big blinds by
   seat, where hands end) that g-system does not ship, drawn from the same
   tokens as the rating graph and for the same reason g.chart is not used.
@@ -580,6 +581,8 @@ its own older record under `ot.odds` and keeps it there.
 | Path | Page |
 | --- | --- |
 | `/` | queue, how it works, top ten |
+| `/arena` | the arena running now (or the next one), its board, and the last three that finished |
+| `/arena/:id` | one arena, readable for good once it is over |
 | `/leaderboard` | top 100 |
 | `/u/:name` | profile |
 | `/watch` | live tables, and the ones that just finished |
@@ -608,6 +611,37 @@ the header, the felt and the dock keep one box in every state, and the strip
 sits outside that column so the felt is unchanged. `/m/mock?watch=1` runs the
 mock script with the seat removed, which is how the watching table is
 screenshotted without a live match.
+
+## The arena
+`/arena` is the arena running now, or the next one if none is; `/arena/:id` is
+one arena, and a finished one stays readable there for good. One component
+serves both (`src/routes/arena.tsx`), because the only thing the id changes is
+which call fetches the board and whether the finished list is drawn under it.
+
+The board arrives twice over, the same bargain the home game lobby makes: once
+from the request the page opens with, and after that pushed over the socket to
+everybody watching. The page **says** it is watching (`{t:'arena', a: id}`,
+and `null` on unmount) rather than the server inferring it from who joined,
+because watching an arena and being in one are different things. The server
+drops the subscription on disconnect, so the effect depends on `conn` and
+re-sends on every reconnect. A page whose socket never opened polls
+`api.arena(id)` every ten seconds instead, and stops once the arena is over.
+
+`arena-bits.ts` is the pure half: the countdown, the line the home page card
+reads, the board's shape and the flame's threshold. It is separate for the
+reason `home-game-seats.ts` is, and it is why the home card and the arena page
+cannot describe the same arena differently. **`ARENA_FIRE_FROM` is read from
+the protocol**, not written here: the flame is a promise about what the server
+is about to pay.
+
+Three things the page owes the states it can be in. A running arena whose
+clock has run out is not over, because the matches paired before the end are
+played out and scored, so it says "finishing the last matches" rather than
+counting into the negative. A finished arena drops the `paused` tag from its
+rows, since nobody is paused in an arena that has stopped pairing. And the
+result panel at an arena match reads "Back to the arena" and goes to
+`/arena/:id`, because the next match is the arena's to give and not the
+queue's (`match.tsx` picks that off `format.arena`).
 
 ## Socket contract
 The session is a cookie the server sets on the first `GET /api/me`, so the
