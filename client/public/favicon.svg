@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Open Table">
+  <!-- The mark. Colours are g-system's dark ground and primary text, taken
+       from client/public/g/g.css and written as literals because an icon
+       cannot read a custom property. The PNGs beside this file are rendered
+       from it, so this is the one place the shape lives. -->
+  <rect width="64" height="64" rx="14" fill="#111113"/>
+  <path fill="#edeef0" d="M32 11.5c0 0-18.5 14.2-18.5 22.9 0 5.1 4 9.2 9 9.2 2.4 0 4.6-.95 6.2-2.5.5-.5 1.35-.15 1.3.55-.25 4.2-1.75 8-4.3 10.5-.5.5-.15 1.35.55 1.35h11.5c.7 0 1.05-.85.55-1.35-2.55-2.5-4.05-6.3-4.3-10.5-.05-.7.8-1.05 1.3-.55 1.6 1.55 3.8 2.5 6.2 2.5 5 0 9-4.1 9-9.2C50.5 25.7 32 11.5 32 11.5Z"/>
+</svg>

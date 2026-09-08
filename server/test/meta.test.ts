@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { randomBytes, randomUUID } from 'node:crypto';
+import { existsSync, statSync } from 'node:fs';
 import { formatFor } from '@opentable/protocol';
 import { makeApp, mintGuestSession, deleteUser } from './helpers.js';
 import { sql } from '../src/db.js';
@@ -149,12 +150,37 @@ describe('link previews and crawl basics', () => {
     expect(title(html)).toBe('Open Table');
     expect(meta(html, 'name', 'description')).toBe(escapeHtml(SITE_DESCRIPTION));
     expect(meta(html, 'property', 'og:site_name')).toBe('Open Table');
-    expect(meta(html, 'name', 'twitter:card')).toBe('summary');
+    expect(meta(html, 'name', 'twitter:card')).toBe('summary_large_image');
     // One title and one description, not the shell's plus the injected one.
     expect(html.match(/<title>/g)).toHaveLength(1);
     expect(html.match(/<meta name="description"/g)).toHaveLength(1);
     // The shell is still the built app, not a page of meta tags.
     expect(html).toMatch(/<div id="root">/);
+  });
+
+  it('points every page at the card image, absolutely and with its size', async () => {
+    for (const url of ['/', `/m/${finished}`, '/learn/rules']) {
+      const { html } = await shell(url);
+      expect(meta(html, 'property', 'og:image')).toMatch(/^https?:\/\/[^/]+\/og\.png$/);
+      expect(meta(html, 'name', 'twitter:image')).toBe(meta(html, 'property', 'og:image'));
+      expect(meta(html, 'property', 'og:image:width')).toBe('1200');
+      expect(meta(html, 'property', 'og:image:height')).toBe('630');
+    }
+  });
+
+  /* The card image and the mark ship in client/public, which the client build
+     copies to the root of the served directory. Asserted on disk rather than
+     over HTTP because the served directory under test is whatever CLIENT_DIST
+     points at, which is a build somebody else made; a link in the head to a
+     file that was never committed unfurls as a blank space. */
+  it('ships the icons and the card image the head points at', async () => {
+    const dir = new URL('../../client/public/', import.meta.url);
+    for (const file of ['favicon.svg', 'favicon-32.png', 'apple-touch-icon.png', 'og.png']) {
+      expect([file, existsSync(new URL(file, dir))]).toEqual([file, true]);
+    }
+    // Cards are fetched by every client that unfurls the link, so the image
+    // stays small enough to be one round trip.
+    expect(statSync(new URL('og.png', dir)).size).toBeLessThan(150 * 1024);
   });
 
   // '/' has no file route of its own any more, so the uptime check that asks

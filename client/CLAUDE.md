@@ -7,6 +7,12 @@ to `127.0.0.1:8130`.
 **Owner:** Gabriel Penman
 **Design:** g-system, vendored at `public/g/` (`g.css`, `g-ui.js`, `fonts/`).
 Never hand-edit those; re-run `node scripts/vendor.mjs` from the g-system repo.
+**The mark** is `public/favicon.svg`, a spade on g-system's dark ground with
+both colours written as literals (an icon cannot read a custom property).
+`favicon-32.png`, `apple-touch-icon.png` (full bleed, iOS applies its own
+mask) and the 1200x630 `og.png` link card are rendered from it in a browser,
+not drawn by hand: change the SVG and re-render rather than editing a PNG.
+The head that a crawler sees is built server side, in `server/src/meta.ts`.
 
 ## Run
 - `npm run dev -w client` (port 5180, proxies to the server on 8130)

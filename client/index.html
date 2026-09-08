@@ -8,6 +8,11 @@
          default, so this is g-system's --bg in dark (--slate-1); it is a
          literal because a meta tag cannot read a custom property. -->
     <meta name="theme-color" content="#111113" />
+    <!-- The mark is favicon.svg; the PNGs are rendered from it for the
+         browsers and the home screens that will not take an SVG. -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>Open Table</title>
     <link rel="stylesheet" href="/g/g.css" />
     <!-- Three attribute writes before the first paint, so a light theme or a

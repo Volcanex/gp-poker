@@ -157,18 +157,32 @@ export function shellLoaded(): boolean {
   return shellHtml !== null;
 }
 
-export function renderShell(meta: PageMeta, url: string): string {
+/* One card image for the whole site: the wordmark and what the site is. It
+   is the same picture on every page because the alternative is rendering one
+   per match, and a card that says "Open Table" under a title that already
+   says who beat whom is the honest version of that. Absolute, because a
+   crawler is not required to resolve a relative one. Rendered from
+   client/public/favicon.svg and shipped in client/public. */
+const OG_IMAGE = { path: '/og.png', width: 1200, height: 630 };
+
+export function renderShell(meta: PageMeta, origin: string, pathname: string): string {
   if (shellHtml === null) throw new Error('shell not loaded');
   const title = meta.title ? `${meta.title}, ${SITE_NAME}` : SITE_NAME;
+  const image = escapeHtml(`${origin}${OG_IMAGE.path}`);
   const tags = [
     `<title>${escapeHtml(title)}</title>`,
     `<meta name="description" content="${escapeHtml(meta.description)}" />`,
     `<meta property="og:title" content="${escapeHtml(meta.title ?? SITE_NAME)}" />`,
     `<meta property="og:description" content="${escapeHtml(meta.description)}" />`,
     `<meta property="og:type" content="${meta.type}" />`,
-    `<meta property="og:url" content="${escapeHtml(url)}" />`,
+    `<meta property="og:url" content="${escapeHtml(`${origin}${pathname}`)}" />`,
     `<meta property="og:site_name" content="${escapeHtml(SITE_NAME)}" />`,
-    `<meta name="twitter:card" content="summary" />`,
+    `<meta property="og:image" content="${image}" />`,
+    `<meta property="og:image:width" content="${OG_IMAGE.width}" />`,
+    `<meta property="og:image:height" content="${OG_IMAGE.height}" />`,
+    `<meta property="og:image:alt" content="${escapeHtml(`${SITE_NAME}: free ranked poker`)}" />`,
+    `<meta name="twitter:card" content="summary_large_image" />`,
+    `<meta name="twitter:image" content="${image}" />`,
   ].join('\n    ');
   return shellHtml.replace('</head>', `  ${tags}\n  </head>`);
 }
@@ -454,7 +468,7 @@ export async function sendShell(request: FastifyRequest, reply: FastifyReply): P
     .code(200)
     .type('text/html; charset=utf-8')
     .header('Cache-Control', 'no-cache')
-    .send(renderShell(meta, `${originOf(request)}${pathname}`));
+    .send(renderShell(meta, originOf(request), pathname));
 }
 
 export function registerCrawlRoutes(app: FastifyInstance): void {
