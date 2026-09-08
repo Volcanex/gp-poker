@@ -116,3 +116,12 @@ to a player, and every field takes a default on read, so a record written by an
 older build still loads. The timer starts when the equity lands rather than
 when the spot is dealt, since the buttons are dead until then. A change to the
 streets applies to the next deal, not to the spot on screen.
+## The explorer's panel has one footprint
+
+`Breakdown` re-reads on every pointer move across 169 cells, so it always draws
+the full set of rates, empty as a dash, rather than collapsing to a line of prose
+when there is nothing to say, and the one line that names the hovered hand sits
+in a slot kept two lines tall (`.ex-said`). It used to size to what it was
+reading, which reflowed the page by up to 190 pixels on every hover and moved the
+grid the pointer was crossing. `../../e2e/learn-hover.spec.ts` sweeps all 169
+cells and fails if the panel's box moves.

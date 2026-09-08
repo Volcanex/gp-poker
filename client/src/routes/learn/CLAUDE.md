@@ -46,3 +46,17 @@ Cards are `BoardText` from `../../ui/board-text.tsx`, the same component the
 match tables and hand lists use, so a card on a lesson page is the card the
 table deals. Tables are g's `.table`. The seat chips and the range grid are the
 only bespoke pieces, and their styles are in `learn.css`, never `../../app.css`.
+
+## Hovering a square never changes a size
+
+The ranges lesson draws a 13 by 13 grid the pointer is meant to sweep, and the
+tools and puzzles draw the same shape. Nothing a hover touches may change how
+much room anything takes: a readout that sizes to the hovered value reflows the
+page under the pointer, the square moves out from under it, the square that took
+its place reports itself instead, and the two states flicker against each other.
+So a hover changes colour, background, an outline through `box-shadow` or
+`outline`, or a transform, and nothing else; text that varies sits in a slot
+reserved for its longest form; a detail panel keeps one height and has its
+content replaced in place. This is the table's own rule (`../../table/CLAUDE.md`,
+"One footprint"), and `../../../e2e/learn-hover.spec.ts` holds every grid in this
+section to it.

@@ -326,24 +326,29 @@ function Legend({ shade }: { shade: Shade }) {
   );
 }
 
+/* Nothing here has any numbers in it, which is what an empty cell and the page
+   at rest both read as. */
+const NO_RATES: Omit<ExplorerRow, 'hand'> = { hands: 0, raise: null, call: null, fold: null, netBb: null };
+
+/* One footprint, three states. This panel re-reads on every pointer move across
+   169 cells, so what it says may change but how much room it takes may not: a
+   panel that sizes to the hovered value reflows the page under the pointer, the
+   pointer lands on a different cell, and the two states flicker against each
+   other. So the rates are always drawn, empty as a dash, and the one line that
+   varies sits in a slot kept two lines tall. */
 function Breakdown({ row, seat }: { row: ExplorerRow | null; seat: string }) {
+  const has = row !== null && row.hands > 0;
   return (
     <section className="card stack" aria-label="One hand" aria-live="polite">
       <span className="card-title">{row ? row.hand : 'Pick a hand'}</span>
-      {row === null ? (
-        <span className="muted">
-          Hover a cell or tab into the grid. The seat is the {seat.toLowerCase()}.
-        </span>
-      ) : row.hands === 0 ? (
-        <span className="muted">Nobody has been dealt {row.hand} in this spot yet.</span>
-      ) : (
-        <>
-          <Rates row={row} />
-          <span className="field-note muted">
-            From {row.hands} {row.hands === 1 ? 'time' : 'times'} it came up here.
-          </span>
-        </>
-      )}
+      <Rates row={has ? row! : NO_RATES} />
+      <span className="field-note muted ex-said">
+        {row === null
+          ? `Hover a cell or tab into the grid. The seat is the ${seat.toLowerCase()}.`
+          : row.hands === 0
+            ? `Nobody has been dealt ${row.hand} in this spot yet.`
+            : `From ${row.hands} ${row.hands === 1 ? 'time' : 'times'} it came up here.`}
+      </span>
     </section>
   );
 }
@@ -377,11 +382,11 @@ function Rates({ row }: { row: Omit<ExplorerRow, 'hand'> }) {
 }
 
 function fmtRate(n: number | null): string {
-  return n === null ? '—' : `${Math.round(n)}%`;
+  return n === null ? '…' : `${Math.round(n)}%`;
 }
 
 function fmtBb(n: number | null): string {
-  if (n === null) return '—';
+  if (n === null) return '…';
   return n > 0 ? `+${n.toFixed(2)}` : n.toFixed(2);
 }
 

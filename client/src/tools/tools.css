@@ -594,6 +594,14 @@
   border-color: var(--accent-edge);
 }
 
+/* The line under the rates that names the hovered cell. Reserved at two lines
+   so a longer message cannot make the panel taller: the panel sits beside a
+   grid the pointer is crossing, and a panel that grows on hover moves the page
+   under the pointer. */
+.ex-said {
+  min-height: 2lh;
+}
+
 /* The legend, shared by both grid pages. min-height reserves the slot: the
    range explorer swaps a ramp for a single swatch when the view changes and
    the panel beside the grid must not step. */
