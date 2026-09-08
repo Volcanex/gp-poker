@@ -979,6 +979,35 @@ a.btn { text-decoration: none; }
   display: flex; flex-direction: column; gap: 1px;
   max-height: 420px; overflow: auto;
 }
+/* A scroller with a fixed height cuts a line wherever its edge falls, and the
+   top of an 11px street label is three pixels of letters that read as stray
+   punctuation under the last action rather than as a line continuing below.
+   So the edge that is cutting fades, and only that edge: a list short enough
+   to fit keeps its last line sharp.
+
+   The fade drops hard and then tails off. A gentle one cannot help here: the
+   pixel under the last whole row is where the cut line starts, so it has to be
+   most of the way gone by the time the fade is four pixels old, or the marks
+   are still marks. `scroll-margin-block` on the row below keeps the action you
+   are on out of it. Black is an alpha channel here, not a colour. */
+.acts-list[data-cut="bottom"] {
+  mask-image: linear-gradient(to bottom, black calc(100% - 22px), rgb(0 0 0 / 0.22) calc(100% - 18px), transparent);
+}
+.acts-list[data-cut="top"] {
+  mask-image: linear-gradient(to top, black calc(100% - 22px), rgb(0 0 0 / 0.22) calc(100% - 18px), transparent);
+}
+.acts-list[data-cut="both"] {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    rgb(0 0 0 / 0.22) 4px,
+    black 22px,
+    black calc(100% - 22px),
+    rgb(0 0 0 / 0.22) calc(100% - 18px),
+    transparent
+  );
+}
+
 .act-street {
   display: block; padding: var(--sp-3) 6px 4px;
   font-size: 11px; color: var(--text-secondary);
@@ -986,6 +1015,11 @@ a.btn { text-decoration: none; }
 .act-row {
   display: flex; flex-direction: column; gap: 1px;
   width: 100%; padding: 5px 7px;
+  /* Stepping scrolls the current action into view by the smallest amount that
+     works, which puts it flush against the edge and under the fade above. The
+     margin is the room the fade takes, so the row you are on is never the row
+     being faded out. */
+  scroll-margin-block: 22px;
   border: 1px solid transparent; border-radius: var(--radius-sm);
   background: none; text-align: left; cursor: pointer;
   font-family: var(--font-ui); font-size: var(--font-size-ui); color: var(--text-primary);

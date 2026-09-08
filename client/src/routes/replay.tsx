@@ -403,6 +403,8 @@ function ActionList({
   equities: Equities;
 }) {
   const currentRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLOListElement>(null);
+  const [cut, setCut] = useState<'top' | 'bottom' | 'both' | null>(null);
 
   /* Stepping with the keyboard has to keep the current action in sight, or the
      list and the table stop agreeing about where you are. Instant, not smooth:
@@ -411,10 +413,36 @@ function ActionList({
     currentRef.current?.scrollIntoView({ block: 'nearest' });
   }, [step]);
 
+  /* Which edges of the list are cutting a line in half.
+
+     The list is a fixed height and a hand has more actions than fit, so its
+     edge lands wherever it lands: in the middle of a street label it leaves
+     the top three pixels of the letters on screen, which read as a stray mark
+     rather than as a line that carries on. The cut edge is faded out, and only
+     the edge that is actually cutting something, so a list that fits keeps its
+     last line sharp. */
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const read = () => {
+      const above = list.scrollTop > 1;
+      const below = list.scrollHeight - list.scrollTop - list.clientHeight > 1;
+      setCut(above && below ? 'both' : above ? 'top' : below ? 'bottom' : null);
+    };
+    read();
+    list.addEventListener('scroll', read, { passive: true });
+    const observer = new ResizeObserver(read);
+    observer.observe(list);
+    return () => {
+      list.removeEventListener('scroll', read);
+      observer.disconnect();
+    };
+  }, [hand, step, prices]);
+
   return (
     <aside className="replay-side">
       <span className="h2">Actions</span>
-      <ol className="acts-list">
+      <ol className="acts-list" ref={listRef} data-cut={cut ?? undefined}>
         <li>
           <button
             type="button"
