@@ -1,10 +1,75 @@
-/* The profile page's insights section: two small charts g-system does not
-   ship, drawn from the same tokens as everything else. The stat tiles above
-   them are `.tiles` and `.card.stat` from the app layer, unchanged, and the
-   mode switch is the shipped tabs; only these two shapes are new.
+/* The profile page's own shapes: the rating headline at the top, and the two
+   small charts in the insights section that g-system does not ship, drawn from
+   the same tokens as everything else. The stat tiles are
+   `.tiles` and `.card.stat` from the app layer, the percentile bar in the
+   headline is g's own `.g-progress`, and the mode switch is the shipped tabs;
+   only the headline's layout and these two charts are new.
    Same reasoning as the rating graph: g ships g.chart, but it renders into a
    node it owns and re-renders by being called again, which fights React. A
    row of bars and a stacked bar are plain boxes, so they are plain boxes. */
+
+/* ------------------------------------------------------------- the headline */
+
+/* The rating where this player plays, big enough to be the thing you see, with
+   the only reading of it that needs no scale beside it: the share of the field
+   they are above. Two columns on a desktop and one on a phone.
+
+   Every class here is prefixed rather than scoped under the card, because the
+   app's stylesheets are one global sheet and the short names were all taken:
+   `hero` is the home page's lede and `rank` is a centred cell in the tools
+   grid, and both quietly reshaped this card when it used them.
+
+   `min-height` and the reserved widths below are what stop the page moving when
+   the mode tabs are used: an unrated mode has no place block at all, and a
+   rating that loses a digit would otherwise drag the peak along with it. */
+.rating-hero {
+  display: grid;
+  grid-template-columns: minmax(180px, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--sp-4) var(--sp-6);
+  min-height: 116px;
+}
+
+.rating-hero-main { display: flex; flex-direction: column; gap: 2px; }
+.rating-hero-main .k { font-size: 12px; color: var(--text-secondary); }
+/* The slot keeps its box whatever goes in it: four digits wide and one 56px
+   line tall, so a three digit rating, a four digit one and the word an unrated
+   mode prints all leave the card the same size and the page under it still. */
+.rating-hero-main .v {
+  display: flex;
+  align-items: flex-end;
+  min-width: 4ch;
+  min-height: 59px;
+  font-size: 56px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+/* A mode with nothing behind it prints a word, not a number, so it drops out
+   of the size the slot reserves for one. */
+.rating-hero-main .v[data-empty] {
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  color: var(--text-secondary);
+}
+.rating-hero-main .d { font-size: 12px; color: var(--text-secondary); }
+
+.rating-hero-place { display: flex; flex-direction: column; gap: 7px; max-width: 420px; }
+.rating-hero-share { font-size: var(--font-size-ui); color: var(--text-primary); }
+.rating-hero-rank { font-size: 12px; color: var(--text-secondary); }
+
+/* A phone stacks the two, and the number comes down with it: 56px next to a
+   360px viewport leaves the percentile line nowhere to go. */
+@media (max-width: 560px) {
+  .rating-hero {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    min-height: 0;
+  }
+  .rating-hero-main .v { font-size: 44px; min-height: 47px; }
+  .rating-hero-place { max-width: none; }
+}
 
 .ins-group { display: flex; flex-direction: column; gap: var(--sp-3); }
 

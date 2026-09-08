@@ -30,6 +30,12 @@ offline state. Its timestamps are offsets from now, sitting in the middle of
 their bucket, because the feed prints "2h ago" and a pinned date would read
 differently every day.
 
+**The two profiles are the exception to that**: `/api/users/:name` serves a
+rated player and an unrated one, and their dates are pinned rather than offset,
+because the profile prints "26 Jul 2026" and not "3d ago". An offset would
+redraw every profile baseline at midnight. The rated one is rated in both modes
+so the percentile column has two rows to fill.
+
 The two link-landing pages, an invite and a home game lobby, are stubbed **from
 the visitor's side** rather than the host's, because that is the side a link is
 for: somebody else's invite to accept, and a lobby with three of its six chairs
@@ -62,7 +68,7 @@ it.
 | `reduced-motion.spec.ts` | the same information with the motion emulated off |
 | `settings.spec.ts` | a choice surviving a reload, the pre-paint stamp, every accent's contrast in both themes, the four colour deck, and the menu itself |
 | `replay.spec.ts` | a recorded hand scrubbed back and forth leaves nothing behind and nothing outside the felt, and still verifies |
-| `screenshots.spec.ts` | 132 baselines: eleven states at 360, 390, 430, 768, 1366 and 1920, dark and light |
+| `screenshots.spec.ts` | 156 baselines: thirteen states at 360, 390, 430, 768, 1366 and 1920, dark and light |
 
 ## Reading a baseline diff
 

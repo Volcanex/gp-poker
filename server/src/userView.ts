@@ -22,6 +22,21 @@ export function toModeRating(row: RatingRow): ModeRating {
   };
 }
 
+/* The mode this player actually plays: whichever they have the most rated
+   matches in, the higher rating breaking a tie, heads-up when they have played
+   neither. It is what the profile puts in its headline, so it answers "where do
+   you play" rather than "where are you best": somebody who ground out two
+   hundred heads-up matches is a heads-up player even on a day their six-max
+   rating happens to read higher. */
+export function mainMode(ratings: Record<Mode, RatingRow>): Mode {
+  return MODES.reduce((best, mode) => {
+    if (ratings[mode].matches !== ratings[best].matches) {
+      return ratings[mode].matches > ratings[best].matches ? mode : best;
+    }
+    return ratings[mode].rating > ratings[best].rating ? mode : best;
+  }, MODES[0]);
+}
+
 // The flat rating/rd/provisional fields are the heads-up standing. They stay
 // on the wire so a caller that only wants "the" rating still has one; the
 // `ratings` map is the honest answer.

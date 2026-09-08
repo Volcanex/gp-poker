@@ -1,6 +1,7 @@
 import type { Mode, ModeRating, UserSummary } from '@opentable/protocol';
 import type {
-  BotRow, Hand, Match, MatchHandSummary, MatchSeat, Profile, RatingPoint, UserMatchSummary,
+  BotRow, Hand, Match, MatchHandSummary, MatchSeat, ModeStanding, Profile, RatingPoint,
+  UserMatchSummary,
 } from './types.ts';
 
 /* Fields the server is adding but has not shipped yet: mean preflop accuracy
@@ -71,6 +72,33 @@ export function modePeakAt(profile: Profile, mode: Mode): string | null {
   const own = modeRating(profile.summary, mode).peakAt;
   if (own) return own;
   return mode === 'heads-up' ? profile.peakAt : null;
+}
+
+/* The mode a profile opens on: whichever the player has actually played, with
+   the higher rating breaking a tie and heads-up when they have played neither.
+   The server works it out now; the fallback is the same rule read off the
+   standings, so a client talking to a server that predates the field still
+   opens on the right mode rather than always on heads-up. Every mode switch on
+   the page starts here, so a profile never opens showing a rating line for one
+   mode beside insights for the other. */
+export function mainMode(profile: Profile): Mode {
+  const sent = profile.main;
+  if (sent === 'heads-up' || sent === 'six-max') return sent;
+  const sixMax = modeRating(profile.summary, 'six-max');
+  const headsUp = modeRating(profile.summary, 'heads-up');
+  if (sixMax.matches !== headsUp.matches) return sixMax.matches > headsUp.matches ? 'six-max' : 'heads-up';
+  return sixMax.rating > headsUp.rating ? 'six-max' : 'heads-up';
+}
+
+/* Where this player sits in a mode. Null covers three different things that
+   all mean the same on screen: a server that does not send standings, a mode
+   with no rated match behind it, and a bot, which is not in the field at all.
+   The page prints no percentile rather than a rank of zero. */
+export function modeStanding(profile: Profile, mode: Mode): ModeStanding | null {
+  const standing = profile.percentiles?.[mode];
+  if (!standing) return null;
+  if (standing.population < 1 || standing.rank < 1) return null;
+  return standing;
 }
 
 /* A rating line is per mode too: a six-max result is not a point on a heads-up

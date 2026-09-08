@@ -95,12 +95,37 @@ quietly, so the page prints the reason it was overridden.
 
 ## The profile
 
-`profile.css` is the insights block under the rating graph: the two small charts
-(net big blinds by seat, where hands end) that g-system does not ship, drawn from
-the same tokens as the rating graph and for the same reason `g.chart` is not used
-(`../ui/CLAUDE.md`). The numbers come from `/api/users/:name/insights`, which the
-server derives by replaying stored hands, and a group below twenty hands comes
-back null rather than as a claim.
+The page opens on a **headline**: the rating in the mode this player actually
+plays, as the largest number on the page, with the peak under it and where it
+puts them beside it. That is what a rating is for, and a number with no scale
+next to it says nothing, so the card carries "Top 12% of heads-up players", a
+bar filled to the share of the field they are above, and "Rank 34 of 280". What
+the field is, and why a bot and a never-played mode have no place in it at all,
+is `server/src/CLAUDE.md`; `main` is the mode with the most rated matches, and
+`mainMode()` in `../net/adapt.ts` falls back to the same rule when the server
+predates the field.
+
+**The headline and the rating line share one mode**, the one the tabs under the
+card pick, so the big number and the curve below it are never two different
+modes at once. Insights keeps its own switch. The card holds its box across both
+states: the number sits in a slot four digits wide and one line tall, so an
+unrated mode, a three digit rating and a four digit one all leave the page under
+it still.
+
+**Every class in `profile.css` is prefixed** (`rating-hero`, not `hero`). The
+app's stylesheets are one global sheet with no modules, and the short names were
+taken: `.hero` is the home page's lede and `.rank` is a centred cell in the
+tools grid. Both silently reshaped this card before it was renamed.
+
+The rest of `profile.css` is the insights block: the two small charts (net big
+blinds by seat, where hands end) that g-system does not ship, drawn from the
+same tokens as the rating graph and for the same reason `g.chart` is not used
+(`../ui/CLAUDE.md`). The percentile bar is not one of them: it is g's shipped
+`.g-progress`, with the width written inline and the aria values set, so g-ui's
+own pass over it computes the same number rather than resetting it to zero. The
+insights numbers come from `/api/users/:name/insights`, which the server derives
+by replaying stored hands, and a group below twenty hands comes back null rather
+than as a claim.
 
 Which mode each screen is showing, and why a mode with no rated matches says so
 rather than printing 1500, is in `../net/CLAUDE.md`.

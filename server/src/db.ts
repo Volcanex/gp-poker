@@ -123,6 +123,62 @@ export async function getRatingsForUsers(userIds: string[], mode: Mode): Promise
   return out;
 }
 
+/* Where one player sits among everybody else in a mode. `population` is the
+   field this is measured against, `rank` is their 1-based place in it counting
+   from the top, and `percentile` is the share of that field rated strictly
+   below them, 0 to 100. */
+export interface ModeStanding {
+  mode: Mode;
+  rank: number;
+  population: number;
+  percentile: number;
+}
+
+/* The field a percentile is a share of: every non-bot with at least one rated
+   match in that mode. Two exclusions, both deliberate. Bots are users and hold
+   ratings the ladder keeps moving, so counting them would make a person's place
+   depend on how many robots the box happens to run. And a row with no rated
+   match behind it is a default 1500 nobody earned, which would stack a crowd of
+   ghosts in the middle of the board and push every real player outwards.
+
+   Unlike the leaderboard this does **not** drop provisional players (rd > 110):
+   somebody four matches in is still somebody you are ahead of or behind, and
+   leaving them out would make the population shrink as the site got busier.
+
+   Ranks are `rank()`, not `row_number()`, so players on the same rating share a
+   place. Counting from the bottom gives the number strictly below for free:
+   ties share the lower rank, so `from_bottom - 1` is exactly that count. */
+export async function getModeStandings(userId: string): Promise<ModeStanding[]> {
+  const rows = await sql<{ mode: Mode; rank: number; fromBottom: number; population: number }[]>`
+    with rated as (
+      select r.user_id, r.mode, r.rating
+      from ratings r
+      join users u on u.id = r.user_id
+      where u.bot = false and r.matches > 0
+    ),
+    placed as (
+      select
+        user_id,
+        mode,
+        rank() over (partition by mode order by rating desc)::int as rank,
+        rank() over (partition by mode order by rating asc)::int as from_bottom,
+        count(*) over (partition by mode)::int as population
+      from rated
+    )
+    select mode, rank, from_bottom, population from placed where user_id = ${userId}
+  `;
+  return rows.map((r) => ({
+    mode: r.mode,
+    rank: r.rank,
+    population: r.population,
+    percentile: round1(((r.fromBottom - 1) / r.population) * 100),
+  }));
+}
+
+function round1(n: number): number {
+  return Math.round(n * 10) / 10;
+}
+
 export interface SessionRow {
   token: string;
   userId: string;

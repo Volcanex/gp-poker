@@ -54,6 +54,27 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
+/* The profile prints dates, not "2h ago", so its fixtures are pinned to fixed
+   ones. An offset from now would redraw every profile baseline at midnight.
+
+   A line with a shape to it rather than a straight climb: the graph draws the
+   min and the max as its labels, so a flat line would pin nothing. */
+const day = (n: number) => `2026-07-${String(n).padStart(2, '0')}T12:00:00.000Z`;
+
+const RATING_LINE = [1500, 1476, 1512, 1489, 1534, 1552, 1521, 1540, 1518].map((rating, i) => ({
+  rating,
+  rd: 140 - i * 7,
+  at: day(2 + i * 3),
+  matchId: null,
+}));
+
+const SIX_MAX_LINE = [1500, 1471, 1449, 1482, 1463].map((rating, i) => ({
+  rating,
+  rd: 130 - i * 7,
+  at: day(4 + i * 5),
+  matchId: null,
+}));
+
 const RECENT = [
   {
     id: 'qtabzev9',
@@ -184,6 +205,121 @@ const HOME_GAME = {
   expiresAt: new Date(Date.now() + 20 * HOUR).toISOString(),
 };
 
+/* Two profiles, because the page has two shapes worth pinning: somebody rated
+   in both modes, with a main mode, a peak and a place in the field, and
+   somebody who has played nothing, whose headline says so instead of printing
+   a 1500 nobody earned. */
+const PROFILE_RATINGS = {
+  'heads-up': {
+    rating: 1518, rd: 84, provisional: false, peak: 1552,
+    peakAt: '2026-08-01T00:00:00.000Z', matches: 40, wins: 22, losses: 17, draws: 1,
+  },
+  /* Rated in both, so the percentile column has two rows to fill and the
+     headline is a choice between them rather than the only one there is. */
+  'six-max': {
+    rating: 1463, rd: 96, provisional: false, peak: 1498,
+    peakAt: '2026-07-11T00:00:00.000Z', matches: 12, wins: 2, losses: 10, draws: 0,
+  },
+};
+
+const PROFILE_KESTREL = {
+  summary: {
+    id: 'u-e2e', name: 'kestrel', guest: false, bot: false,
+    rating: 1518, rd: 84, provisional: false, ratings: PROFILE_RATINGS,
+  },
+  main: 'heads-up',
+  percentiles: {
+    'heads-up': { rank: 34, population: 280, percentile: 88.2 },
+    'six-max': { rank: 62, population: 96, percentile: 35.4 },
+  },
+  peak: 1552,
+  peakAt: '2026-08-01T00:00:00.000Z',
+  provisional: false,
+  matches: 40,
+  winRate: 0.55,
+  accuracy: 71.4,
+  ratingHistory: {
+    'heads-up': RATING_LINE,
+    'six-max': SIX_MAX_LINE,
+  },
+  stats: { hands: 812, vpip: 41.2, pfr: 26.8, aggressionFrequency: 0.52, foldTo3bet: 44.1 },
+  lastMatches: [
+    {
+      id: 'qtabzev9', opponent: 'riverrat', opponentId: 'u-riverrat', result: 'loss',
+      ratingChange: -19, finishedAt: day(26), rated: true, mode: 'heads-up',
+      place: 2, players: 2, practice: false,
+    },
+    {
+      id: 'x4mn7wpq', opponent: 'quarrel', opponentId: 'u-quarrel', result: 'win',
+      ratingChange: 14, finishedAt: day(23), rated: true, mode: 'heads-up',
+      place: 1, players: 2, practice: false,
+    },
+    {
+      id: 'zqmny5hf', opponent: 'BriskQuarry', opponentId: 'bot-1', result: 'win',
+      ratingChange: 0, finishedAt: day(19), rated: false, mode: 'six-max',
+      place: 1, players: 6, practice: true,
+    },
+  ],
+  arenas: [
+    { id: 'ar-1', name: 'Tuesday 19:00 arena', endsAt: day(21), place: 4, score: 11, players: 22 },
+  ],
+};
+
+const PROFILE_NEWCOMER = {
+  summary: {
+    id: 'u-newcomer', name: 'newcomer', guest: true, bot: false, rating: 1500, rd: 350, provisional: true,
+    ratings: {
+      'heads-up': { rating: 1500, rd: 350, provisional: true, peak: 1500, peakAt: null, matches: 0, wins: 0, losses: 0, draws: 0 },
+      'six-max': { rating: 1500, rd: 350, provisional: true, peak: 1500, peakAt: null, matches: 0, wins: 0, losses: 0, draws: 0 },
+    },
+  },
+  main: 'heads-up',
+  percentiles: { 'heads-up': null, 'six-max': null },
+  peak: 1500,
+  peakAt: null,
+  provisional: true,
+  matches: 0,
+  winRate: 0,
+  accuracy: null,
+  ratingHistory: { 'heads-up': [], 'six-max': [] },
+  stats: { hands: 0, vpip: 0, pfr: 0, aggressionFrequency: 0, foldTo3bet: 0 },
+  lastMatches: [],
+  arenas: [],
+};
+
+const PROFILES: Record<string, unknown> = {
+  kestrel: PROFILE_KESTREL,
+  newcomer: PROFILE_NEWCOMER,
+};
+
+/* Enough hands that every insights group is filled in rather than the page
+   printing the "appears after twenty hands" card under every headline. */
+const INSIGHTS = {
+  mode: 'heads-up',
+  minHands: 20,
+  sample: { hands: 812, matches: 40 },
+  preflop: { vpip: 41.2, pfr: 26.8, threeBet: 9.4, foldToThreeBet: 44.1 },
+  postflop: {
+    aggressionFactor: 2.14, cbet: 62.5, wentToShowdown: 28.7,
+    wonAtShowdown: 54.2, wonWithoutShowdown: 71.9,
+  },
+  positions: [
+    { key: 'button', hands: 406, bbPerHand: 0.42 },
+    { key: 'small-blind', hands: 406, bbPerHand: 0.18 },
+    { key: 'big-blind', hands: 406, bbPerHand: -0.31 },
+    { key: 'utg', hands: 0, bbPerHand: null },
+    { key: 'hijack', hands: 0, bbPerHand: null },
+    { key: 'cutoff', hands: 0, bbPerHand: null },
+  ],
+  streets: { preflop: 38.4, flop: 27.1, turn: 12.6, river: 7.2, showdown: 14.7 },
+  results: {
+    biggestPot: { chips: 412, bb: 206, handId: 'qtabzev9-12', matchId: 'qtabzev9', handNumber: 12 },
+    longestWinStreak: 5,
+    averageHandMs: 41_200,
+    timeouts: 3,
+  },
+};
+
 export async function stubApi(page: Page) {
   await page.route('**/api/**', (route) =>
     route.fulfill({ status: 404, json: { error: 'not found' } }));
@@ -195,6 +331,17 @@ export async function stubApi(page: Page) {
   await page.route('**/api/challenges/*', (route) => route.fulfill({ json: CHALLENGE }));
   await page.route('**/api/home-games/*', (route) => route.fulfill({ json: HOME_GAME }));
   await page.route('**/api/me', (route) => route.fulfill({ json: ME }));
+  /* Registered after the catch-all like everything else, and the insights
+     route after the profile one, since a later handler is the one Playwright
+     runs and `/api/users/kestrel/insights` matches both patterns. */
+  await page.route('**/api/users/*', (route) => {
+    const name = decodeURIComponent(new URL(route.request().url()).pathname.split('/').pop() ?? '');
+    const profile = PROFILES[name.toLowerCase()];
+    return profile
+      ? route.fulfill({ json: profile })
+      : route.fulfill({ status: 404, json: { error: 'no such user' } });
+  });
+  await page.route('**/api/users/*/insights*', (route) => route.fulfill({ json: INSIGHTS }));
 }
 
 /* An explicit theme, stored the way g stores it: g-ui reads its own key at load
