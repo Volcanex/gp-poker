@@ -6,26 +6,29 @@
    obeys the same rule: one box, one height, every state drawn inside it.
    Nothing below is allowed to size to its content.
 
+   Two rows: the decision line along the top edge, and the content under it.
    **The phone layout is the shape and the desktop one is it scaled up**, so
    the two are one set of rules rather than two: cards in one corner with the
    name, the stack and the last action on one edge under them, the controls in
    the other corner, and the phone block at the foot of the file changes sizes
    rather than shapes. Two things are the wide band's alone: the key legend,
    because a phone has no keyboard to legend, and the raise control, which is
-   six sizes under a mouse and a sweep under a thumb.
+   ten sizes under a mouse and a sweep under a thumb.
 
    **The band's ground is the page's and its content is the felt's.** The
    ground runs the full width, because a band that stopped where the felt does
-   would be a floating panel; the grid inside it is capped at `--felt-w` and
-   centred, so the cards start on the felt's left edge, the controls end on its
-   right one, and the whole screen reads as one column. `--felt-w` is declared
-   on `.match` for exactly this (see `../app.css`). */
+   would be a floating panel; the line and the grid inside it are capped at
+   `--felt-w` and centred, so the cards start on the felt's left edge, the
+   controls end on its right one, and the whole screen reads as one column.
+   `--felt-w` is declared on `.match` for exactly this (see `../app.css`). */
 
 .hero-band {
   grid-row: 5;
   height: calc(var(--dock-h) + env(safe-area-inset-bottom));
   display: grid;
-  padding: var(--band-pad) var(--band-gut) calc(var(--band-pad) + env(safe-area-inset-bottom));
+  grid-template-rows: var(--hb-line-h) minmax(0, 1fr);
+  row-gap: var(--band-pad);
+  padding: 0 var(--band-gut) calc(var(--band-pad) + env(safe-area-inset-bottom));
   border-top: 1px solid var(--border-subtle);
   background: var(--surface-2);
 
@@ -35,6 +38,8 @@
      header and the dock this replaces all sit on it, and a band four pixels
      wider than the felt above it reads as a step in the edge. */
   --band-gut: var(--sp-4);
+  /* The decision line's row: one line of words with the clock's bar under it. */
+  --hb-line-h: 28px;
   --hero-card: 104px;
   /* The meta under the cards: the name line, the figures line, and the gap. */
   --hb-who-h: 20px;
@@ -45,11 +50,11 @@
      it too and the three lines share one edge. */
   --hb-flag: 16px;
   --hb-flag-gap: 6px;
-  /* The three action rows, named here because the hand-over ghosts stand in
-     for them and have to be the same size in the same place. */
-  --act-1: 56px;
-  --act-2: 44px;
-  --act-3: 44px;
+  /* The rows of the controls column, named here because the waiting pills and
+     the hand-over ghosts stand in the same boxes and have to be the same size
+     in the same place. */
+  --sizes-h: 112px;
+  --act-h: 44px;
   --act-gap: var(--sp-2);
   /* The legend's own row under the controls, and the gap over it. Named for
      this band: `--keys-h` is the table grid's own row for the v1 legend. */
@@ -65,14 +70,63 @@
   --fan-sin: 0.1045;
 }
 
+/* Both rows sit on the felt's column. */
+.hb-line, .hb-in {
+  width: 100%; max-width: var(--felt-w); margin: 0 auto;
+  min-width: 0; min-height: 0;
+}
+
+/* ---------------------------------------------------------- decision line */
+
+/* One line of words, the clock or the countdown at its right end, and the
+   clock's bar along its floor. It is the band's top edge because that is
+   where the eye lands coming down off the felt, and it is the only status the
+   band prints: what you have to decide, who is being waited for, or who won.
+
+   The words are the band's loudest text on your turn and quieter when the
+   turn is somebody else's, which is the same thing the bar does: yours is the
+   accent, theirs is grey. The bar is drawn empty when no clock is running so
+   the floor is there in every state. */
+.hb-line {
+  position: relative;
+  display: flex; align-items: center; gap: var(--sp-3);
+  height: var(--hb-line-h);
+  /* The words sit above the bar rather than on it. */
+  padding-bottom: 4px;
+}
+.hb-line-text {
+  flex: 1; min-width: 0;
+  font-size: 14px; line-height: 20px; font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+.hb-line[data-whose="them"] .hb-line-text,
+.hero-band[data-state="watch"] .hb-line-text {
+  font-weight: 400; color: var(--text-secondary);
+}
+/* The right end: the seconds, or the countdown. A reserved width, the width
+   of the longest thing it says, because a slot that grew for "Next hand in
+   4" moved its own left edge and that was a layout shift the audit caught. */
+.hb-line-end {
+  flex: none; width: 96px;
+  text-align: right;
+  font-size: 12px; line-height: 20px; color: var(--text-secondary);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.hb-line-end .turn-secs { font-size: 12px; }
+.hb-line > .turn-bar { left: 0; right: 0; top: auto; bottom: 0; }
+/* Their clock is on the line so you can see how long they have, not as a
+   call to action: the placeholder grey is the one use of it that is a
+   background rather than text (see `../app.css`). */
+.hb-line[data-whose="them"] .turn-bar i { background: var(--text-placeholder); }
+
 /* The felt's column, and the band's own two areas on it. The legend takes a
    row of its own under the controls rather than a column between them: the
    middle of the band is the gap between your hand and your controls, and a
    caption sitting in it was the thing the eye kept stopping on. */
 .hb-in {
-  position: relative;
-  width: 100%; max-width: var(--felt-w); margin: 0 auto;
-  min-width: 0; min-height: 0;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr) var(--hb-keys-h);
@@ -83,19 +137,13 @@
   row-gap: var(--keys-gap);
 }
 
-/* The clock the felt's seat used to carry, on the band's top border and the
-   width of the felt's column. Out of the flow, so it cannot move a row by
-   starting, and the seconds are in the meta where the eye already is. */
-.hb-in > .turn-bar { left: 0; right: 0; top: calc(-1 * var(--band-pad) - 1px); }
-
 /* A spectator has no hand to hold and no keys to press, so the band is one
    centred column rather than a hand sized hole beside an empty legend, and it
    is shorter: the height a band is is the height two giant cards and a thumb's
    column need, and a spectator has neither. Whether you are watching is
    settled before the first card, the way a practice strip is, so this is still
    one box and one height for as long as the table is on screen, and the felt
-   keeps the seat that is not yours to hide. Left at the full height the felt
-   had twenty six pixels too few for the two seats it still draws. */
+   keeps the seat that is not yours to hide. */
 .hero-band:not([data-seated]) {
   height: calc(var(--band-watch-h) + env(safe-area-inset-bottom));
 }
@@ -117,8 +165,8 @@
   display: grid;
   grid-template-rows: minmax(0, 1fr) calc(var(--hb-who-h) + var(--hb-nums-h) + 2px);
   row-gap: var(--hb-meta-gap);
-  /* The column is the fan's own width, so the name, the stack, the last action
-     and the clock under it share both of the cards' edges. */
+  /* The column is the fan's own width, so the name, the stack and the last
+     action under it share both of the cards' edges. */
   width: calc(var(--hero-card) * (2 - var(--fan-overlap) + 1.4 * var(--fan-sin)));
   min-width: 0; min-height: 0;
 }
@@ -192,13 +240,21 @@
   height: var(--hb-nums-h);
 }
 /* A reserved slot, like the felt's `.stack-v` and for the same reason: this
-   figure is the one that changes most on the band, and the last action sits
-   directly after it. Four figures covers every stack a table can hold, so the
-   label beside it does not move when a pot lands. */
+   figure is the one that changes most on the band, and the chips and the last
+   action sit directly after it. Four figures covers every stack a table can
+   hold, so nothing beside it moves when a pot lands. */
 .hb-stack {
   flex: none; min-width: 4ch;
   font-size: 22px; font-weight: 500; line-height: 1; letter-spacing: -0.015em;
   font-variant-numeric: tabular-nums;
+}
+/* The big three denominations beside the figure. Every column keeps its slot
+   whether or not a chip is in it, which is the chip stack's own rule, so the
+   row is one width at 0 and at 1200. */
+.hb-chips {
+  --chip: 18px; --chip-rows: 3;
+  flex: none; display: inline-flex; align-items: flex-end;
+  height: calc(var(--chip) * (0.72 + (var(--chip-rows) - 1) * 0.14));
 }
 /* A reserved slot with a size of its own: the label is empty for most of a
    hand and a box that shrinks to it moves the figure beside it every time. */
@@ -206,13 +262,6 @@
   flex: 1; min-width: 0; height: 16px;
   font-size: 11px; line-height: 16px; color: var(--text-secondary);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-/* The seconds, in a slot the width of the longest thing they say. The clock
-   arrives once a hand and a box that grows to hold it moves the label. */
-.hb-clock {
-  flex: none; width: 34px; height: 16px;
-  display: flex; align-items: flex-end; justify-content: flex-end;
-  line-height: 16px;
 }
 
 /* ----------------------------------------------------------------- legend */
@@ -236,28 +285,37 @@
 
 .hb-col { grid-area: acts; display: grid; min-width: 0; min-height: 0; }
 
+/* Three rows: the slack, the sizes, the actions. The waiting and hand-over
+   states draw into the same three, so the column is one shape in every state
+   and the control a thumb rests on is where it was when the hand ends. */
 .hb-turn {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) var(--act-1) var(--act-2) var(--act-3);
+  grid-template-rows: minmax(0, 1fr) var(--sizes-h) var(--act-h);
+  grid-template-areas: "." "sizes" "acts";
   row-gap: var(--act-gap);
+  min-height: 0;
 }
+.hb-turn > .hb-sizes { grid-area: sizes; }
+.hb-turn > .hb-acts { grid-area: acts; }
 
 /* ------------------------------------------------------------- the sizes */
 
-/* The wide band's raise control: the six presets `sizing.ts` gives, as six
-   equal segments in the order the number keys address them, and a narrower
-   seventh for a size that is none of them. One press sends, so there is no
-   size held between presses and nothing to confirm.
+/* The wide band's raise control: the ten presets `sizing.ts` gives, as two
+   rows of five in the order the number keys address them, with a gap off the
+   spacing scale between them so each is its own press. One press sends, so
+   there is no size held between presses and nothing to confirm.
 
    Composed from g's button tokens rather than built on a shipped component,
-   because g-system has no segmented control: the segments are `.btn`'s own
-   fill, border and radius with the inner edges collapsed. It is a g-system
-   candidate, and it belongs there rather than here (see `CLAUDE.md`). */
+   because g-system has no segmented control. It is a g-system candidate, and
+   it belongs there rather than here (see `CLAUDE.md`). Yellow, because a bet
+   is yellow everywhere on this table (`--act-bet` in `../app.css`). */
 .hb-sizes {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr)) minmax(0, 0.72fr);
-  gap: 1px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-1);
   height: 100%;
+  min-height: 0;
 }
 .hb-size {
   display: grid;
@@ -265,19 +323,20 @@
   align-content: center;
   min-width: 0;
   padding: 0 2px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 0;
-  background: var(--surface-1);
-  color: var(--text-primary);
+  border: 1px solid color-mix(in oklab, var(--act-bet) 40%, transparent);
+  border-radius: var(--radius);
+  background: color-mix(in oklab, var(--act-bet) 10%, transparent);
+  color: var(--act-bet-text);
   cursor: pointer;
   transition: background var(--dur-base) var(--ease-out), border-color var(--dur-base) var(--ease-out);
 }
-.hb-size:first-child { border-radius: var(--radius) 0 0 var(--radius); }
-.hb-size:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
-.hb-size:hover:not(:disabled) { background: var(--fill-hover); border-color: var(--border); }
-.hb-size:active:not(:disabled) { background: var(--fill-active); }
+.hb-size:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--act-bet) 22%, transparent);
+  border-color: var(--act-bet);
+}
+.hb-size:active:not(:disabled) { background: color-mix(in oklab, var(--act-bet) 32%, transparent); }
 .hb-size:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; z-index: 1; }
-.hb-size:disabled { opacity: 0.45; cursor: default; }
+.hb-size:disabled { opacity: 0.4; cursor: default; }
 /* The name over the number it sends, both on one line each so every segment's
    two rows sit on the same two edges across the row. */
 .hb-size .s-n {
@@ -289,16 +348,14 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-/* The seventh is a way in, not a size, so it is quieter than the six and says
-   nothing on the number line it shares with them. */
-.hb-size-custom { color: var(--text-secondary); }
 
-/* The typed size, in the segments' own box: one row, one height, so the
-   column does not move when it opens. */
+/* The typed size, in the grid's own box: one row centred in the same height,
+   so the column does not move when it opens. */
 .hb-custom {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
+  align-content: center;
   gap: var(--sp-2);
   height: 100%;
 }
@@ -312,69 +369,52 @@
 }
 .hb-custom-send { height: 32px; }
 .hb-custom-back { height: 32px; }
-/* Left aligned inside a full width box, so the first character of a line
-   whose numbers change every action stays where it was. */
-.hb-note {
-  display: flex; align-items: flex-end;
-  width: 100%; min-width: 0;
-  font-size: 12px; color: var(--text-secondary);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  font-variant-numeric: tabular-nums;
-}
-.hb-act { width: 100%; height: 100%; font-size: 15px; }
 
-/* ---------------------------------------------------------------- fold bar */
+/* ------------------------------------------------------------ the actions */
 
-/* Red, hatched and dragged: the one control on this band that a thumb resting
-   on the screen must not be able to fire. g has no danger surface token, only
-   danger text, so the ground is mixed from it. */
-.hb-fold {
-  position: relative;
-  width: 100%; height: 100%;
-  padding: 0;
-  border: 1px solid color-mix(in oklab, var(--danger-text) 36%, transparent);
-  border-radius: var(--radius);
-  background: color-mix(in oklab, var(--danger-text) 14%, transparent);
-  overflow: hidden;
-  cursor: grab;
-  /* The drag is the band's, not the page's. Without this the browser takes
-     the horizontal movement for a scroll and the handle never moves. */
-  touch-action: none;
-  -webkit-tap-highlight-color: transparent;
+/* Fold, check or call, raise: one row under a mouse, and each in its own
+   colour, which is the colour the felt gives the same action on a seat. The
+   ground is the colour mixed thin and the words are its text token, so the
+   three read as three at a glance without three solid blocks at the foot of
+   the screen. */
+.hb-acts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--act-gap);
+  min-height: 0;
 }
-.hb-fold:disabled { opacity: 0.4; cursor: default; }
-.hb-fold[data-dragging] { cursor: grabbing; }
-.hb-fold-hatch {
-  position: absolute; inset: 0;
-  background: repeating-linear-gradient(
-    -45deg,
-    color-mix(in oklab, var(--danger-text) 18%, transparent) 0 5px,
-    transparent 5px 11px
-  );
+.hb-act { width: 100%; height: 100%; font-size: 15px; font-weight: 500; }
+.hb-act-fold {
+  --_fill: color-mix(in oklab, var(--act-fold) 14%, transparent);
+  --_edge: color-mix(in oklab, var(--act-fold) 45%, transparent);
+  --_fg: var(--act-fold-text);
 }
-.hb-fold-word {
-  position: absolute; inset: 0;
-  display: grid; place-items: center;
-  font-size: 14px; font-weight: 500;
-  color: var(--danger-text);
+.hb-act-fold:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--act-fold) 24%, transparent);
+  border-color: var(--act-fold);
 }
-.hb-fold-handle {
-  position: absolute; top: 4px; bottom: 4px; left: 4px;
-  width: 40px;
-  display: grid; place-items: center;
-  border-radius: var(--radius-sm);
-  border: 1px solid color-mix(in oklab, var(--danger-text) 44%, transparent);
-  background: var(--surface-1);
-  color: var(--danger-text);
-  translate: var(--dx, 0px);
-  transition: translate var(--dur-slow) var(--ease-out);
+.hb-act-call {
+  --_fill: color-mix(in oklab, var(--act-call) 12%, transparent);
+  --_edge: color-mix(in oklab, var(--act-call) 45%, transparent);
+  --_fg: var(--act-call-text);
 }
-/* While a finger is on it the handle tracks the finger, so it must not lag
-   behind one frame at a time. The spring is the release. */
-.hb-fold[data-dragging] .hb-fold-handle { transition: none; }
-.hb-fold[data-armed] {
-  border-color: var(--danger-text);
-  background: color-mix(in oklab, var(--danger-text) 24%, transparent);
+.hb-act-call:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--act-call) 22%, transparent);
+  border-color: var(--act-call);
+}
+.hb-act-bet {
+  --_fill: color-mix(in oklab, var(--act-bet) 12%, transparent);
+  --_edge: color-mix(in oklab, var(--act-bet) 45%, transparent);
+  --_fg: var(--act-bet-text);
+}
+.hb-act-bet:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--act-bet) 22%, transparent);
+  border-color: var(--act-bet);
+}
+/* The Raise button is pressed while its field is open. */
+.hb-act-bet[aria-pressed="true"] {
+  background: color-mix(in oklab, var(--act-bet) 22%, transparent);
+  border-color: var(--act-bet);
 }
 
 /* ------------------------------------------------------------------ sizer */
@@ -471,77 +511,34 @@
 
 /* ------------------------------------------------------------------- wait */
 
-.hb-wait {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) 28px;
-  row-gap: 8px;
-}
-.hb-pre { display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 8px; }
+/* The pre-action pills stand where the actions stand. */
 .hb-pre .btn { width: 100%; height: 100%; border-radius: var(--radius-full); font-size: 13px; }
-.hb-status {
-  display: flex; align-items: center;
-  width: 100%; min-width: 0;
-  font-size: 12px; color: var(--text-secondary);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-/* Waiting, this line and the hand's last action are the two quiet strings on
-   the band's bottom line. Centred in its own row the status sat six pixels
-   above the label beside it, so it is set on the floor the label sits on. */
-.hb-wait .hb-status { align-items: flex-end; line-height: 16px; }
 
 /* ------------------------------------------------------------------- over */
 
-/* The ghosts take a fixed block rather than their own content height, like
-   everything else on this band, and the result line takes what is left. */
-.hb-over {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) var(--ghosts-h);
-  row-gap: var(--act-gap);
-  min-height: 0;
-  --ghosts-h: 132px;
-}
-/* The dock says the same thing across a row half the page wide. Here it has a
-   column, so it stacks, and the countdown keeps its own line. */
-.hero-band .dock-result {
-  flex-direction: column; align-items: flex-start; justify-content: flex-start;
-  gap: 4px; min-height: 0; overflow: hidden;
-}
-.hero-band .dock-result .r-line { font-size: var(--font-size-ui); line-height: 1.45; }
-/* The bottom ghost is the fold bar's box exactly, and the gaps are the turn
-   column's, so the control the thumb rests on does not move when the hand
-   ends. The two above it cannot also be their own size: the result line and
-   its countdown need the rest of the block, and a slot too short for them
-   clips the countdown. */
-.hb-ghosts {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) var(--act-3);
-  gap: var(--act-gap);
-}
 /* Outlines rather than dimmed copies, exactly as the dock draws them: a
    button at 40% opacity is a button nobody can read. */
 .hb-ghosts .ghost {
   --_fill: transparent; --_fg: var(--text-secondary); --_edge: var(--border-subtle);
-  width: 100%; height: 100%;
   border-style: dashed; box-shadow: none; pointer-events: none;
+}
+
+/* ------------------------------------------------------------------ watch */
+
+/* A spectator has one control, the way out, in a box built for a hand. It
+   sits in the middle rather than at the ends, because the band is the same
+   height in every state and there is nothing to hold open here. */
+.hb-watch {
+  display: grid;
+  align-content: center;
+  width: 100%; max-width: 360px; margin: 0 auto;
+  min-height: 0;
 }
 .hero-band .dock-watch {
   display: flex; flex-direction: column; align-items: stretch; gap: 6px;
 }
 .hero-band .dock-watch .w-note { font-size: 11px; color: var(--text-secondary); }
 .hero-band .dock-watch .btn { width: 100%; }
-
-/* ------------------------------------------------------------------ watch */
-
-/* A spectator has one line and one control, in a box built for a hand. They
-   sit in the middle of it rather than at the ends, because the band is the
-   same height in every state and there is nothing to hold open here. */
-.hb-watch {
-  display: grid;
-  align-content: center;
-  row-gap: 10px;
-  width: 100%; max-width: 360px; margin: 0 auto;
-  min-height: 0;
-}
 
 /* ------------------------------------------------------------- left handed */
 
@@ -580,7 +577,6 @@
    have to sit at that end of it rather than at the far one. */
 :root[data-hand="left"] .hb-stack { text-align: right; }
 :root[data-hand="left"] .hb-last { text-align: right; }
-:root[data-hand="left"] .hb-clock { justify-content: flex-start; }
 :root[data-hand="left"] .hb-sizer {
   grid-template-columns: var(--track-w) minmax(0, 1fr);
   grid-template-areas:
@@ -596,29 +592,20 @@
 :root[data-hand="left"] .hb-tick {
   right: auto; left: calc(var(--rail-inset) + 16px);
 }
-/* The handle starts on the edge the thumb comes from, and travels inwards, so
-   the arrow on it points the way the thumb goes. */
-:root[data-hand="left"] .hb-fold-handle {
-  left: auto; right: 4px;
-  translate: calc(-1 * var(--dx, 0px));
-}
-:root[data-hand="left"] .hb-fold-handle svg { scale: -1 1; }
 
 /* ------------------------------------------------------------------ rows */
 
 /* The band is taller than the dock, because giant cards and a thumb sized
    column are the point of it, and it is the same height at every width: the
    phone's, which is the shape the wide one is scaled up from. The felt gives
-   up the difference, and the legend no longer needs a row of its own.
+   up the difference, and the legend no longer needs a row of its own. The
+   decision line is the 28 on top of the 236 the cards and the column need.
 
    **The height is declared at the root, not on `.match`.** The mock's caption
    is fixed to the page and is not inside the table, so it cannot read a value
-   declared on it; a second copy of the number beside it is a number that
+   declared on it; a second copy of either number beside it is a number that
    drifts. `.match` reads the root's. */
-/* Declared at the root, not on `.match`: the mock's caption is fixed to the
-   page and is not inside the table, so it cannot read a value declared on it,
-   and a second copy of either number beside it is a number that drifts. */
-:root { --band-h: 236px; --band-watch-h: 148px; }
+:root { --band-h: 264px; --band-watch-h: 176px; }
 .match[data-look="v2"] { --dock-h: var(--band-h); }
 .match[data-look="v2"] .dock-error {
   bottom: calc(var(--dock-h) + 8px + env(safe-area-inset-bottom));
@@ -635,17 +622,16 @@
 /* The phone changes sizes, not shapes: the hand is still the cards with the
    name and the figures on one edge under them, and the controls are still the
    column beside it. What goes is the key legend, because there is no keyboard
-   to legend, and the felt's column, because on a phone the felt is the page's
-   full width and so is the band. */
+   to legend, the grid of sizes, because the sweep is the phone's control, and
+   the felt's column, because on a phone the felt is the page's full width and
+   so is the band. */
 @media (max-width: 560px) {
   .hero-band {
     --band-col: 176px;
     --band-gap: var(--sp-2);
     --band-pad: var(--sp-2);
     --band-gut: var(--sp-3);
-    --act-1: 56px;
-    --act-2: 56px;
-    --act-3: 48px;
+    --act-h: 48px;
   }
 
   /* The controls take a thumb's column and the hand takes the fan's own width,
@@ -664,8 +650,21 @@
   /* No keyboard, no legend. */
   .hb-keys { display: none; }
 
-  .hb-over { --ghosts-h: 144px; }
-  .hero-band .dock-result .r-line { font-size: 11.5px; line-height: 1.4; }
+  /* The three actions stack up the thumb's column, raise at the top and fold
+     at the bottom edge, and there is no grid of sizes: the box is hidden and
+     the sweep is the control. The column's rows are the actions' own heights
+     so nothing is sized to its content. */
+  .hb-turn {
+    grid-template-rows: minmax(0, 1fr) calc(3 * var(--act-h) + 2 * var(--act-gap));
+    grid-template-areas: "." "acts";
+  }
+  .hb-turn > .hb-sizes { display: none; }
+  .hb-acts {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: repeat(3, var(--act-h));
+  }
+  .hb-act-bet { order: -1; }
+  .hb-act-fold { order: 1; }
 
   .hb-sizer {
     grid-template-rows: minmax(0, 1fr) 36px 44px 52px;
@@ -695,8 +694,4 @@
    room more than the cards do. */
 @media (min-width: 561px) and (max-width: 900px) {
   .hero-band { --band-gap: var(--sp-3); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hb-fold-handle { transition: none; }
 }

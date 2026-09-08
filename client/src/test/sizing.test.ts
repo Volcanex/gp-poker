@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clamp, presetsFor } from '../table/sizing.ts';
+import { clamp, dupKeys, presetsFor, presetsWide } from '../table/sizing.ts';
 import { actionText, shortHash, streetText } from '../table/labels.ts';
 import { bestFive, handCategory, readShowdown } from '../table/best-five.ts';
 import { amountToCall, isLastHand, resolvePreAction, survivesRaise } from '../table/preactions.ts';
@@ -34,6 +34,56 @@ describe('bet sizes', () => {
 
   it('offers nothing when there is no raise to make', () => {
     expect(presetsFor({ actions: ['f', 'c'], call: 56, min: 0, max: 0 }, 71, 6, 'pre')).toEqual([]);
+  });
+});
+
+describe('the wide band\'s ten sizes', () => {
+  it('spaces the postflop sizes from a quarter of the pot to one and a half', () => {
+    // The same spot as above: pot after the call is 132, on top of the 52 in.
+    const p = presetsWide({ actions: ['f', 'c', 'r'], call: 34, min: 86, max: 400 }, 98, 18, 'turn');
+    expect(p.map((x) => x.label)).toEqual(
+      ['Min', '25%', '33%', '50%', '60%', '75%', '100%', '125%', '150%', 'All in'],
+    );
+    // A quarter of the pot is a raise to 85 here, under the minimum, so it
+    // clamps up to 86 and the min segment owns that number (see below).
+    expect(p.map((x) => x.value)).toEqual([86, 86, 96, 118, 131, 151, 184, 217, 250, 400]);
+  });
+
+  it('thinks in multiples of the bet before the flop, up to six', () => {
+    const p = presetsWide({ actions: ['f', 'c', 'r'], call: 1, min: 4, max: 200 }, 3, 1, 'pre');
+    expect(p.map((x) => x.label)).toEqual(
+      ['Min', '2×', '2.5×', '3×', '3.5×', '4×', '5×', '6×', 'Pot', 'All in'],
+    );
+    expect(p.map((x) => x.value)).toEqual([4, 4, 5, 6, 7, 8, 10, 12, 6, 200]);
+  });
+
+  it('keeps ten slots when a short stack collapses them, so the keys stay put', () => {
+    const p = presetsWide({ actions: ['b'], call: 0, min: 2, max: 9 }, 400, 0, 'flop');
+    expect(p).toHaveLength(10);
+    expect(p.every((x) => x.value >= 2 && x.value <= 9)).toBe(true);
+  });
+
+  it('offers nothing when there is no raise to make', () => {
+    expect(presetsWide({ actions: ['f', 'c'], call: 56, min: 0, max: 0 }, 71, 6, 'pre')).toEqual([]);
+  });
+});
+
+describe('duplicate sizes', () => {
+  it('gives a size that clamps to the stack to the all in segment', () => {
+    const p = presetsWide({ actions: ['f', 'c', 'r'], call: 34, min: 86, max: 186 }, 98, 18, 'turn');
+    expect([...dupKeys(p)].sort()).toEqual(['p125', 'p150', 'p25']);
+  });
+
+  it('gives a size that clamps to the minimum to the min segment', () => {
+    const p = presetsWide({ actions: ['f', 'c', 'r'], call: 1, min: 4, max: 200 }, 3, 1, 'pre');
+    // 2x the bet is 4, which is the minimum, and a pot raise is 6, which 3x
+    // already says.
+    expect([...dupKeys(p)].sort()).toEqual(['2x', 'pot']);
+  });
+
+  it('disables nothing when every size is its own', () => {
+    const p = presetsWide({ actions: ['x', 'b'], call: 0, min: 2, max: 400 }, 100, 0, 'flop');
+    expect(dupKeys(p).size).toBe(0);
   });
 });
 
