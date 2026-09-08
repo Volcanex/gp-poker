@@ -243,7 +243,11 @@ export function Profile() {
                         </span>
                       </td>
                       <td className="r">
-                        <span className="delta" {...deltaTone(m.ratingChange)}>{signed(m.ratingChange)}</span>
+                        {rated === false ? (
+                          <span className="muted">unrated</span>
+                        ) : (
+                          <span className="delta" {...deltaTone(m.ratingChange)}>{signed(m.ratingChange)}</span>
+                        )}
                       </td>
                       <td className="r"><Link to={`/m/${m.id}`}>Open</Link></td>
                     </tr>
