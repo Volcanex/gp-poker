@@ -9,16 +9,21 @@
 
 export type ThemeChoice = 'dark' | 'light' | 'system';
 export type AccentId = 'default' | 'ocean' | 'jade' | 'violet' | 'clay';
+/* Which hand holds the phone. The v2 table's action band puts the controls
+   under the thumb and the cards on the far side, so it has to be told which
+   edge the thumb is on. Right is the default because most people are. */
+export type Handedness = 'right' | 'left';
 
 export interface Prefs {
   theme: ThemeChoice;
   accent: AccentId;
   fourColour: boolean;
+  hand: Handedness;
 }
 
 export const PREFS_KEY = 'ot.prefs';
 
-export const DEFAULT_PREFS: Prefs = { theme: 'dark', accent: 'default', fourColour: false };
+export const DEFAULT_PREFS: Prefs = { theme: 'dark', accent: 'default', fourColour: false, hand: 'right' };
 
 export const THEMES: { id: ThemeChoice; label: string }[] = [
   { id: 'dark', label: 'Dark' },
@@ -42,6 +47,8 @@ const isTheme = (v: unknown): v is ThemeChoice =>
 const isAccent = (v: unknown): v is AccentId =>
   typeof v === 'string' && ACCENTS.some((a) => a.id === v);
 
+const isHand = (v: unknown): v is Handedness => v === 'right' || v === 'left';
+
 /* A stored record from an older build, a half-written one, or a browser with
    storage switched off all mean the same thing: take the defaults for whatever
    is missing and keep whatever reads. A settings menu is not worth an error. */
@@ -59,6 +66,7 @@ export function readPrefs(store: Storage | null = safeStorage()): Prefs {
     theme: isTheme(r.theme) ? r.theme : DEFAULT_PREFS.theme,
     accent: isAccent(r.accent) ? r.accent : DEFAULT_PREFS.accent,
     fourColour: typeof r.fourColour === 'boolean' ? r.fourColour : DEFAULT_PREFS.fourColour,
+    hand: isHand(r.hand) ? r.hand : DEFAULT_PREFS.hand,
   };
 }
 
@@ -93,6 +101,9 @@ export function applyPrefs(prefs: Prefs, root: HTMLElement, store: Storage | nul
 
   if (prefs.fourColour) root.setAttribute('data-deck', 'four');
   else root.removeAttribute('data-deck');
+
+  if (prefs.hand === 'left') root.setAttribute('data-hand', 'left');
+  else root.removeAttribute('data-hand');
 }
 
 function safeStorage(): Storage | null {

@@ -1,0 +1,368 @@
+/* The phone hero band, v2 only. Everything here is scoped to `.hero-band` or
+   to `.match[data-band]`, so the v1 table and the desktop dock cannot see any
+   of it. See `hero-band.tsx` and `CLAUDE.md` in this directory.
+
+   The band is a row of the table's grid like the dock it replaces, and it
+   obeys the same rule: one box, one height, every state drawn inside it.
+   Nothing below is allowed to size to its content. */
+
+.hero-band {
+  grid-row: 5;
+  height: calc(var(--dock-h) + env(safe-area-inset-bottom));
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--band-col);
+  grid-template-areas: "cards acts";
+  column-gap: var(--band-gap);
+  padding: var(--band-pad) var(--band-pad) calc(var(--band-pad) + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-2);
+
+  --band-col: 176px;
+  --band-gap: 10px;
+  --band-pad: 8px;
+  --hero-card: 104px;
+  /* How much of the first card the second one covers. */
+  --fan-overlap: 0.4;
+  --fan-tilt: 6deg;
+}
+
+/* A spectator has no hand to hold, so the column takes the whole band rather
+   than sitting beside an empty corner. Who is watching is settled before the
+   first card, so this can never change mid-hand. */
+.hero-band:not([data-seated]) {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "acts";
+}
+
+/* --------------------------------------------------------------- your hand */
+
+.hb-hero {
+  grid-area: cards;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 48px;
+  row-gap: 6px;
+  min-width: 0;
+}
+
+/* The fan. Both cards are absolute inside a box the size of the pair, so the
+   tilt on the second one cannot push the first one along. */
+.hb-cards {
+  position: relative;
+  align-self: end;
+  justify-self: start;
+  width: calc(var(--hero-card) * (2 - var(--fan-overlap)));
+  height: calc(var(--hero-card) * 1.4);
+}
+.hb-card {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  transform-origin: bottom left;
+}
+.hb-card[data-i="1"] {
+  left: calc(var(--hero-card) * (1 - var(--fan-overlap)));
+  rotate: var(--fan-tilt);
+}
+/* Bigger than any card on the felt, and set here rather than inherited: the
+   card sets its own width, so a value has to reach it at higher specificity
+   than its own rule. */
+.hero-band .hb-card .pcard { --card-w: var(--hero-card); }
+
+.hb-meta {
+  display: grid;
+  grid-template-rows: 20px 26px;
+  row-gap: 2px;
+  align-content: end;
+  min-width: 0;
+}
+.hb-who { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.hb-name {
+  font-size: 13px; font-weight: 500; color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.hb-nums { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.hb-stack {
+  font-size: 22px; font-weight: 500; letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums;
+}
+/* A reserved slot with a width of its own: the label is empty for most of a
+   hand and a box that shrinks to it moves the stack beside it every time. */
+.hb-last {
+  width: 84px; flex: none; text-align: right;
+  font-size: 11px; line-height: 1.4; color: var(--text-secondary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ------------------------------------------------------------ the column */
+
+.hb-col { grid-area: acts; display: grid; min-width: 0; min-height: 0; }
+
+.hb-turn {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 56px 56px 48px;
+  row-gap: 8px;
+}
+/* Left aligned inside a full width box, so the first character of a line
+   whose numbers change every action stays where it was. */
+.hb-note {
+  display: flex; align-items: center;
+  width: 100%; min-width: 0;
+  font-size: 12px; color: var(--text-secondary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+.hb-act { width: 100%; height: 100%; font-size: 15px; }
+
+/* ---------------------------------------------------------------- fold bar */
+
+/* Red, hatched and dragged: the one control on this band that a thumb resting
+   on the screen must not be able to fire. g has no danger surface token, only
+   danger text, so the ground is mixed from it. */
+.hb-fold {
+  position: relative;
+  width: 100%; height: 100%;
+  padding: 0;
+  border: 1px solid color-mix(in oklab, var(--danger-text) 36%, transparent);
+  border-radius: var(--radius);
+  background: color-mix(in oklab, var(--danger-text) 14%, transparent);
+  overflow: hidden;
+  cursor: grab;
+  /* The drag is the band's, not the page's. Without this the browser takes
+     the horizontal movement for a scroll and the handle never moves. */
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.hb-fold:disabled { opacity: 0.4; cursor: default; }
+.hb-fold[data-dragging] { cursor: grabbing; }
+.hb-fold-hatch {
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    color-mix(in oklab, var(--danger-text) 18%, transparent) 0 5px,
+    transparent 5px 11px
+  );
+}
+.hb-fold-word {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  font-size: 14px; font-weight: 500;
+  color: var(--danger-text);
+}
+.hb-fold-handle {
+  position: absolute; top: 4px; bottom: 4px; left: 4px;
+  width: 40px;
+  display: grid; place-items: center;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in oklab, var(--danger-text) 44%, transparent);
+  background: var(--surface-1);
+  color: var(--danger-text);
+  translate: var(--dx, 0px);
+  transition: translate var(--dur-slow) var(--ease-out);
+}
+/* While a finger is on it the handle tracks the finger, so it must not lag
+   behind one frame at a time. The spring is the release. */
+.hb-fold[data-dragging] .hb-fold-handle { transition: none; }
+.hb-fold[data-armed] {
+  border-color: var(--danger-text);
+  background: color-mix(in oklab, var(--danger-text) 24%, transparent);
+}
+
+/* ------------------------------------------------------------------ sizer */
+
+.hb-sizer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--track-w);
+  grid-template-rows: minmax(0, 1fr) 36px 44px 52px;
+  grid-template-areas:
+    "head    track"
+    "amount  track"
+    "back    track"
+    "confirm track";
+  column-gap: 8px;
+  row-gap: 6px;
+  --track-w: 56px;
+  --thumb-h: 40px;
+}
+.hb-sizer-head {
+  grid-area: head; align-self: end;
+  font-size: 12px; color: var(--text-secondary);
+}
+.hb-amount {
+  grid-area: amount;
+  font-size: 28px; font-weight: 500; letter-spacing: -0.02em; line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  display: flex; align-items: center;
+}
+.hb-back { grid-area: back; width: 100%; height: 100%; }
+.hb-confirm { grid-area: confirm; width: 100%; height: 100%; font-size: 15px; }
+
+/* The sweep. A press anywhere on the track moves to that point and carries on
+   from there, so a size is one thumb movement. Min at the bottom, all in at
+   the top, which is the way a stack reads. */
+.hb-track {
+  grid-area: track;
+  position: relative;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  background: var(--well-bg);
+  overflow: hidden;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.hb-track-fill {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: calc(var(--t, 0) * (100% - var(--thumb-h)) + var(--thumb-h) / 2);
+  /* Mixed from the accent rather than taken from a fill token: the well this
+     sits in already uses --fill-hover, so that one is invisible here. */
+  background: color-mix(in oklab, var(--accent-fill) 22%, transparent);
+}
+.hb-tick {
+  position: absolute; right: 5px;
+  bottom: calc(var(--p, 0) * (100% - var(--thumb-h)) + var(--thumb-h) / 2);
+  translate: 0 50%;
+  display: flex; align-items: center; gap: 4px;
+  font-size: 9.5px; color: var(--text-secondary);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.hb-tick i { display: block; width: 7px; height: 1px; background: var(--border); }
+.hb-thumb {
+  position: absolute; left: 3px; right: 3px;
+  bottom: calc(var(--t, 0) * (100% - var(--thumb-h)));
+  height: var(--thumb-h);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--accent-fill);
+  background: var(--surface-1);
+  box-shadow: var(--card-highlight);
+  pointer-events: none;
+}
+/* The real control, for a keyboard and for a screen reader. It is invisible
+   because a native slider cannot be swept the way this one is, and it keeps
+   pointer events off so the track owns the gesture. */
+.hb-range {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  margin: 0; opacity: 0;
+  pointer-events: none;
+}
+.hb-track:has(.hb-range:focus-visible) {
+  outline: 2px solid var(--accent-fill);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------- wait */
+
+.hb-wait {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 28px;
+  row-gap: 8px;
+}
+.hb-pre { display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.hb-pre .btn { width: 100%; height: 100%; border-radius: var(--radius-full); font-size: 13px; }
+.hb-status {
+  display: flex; align-items: center;
+  width: 100%; min-width: 0;
+  font-size: 12px; color: var(--text-secondary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ------------------------------------------------------------------- over */
+
+.hb-over {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  row-gap: 8px;
+  min-height: 0;
+}
+/* A spectator has one line and one control, in a box built for a hand. They
+   sit in the middle of it rather than at the ends, because the band is the
+   same height in every state and there is nothing to hold open here. */
+.hb-watch {
+  display: grid;
+  align-content: center;
+  row-gap: 10px;
+  width: 100%; max-width: 360px; margin: 0 auto;
+  min-height: 0;
+}
+/* The dock says the same thing across a row half the page wide. Here it has a
+   column, so it stacks, and the countdown keeps its own line. */
+.hero-band .dock-result {
+  flex-direction: column; align-items: flex-start; justify-content: flex-start;
+  gap: 4px; min-height: 0; overflow: hidden;
+}
+.hero-band .dock-result .r-line { font-size: 11.5px; line-height: 1.4; }
+.hb-ghosts { display: grid; grid-template-rows: repeat(3, 44px); gap: 6px; }
+/* Outlines rather than dimmed copies, exactly as the dock draws them: a
+   button at 40% opacity is a button nobody can read. */
+.hb-ghosts .ghost {
+  --_fill: transparent; --_fg: var(--text-secondary); --_edge: var(--border-subtle);
+  width: 100%; height: 100%;
+  border-style: dashed; box-shadow: none; pointer-events: none;
+}
+.hero-band .dock-watch {
+  display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+}
+.hero-band .dock-watch .w-note { font-size: 11px; color: var(--text-secondary); }
+.hero-band .dock-watch .btn { width: 100%; }
+
+/* ------------------------------------------------------------- left handed */
+
+/* A phone is held in one hand and the thumb only reaches one edge, so the
+   whole band mirrors: cards on the far side, controls and the sweep under the
+   thumb. One attribute, set before the first paint by the script in
+   index.html, so a left handed player never sees the right handed layout. */
+:root[data-hand="left"] .hero-band {
+  grid-template-columns: var(--band-col) minmax(0, 1fr);
+  grid-template-areas: "acts cards";
+}
+:root[data-hand="left"] .hero-band:not([data-seated]) {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "acts";
+}
+:root[data-hand="left"] .hb-cards { justify-self: end; }
+:root[data-hand="left"] .hb-card {
+  left: auto; right: 0;
+  transform-origin: bottom right;
+}
+:root[data-hand="left"] .hb-card[data-i="1"] {
+  left: auto;
+  right: calc(var(--hero-card) * (1 - var(--fan-overlap)));
+  rotate: calc(-1 * var(--fan-tilt));
+}
+:root[data-hand="left"] .hb-who,
+:root[data-hand="left"] .hb-nums { flex-direction: row-reverse; }
+:root[data-hand="left"] .hb-last { text-align: left; }
+:root[data-hand="left"] .hb-sizer {
+  grid-template-columns: var(--track-w) minmax(0, 1fr);
+  grid-template-areas:
+    "track head"
+    "track amount"
+    "track back"
+    "track confirm";
+}
+/* The handle starts on the edge the thumb comes from, and travels inwards, so
+   the arrow on it points the way the thumb goes. */
+:root[data-hand="left"] .hb-fold-handle {
+  left: auto; right: 4px;
+  translate: calc(-1 * var(--dx, 0px));
+}
+:root[data-hand="left"] .hb-fold-handle svg { scale: -1 1; }
+:root[data-hand="left"] .hb-tick { right: auto; left: 5px; flex-direction: row-reverse; }
+
+/* ------------------------------------------------------------------- felt */
+
+@media (max-width: 560px) {
+  /* The band is the hero's seat, drawn once and drawn large, so the felt does
+     not draw it a second time. Only the seat goes: the bet on the line to the
+     pot hangs off this element and the chip flights are keyed to it. */
+  .match[data-look="v2"][data-band] .felt .pos[data-k="0"] .seat { display: none; }
+
+  /* The band is taller than the dock, because giant cards and a thumb sized
+     column are the point of it. The felt gives up the difference. */
+  .match[data-look="v2"] { --dock-h: 236px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hb-fold-handle { transition: none; }
+}

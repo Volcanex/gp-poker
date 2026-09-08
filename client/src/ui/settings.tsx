@@ -93,6 +93,21 @@ export function SettingsMenu() {
         </label>
 
         <hr className="separator" />
+
+        <div className="menu-title">Table</div>
+        {/* The phone's v2 band puts the controls under the thumb, so it has to
+            be told which edge the thumb is on. */}
+        <label className="switch-row">
+          <span className="label">Left-handed</span>
+          <input
+            type="checkbox"
+            className="switch"
+            checked={prefs.hand === 'left'}
+            onChange={(e) => update({ hand: e.target.checked ? 'left' : 'right' })}
+          />
+        </label>
+
+        <hr className="separator" />
         <SoundSection />
       </div>
     </div>

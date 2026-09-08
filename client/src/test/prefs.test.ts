@@ -36,14 +36,15 @@ const throwingStore = (): Storage => ({
 describe('settings persistence', () => {
   it('round trips a choice', () => {
     const store = fakeStore();
-    writePrefs({ theme: 'light', accent: 'jade', fourColour: true }, store);
-    expect(readPrefs(store)).toEqual({ theme: 'light', accent: 'jade', fourColour: true });
+    writePrefs({ theme: 'light', accent: 'jade', fourColour: true, hand: 'left' }, store);
+    expect(readPrefs(store)).toEqual({ theme: 'light', accent: 'jade', fourColour: true, hand: 'left' });
   });
 
   it('keeps everything in one key', () => {
     const store = fakeStore();
-    writePrefs({ theme: 'system', accent: 'clay', fourColour: false }, store);
-    expect(store.getItem(PREFS_KEY)).toBe('{"theme":"system","accent":"clay","fourColour":false}');
+    writePrefs({ theme: 'system', accent: 'clay', fourColour: false, hand: 'right' }, store);
+    expect(store.getItem(PREFS_KEY))
+      .toBe('{"theme":"system","accent":"clay","fourColour":false,"hand":"right"}');
   });
 
   it('takes the defaults when nothing has been chosen', () => {
@@ -54,7 +55,9 @@ describe('settings persistence', () => {
      show an error page. Whatever reads is kept and the rest defaults. */
   it('keeps the fields it can read out of a stale record', () => {
     const store = fakeStore({ [PREFS_KEY]: '{"accent":"violet","theme":"chartreuse"}' });
-    expect(readPrefs(store)).toEqual({ theme: 'dark', accent: 'violet', fourColour: false });
+    expect(readPrefs(store)).toEqual({
+      theme: 'dark', accent: 'violet', fourColour: false, hand: 'right',
+    });
   });
 
   it('survives a value that is not json at all', () => {
@@ -78,20 +81,30 @@ describe('applying settings', () => {
     expect(root.getAttribute('data-theme')).toBe(null);
     expect(root.getAttribute('data-accent')).toBe(null);
     expect(root.getAttribute('data-deck')).toBe(null);
+    expect(root.getAttribute('data-hand')).toBe(null);
   });
 
   it('stamps one attribute per choice', () => {
-    applyPrefs({ theme: 'light', accent: 'ocean', fourColour: true }, root, fakeStore());
+    applyPrefs({ theme: 'light', accent: 'ocean', fourColour: true, hand: 'left' }, root, fakeStore());
     expect(root.getAttribute('data-theme')).toBe('light');
     expect(root.getAttribute('data-accent')).toBe('ocean');
     expect(root.getAttribute('data-deck')).toBe('four');
+    expect(root.getAttribute('data-hand')).toBe('left');
+  });
+
+  /* Right handed is the default, so it is the absence of the attribute: a
+     record that says so must clear one an earlier choice left behind. */
+  it('clears the handedness attribute when the choice goes back to right', () => {
+    applyPrefs({ theme: 'dark', accent: 'default', fourColour: false, hand: 'left' }, root, fakeStore());
+    applyPrefs(DEFAULT_PREFS, root, fakeStore());
+    expect(root.getAttribute('data-hand')).toBe(null);
   });
 
   /* g-ui reads its own key at load. The one call that changes the theme writes
      both, so the two cannot disagree on the next reload. */
   it('writes the theme where g-ui will look for it', () => {
     const store = fakeStore();
-    applyPrefs({ theme: 'system', accent: 'default', fourColour: false }, root, store);
+    applyPrefs({ theme: 'system', accent: 'default', fourColour: false, hand: 'right' }, root, store);
     expect(store.getItem('g-theme')).toBe('system');
   });
 });
