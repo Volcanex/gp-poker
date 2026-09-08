@@ -377,7 +377,7 @@ function WatchBar({ view }: { view: TableView }) {
       <div className="bar-in">
         <span className="tagset">
           <span className="badge badge-plain">{MODE_NAME[view.format.mode]}</span>
-          <StakeBadge rated={view.format.rated} practice={view.format.practice === true} />
+          <StakeBadge rated={view.format.rated} practice={view.format.practice === true} homeGame={view.format.homeGame === true} />
         </span>
         <span className="w-who">
           Watching <b>{playerList(view)}</b>
