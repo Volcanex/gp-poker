@@ -36,11 +36,16 @@ const LEADERBOARD = [
   { name: 'kestrel', rating: 1518, rd: 84, matches: 40, peak: 1552 },
 ];
 
+/* **The catch-all goes first.** Playwright runs the last matching handler it
+   was given, so a catch-all registered after the fixtures swallows them: this
+   stub served 404 to everything for its whole life, and the two payloads below
+   never reached a page. It is why the accessibility run never saw a logged-in
+   top bar, which is exactly where the contrast defect was hiding. */
 export async function stubApi(page: Page) {
-  await page.route('**/api/me', (route) => route.fulfill({ json: ME }));
-  await page.route('**/api/leaderboard*', (route) => route.fulfill({ json: LEADERBOARD }));
   await page.route('**/api/**', (route) =>
     route.fulfill({ status: 404, json: { error: 'not found' } }));
+  await page.route('**/api/leaderboard*', (route) => route.fulfill({ json: LEADERBOARD }));
+  await page.route('**/api/me', (route) => route.fulfill({ json: ME }));
 }
 
 /* An explicit theme, stored the way g stores it: g-ui reads its own key at load

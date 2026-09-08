@@ -58,15 +58,33 @@ export function Table({ view, onAct, sending, bare, ended }: TableProps) {
 
   /* Chips fly to the pot when the street's bets are collected: the seat's chip
      unmounts and one with the same layoutId mounts over the pot, so the move is
-     a single continuous element rather than two fades. */
+     a single continuous element rather than two fades.
+
+     **A flight's removal must outlive the view that started it.** The timer
+     used to be returned from this effect, so the next state to arrive cancelled
+     it; if that state moved no chips the effect returned early and never armed
+     another, and the flight stayed on the table for good. Stepping a replay
+     backwards did it every time, two chips a scrub, until a hundred of them
+     were piled up sharing a handful of layout ids and motion was flinging them
+     below the felt. The timers live in a ref now and are cleared on unmount and
+     nowhere else. */
   const [flights, setFlights] = useState<Flight[]>([]);
   const prev = useRef<TableView | null>(null);
   const flightId = useRef(0);
+  const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
+
+  useEffect(() => () => {
+    timers.current.forEach(clearTimeout);
+    timers.current.clear();
+  }, []);
 
   useEffect(() => {
     const before = prev.current;
     prev.current = view;
-    if (!before || reduced) return;
+    /* A replay steps in both directions. Chips that fly to the pot when you
+       step forward would have to fly back out of it when you step back, and a
+       recorded hand is read, not watched: it has no flights at all. */
+    if (!before || reduced || bare) return;
     if (before.h !== view.h) {
       setFlights([]);
       return;
@@ -78,9 +96,12 @@ export function Table({ view, onAct, sending, bare, ended }: TableProps) {
     const batch = moved.map((s) => ({ id: (flightId.current += 1), seat: s.i, amount: s.bet }));
     const ids = new Set(batch.map((b) => b.id));
     setFlights((f) => [...f, ...batch]);
-    const timer = setTimeout(() => setFlights((f) => f.filter((x) => !ids.has(x.id))), 480);
-    return () => clearTimeout(timer);
-  }, [view, reduced]);
+    const timer = setTimeout(() => {
+      timers.current.delete(timer);
+      setFlights((f) => f.filter((x) => !ids.has(x.id)));
+    }, 480);
+    timers.current.add(timer);
+  }, [view, reduced, bare]);
 
   const board = Array.from({ length: BOARD_SLOTS }, (_, i) => view.board[i] ?? null);
   /* Practice tables carry the analysis strip. It is a row of the same grid as

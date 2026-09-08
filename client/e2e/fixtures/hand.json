@@ -1,0 +1,170 @@
+{
+    "id": "qtabzev9-3",
+    "matchId": "qtabzev9",
+    "number": 3,
+    "seats": [
+        {
+            "bot": false,
+            "name": "OpalChipmunk",
+            "seat": 0,
+            "rating": 1500,
+            "userId": "u-opal"
+        },
+        {
+            "bot": false,
+            "name": "GleefulCottage",
+            "seat": 1,
+            "rating": 1500,
+            "userId": "u-gleeful"
+        }
+    ],
+    "button": 0,
+    "liveSeats": [
+        0,
+        1
+    ],
+    "sb": 1,
+    "bb": 2,
+    "stacksStart": [
+        200,
+        200
+    ],
+    "seedHash": "ce0aeda513f2f4551a74eaceafde5ec4661a1a8ebefce7b412cd35154cd40aa9",
+    "seed": "4b9bf527125a02e99f0c5d6450d2c762f49e17012044d8a91dd56ef13bad1a83",
+    "actions": [
+        {
+            "a": "c",
+            "s": 0,
+            "t": 439
+        },
+        {
+            "a": "x",
+            "s": 1,
+            "t": 524
+        },
+        {
+            "a": "x",
+            "s": 1,
+            "t": 913
+        },
+        {
+            "a": "x",
+            "s": 0,
+            "t": 928
+        },
+        {
+            "a": "x",
+            "s": 1,
+            "t": 1356
+        },
+        {
+            "a": "x",
+            "s": 0,
+            "t": 1359
+        },
+        {
+            "a": "x",
+            "s": 1,
+            "t": 1735
+        },
+        {
+            "a": "x",
+            "s": 0,
+            "t": 1739
+        }
+    ],
+    "board": [
+        "3h",
+        "Ac",
+        "Js",
+        "Kd",
+        "Th"
+    ],
+    "holes": {
+        "0": [
+            "3c",
+            "8d"
+        ],
+        "1": [
+            "Td",
+            "7c"
+        ]
+    },
+    "result": {
+        "pots": [
+            {
+                "amount": 4,
+                "eligible": [
+                    0,
+                    1
+                ]
+            }
+        ],
+        "shown": {
+            "0": [
+                "3c",
+                "8d"
+            ],
+            "1": [
+                "Td",
+                "7c"
+            ]
+        },
+        "awards": [
+            {
+                "hand": "One Pair",
+                "seat": 1,
+                "amount": 4
+            }
+        ]
+    },
+    "stats": {
+        "0": {
+            "pfr": false,
+            "aggr": 0,
+            "vpip": true,
+            "passive": 4,
+            "faced3bet": false,
+            "foldTo3bet": false
+        },
+        "1": {
+            "pfr": false,
+            "aggr": 0,
+            "vpip": false,
+            "passive": 4,
+            "faced3bet": false,
+            "foldTo3bet": false
+        }
+    },
+    "study": {
+        "0": {
+            "summary": {
+                "count": 1,
+                "evLost": 0.095,
+                "accuracy": 95.2
+            },
+            "decisions": [
+                {
+                    "best": "fold",
+                    "hand": "83o",
+                    "seat": 0,
+                    "spot": "sb_open",
+                    "action": "passive",
+                    "bucket": "deep",
+                    "evLost": 0.0953320184089416,
+                    "inRange": false
+                }
+            ]
+        },
+        "1": {
+            "summary": {
+                "count": 0,
+                "evLost": 0,
+                "accuracy": 100
+            },
+            "decisions": []
+        }
+    },
+    "startedAt": "2026-09-08T02:19:47.744Z",
+    "completedAt": "2026-09-08T02:19:49.486Z"
+}

@@ -244,9 +244,20 @@ to.
 
 `npm run e2e -w client`, config in `playwright.config.ts`, specs in `e2e/`.
 The webServer builds the client and serves the bundle with `vite preview`; the
-mock routes need no server and `stubApi` in `e2e/table.ts` fakes the three
-endpoints the pages around them ask for, so a run is identical whether or not a
-dev server happens to be up.
+mock routes need no server and `stubApi` in `e2e/table.ts` fakes the endpoints
+the pages around them ask for, so a run is identical whether or not a dev server
+happens to be up.
+
+**Playwright runs the last matching route handler**, so a catch-all has to be
+registered first and the fixtures after it. Registered the other way round the
+catch-all swallows everything: this stub served 404 to every call for its whole
+life, which is why the accessibility run never saw a logged-in top bar, and why
+the contrast defect living in it went unreported by a suite that checks contrast.
+
+The replay's fixtures are a real recorded hand and its match, captured from the
+server into `e2e/fixtures/`. That page is a re-derivation: the engine replays
+the actions and the fairness panel rehashes the seed, so a mock cannot stand in
+for it.
 
 | Spec | Guards |
 | --- | --- |
@@ -257,6 +268,7 @@ dev server happens to be up.
 | `practice` | the strip is on a practice table and off a rated one, that it reads, and that a practice table keeps one footprint with zero layout shift |
 | `reduced-motion` | the same information with the motion emulated off |
 | `settings` | a choice surviving a reload, the pre-paint stamp, every accent's contrast in both themes, the four colour deck, and the menu itself |
+| `replay` | a recorded hand scrubbed back and forth leaves nothing behind and nothing outside the felt, and still verifies |
 | `screenshots` | 96 baselines: eight states at 360, 390, 430, 768, 1366 and 1920, dark and light |
 
 Baselines live in `e2e/__screenshots__/` and are updated with
@@ -767,6 +779,14 @@ being poker-specific, build it in g-system, not here.
   host is `display: inline-block`, which is why the pot's counter is given
   `display: block; width: 100%`: a counter that resizes itself is a counter that
   shifts everything beside it.
+- **A chip flight's removal timer must outlive the view that started it.** It
+  used to be returned from the effect that armed it, so the next state cancelled
+  it, and a state that moved no chips returned early and never armed another:
+  the flight stayed on the table for good. Stepping a replay backwards leaked
+  two a scrub until motion had a hundred of them sharing a handful of layout ids
+  and was throwing the pile below the felt. The timers live in a ref and are
+  cleared on unmount and nowhere else. A replay makes no flights at all now: it
+  steps in both directions, and a chip cannot fly backwards out of a pot.
 - The stack is `useGrouping: false`. A grouped `1,200` is five characters in a
   four character slot, and it moved the word beside it.
 - **Generated names are CamelCase** (RedTiger, StealthyCyclone), so a plain

@@ -1,0 +1,164 @@
+{
+  "id": "qtabzev9",
+  "format": {
+    "bb": 2,
+    "sb": 1,
+    "mode": "heads-up",
+    "hands": 25,
+    "rated": true,
+    "stack": 200,
+    "levels": [
+      {
+        "bb": 2,
+        "sb": 1
+      }
+    ],
+    "clockMs": 20000,
+    "graceMs": 15000,
+    "players": 2,
+    "levelHands": 25
+  },
+  "rated": true,
+  "seats": [
+    {
+      "bot": false,
+      "name": "OpalChipmunk",
+      "seat": 0,
+      "rating": 1500,
+      "userId": "u-opal"
+    },
+    {
+      "bot": false,
+      "name": "GleefulCottage",
+      "seat": 1,
+      "rating": 1500,
+      "userId": "u-gleeful"
+    }
+  ],
+  "status": "finished",
+  "winner": "u-opal",
+  "reason": "hands",
+  "handsPlayed": 25,
+  "finalStacks": {
+    "u-opal": 208,
+    "u-gleeful": 192
+  },
+  "places": {
+    "u-opal": 1,
+    "u-gleeful": 2
+  },
+  "ratings": {
+    "u-opal": {
+      "before": 1500,
+      "after": 1662,
+      "rdBefore": 350,
+      "rdAfter": 290
+    },
+    "u-gleeful": {
+      "before": 1500,
+      "after": 1338,
+      "rdBefore": 350,
+      "rdAfter": 290
+    }
+  },
+  "createdAt": "2026-09-08T02:19:35.519Z",
+  "finishedAt": "2026-09-08T02:21:57.709Z",
+  "hands": [
+    {
+      "number": 2,
+      "completedAt": "2026-09-08T02:19:43.737Z",
+      "seedHash": "980a56d9b77e7e302a7758d670989cf9c599f86f43e577c7bb3eb684915a7cd9",
+      "seed": "f8f54d895569c9628bfcfb6b429161a298b14c107dbc49e9124bd07c67fead12",
+      "board": [
+        "6h",
+        "4c",
+        "9s",
+        "Ts",
+        "4h"
+      ],
+      "stacks": [
+        198,
+        202
+      ],
+      "awards": [
+        {
+          "hand": "Two Pair",
+          "seat": 0,
+          "amount": 4
+        }
+      ],
+      "liveSeats": [
+        0,
+        1
+      ],
+      "accuracy": [
+        100,
+        0
+      ]
+    },
+    {
+      "number": 3,
+      "completedAt": "2026-09-08T02:19:49.486Z",
+      "seedHash": "ce0aeda513f2f4551a74eaceafde5ec4661a1a8ebefce7b412cd35154cd40aa9",
+      "seed": "4b9bf527125a02e99f0c5d6450d2c762f49e17012044d8a91dd56ef13bad1a83",
+      "board": [
+        "3h",
+        "Ac",
+        "Js",
+        "Kd",
+        "Th"
+      ],
+      "stacks": [
+        200,
+        200
+      ],
+      "awards": [
+        {
+          "hand": "One Pair",
+          "seat": 1,
+          "amount": 4
+        }
+      ],
+      "liveSeats": [
+        0,
+        1
+      ],
+      "accuracy": [
+        95.2,
+        100
+      ]
+    },
+    {
+      "number": 4,
+      "completedAt": "2026-09-08T02:19:55.139Z",
+      "seedHash": "b8f84338295c8273e76c8093d77dff8374a6a03cd142ff4fb433c1c1e25fb120",
+      "seed": "adddb94bb30f8e2074bd5a57cc6544b1e19bc7f3901d400b61cdf48a1cf002d7",
+      "board": [
+        "Th",
+        "Jd",
+        "5h",
+        "Kd",
+        "Qd"
+      ],
+      "stacks": [
+        198,
+        202
+      ],
+      "awards": [
+        {
+          "hand": "Straight",
+          "seat": 0,
+          "amount": 4
+        }
+      ],
+      "liveSeats": [
+        0,
+        1
+      ],
+      "accuracy": [
+        100,
+        0
+      ]
+    }
+  ]
+}
