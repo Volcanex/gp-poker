@@ -59,6 +59,17 @@ describe('socket', () => {
     socket.close();
   });
 
+  it('keeps a send made before open() and delivers it after the hello', () => {
+    const socket = new Socket();
+    socket.send({ t: 'join', m: 'abc' });
+    socket.open();
+    const ws = FakeWebSocket.instances[0];
+    ws.open();
+    ws.hello();
+    expect(ws.sent.map((s) => JSON.parse(s).t)).toEqual(['join']);
+    socket.close();
+  });
+
   it('holds again after a drop until the next hello', () => {
     const socket = new Socket();
     socket.open();

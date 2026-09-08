@@ -47,14 +47,18 @@ export class Socket {
     this.ws?.close();
     this.ws = null;
     this.ready = false;
+    this.queue = [];
     this.setState('idle');
   }
 
-  /* Sends are buffered while the socket is down; the server refuses anything
-     stale on arrival, so a replayed act is rejected rather than misapplied. */
+  /* Sends are buffered while the socket is down or not yet opened; the server
+     refuses anything stale on arrival, so a replayed act is rejected rather
+     than misapplied. A page opened straight onto a match asks to join before
+     the session has finished loading and called open(), and that join has to
+     survive until it does. Only an explicit close() drops the queue. */
   send(msg: ClientMsg) {
     if (this.ready && this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(msg));
-    else if (this.wanted) this.queue.push(msg);
+    else this.queue.push(msg);
   }
 
   onMessage(fn: MsgListener): () => void {
