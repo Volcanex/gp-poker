@@ -17,7 +17,7 @@ import {
 import { dealOrder, layoutMode, portraitSlot, seatOrder, slotAt } from './layout.ts';
 import { readShowdown } from './best-five.ts';
 import { useTableSounds } from './sounds.ts';
-import { useGInit, useMediaQuery } from '../ui/bits.tsx';
+import { useGInit } from '../ui/bits.tsx';
 import { LiveStats } from '../analysis/live-stats.tsx';
 import { ChatPanel, ChatToggle } from '../chat/chat.tsx';
 import type { ChatController } from '../chat/use-chat.ts';
@@ -130,13 +130,12 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
     (s) => s.i !== view.you && !s.folded && !s.out && s.cards != null,
   ).length;
 
-  /* The phone's v2 table swaps the dock for the hero band: your own cards
-     drawn large in one corner and the controls under the thumb in the other.
-     A media query cannot make that swap, because the two are different
-     components rather than two sets of rules on one. Desktop v2 keeps the
-     dock it has. */
-  const phone = useMediaQuery('(max-width: 560px)');
-  const band = look === 'v2' && phone && !bare && !ended;
+  /* v2 swaps the dock for the hero band at every width: your own cards drawn
+     large in one corner and the controls under the thumb in the other, with
+     the key legend between them on a screen wide enough to hold one. The
+     phone layout is the base and the desktop one is it scaled up, which is
+     why this is one component rather than two. */
+  const band = look === 'v2' && !bare && !ended;
 
   const result = view.street === 'done' ? view.result : null;
   const phase = useHandEnd(result ? `${view.m}:${view.h}` : null, reduced);
@@ -363,10 +362,16 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
 
       {!bare && !ended && (
         <>
-          {band
-            ? <HeroBand view={view} onAct={onAct} sending={sending} best={show.best} />
-            : <Dock view={view} onAct={onAct} sending={sending} />}
-          <KeyLegend watching={view.you == null} />
+          {band ? (
+            <HeroBand view={view} onAct={onAct} sending={sending} best={show.best} />
+          ) : (
+            <>
+              <Dock view={view} onAct={onAct} sending={sending} />
+              {/* The band carries its own legend, in its middle column, so on
+                  v2 the table has one row fewer. v1 keeps the row it has. */}
+              <KeyLegend watching={view.you == null} />
+            </>
+          )}
         </>
       )}
     </div>

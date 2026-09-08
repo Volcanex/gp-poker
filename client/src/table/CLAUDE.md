@@ -84,23 +84,44 @@ them. Two copies of that number drift and the countdown starts lying.
 
 ## The hero band
 
-The phone's v2 table swaps the dock for `hero-band.tsx`: your own two cards
-drawn at 104 px in one bottom corner, the controls in a column under the thumb
-in the other. `table.tsx` picks between them with `useMediaQuery` in
-`../ui/bits.tsx`, because the two are different components rather than two sets
-of rules on one; desktop v2 keeps the dock. v1 never sees any of it, and
-`hero-band.css` is scoped to `.hero-band` and `.match[data-band]` so it cannot.
+v2 replaces the dock with `hero-band.tsx` at every width: your own two cards
+drawn large in one bottom corner, the controls in a column under the thumb in
+the other, and on a screen wide enough, the key legend between them. **The
+phone layout is the shape and the desktop one is it scaled up**, which is why
+this is one component and one stylesheet rather than two; `hero-band.css` is
+written wide first and the phone overrides it at the foot of the file. v1 never
+sees any of it, and the rules are scoped to `.hero-band` and
+`.match[data-band]` so it cannot.
+
+| | Phone | Wide |
+| --- | --- | --- |
+| Band height (`--dock-h`) | 236 px | 260 px |
+| Card | 104 px | 132 px |
+| Action column | 176 px | 340 px, 300 below 900 |
+| Name and stack | under the cards | beside them |
+| Key legend | none, there is no keyboard | the middle column, none below 900 |
 
 **The dock's rule holds, and the band is a harder case for it.** One box, four
 states, nothing sized to its content: `../../e2e/hero-band.spec.ts` walks a hand
-through turn, waiting, hand over and the next turn at 390 and asserts the
-header, the felt, the board, the pot and the band have byte identical boxes and
-that the layout-shift observer sums to exactly zero. The felt's own footprint
-list cannot be used, because the band **is** your seat: `.match[data-band]`
-hides `.pos[data-k="0"] .seat` and keeps its `.seat-bet`, which is what a chip
-flies from. `data-band` is stamped by `table.tsx` only when the band is on
-screen **and** the viewer has a seat, because a spectator's bottom seat belongs
-to a player and hiding it would leave a hole.
+through turn, waiting, hand over and the next turn at 390 and 1280, in both
+shapes of felt, and asserts the header, the felt, the board, the pot and the
+band have byte identical boxes and that the layout-shift observer sums to
+exactly zero. The felt's own footprint list cannot be used, because on a phone
+the band **is** your seat: `.match[data-band]` hides `.pos[data-k="0"] .seat`
+under 560px and keeps its `.seat-bet`, which is what a chip flies from.
+`data-band` is stamped by `table.tsx` only when the band is on screen **and**
+the viewer has a seat, because a spectator's bottom seat belongs to a player
+and hiding it would leave a hole. A wide felt keeps its seat: there is room for
+both, and the seat carries the turn clock.
+
+The only shift this band has ever had was the last-action slot. It is empty for
+most of a hand, an empty box has no baseline of its own, and the phone's row was
+aligned on one, so the label jumped four pixels the moment a word arrived in it.
+The row is aligned to its bottom edge instead.
+
+**The legend leaves the table's grid on v2.** `KeyLegend` takes a class name and
+the band renders it into its middle column, so row 6 is empty and the felt gets
+those pixels back. v1 keeps the row untouched.
 
 **Fold is a slide.** Drag the handle 70% of the way across and the hand goes;
 release earlier and it springs back; a tap nudges it 12 px and springs back, so
@@ -109,26 +130,37 @@ the gesture teaches itself rather than needing a caption. Pointer events with
 leaves the track, and the handle is moved with a transform rather than an
 offset: an offset is a layout change and this control is 48 px from the felt.
 A keyboard press folds outright (`e.detail === 0` is the only way to tell one
-from the click a slide leaves behind), which is the sole route to Fold without
-a thumb. Where folding is not legal the bar is disabled, never dropped.
+from the click a slide leaves behind). Where folding is not legal the bar is
+disabled, never dropped.
 
-**The sizer is a sweep, not a grab.** Pressing anywhere on the track jumps to
-that point and drags on from there, so a size is one thumb movement; min is at
-the bottom and all in at the top, the way a stack reads. The `input type=range`
-under it is invisible and carries no pointer events: it is there for a keyboard
-and a screen reader, and the track owns the gesture. Only three marks are
-drawn, and one that lands within 8% of another is dropped, because a pot sized
-raise is often all in and two labels three pixels apart say less than one. The
-clamp and all-in semantics come from `raiseAction` and `raiseLabel` in
-`sizing.ts`, which the dock's `submitRaise` also calls: the dock's typed field
-is still the source of truth for the rules, this is the same rules in one place.
+**The sizer is g's slider stood on end, plus a sweep.** The rail is 4 px with
+the part below the thumb in the accent, exactly as `.g-slider` draws it lying
+down; the thumb is a 22 px circle with the control border. What is bespoke is
+only the gesture: pressing anywhere in the column jumps to that point and drags
+on from there, so a size is one thumb movement, and the hit area is the whole
+column and draws nothing. Min is at the bottom and all in at the top, the way a
+stack reads. The `input type=range` under it is invisible and carries no pointer
+events: it is there for a keyboard and a screen reader, and the hit area owns
+the gesture. Only three marks are drawn, and one that lands within 8% of another
+is dropped, because a pot sized raise is often all in and two labels three
+pixels apart say less than one.
+
+**The keys are the dock's keys**, not a second copy: `useTurnKeys` in
+`dock.tsx` owns them and takes two callbacks, one for `r` and one for the number
+keys. In the dock they focus the field and write into it; here they open the
+sweep and move it. Enter sends, and lives in the sizer because it only means
+anything while a size is open. The clamp and all-in semantics come from
+`raiseAction` and `raiseLabel` in `sizing.ts`, which the dock's `submitRaise`
+also calls.
 
 **Handedness is a setting** (`hand` in `../ui/prefs.ts`), stamped as
-`data-hand="left"` on the root by the pre-paint script in `../../index.html` as well
-as by `applyPrefs`, so a left handed player never sees the right handed layout
-flash past. The band mirrors by swapping its grid areas, the fan tilts the
-other way, the sweep moves to the near edge and the arrow on the fold handle
-turns round.
+`data-hand="left"` on the root by the pre-paint script in `../../index.html` as
+well as by `applyPrefs`, so a left handed player never sees the right handed
+layout flash past. The band mirrors by swapping its grid areas at both sizes,
+the fan tilts the other way, the sweep moves to the near edge and the arrow on
+the fold handle turns round. The tilted card is lifted by its own width times
+the sine of the tilt, because a card rotated about its bottom corner drops the
+far one off the bottom of the band and onto the page.
 
 ## Sizing
 

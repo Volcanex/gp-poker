@@ -3,14 +3,15 @@ import { expect, test } from '@playwright/test';
 import type { Box } from './table.ts';
 import { boxes, markSettled, shiftSince, stubApi, watchLayoutShift } from './table.ts';
 
-/* The phone's v2 band, which replaces the dock below 560px. The footprint rule
-   is the same rule the dock lives under and the reason this file exists: the
-   band is a fixed box with four states drawn inside it, and a hand that walks
+/* The v2 band, which replaces the dock at every width. The footprint rule is
+   the same rule the dock lives under and the reason this file exists: the band
+   is a fixed box with four states drawn inside it, and a hand that walks
    through all of them must not move a pixel of the felt above.
 
-   The band's own selectors are used rather than FOOTPRINT, because the felt
-   stops drawing your seat when the band is on screen: the band is that seat. */
+   The band's own selectors are used rather than FOOTPRINT, because on a phone
+   the felt stops drawing your seat: there, the band is that seat. */
 const PHONE = { width: 390, height: 844 };
+const DESKTOP = { width: 1280, height: 800 };
 const BAND_FOOTPRINT = ['.hand-head', '.felt', '.board', '.pot', '.hero-band'];
 
 function diff(a: Record<string, Box>, b: Record<string, Box>): string[] {
@@ -21,39 +22,53 @@ async function waitForBand(page: import('@playwright/test').Page, state: string,
   await page.locator(`.hero-band[data-state="${state}"]`).waitFor({ state: 'visible', timeout });
 }
 
-test('the hero band keeps one footprint through a hand', async ({ page }) => {
-  await page.setViewportSize(PHONE);
-  await stubApi(page);
-  await watchLayoutShift(page);
-  await page.goto('/m/mock?v2=1');
+const SIZES = [
+  { name: 'phone', size: PHONE },
+  { name: 'desktop', size: DESKTOP },
+];
 
-  await waitForBand(page, 'turn');
-  const settledAt = await markSettled(page);
-  const onTurn = await boxes(page, BAND_FOOTPRINT);
+const MODES = [
+  { name: 'heads-up', url: '/m/mock?v2=1' },
+  { name: 'six-max', url: '/m/mock?mode=six-max&v2=1' },
+];
 
-  await waitForBand(page, 'wait');
-  expect(
-    diff(onTurn, await boxes(page, BAND_FOOTPRINT)),
-    'boxes that moved between your turn and waiting',
-  ).toEqual([]);
+for (const { name: where, size } of SIZES) {
+  for (const mode of MODES) {
+    test(`the band keeps one footprint through a ${mode.name} hand on ${where}`, async ({ page }) => {
+      await page.setViewportSize(size);
+      await stubApi(page);
+      await watchLayoutShift(page);
+      await page.goto(mode.url);
 
-  await waitForBand(page, 'over');
-  /* The hand-end sequence: the cards flip, the five are outlined, the pot
-     settles. None of it may move a box. */
-  await page.waitForTimeout(1200);
-  expect(
-    diff(onTurn, await boxes(page, BAND_FOOTPRINT)),
-    'boxes that moved between your turn and hand over',
-  ).toEqual([]);
+      await waitForBand(page, 'turn');
+      const settledAt = await markSettled(page);
+      const onTurn = await boxes(page, BAND_FOOTPRINT);
 
-  await waitForBand(page, 'turn');
-  expect(
-    diff(onTurn, await boxes(page, BAND_FOOTPRINT)),
-    'boxes that moved over a whole hand',
-  ).toEqual([]);
+      await waitForBand(page, 'wait');
+      expect(
+        diff(onTurn, await boxes(page, BAND_FOOTPRINT)),
+        'boxes that moved between your turn and waiting',
+      ).toEqual([]);
 
-  expect(await shiftSince(page, settledAt)).toBe(0);
-});
+      await waitForBand(page, 'over');
+      /* The hand-end sequence: the cards flip, the five are outlined, the pot
+         settles. None of it may move a box. */
+      await page.waitForTimeout(1200);
+      expect(
+        diff(onTurn, await boxes(page, BAND_FOOTPRINT)),
+        'boxes that moved between your turn and hand over',
+      ).toEqual([]);
+
+      await waitForBand(page, 'turn');
+      expect(
+        diff(onTurn, await boxes(page, BAND_FOOTPRINT)),
+        'boxes that moved over a whole hand',
+      ).toEqual([]);
+
+      expect(await shiftSince(page, settledAt)).toBe(0);
+    });
+  }
+}
 
 /* The band is your seat, drawn large. The felt must therefore stop drawing it,
    and must keep the bet that hangs off it, because that is where a chip flies
@@ -134,24 +149,26 @@ test('the sizer sweeps to the top of the range', async ({ page }) => {
   await expect(page.locator('.hb-turn .btn[data-primary]')).toHaveText('Raise to 4');
 });
 
-test('the band has no serious accessibility failures', async ({ page }) => {
-  await page.setViewportSize(PHONE);
-  await stubApi(page);
+for (const { name: where, size } of SIZES) {
+  test(`the band has no serious accessibility failures on ${where}`, async ({ page }) => {
+    await page.setViewportSize(size);
+    await stubApi(page);
 
-  for (const url of ['/m/mock?v2=1&step=9', '/m/mock?v2=1&step=2', '/m/mock?v2=1&step=13']) {
-    await page.goto(url);
-    await page.waitForTimeout(1200);
+    for (const url of ['/m/mock?v2=1&step=9', '/m/mock?v2=1&step=2', '/m/mock?v2=1&step=13']) {
+      await page.goto(url);
+      await page.waitForTimeout(1200);
 
-    const results = await new AxeBuilder({ page })
-      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-      .analyze();
+      const results = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+        .analyze();
 
-    const bad = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
-    expect(
-      bad.map((v) => `${url} ${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`),
-    ).toEqual([]);
-  }
-});
+      const bad = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
+      expect(
+        bad.map((v) => `${url} ${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`),
+      ).toEqual([]);
+    }
+  });
+}
 
 /* The band mirrors on one attribute, stamped before the first paint. */
 test('a left-handed table puts the cards and the sweep the other way round', async ({ page }) => {
@@ -173,4 +190,49 @@ test('a left-handed table puts the cards and the sweep the other way round', asy
   await page.locator('.hb-turn .btn[data-primary]').click();
   const track = (await page.locator('.hb-track').boundingBox())!;
   expect(track.x, 'the sweep runs up the near edge').toBeLessThan(acts.x + acts.width / 2);
+});
+
+/* The band answers to the dock's keys, because they are the dock's handlers.
+   `r` reaches for where the size is chosen, which here is the sweep, and a
+   number key writes its preset into it. */
+test('the wide band takes the same keys the dock does', async ({ page }) => {
+  await page.setViewportSize(DESKTOP);
+  await stubApi(page);
+  await page.goto('/m/mock?v2=1&step=9');
+  await waitForBand(page, 'turn');
+
+  await expect(page.locator('.hb-keys')).toBeVisible();
+  await expect(page.locator('.hb-track')).toHaveCount(0);
+
+  /* R opens the sweep, wherever the focus was. */
+  await page.keyboard.press('r');
+  await expect(page.locator('.hb-track')).toBeVisible();
+  await expect(page.locator('.hb-confirm')).toHaveText('Raise to 86');
+
+  /* A number key addresses a preset and writes it into the open sweep. */
+  await page.keyboard.press('5');
+  await expect(page.locator('.hb-amount')).toHaveText('184');
+  await expect(page.locator('.hb-confirm')).toHaveText('Raise to 184');
+
+  /* And F folds outright: the mock advances a step on any action. */
+  await page.locator('.hb-back').click();
+  const before = await page.locator('.devnote').innerText();
+  await page.keyboard.press('f');
+  await expect
+    .poll(() => page.locator('.devnote').innerText(), { timeout: 10_000 })
+    .not.toBe(before);
+});
+
+/* The legend leaves the table's grid on v2: it is inside the band. v1 keeps
+   the row it has always had. */
+test('the key legend moves into the band and out of the table grid', async ({ page }) => {
+  await page.setViewportSize(DESKTOP);
+  await stubApi(page);
+
+  await page.goto('/m/mock?step=9');
+  await expect(page.locator('.match > .dock-keys')).toBeVisible();
+
+  await page.goto('/m/mock?v2=1&step=9');
+  await expect(page.locator('.match > .dock-keys')).toHaveCount(0);
+  await expect(page.locator('.hero-band .hb-keys')).toBeVisible();
 });
