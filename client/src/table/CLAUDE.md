@@ -142,6 +142,14 @@ footprint audit caught it), and the bar is drawn empty when no clock is running
 so the floor is there in every state. `resultText` and `decisionText` are
 exported from `hero-band.tsx`; the dock's `HandResult` stays for v1.
 
+**A held hand offers the deal in the countdown's slot.** A practice table
+holds a finished hand until the viewer deals on: `view.hold === 'you'` with an
+`onNext` prop (passed through `Table`) puts a primary "Deal the next hand"
+button at the line's end, Enter or N press it, and the countdown is not drawn.
+The button is wider than the 96 px slot, so it is anchored to the slot's right
+end out of the flow and the words are padded clear of it: a slot that grew
+would move the line. The mock's `?hold=1` marks every hand-over step held.
+
 **The band is your seat at every width, not only on a phone.** The felt drew
 your cards, name, button marker, stack, last action, avatar, rating and clock,
 and the band drew most of them again a hundred pixels below; the rule that hid

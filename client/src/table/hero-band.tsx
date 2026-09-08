@@ -18,7 +18,7 @@ import {
 import type { Preset } from './sizing.ts';
 import { playClick } from './sounds.ts';
 import { actionText, shortName } from './labels.ts';
-import { useFading, useMedia } from '../ui/bits.tsx';
+import { isTextEntry, useFading, useMedia } from '../ui/bits.tsx';
 import { FlagSlot } from '../ui/flag.tsx';
 import './hero-band.css';
 
@@ -35,7 +35,15 @@ export interface HeroBandProps {
      the felt's own reading of when a hand is paid, and the band is a seat on
      that felt: two readings of it would drift. */
   stack: number;
+  /* A practice table holds a finished hand until this viewer deals on: when
+     `view.hold` is `'you'` the decision line's end is a button rather than a
+     countdown, and this is what it calls. */
+  onNext?: () => void;
 }
+
+/* The hold is the server's to declare; the field lands with the protocol
+   change and is read here through a local widening until then. */
+type HeldView = TableView & { hold?: 'you' };
 
 /* The action band, in place of the dock, at every width. A decision line
    along the top edge, and under it two columns: your own two cards drawn at
@@ -53,7 +61,7 @@ export interface HeroBandProps {
    sweep under a thumb. The same number the stylesheet's phone block uses. */
 const WIDE = '(min-width: 561px)';
 
-export function HeroBand({ view, onAct, sending, best, stack }: HeroBandProps) {
+export function HeroBand({ view, onAct, sending, best, stack, onNext }: HeroBandProps) {
   const { state, pre, setPre, canPre } = useDockLogic(view, onAct, sending);
   const mine = view.you == null ? null : view.seats.find((s) => s.i === view.you) ?? null;
   const legal = view.legal;
@@ -61,7 +69,7 @@ export function HeroBand({ view, onAct, sending, best, stack }: HeroBandProps) {
 
   return (
     <div className="hero-band" data-state={state} data-seated={mine ? '' : undefined}>
-      <DecisionLine view={view} state={state} />
+      <DecisionLine view={view} state={state} onNext={onNext} />
 
       {/* The band's ground runs the width of the page and its content sits on
           the felt's column, so the cards start on the felt's left edge and the
@@ -103,14 +111,26 @@ export function HeroBand({ view, onAct, sending, best, stack }: HeroBandProps) {
    Every state prints into the same two slots: the words snap, the row is one
    height, and the bar under it is drawn empty when nobody's clock is running
    so the floor is there in every state. */
-function DecisionLine({ view, state }: { view: TableView; state: DockState }) {
+function DecisionLine({
+  view, state, onNext,
+}: {
+  view: TableView;
+  state: DockState;
+  onNext?: () => void;
+}) {
   const clock = view.clock;
   const yours = clock != null && clock.seat === view.you;
   const mine = view.you == null ? null : view.seats.find((s) => s.i === view.you) ?? null;
+  /* A practice table holds the hand for you: the end slot is the way on
+     rather than a countdown. */
+  const held = state === 'over' && (view as HeldView).hold === 'you' && onNext != null;
 
   let text: string;
   let end: ReactNode = null;
-  if (state === 'over') {
+  if (held) {
+    text = resultText(view);
+    end = <DealNext onNext={onNext} />;
+  } else if (state === 'over') {
     text = resultText(view);
     end = <HandCountdown view={view} />;
   } else {
@@ -125,7 +145,11 @@ function DecisionLine({ view, state }: { view: TableView; state: DockState }) {
   }
 
   return (
-    <div className="hb-line" data-whose={clock ? (yours ? 'you' : 'them') : undefined}>
+    <div
+      className="hb-line"
+      data-whose={clock ? (yours ? 'you' : 'them') : undefined}
+      data-held={held ? '' : undefined}
+    >
       <span className="hb-line-text">{text}</span>
       <span className="hb-line-end num">{end}</span>
       {clock ? (
@@ -172,6 +196,35 @@ function HandCountdown({ view }: { view: TableView }) {
   const left = useCountdown(`${view.m}:${view.h}`, holdFor(view.format));
   return (
     <span role="timer">{isLastHand(view) ? 'Result in' : 'Next hand in'} {left}</span>
+  );
+}
+
+/* The way on from a held hand. It stands in the countdown's reserved slot,
+   out of the flow and anchored to its right end, because "Deal the next hand"
+   is wider than the slot and a slot that grew would move the line's words.
+   Enter and N press it, the way Enter sends a size, and neither fires while
+   somebody is typing in the chat. */
+function DealNext({ onNext }: { onNext: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || isTextEntry(e.target)) return;
+      const k = e.key.toLowerCase();
+      if (k !== 'enter' && k !== 'n') return;
+      e.preventDefault();
+      onNext();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onNext]);
+  return (
+    <button
+      type="button"
+      className="btn btn-primary hb-line-next"
+      title="Enter or N"
+      onClick={() => { playClick(); onNext(); }}
+    >
+      Deal the next hand
+    </button>
   );
 }
 

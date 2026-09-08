@@ -259,6 +259,41 @@ for (const { name: where, size } of SIZES) {
   });
 }
 
+/* A practice table holds a finished hand until you deal on. The button stands
+   in the countdown's slot, so the line is the same box held or counting, and
+   Enter or N press it. */
+test('a held hand offers the next deal in the countdown\'s slot', async ({ page }) => {
+  await page.setViewportSize(DESKTOP);
+  await stubApi(page);
+  await page.goto('/m/mock?v2=1&step=13');
+  await waitForBand(page, 'over');
+  const counting = (await page.locator('.hb-line').boundingBox())!;
+  await expect(page.locator('.hb-line-next')).toHaveCount(0);
+
+  await page.goto('/m/mock?v2=1&step=13&hold=1');
+  await waitForBand(page, 'over');
+  const next = page.locator('.hb-line-end .hb-line-next');
+  await expect(next).toHaveText('Deal the next hand');
+  await expect(page.locator('.hb-line-end')).not.toContainText('Next hand in');
+  expect(await page.locator('.hb-line').boundingBox(), 'one box, held or counting').toEqual(counting);
+  const line = (await page.locator('.hb-line').boundingBox())!;
+  const btn = (await next.boundingBox())!;
+  expect(Math.round(btn.x + btn.width), 'on the line\'s right end').toBe(Math.round(line.x + line.width));
+
+  const before = await page.locator('.devnote').innerText();
+  await page.keyboard.press('n');
+  await expect
+    .poll(() => page.locator('.devnote').innerText(), { timeout: 10_000 })
+    .not.toBe(before);
+
+  await page.goto('/m/mock?v2=1&step=13&hold=1');
+  await waitForBand(page, 'over');
+  await next.click();
+  await expect
+    .poll(() => page.locator('.devnote').innerText(), { timeout: 10_000 })
+    .not.toBe(before);
+});
+
 /* The band is your seat, so its figure moves when the seat's would: when the
    pot has actually landed, not when the result message arrives. The result
    carries the paid stack, so a band reading it straight out of the view would

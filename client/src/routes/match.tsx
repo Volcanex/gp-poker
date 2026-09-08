@@ -27,6 +27,9 @@ export function Match() {
      e2e pass without a live match to sit at. */
   const watch = params.get('watch') === '1';
   const v2 = params.get('v2') === '1';
+  /* `?hold=1` marks every hand-over step as held for the viewer, the way a
+     practice table is, so the band's deal button can be pictured and tested. */
+  const hold = params.get('hold') === '1';
   return isMock ? (
     <MockMatch
       step={numOrNull(params.get('step'))}
@@ -35,6 +38,7 @@ export function Match() {
       practice={practice}
       watch={watch}
       v2={v2}
+      hold={hold}
     />
   ) : (
     <LiveMatch id={id} />
@@ -214,8 +218,11 @@ function LiveMatch({ id }: { id: string }) {
 /* ----------------------------------------------------------------- mock */
 
 function MockMatch(
-  { step, mode, rated, practice, watch, v2 }:
-  { step: number | null; mode: Mode; rated: boolean; practice: boolean; watch: boolean; v2: boolean },
+  { step, mode, rated, practice, watch, v2, hold }:
+  {
+    step: number | null; mode: Mode; rated: boolean; practice: boolean;
+    watch: boolean; v2: boolean; hold: boolean;
+  },
 ) {
   const script = useMemo(() => mockScript(mode, rated, practice), [mode, rated, practice]);
   const start = step == null ? 0 : Math.max(0, Math.min(script.length - 1, step));
@@ -258,9 +265,10 @@ function MockMatch(
      tested there. */
   const view = useMemo(() => {
     if (!base) return null;
-    const seated = base.clock
+    const timed = base.clock
       ? { ...base, clock: { ...base.clock, deadline: enteredAt + base.format.clockMs } }
       : base;
+    const seated = hold && timed.street === 'done' ? { ...timed, hold: 'you' as const } : timed;
     if (!watch) return seated;
     /* A spectator has no seat, no decision and nobody's hole cards: the server
        sends everyone face down until a showdown, so the mock does too. Without
@@ -276,7 +284,7 @@ function MockMatch(
           : s
       )),
     };
-  }, [base, enteredAt, watch]);
+  }, [base, enteredAt, watch, hold]);
 
   const replay = useCallback(() => {
     setI(0);
@@ -290,7 +298,15 @@ function MockMatch(
 
   return (
     <>
-      <Table view={view} onAct={advance} sending={false} ended={ended != null} chat={chat} look={v2 ? 'v2' : 'v1'} />
+      <Table
+        view={view}
+        onAct={advance}
+        sending={false}
+        ended={ended != null}
+        chat={chat}
+        look={v2 ? 'v2' : 'v1'}
+        onNext={hold ? advance : undefined}
+      />
       {ended ? (
         <>
           <ResultPanel
