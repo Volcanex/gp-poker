@@ -28,7 +28,7 @@ export function modeBlurb(mode: Mode): string {
 }
 
 export function Home() {
-  const { me, queue, startQueue, startPractice, cancelQueue, offline, ready, conn, liveMatch } = useSession();
+  const { me, queue, startQueue, startPractice, cancelQueue, offline, ready, conn, liveMatch, clearFound } = useSession();
   const nav = useNavigate();
   const searching = queue.s === 'searching';
   const { hash } = useLocation();
@@ -43,9 +43,16 @@ export function Home() {
     'six-max': last?.mode === 'six-max' ? last.rated : true,
   }));
 
+  /* The found state is a one-shot ticket to the table. Clearing it once it
+     has been used is what lets somebody come back to this page mid-match
+     without being bounced straight to their table again. */
   useEffect(() => {
-    if (queue.s === 'found' && queue.m) nav(`/m/${queue.m}`);
-  }, [queue.s, queue.m, nav]);
+    if (queue.s === 'found' && queue.m) {
+      const m = queue.m;
+      clearFound();
+      nav(`/m/${m}`);
+    }
+  }, [queue.s, queue.m, nav, clearFound]);
 
   useEffect(() => {
     if (hash) document.querySelector(hash)?.scrollIntoView({ block: 'start' });
