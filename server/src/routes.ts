@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { blindsAt, type MatchFormat, type Mode } from '@opentable/protocol';
+import { bucketFor, effectiveStackBb, handClass, spotFor, walkPreflop } from '@opentable/preflop';
 
 function modeParam(raw: unknown): Mode {
   return MODES.includes(raw as Mode) ? (raw as Mode) : 'heads-up';
@@ -20,6 +21,7 @@ import {
   getHandsForMatch,
   getHandById,
   getRecentMatches,
+  getPuzzleHandCandidates,
   getLiveMatches,
   getSiteStats,
   deleteSession,
@@ -256,6 +258,54 @@ export function registerRoutes(app: FastifyInstance): void {
       startedAt: hand.startedAt,
       completedAt: hand.completedAt,
     };
+  });
+
+  /* One real preflop decision to be graded, from a finished heads-up hand.
+     The walk is done here rather than in the client because @opentable/preflop
+     reads its charts with node:fs and cannot be imported in a browser; the
+     client is handed the spot it needs and replays the log to that point
+     itself. A site with no such hand yet gets a 404 and a page that says so. */
+  app.get('/api/puzzles/hand', async (_request, reply) => {
+    for (const hand of await getPuzzleHandCandidates()) {
+      const match = await getMatchById(hand.matchId);
+      if (!match || match.seats.length !== 2 || !hand.holes || !hand.seed) continue;
+
+      // Heads-up hands are stored in table seats and the two are the same
+      // index space, which is what lets the row be walked as it stands.
+      const config = { seats: hand.stacksStart.map((stack) => ({ stack })), button: hand.button, bb: blindsAt(match.format, hand.number).bb };
+      const bucket = bucketFor(effectiveStackBb(config));
+      const steps = walkPreflop(config, hand.actions);
+      const graded = steps
+        .map((step, index) => ({ step, index, spot: spotFor(bucket, step.position, step.raiseCount) }))
+        .filter((g) => g.spot !== null && hand.holes?.[g.step.seat] !== undefined);
+      if (graded.length === 0) continue;
+
+      const chosen = graded[Math.floor(Math.random() * graded.length)];
+      const hole = hand.holes[chosen.step.seat];
+      const { sb, bb } = blindsAt(match.format, hand.number);
+      return {
+        handId: hand.id,
+        matchId: hand.matchId,
+        number: hand.number,
+        seats: match.seats.map((s) => ({ seat: s.seat, name: s.name, bot: s.bot === true })),
+        button: hand.button,
+        sb,
+        bb,
+        stacksStart: hand.stacksStart,
+        seed: hand.seed,
+        actions: hand.actions,
+        seat: chosen.step.seat,
+        logIndex: chosen.index,
+        position: chosen.step.position,
+        bucket,
+        spot: chosen.spot,
+        effectiveBb: Math.round(effectiveStackBb(config) * 10) / 10,
+        hand: handClass(hole),
+        cards: hole,
+        played: chosen.step.category,
+      };
+    }
+    return err(reply, 404, 'no finished heads-up hand has a preflop decision to grade yet');
   });
 
   // Latest finished matches, newest first. Aborted matches are left out: they

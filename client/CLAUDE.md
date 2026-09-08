@@ -48,6 +48,10 @@ declaration for `phe` that the engine's own tsconfig provides.
 - `src/tools/` — the calculators at `/tools`: the range explorer and the pot
   odds trainer. They import the evaluator-free subpaths of `@opentable/equity`
   and send every actual computation to the worker.
+- `src/puzzles/` — the daily puzzles at `/puzzles`. `chart.ts` reads the
+  baseline chart in a browser, `showdown.ts` and `preflop.ts` are the pure
+  generators, `store.ts` is the record under `ot.puzzles`, and the three
+  `*-page.tsx` files are the pages. See **Puzzles** below.
 - `src/replay/` — `to-view.ts` turns an engine `HandState` into a `TableView`;
   `fairness.ts` re-derives the deck and rehashes the commitment.
 - `src/ui/` — `auth.tsx` (claim, log in, account menu), `settings.tsx` and its
@@ -395,6 +399,47 @@ Where the mode comes from on each screen:
 A mode with no rated matches says so rather than showing the 1500 everyone
 starts on as though it were earned.
 
+## Puzzles
+
+Three pages under `/puzzles`, plus a card pointing at the pot odds trainer,
+which is the fourth puzzle and stays where it is rather than being duplicated.
+
+**Nothing here is a solver, and no puzzle is asked whose answer would need
+one.** Who wins is settled by the evaluator that settles pots, through a
+`showdown` request to the analysis worker (`analysis/showdown-solve.ts` is the
+only puzzle module that touches `@opentable/equity`'s root, so `phe` stays out
+of the bundle everybody loads). The preflop spots are graded against the
+baseline charts, which are heuristic, and every page says so under the answer.
+
+**Difficulty is structural, not measured.** A harder showdown is not one the
+generator scored and found close, it is one whose shape makes it close: every
+hand pairing the same board card, a board paired above everybody, or a board
+straight nobody can beat so the pot splits. That is what keeps the generator
+pure and the answer the evaluator's. The preflop ramp is the distance from the
+hand to the nearest chart cutoff, which narrows as the streak grows.
+
+**`puzzles/chart.ts` does not go through `@opentable/preflop`.** That package
+loads its JSON with `node:fs` at module scope, so it cannot be imported in a
+browser, and the client mirrors three things from it: the percentile ranking,
+the region walk and the EV-lost scale. The mirror is pinned rather than
+trusted: `src/test/puzzles.test.ts` imports the real package (a test runs in
+node) and checks every bucket, spot and hand class against the copy, so a
+change to the scorer fails there instead of grading a puzzle differently from
+the way the same decision is graded at the table.
+`src/routes/learn/chart-data.ts` reads the same two files for the lesson's
+grid, which is a second copy of the same bargain. Making the package
+browser-safe would remove both.
+
+`/puzzles/hand` is lazy loaded because it replays a stored hand with the
+engine, the same reason `/m/:id/h/:n` is. The server does the walk that finds
+the decision (`GET /api/puzzles/hand`) and the page replays the log up to the
+index it names, so the pot and the price on screen are the engine's answer
+rather than numbers the server wrote down.
+
+The record is one object under `ot.puzzles`: a streak, best streak and count
+per type, plus the day and the number solved on it. The pot odds trainer keeps
+its own older record under `ot.odds` and keeps it there.
+
 ## Routes
 | Path | Page |
 | --- | --- |
@@ -405,6 +450,10 @@ starts on as though it were earned.
 | `/c/:id` | a friend's challenge link: who is challenging you, the format, one button that starts the match |
 | `/m/:id` | live table while playing, spectator seat if you have none, result summary once finished |
 | `/m/:id/h/:n` | hand replay, scrubber and fairness checks |
+| `/puzzles` | the puzzle index and the daily count |
+| `/puzzles/showdown` | who wins a finished board |
+| `/puzzles/preflop` | one spot from the baseline chart |
+| `/puzzles/hand` | a real preflop decision, replayed to the moment it was made |
 | `/m/mock` | the scripted table, dev only (`?step=N` freezes one moment, `?mode=six-max` runs the six-handed script, `?watch=1` drops the seat) |
 
 `useTitle` (`src/ui/title.ts`) sets the document title per route and appends

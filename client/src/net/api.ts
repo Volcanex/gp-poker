@@ -1,5 +1,6 @@
 import type {
-  BotRow, Challenge, CreatedChallenge, FeedMatch, Hand, Insights, LeaderboardRow, LiveMatch, Match, Me, Profile, SiteStats,
+  BotRow, Challenge, CreatedChallenge, FeedMatch, Hand, Insights, LeaderboardRow, LiveMatch, Match, Me, Profile,
+  PuzzleHand, SiteStats,
 } from './types.ts';
 import type { Mode, UserSummary } from '@opentable/protocol';
 
@@ -60,6 +61,10 @@ export const api = {
      `stats` is polled, and the server caches it for five seconds so a room
      full of open tabs costs one query. */
   recent: (limit = 20) => req<FeedMatch[]>(`/api/recent?limit=${limit}`),
+  /* A random finished heads-up hand with a preflop decision worth grading.
+     404 while the site has never stored one, which the puzzle page says out
+     loud rather than showing an empty spot. */
+  puzzleHand: () => req<PuzzleHand>('/api/puzzles/hand'),
   stats: () => req<SiteStats>('/api/stats'),
   live: () => req<LiveMatch[]>('/api/live'),
   /* Play a friend. The link is made by the person sharing it and spent by the

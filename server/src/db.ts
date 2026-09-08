@@ -709,6 +709,28 @@ export async function getRecentMatches(limit = 20): Promise<MatchRow[]> {
   `;
 }
 
+/* Candidates for the "from a real hand" puzzle: completed hands from finished,
+   rated-or-casual heads-up matches, with the seed and the hole cards published.
+   Whether a hand actually holds a preflop decision worth grading is a walk of
+   its action log rather than a column, so a shallow random window is drawn here
+   and the caller walks it. `order by random()` is a sequential scan and is the
+   right shape at this size; it is the first thing to change if the table grows
+   past what a scan can carry. */
+export async function getPuzzleHandCandidates(limit = 40): Promise<HandRow[]> {
+  return sql<HandRow[]>`
+    select h.* from hands h
+    join matches m on m.id = h.match_id
+    where m.status = 'finished'
+      and m.format->>'mode' = 'heads-up'
+      and coalesce((m.format->>'practice')::boolean, false) = false
+      and h.completed_at is not null
+      and h.seed is not null
+      and h.holes is not null
+    order by random()
+    limit ${limit}
+  `;
+}
+
 export async function getLiveMatches(limit = 50): Promise<MatchRow[]> {
   return sql<MatchRow[]>`
     select * from matches

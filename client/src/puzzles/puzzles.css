@@ -1,0 +1,250 @@
+/* Styles for the puzzle pages only, the way tools.css belongs to the tools.
+   Nothing here reaches the felt, and every colour is an alias token. */
+
+.puzzles-page .row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.puzzles-page .small {
+  font-size: 12px;
+}
+
+/* The index */
+
+.puzzle-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--sp-4);
+}
+
+.puzzle-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  text-decoration: none;
+  color: inherit;
+}
+
+.puzzle-card:hover {
+  border-color: var(--accent-edge);
+}
+
+.puzzle-card .meta {
+  display: flex;
+  gap: var(--sp-4);
+  margin-top: auto;
+  padding-top: var(--sp-2);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.puzzle-card .meta .num {
+  color: var(--text-primary);
+}
+
+.daily {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.daily .big {
+  font-size: 2rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+/* A puzzle */
+
+.puzzle-board {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-5);
+}
+
+.puzzle-board .ctext {
+  font-size: 1.4rem;
+}
+
+.puzzle-hands {
+  display: grid;
+  gap: var(--sp-2);
+  margin: 0;
+}
+
+.puzzle-hand {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  background: var(--well-bg);
+}
+
+.puzzle-hand[data-winner] {
+  border-color: var(--ok-text);
+}
+
+.puzzle-hand .who {
+  min-width: 5rem;
+  font-size: var(--font-size-ui);
+  color: var(--text-primary);
+}
+
+.puzzle-hand .said {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.puzzle-line {
+  margin: 0;
+  font-size: var(--font-size-ui);
+}
+
+.verdict {
+  align-self: flex-start;
+}
+
+.puzzle-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--sp-3);
+  margin: 0;
+}
+
+.puzzle-results > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.puzzle-results dt {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.puzzle-results dd {
+  margin: 0;
+}
+
+.puzzle-results dd.num {
+  font-size: 1.5rem;
+  line-height: 1.1;
+  color: var(--text-primary);
+}
+
+.puzzle-score {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sp-3);
+}
+
+.puzzle-score > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.puzzle-score .num {
+  font-size: 1.25rem;
+  color: var(--text-primary);
+}
+
+/* The chart grid, shown after a preflop answer */
+
+.chart-grid-wrap {
+  overflow-x: auto;
+}
+
+.chart-grid-wrap:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Ranks along the top and down the side, the way a chart is drawn on paper.
+   The cells themselves carry no text: 169 labels at nine pixels is a shape
+   rather than a legend, and nine pixels of placeholder grey on a well is not
+   a contrast ratio anybody should ship. The hand you played is the one cell
+   that is called out, and its name is printed above the grid. */
+.chart-grid {
+  display: grid;
+  grid-template-columns: 16px repeat(13, minmax(20px, 1fr));
+  gap: 1px;
+  min-width: 320px;
+  max-width: 480px;
+}
+
+.chart-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.chart-cell {
+  aspect-ratio: 1;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  background: var(--well-bg);
+}
+
+.chart-cell[data-region='aggr'] {
+  background: color-mix(in srgb, var(--ok-text) 35%, transparent);
+}
+
+.chart-cell[data-region='passive'] {
+  background: color-mix(in srgb, var(--warn-text) 35%, transparent);
+}
+
+.chart-cell[data-yours] {
+  border-color: var(--text-primary);
+  box-shadow: 0 0 0 1px var(--text-primary);
+}
+
+.chart-legend {
+  display: flex;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.chart-legend .key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chart-legend .sw {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--well-bg);
+}
+
+.chart-legend .sw[data-region='aggr'] {
+  background: color-mix(in srgb, var(--ok-text) 35%, transparent);
+}
+
+.chart-legend .sw[data-region='passive'] {
+  background: color-mix(in srgb, var(--warn-text) 35%, transparent);
+}
+
+.chart-legend .num {
+  color: var(--text-primary);
+}
+
+@media (max-width: 720px) {
+  .puzzle-score {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

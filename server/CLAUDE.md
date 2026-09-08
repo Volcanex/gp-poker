@@ -58,6 +58,13 @@ decisions; this file covers what's not obvious from the code.
   - `/api/hands/:id` adds `liveSeats` and reports the hand's own `sb`/`bb`
     from `blindsAt` rather than the format's level-1 blinds, which is what a
     replay needs to rebuild the engine config.
+  - `/api/puzzles/hand` returns one real preflop decision for the puzzle at
+    `/puzzles/hand`: a random finished, non-practice, heads-up hand whose
+    action log holds a spot the charts have an answer for, with the seat to
+    grade and the index of that action in the log. The walk is done here
+    because `@opentable/preflop` reads its charts with `node:fs` and cannot
+    run in a browser; the client replays the log to that index itself. 404
+    while no such hand exists.
   - `/api/users/:name/insights?mode=heads-up|six-max` is how somebody plays
     rather than how they are rated, derived from their stored hands. Same
     mode fallback as the leaderboard. See "Insights".

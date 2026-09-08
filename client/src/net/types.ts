@@ -171,6 +171,32 @@ export interface FeedPlayer {
   ratingAfter: number | null;
 }
 
+/* One real preflop decision to be graded, from GET /api/puzzles/hand. The
+   server walks the stored action log with @opentable/preflop (which cannot run
+   in a browser) and hands over the spot it found; the client replays the log
+   to logIndex with the engine to draw the table as it stood. */
+export interface PuzzleHand {
+  handId: string;
+  matchId: string;
+  number: number;
+  seats: { seat: number; name: string; bot: boolean }[];
+  button: number;
+  sb: number;
+  bb: number;
+  stacksStart: number[];
+  seed: string;
+  actions: LoggedAction[];
+  seat: number;
+  logIndex: number;
+  position: 'sb' | 'bb';
+  bucket: 'deep' | 'mid' | 'short' | 'push';
+  spot: string;
+  effectiveBb: number;
+  hand: string;
+  cards: [string, string];
+  played: 'aggr' | 'passive' | 'fold';
+}
+
 export interface FeedMatch {
   id: string;
   mode: Mode;

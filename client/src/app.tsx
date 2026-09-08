@@ -8,6 +8,7 @@ import { Profile } from './routes/profile.tsx';
 import { Watch } from './routes/watch.tsx';
 import { Challenge } from './routes/challenge.tsx';
 import { learnRoutes } from './routes/learn/index.tsx';
+import { puzzlesRoutes } from './puzzles/index.tsx';
 import { toolsRoutes } from './tools/index.tsx';
 import { AccountMenu } from './ui/auth.tsx';
 import { SettingsMenu } from './ui/settings.tsx';
@@ -27,6 +28,7 @@ function TopBar() {
       <nav>
         <NavLink to="/" end>Play</NavLink>
         <NavLink to="/learn">Learn</NavLink>
+        <NavLink to="/puzzles">Puzzles</NavLink>
         <NavLink to="/tools">Tools</NavLink>
         <NavLink to="/watch">Watch</NavLink>
         <NavLink to="/leaderboard">Leaderboard</NavLink>
@@ -65,6 +67,9 @@ export function App() {
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/watch" element={<Watch />} />
           {learnRoutes}
+          {puzzlesRoutes.map((r) => (
+            <Route key={r.path} path={r.path} element={r.element} />
+          ))}
           {toolsRoutes.map((r) => (
             <Route key={r.path} path={r.path} element={r.element} />
           ))}

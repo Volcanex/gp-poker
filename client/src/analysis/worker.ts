@@ -11,6 +11,7 @@
 
 import { equity, handName } from '@opentable/equity';
 import { readOuts } from './draw-outs.ts';
+import { solveShowdown } from './showdown-solve.ts';
 import type { Request, Response } from './protocol.ts';
 
 const queue: Request[] = [];
@@ -26,6 +27,8 @@ function run(job: Request): void {
       reply({ id: job.id, ok: true, kind: 'equity', result: equity(job.hero, job.board, job.villains, { samples: job.samples }) });
     } else if (job.kind === 'outs') {
       reply({ id: job.id, ok: true, kind: 'outs', result: readOuts(job.hero, job.board) });
+    } else if (job.kind === 'showdown') {
+      reply({ id: job.id, ok: true, kind: 'showdown', result: solveShowdown(job.board, job.hands) });
     } else {
       reply({ id: job.id, ok: true, kind: 'name', result: handName(job.cards) });
     }

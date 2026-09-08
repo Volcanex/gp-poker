@@ -28,7 +28,17 @@ export interface NameRequest {
   cards: Card[];
 }
 
-export type Request = EquityRequest | OutsRequest | NameRequest;
+/* Who won a showdown, and what everybody had. One request rather than a name
+   per hand, because the winner is a comparison and the comparison has to be
+   made by the evaluator rather than by the page reading the names back. */
+export interface ShowdownRequest {
+  id: string;
+  kind: 'showdown';
+  board: Card[];
+  hands: Card[][];
+}
+
+export type Request = EquityRequest | OutsRequest | NameRequest | ShowdownRequest;
 
 export type { OutsRead } from './draw-outs.ts';
 
@@ -37,8 +47,21 @@ export interface HandNaming {
   name: string;
 }
 
+export interface ShowdownHand extends HandNaming {
+  /* phe's score, low to high. Carried so a page can say how close two hands
+     were without asking the worker a second question. */
+  strength: number;
+  five: Card[];
+}
+
+export interface ShowdownRead {
+  hands: ShowdownHand[];
+  winners: number[]; // indexes into hands; more than one is a split
+}
+
 export type Response =
   | { id: string; ok: true; kind: 'equity'; result: EquityResult }
   | { id: string; ok: true; kind: 'outs'; result: OutsRead }
   | { id: string; ok: true; kind: 'name'; result: HandNaming }
+  | { id: string; ok: true; kind: 'showdown'; result: ShowdownRead }
   | { id: string; ok: false; error: string };

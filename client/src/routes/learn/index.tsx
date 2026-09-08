@@ -58,6 +58,18 @@ export function LearnIndex() {
         ))}
       </div>
 
+      <div className="lesson-cards">
+        <div className="card lesson-card">
+          <Link className="stretch" to="/puzzles" aria-label="Puzzles" />
+          <span className="n">Practice</span>
+          <span className="t">Puzzles</span>
+          <span className="muted">
+            Four questions a day: who wins a showdown, what to do before the flop, the price the pot
+            is offering, and a decision somebody actually faced here.
+          </span>
+        </div>
+      </div>
+
       <p className="muted">
         Then go and play. Every match you finish has a page with its hands, and every hand can be
         replayed action by action.

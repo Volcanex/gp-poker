@@ -7,9 +7,9 @@
    jsdom test) simply gets a rejected promise instead of a broken page. */
 
 import type { EquityResult, Range } from '@opentable/equity';
-import type { Card, HandNaming, OutsRead, Request, Response } from './protocol.ts';
+import type { Card, HandNaming, OutsRead, Request, Response, ShowdownRead } from './protocol.ts';
 
-export type { Card, HandNaming, OutsRead } from './protocol.ts';
+export type { Card, HandNaming, OutsRead, ShowdownHand, ShowdownRead } from './protocol.ts';
 export type Villain = Range | 'random';
 
 export class Cancelled extends Error {
@@ -102,6 +102,19 @@ export interface NameInput {
 export function analyseName(input: NameInput): Promise<HandNaming> {
   const { id = nextRequestId('n'), cards } = input;
   return send<HandNaming>({ id, kind: 'name', cards });
+}
+
+export interface ShowdownInput {
+  board: Card[];
+  hands: Card[][];
+  id?: string;
+}
+
+/* Who wins a finished board. The comparison belongs with the evaluator, so the
+   worker returns the winners as well as the names. */
+export function analyseShowdown(input: ShowdownInput): Promise<ShowdownRead> {
+  const { id = nextRequestId('s'), board, hands } = input;
+  return send<ShowdownRead>({ id, kind: 'showdown', board, hands });
 }
 
 /* Drops the answer on the floor and, if the job has not started yet, stops it
