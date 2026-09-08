@@ -52,6 +52,24 @@ export function blindText(format: MatchFormat, blinds: { sb: number; bb: number 
   return `Level ${level + 1}, ${stakes}, next in ${left} ${left === 1 ? 'hand' : 'hands'}`;
 }
 
+/* Generated names are CamelCase (RedTiger, StealthyCyclone), so a plain
+   ellipsis cuts a word in half and leaves "Stealth...". Dropping whole words
+   from the end keeps the first one readable, which is the half people use to
+   tell two players apart. */
+export function shortName(name: string, max = 12): string {
+  if (name.length <= max) return name;
+  const words = name.split(/(?=[A-Z])/).filter(Boolean);
+  if (words.length > 1) {
+    let out = words[0];
+    for (const w of words.slice(1)) {
+      if (out.length + w.length > max) break;
+      out += w;
+    }
+    if (out.length < name.length) return `${out.slice(0, max)}…`;
+  }
+  return `${name.slice(0, max)}…`;
+}
+
 export function ordinal(n: number): string {
   const teen = n % 100;
   const suffix = teen >= 11 && teen <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] ?? 'th';
@@ -65,4 +83,26 @@ export function shortHash(h: string, n = 10): string {
 export function cardsOf(shown: Record<number, Card[]> | undefined, seat: number): Card[] | null {
   if (!shown) return null;
   return shown[seat] ?? null;
+}
+
+/* What a match is worth, in one word. A match is rated, casual or practice and
+   never two of them, and the two places that say it in prose read it from here
+   so they cannot drift from each other or from the badge on the feed. */
+export function stakeWord(format: { rated: boolean; practice?: boolean }): 'rated' | 'casual' | 'practice' {
+  if (format.practice) return 'practice';
+  return format.rated ? 'rated' : 'casual';
+}
+
+/* The same word to open a sentence with. */
+export function stakeName(format: { rated: boolean; practice?: boolean }): string {
+  const word = stakeWord(format);
+  return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
+export function stakeSentence(format: { rated: boolean; practice?: boolean }): string {
+  const word = stakeWord(format);
+  if (word === 'rated') return '';
+  return word === 'practice'
+    ? 'Practice match, no rating change.'
+    : 'Casual match, no rating change.';
 }

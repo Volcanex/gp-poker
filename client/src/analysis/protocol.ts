@@ -1,7 +1,8 @@
 /* What crosses the worker boundary. A Range is a Set of hand class strings and
    structured clone carries a Set as it is, so ranges go over unchanged. */
 
-import type { EquityResult, HandCategory, OutsResult, Range } from '@opentable/equity';
+import type { EquityResult, HandCategory, Range } from '@opentable/equity';
+import type { OutsRead } from './draw-outs.ts';
 
 export type Card = string;
 
@@ -29,6 +30,8 @@ export interface NameRequest {
 
 export type Request = EquityRequest | OutsRequest | NameRequest;
 
+export type { OutsRead } from './draw-outs.ts';
+
 export interface HandNaming {
   category: HandCategory;
   name: string;
@@ -36,6 +39,6 @@ export interface HandNaming {
 
 export type Response =
   | { id: string; ok: true; kind: 'equity'; result: EquityResult }
-  | { id: string; ok: true; kind: 'outs'; result: OutsResult }
+  | { id: string; ok: true; kind: 'outs'; result: OutsRead }
   | { id: string; ok: true; kind: 'name'; result: HandNaming }
   | { id: string; ok: false; error: string };

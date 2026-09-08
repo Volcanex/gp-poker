@@ -9,7 +9,8 @@
    be preempted, which is why the sampled paths are sized in tens of thousands
    of deals rather than millions. */
 
-import { equity, handName, outs } from '@opentable/equity';
+import { equity, handName } from '@opentable/equity';
+import { readOuts } from './draw-outs.ts';
 import type { Request, Response } from './protocol.ts';
 
 const queue: Request[] = [];
@@ -24,7 +25,7 @@ function run(job: Request): void {
     if (job.kind === 'equity') {
       reply({ id: job.id, ok: true, kind: 'equity', result: equity(job.hero, job.board, job.villains, { samples: job.samples }) });
     } else if (job.kind === 'outs') {
-      reply({ id: job.id, ok: true, kind: 'outs', result: outs(job.hero, job.board) });
+      reply({ id: job.id, ok: true, kind: 'outs', result: readOuts(job.hero, job.board) });
     } else {
       reply({ id: job.id, ok: true, kind: 'name', result: handName(job.cards) });
     }

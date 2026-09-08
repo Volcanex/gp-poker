@@ -1,12 +1,13 @@
 import { describe, expect, test } from 'vitest';
 import {
   opponentsLabel,
-  outsLabel,
+  outsLine,
   percentLabel,
   precisionLabel,
   readsFor,
   villainsFor,
 } from '../analysis/live-stats.tsx';
+import { readOuts } from '../analysis/draw-outs.ts';
 import { Cancelled, isCancelled, nextRequestId } from '../analysis/index.ts';
 
 describe('live stats helpers', () => {
@@ -18,11 +19,36 @@ describe('live stats helpers', () => {
   });
 
   test('counts read as words, singular and plural', () => {
-    expect(outsLabel(0)).toBe('No outs');
-    expect(outsLabel(1)).toBe('1 out');
-    expect(outsLabel(9)).toBe('9 outs');
     expect(opponentsLabel(1)).toBe('vs 1 random hand');
     expect(opponentsLabel(3)).toBe('vs 3 random hands');
+  });
+
+  /* The number at the table is the one a player counts. The category count
+     that @opentable/equity returns is a different, larger number, and it is
+     only offered when there is no draw to name. */
+  test('a named draw is the headline, a category count never is', () => {
+    const draw = outsLine({
+      cards: [], count: 26, draws: ['open-ended straight draw'],
+      drawCards: ['Ts', 'Th', 'Td', 'Tc', '5s', '5h', '5d', '5c'],
+    });
+    expect(draw).toEqual({
+      label: '8 outs',
+      cards: ['Ts', 'Th', 'Td', 'Tc', '5s', '5h', '5d', '5c'],
+      draws: 'open-ended straight draw',
+      muted: false,
+    });
+
+    const flush = outsLine({ cards: [], count: 15, draws: ['flush draw'], drawCards: ['Kh'] });
+    expect(flush?.label).toBe('1 out');
+
+    const none = outsLine({ cards: ['Ah', 'Ad'], count: 2, draws: [], drawCards: [] });
+    expect(none).toEqual({ label: 'Improves on 2 cards', cards: [], draws: '', muted: true });
+
+    expect(outsLine({ cards: ['Ah'], count: 1, draws: [], drawCards: [] })?.label)
+      .toBe('Improves on 1 card');
+    expect(outsLine({ cards: [], count: 0, draws: [], drawCards: [] })?.label)
+      .toBe('Nothing improves it');
+    expect(outsLine(null)).toBe(null);
   });
 
   test('equity is shown to a tenth of a point', () => {
@@ -43,6 +69,37 @@ describe('live stats helpers', () => {
     expect(readsFor(['Ah', 'Kd', '2c'])).toEqual({ name: true, outs: true });
     expect(readsFor(['Ah', 'Kd', '2c', '7s'])).toEqual({ name: true, outs: true });
     expect(readsFor(['Ah', 'Kd', '2c', '7s', '9h'])).toEqual({ name: true, outs: false });
+  });
+});
+
+/* readOuts runs in the worker, so these are the numbers the table shows. */
+describe('draw outs', () => {
+  test('an open-ender is eight and a flush draw is nine', () => {
+    const opener = readOuts(['9h', '8c'], ['7d', '6s', '2c']);
+    expect(opener.drawCards.length).toBe(8);
+    expect(opener.count).toBeGreaterThan(8);
+    expect(opener.draws).toContain('open-ended straight draw');
+
+    const flush = readOuts(['Ah', 'Kh'], ['Qh', 'Jh', 'Tc']);
+    expect(flush.drawCards.length).toBe(9);
+    expect(flush.drawCards.every((c) => c[1] === 'h')).toBe(true);
+  });
+
+  test('a gutshot is four, and both draws at once are counted once each', () => {
+    expect(readOuts(['Ah', 'Ts'], ['Kd', 'Qc', '4s']).drawCards.length).toBe(4);
+
+    /* Nine hearts and eight straight cards, two of which are hearts already. */
+    const combo = readOuts(['9h', '8h'], ['7h', '6c', '2h']);
+    expect(combo.draws).toEqual(expect.arrayContaining(['flush draw', 'open-ended straight draw']));
+    expect(combo.drawCards.length).toBe(new Set(combo.drawCards).size);
+    expect(combo.drawCards.length).toBe(15);
+  });
+
+  test('no draw leaves the draw cards empty, so the row falls back to the count', () => {
+    const made = readOuts(['Ah', 'Ad'], ['Ac', 'Kd', '7s']);
+    expect(made.draws).toEqual([]);
+    expect(made.drawCards).toEqual([]);
+    expect(made.count).toBeGreaterThan(0);
   });
 });
 

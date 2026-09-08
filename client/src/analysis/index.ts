@@ -6,10 +6,10 @@
    until something is actually analysed, and a browser without workers (or a
    jsdom test) simply gets a rejected promise instead of a broken page. */
 
-import type { EquityResult, OutsResult, Range } from '@opentable/equity';
-import type { Card, HandNaming, Request, Response } from './protocol.ts';
+import type { EquityResult, Range } from '@opentable/equity';
+import type { Card, HandNaming, OutsRead, Request, Response } from './protocol.ts';
 
-export type { Card, HandNaming } from './protocol.ts';
+export type { Card, HandNaming, OutsRead } from './protocol.ts';
 export type Villain = Range | 'random';
 
 export class Cancelled extends Error {
@@ -87,9 +87,9 @@ export interface OutsInput {
   id?: string;
 }
 
-export function analyseOuts(input: OutsInput): Promise<OutsResult> {
+export function analyseOuts(input: OutsInput): Promise<OutsRead> {
   const { id = nextRequestId('o'), hero, board } = input;
-  return send<OutsResult>({ id, kind: 'outs', hero, board });
+  return send<OutsRead>({ id, kind: 'outs', hero, board });
 }
 
 export interface NameInput {

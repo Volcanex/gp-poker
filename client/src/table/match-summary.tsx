@@ -9,7 +9,7 @@ import { fmtDate, fmtPct, int, signed } from '../ui/format.ts';
 import { handAccuracy, matchHasAccuracy, seatIsBot } from '../net/adapt.ts';
 import { deltaTone } from '../ui/bits.tsx';
 import { Avatar } from '../ui/avatar.tsx';
-import { ordinal } from './labels.ts';
+import { ordinal, stakeName, stakeSentence } from './labels.ts';
 import { rankSeats } from './results.ts';
 
 export interface MatchSummaryProps {
@@ -19,7 +19,14 @@ export interface MatchSummaryProps {
   againLabel?: string;
 }
 
-const CASUAL = 'Casual match, no rating change.';
+
+
+/* The match's own rated flag with the format's practice flag: a casual match
+   is played on a format whose template says rated, so the two have to be read
+   together. */
+function stakeOf(match: Match): { rated: boolean; practice?: boolean } {
+  return { rated: match.rated, practice: match.format.practice };
+}
 
 /* The count is on the line beside this one, so the reason does not repeat it. */
 function reasonText(r: Match['reason'], players: number): string {
@@ -71,14 +78,14 @@ export function MatchSummary({ match, meId, onAgain, againLabel }: MatchSummaryP
       <header>
         <h1 className="h1">{verdict}</h1>
         <span className="muted">
-          {reasonText(match.reason, players)} {match.rated ? 'Rated' : 'Casual'} match over{' '}
+          {reasonText(match.reason, players)} {stakeName(stakeOf(match))} match over{' '}
           {match.handsPlayed} {match.handsPlayed === 1 ? 'hand' : 'hands'}
           {match.finishedAt ? `, finished ${fmtDate(match.finishedAt)}` : ''}.
         </span>
         {/* A casual match still comes back with a ratings map, unchanged on
             both sides. Nothing about it reaches the screen: no rating, no
             delta, no deviation, just the line that says why. */}
-        {!match.rated && <div className="muted">{CASUAL}</div>}
+        {stakeSentence(stakeOf(match)) && <div className="muted">{stakeSentence(stakeOf(match))}</div>}
       </header>
 
       {multiway ? (

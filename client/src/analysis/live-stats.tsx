@@ -11,7 +11,8 @@ import { useEffect, useState } from 'react';
 import { BoardText } from '../ui/board-text.tsx';
 import { analyse, analyseName, analyseOuts, cancel, isCancelled, nextRequestId } from './index.ts';
 import type { Card, HandNaming, Villain } from './index.ts';
-import type { EquityResult, OutsResult } from '@opentable/equity';
+import type { EquityResult } from '@opentable/equity';
+import type { OutsRead } from './draw-outs.ts';
 import './live-stats.css';
 
 export interface LiveStatsProps {
@@ -20,16 +21,46 @@ export interface LiveStatsProps {
   opponents: number;
 }
 
-const MAX_OUTS_SHOWN = 8;
+/* Nine is a flush draw, the longest list worth printing in full. */
+const MAX_OUTS_SHOWN = 9;
 
 export function villainsFor(opponents: number): Villain[] {
   const n = Math.max(1, Math.min(8, Math.round(opponents)));
   return Array.from({ length: n }, () => 'random' as const);
 }
 
-export function outsLabel(count: number): string {
-  if (count === 0) return 'No outs';
-  return `${count} ${count === 1 ? 'out' : 'outs'}`;
+export interface OutsLine {
+  label: string;
+  cards: Card[];
+  draws: string;
+  /* The category count is a secondary reading, not the headline number. */
+  muted: boolean;
+}
+
+/* What the outs row says. A named draw is the number a player counts, so a
+   flush draw reads "9 outs" and an open-ender "8 outs", never the twenty six
+   cards that happen to improve the category. With no draw there is no outs
+   number to give, only how many cards improve the hand at all, which is worth
+   knowing and is not worth the headline. See draw-outs.ts for why the two
+   numbers differ. */
+export function outsLine(result: OutsRead | null): OutsLine | null {
+  if (!result) return null;
+  if (result.draws.length > 0) {
+    const n = result.drawCards.length;
+    return {
+      label: `${n} ${n === 1 ? 'out' : 'outs'}`,
+      cards: result.drawCards,
+      draws: result.draws.join(', '),
+      muted: false,
+    };
+  }
+  const n = result.count;
+  return {
+    label: n === 0 ? 'Nothing improves it' : `Improves on ${n} ${n === 1 ? 'card' : 'cards'}`,
+    cards: [],
+    draws: '',
+    muted: true,
+  };
 }
 
 export function percentLabel(fraction: number): string {
@@ -54,7 +85,7 @@ export function precisionLabel(result: EquityResult | null): string {
 
 export function LiveStats({ hole, board, opponents }: LiveStatsProps) {
   const [naming, setNaming] = useState<HandNaming | null>(null);
-  const [outs, setOuts] = useState<OutsResult | null>(null);
+  const [outs, setOuts] = useState<OutsRead | null>(null);
   const [equity, setEquity] = useState<EquityResult | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -100,8 +131,9 @@ export function LiveStats({ hole, board, opponents }: LiveStatsProps) {
     // The street is the whole input: recompute when any card or seat changes.
   }, [key]);
 
-  const shown = outs?.cards.slice(0, MAX_OUTS_SHOWN) ?? [];
-  const hidden = (outs?.cards.length ?? 0) - shown.length;
+  const line = outsLine(outs);
+  const shown = line?.cards.slice(0, MAX_OUTS_SHOWN) ?? [];
+  const hidden = (line?.cards.length ?? 0) - shown.length;
 
   return (
     <div className="card live-stats" role="group" aria-label="Hand analysis" aria-busy={busy}>
@@ -115,12 +147,12 @@ export function LiveStats({ hole, board, opponents }: LiveStatsProps) {
         <span className="ls-value">
           {!reads.outs ? (
             <span className="ls-note">{board.length >= 5 ? 'No cards to come' : 'From the flop on'}</span>
-          ) : outs ? (
+          ) : line ? (
             <>
-              <span className="num">{outsLabel(outs.count)}</span>
+              <span className={line.muted ? 'ls-note' : 'num'}>{line.label}</span>
               {shown.length > 0 && <BoardText cards={shown} />}
-              {hidden > 0 && <span className="ls-note">and {hidden} more</span>}
-              {outs.draws.length > 0 && <span className="ls-note">{outs.draws.join(', ')}</span>}
+              {hidden > 0 && <span className="ls-note ls-more">and {hidden} more</span>}
+              {line.draws && <span className="ls-note ls-extra">{line.draws}</span>}
             </>
           ) : (
             <Waiting />
@@ -132,8 +164,8 @@ export function LiveStats({ hole, board, opponents }: LiveStatsProps) {
         <span className="ls-label">Equity</span>
         <span className="ls-value">
           {equity ? <span className="num ls-equity">{percentLabel(equity.equity)}</span> : <Waiting />}
-          <span className="ls-note">{opponentsLabel(opponents)}</span>
-          {equity && <span className="ls-note">{precisionLabel(equity)}</span>}
+          <span className="ls-note ls-vs">{opponentsLabel(opponents)}</span>
+          {equity && <span className="ls-note ls-extra">{precisionLabel(equity)}</span>}
         </span>
       </div>
     </div>

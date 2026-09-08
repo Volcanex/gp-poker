@@ -6,7 +6,7 @@ import type { Match } from '../net/types.ts';
 import { Avatar } from '../ui/avatar.tsx';
 import { deltaTone } from '../ui/bits.tsx';
 import { int, signed } from '../ui/format.ts';
-import { ordinal } from './labels.ts';
+import { ordinal, stakeWord } from './labels.ts';
 import { rankSeats } from './results.ts';
 
 export interface ResultPanelProps {
@@ -27,6 +27,9 @@ export function ResultPanel({ match, meId, onAgain, onReview, againLabel }: Resu
   const mine = meId ? rows.find((r) => r.seat.userId === meId) : undefined;
   const multiway = match.seats.length > 2;
   const winner = rows[0];
+  /* The match's own flag, not the format's: a casual match is played on a
+     format whose template says rated, and only the row knows it was not. */
+  const stake = stakeWord({ rated: match.rated, practice: match.format.practice });
 
   const verdict =
     match.winner == null && !multiway
@@ -53,7 +56,7 @@ export function ResultPanel({ match, meId, onAgain, onReview, againLabel }: Resu
           <span className="rp-t">{verdict}</span>
           <span className="muted num">
             {match.handsPlayed} {match.handsPlayed === 1 ? 'hand' : 'hands'} ·{' '}
-            {match.rated ? 'rated' : 'casual, no rating change'}
+            {stake === 'rated' ? 'rated' : `${stake}, no rating change`}
           </span>
         </div>
       </header>

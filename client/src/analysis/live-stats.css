@@ -45,3 +45,118 @@
 .ls-waiting {
   opacity: 0.7;
 }
+
+/* The strip at a practice table.
+
+   The same three readings on one line, in a row of the table's grid with a
+   height of its own. Every reading has a definite width, so a longer hand name
+   or a ninth out cannot move the two beside it: the table screen's rule is that
+   nothing in that column sizes to its content, and a strip full of numbers that
+   change every street is the easiest place in the app to break it. */
+.practice-strip {
+  height: var(--stats-h);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--sp-4);
+  border-top: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+
+.practice-strip .live-stats {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--sp-4);
+  width: 100%;
+  max-width: 1100px;
+  min-width: 0;
+  margin: 0 auto;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+}
+
+.practice-strip .ls-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  padding: 0;
+  border: none;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.practice-strip .ls-row + .ls-row {
+  border-top: none;
+  padding-top: 0;
+}
+
+.practice-strip .ls-value {
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+/* The name takes what is left and is cut with an ellipsis; the two numbers hold
+   fixed boxes on the right. */
+.practice-strip .ls-row:nth-child(1) { flex: 1 1 0; overflow: hidden; }
+.practice-strip .ls-row:nth-child(1) .ls-value {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.practice-strip .ls-row:nth-child(2) { flex: 0 0 auto; width: 32.5rem; }
+.practice-strip .ls-row:nth-child(3) { flex: 0 0 auto; width: 15rem; }
+
+/* Both readings sit in fixed cells rather than flowing.
+
+   The value arrives from the worker after the note beside it is already on
+   screen, so in a flow the note slides sideways the moment the number lands.
+   That is a layout shift, on the one screen in the app whose rule is that
+   nothing moves. Cells make the number's box the same width whether it holds
+   a percentage, a count or the word Computing. */
+.practice-strip .ls-row:nth-child(2) .ls-value {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 16.5rem) 5.5rem;
+  align-items: baseline;
+  gap: var(--sp-2);
+}
+.practice-strip .ls-row:nth-child(3) .ls-value {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--sp-2);
+}
+.practice-strip .ls-value > * { overflow: hidden; }
+
+/* The strip is a glance, not the panel. The draw's name and how the equity was
+   arrived at are worth reading when you go looking; here they would cost the
+   hand name the width it needs to be read at all. */
+.practice-strip .ls-extra { display: none; }
+
+.practice-strip .ls-equity { font-size: 1em; }
+
+/* Narrower than a desktop, the card list goes first: the count is the reading,
+   the cards are the detail, and the hand name needs the width more. */
+@media (max-width: 1024px) {
+  .practice-strip .ctext,
+  .practice-strip .ls-more { display: none; }
+  .practice-strip .ls-row:nth-child(2) { width: 11rem; }
+  .practice-strip .ls-row:nth-child(2) .ls-value { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* One line on a phone: the name, the outs and the number. The three readings
+   are worth more than any one of them explained. */
+@media (max-width: 720px) {
+  .practice-strip { padding: 0 var(--sp-3); }
+  .practice-strip .live-stats { gap: var(--sp-3); }
+  .practice-strip .ls-vs { display: none; }
+  /* Two labels go: the hand needs no introduction and the outs value already
+     says the word. The equity keeps its label, because a bare percentage
+     beside a count of outs could be either of them. */
+  .practice-strip .ls-row:nth-child(1) .ls-label,
+  .practice-strip .ls-row:nth-child(2) .ls-label { display: none; }
+  .practice-strip .ls-row:nth-child(2) { width: 8rem; }
+  .practice-strip .ls-row:nth-child(3) { width: 6rem; }
+  .practice-strip .ls-row:nth-child(3) .ls-label { display: none; }
+  .practice-strip .ls-row:nth-child(3) .ls-value { grid-template-columns: minmax(0, 1fr); }
+}
