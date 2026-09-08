@@ -16,7 +16,7 @@
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
-.stats-strip .sep { color: var(--text-placeholder); }
+.stats-strip .sep { color: var(--text-secondary); }
 
 .feed-head {
   display: flex;
@@ -70,14 +70,14 @@
 }
 .feed-players a { color: var(--text-primary); text-decoration: none; }
 .feed-players a:hover { text-decoration: underline; }
-.feed-players .beat { color: var(--text-placeholder); font-size: 12px; }
+.feed-players .beat { color: var(--text-secondary); font-size: 12px; }
 /* The comma belongs to the name before it, not to the gap after it. */
-.feed-players .punct { color: var(--text-placeholder); margin-left: -4px; }
+.feed-players .punct { color: var(--text-secondary); margin-left: -4px; }
 .feed-players .name { display: inline-flex; align-items: baseline; gap: 4px; }
 .feed-players .delta { font-size: 12px; font-variant-numeric: tabular-nums; }
 .feed-players .bot-tag {
   font-size: 11px;
-  color: var(--text-placeholder);
+  color: var(--text-secondary);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-full);
   padding: 0 5px;
@@ -118,7 +118,7 @@
 }
 .site-foot a { color: var(--text-secondary); }
 .site-foot a:hover { color: var(--text-primary); }
-.site-foot .sep { color: var(--text-placeholder); }
+.site-foot .sep { color: var(--text-secondary); }
 
 /* ------------------------------------------------------------------- watch */
 

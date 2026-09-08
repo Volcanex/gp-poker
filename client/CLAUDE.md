@@ -714,9 +714,14 @@ being poker-specific, build it in g-system, not here.
 ## Gotchas
 - There is no `--surface` token. Use `--surface-1` (page) and `--surface-2`
   (card, panel, bar).
-- **`--text-placeholder` is for placeholder text inside a field.** Anything
-  meant to be read fails axe's contrast check on it: the preset amounts, the key
-  legend and the "you" badge all had to move to `--text-secondary`.
+- **`--text-placeholder` is for the hint inside an empty field, nothing else.**
+  It measures 3.68:1 on the page ground and 3.43:1 on a panel, below AA for
+  anything a reader has to read, and axe says so. Everything in this app that
+  carries information is `--text-secondary` (9:1): the preset amounts, the key
+  legend, the "you" badge, the mode beside your rating, a rating deviation, a
+  side pot, the replay's hints and notes. The only use left is a background, on
+  the paused clock bar. `--text-muted` is not a third step, it is an alias of
+  `--text-secondary`.
 - **A NumberFlow's digits live in a shadow root as a reel**, so reading one as
   text reads `0123456789`. Assert against something in plain markup instead. Its
   host is `display: inline-block`, which is why the pot's counter is given

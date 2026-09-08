@@ -44,7 +44,7 @@
 .whoami .r { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 /* the mode the top bar's rating belongs to: a number that means two things
    without it */
-.account .btn .m { color: var(--text-placeholder); margin-left: 5px; }
+.account .btn .m { color: var(--text-secondary); margin-left: 5px; }
 
 .page { flex: 1; width: 100%; max-width: 720px; margin: 0 auto; padding: var(--sp-6) var(--sp-4) var(--sp-7); }
 .page.wide { max-width: 960px; }
@@ -79,7 +79,7 @@
 
 .lb-card { padding: 4px var(--pad-card); }
 .lb-head { display: flex; align-items: center; gap: var(--sp-3); }
-.rd { color: var(--text-placeholder); font-size: 11px; margin-left: 5px; }
+.rd { color: var(--text-secondary); font-size: 11px; margin-left: 5px; }
 
 /* The name plus avatar pair in a leaderboard or match-history row. A 24px
    avatar sits well inside --row-h, so it never grows the row. */
@@ -233,7 +233,7 @@
 .hand-head .n { color: var(--text-primary); font-variant-numeric: tabular-nums; min-width: 13ch; }
 .hand-head .street { min-width: 9ch; }
 .hand-head .narrow { display: none; }
-.hand-head .dot { color: var(--text-placeholder); }
+.hand-head .dot { color: var(--text-secondary); }
 .hand-head .seed { display: inline-flex; align-items: center; gap: 6px; }
 .hand-head .seed code {
   font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary);
@@ -459,7 +459,7 @@
   display: block; width: 100%; text-align: center;
   font-size: 19px; font-weight: 500; letter-spacing: -0.015em; font-variant-numeric: tabular-nums;
 }
-.pot-side { font-size: 11px; color: var(--text-placeholder); font-variant-numeric: tabular-nums; }
+.pot-side { font-size: 11px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 
 .board { display: flex; gap: 6px; }
 
@@ -585,6 +585,10 @@
 }
 /* No urgency theatre: one colour change, in the last five seconds. */
 .turn-bar[data-tone="low"] i { background: var(--danger-text); }
+/* --text-placeholder is the hint inside an empty field, and it measures 3.68:1
+   on the page ground: below AA for anything a reader has to read. Every use of
+   it here that carries information is --text-secondary, which measures 9:1.
+   The one that stays is a background, not text. */
 .turn-bar[data-paused] i { background: var(--text-placeholder); }
 .turn-secs { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
 .turn-secs[data-tone="low"] { color: var(--danger-text); }
@@ -925,7 +929,7 @@ a.btn { text-decoration: none; }
 .graph-line { fill: none; stroke: var(--chart-1); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
 .graph-x {
   display: flex; justify-content: space-between; gap: var(--sp-3);
-  font-size: 11px; color: var(--text-placeholder);
+  font-size: 11px; color: var(--text-secondary);
 }
 
 .claim { display: flex; flex-direction: column; gap: var(--sp-4); }
@@ -966,7 +970,7 @@ a.btn { text-decoration: none; }
 .scrubber { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
 .scrubber .counter { font-size: var(--font-size-ui); color: var(--text-secondary); }
 .scrubber .spacer { flex: 1; }
-.scrub-hint { font-size: 11px; color: var(--text-placeholder); }
+.scrub-hint { font-size: 11px; color: var(--text-secondary); }
 .scrub-hint .kbd { margin-right: 2px; }
 
 .replay-side { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
@@ -977,7 +981,7 @@ a.btn { text-decoration: none; }
 }
 .act-street {
   display: block; padding: var(--sp-3) 6px 4px;
-  font-size: 11px; color: var(--text-placeholder);
+  font-size: 11px; color: var(--text-secondary);
 }
 .act-row {
   display: flex; flex-direction: column; gap: 1px;
@@ -991,7 +995,7 @@ a.btn { text-decoration: none; }
 .act-row[data-current] { background: var(--fill-hover); border-color: var(--border-subtle); }
 .act-seat { font-size: 11px; color: var(--text-secondary); }
 .act-what { font-variant-numeric: tabular-nums; }
-.act-note { font-size: 11px; color: var(--text-placeholder); font-variant-numeric: tabular-nums; }
+.act-note { font-size: 11px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 
 .fairness { display: flex; flex-direction: column; gap: var(--sp-3); }
 .checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
