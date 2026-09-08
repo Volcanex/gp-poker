@@ -16,8 +16,6 @@
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
-.stats-strip .sep { color: var(--text-secondary); }
-
 .feed-head {
   display: flex;
   align-items: baseline;
@@ -81,7 +79,7 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-full);
   padding: 0 5px;
-  line-height: 15px;
+  line-height: var(--lh-1);
 }
 
 .feed-meta {
@@ -118,7 +116,6 @@
 }
 .site-foot a { color: var(--text-secondary); }
 .site-foot a:hover { color: var(--text-primary); }
-.site-foot .sep { color: var(--text-secondary); }
 
 /* ------------------------------------------------------------------- watch */
 

@@ -1,4 +1,4 @@
-/* g-system@1.0.0, vendored, do not edit. Update: node scripts/vendor.mjs from the g-system repo. */
+/* g-system@1.1.0, vendored, do not edit. Update: node scripts/vendor.mjs from the g-system repo. */
 /* g-icons — generated from packages/g-icons/icons/*.svg. Do not edit. */
 (() => {
   const g = (window.g = window.g || {});
@@ -44,6 +44,40 @@
     if (localStorage.getItem("g-density") === "compact")
       document.documentElement.setAttribute("data-density", "compact");
   } catch {}
+
+  /* ---- plain: markdown source flattened to label text -------------------
+     Authored markdown reaches interface chrome constantly: a note title
+     lifted from a body's first line, a search hit, a table cell, a tooltip.
+     Chrome has no markdown renderer, so the syntax survives as literal
+     asterisks and backticks. `.prose` is the ONLY place markdown is
+     rendered; every other slot flattens first.
+
+     Upstream truncation is the common case ("**A title cut mid-phrase"),
+     which leaves openers with no closer, so unmatched asterisks and
+     backticks are swept after the paired passes. Underscores are not
+     swept: snake_case survives far more often than a stray _emphasis_,
+     so they only pair at word boundaries, the way CommonMark reads them. */
+
+  g.plain = (s) => String(s ?? "")
+    .replace(/```[\s\S]*?```/g, " ")                     /* fenced code */
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")            /* image, keep the alt */
+    .replace(/\[\[[^\]|]*\|([^\]]*)\]\]/g, "$1")         /* labelled wikilink */
+    .replace(/\[\[([^\]]*)\]\]/g, "$1")                  /* bare wikilink */
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")             /* link, keep the text */
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "")                  /* heading marker */
+    .replace(/^\s{0,3}>\s?/gm, "")                       /* quote marker */
+    .replace(/^\s{0,3}([-*+]|\d+\.)\s+/gm, "")           /* list marker */
+    .replace(/`+([^`]*)`+/g, "$1")                       /* code span */
+    .replace(/\*\*\*([\s\S]*?)\*\*\*/g, "$1")
+    .replace(/\*\*([\s\S]*?)\*\*/g, "$1")
+    .replace(/\*(?=\S)([\s\S]*?\S)\*/g, "$1")
+    .replace(/(^|\W)___([\s\S]*?)___(?!\w)/g, "$1$2")
+    .replace(/(^|\W)__([\s\S]*?)__(?!\w)/g, "$1$2")
+    .replace(/(^|\W)_(?=\S)([\s\S]*?\S)_(?!\w)/g, "$1$2")
+    .replace(/~~([\s\S]*?)~~/g, "$1")
+    .replace(/[*`]/g, "")                                /* opener left by a cut */
+    .replace(/\s+/g, " ")
+    .trim();
 
   /* ---- tooltip with delay grouping -------------------------------------
      300ms warm-up before the first tooltip; once one is visible (or was
@@ -142,11 +176,19 @@
     const trigger = document.querySelector(`[popovertarget="${menu.id}"]`);
     menu.addEventListener("toggle", (e) => {
       if (e.newState !== "open" || !trigger) return;
+      menu.style.maxHeight = "";
       const r = trigger.getBoundingClientRect();
-      const below = r.bottom + 4 + menu.offsetHeight < innerHeight;
+      const fitsBelow = r.bottom + 4 + menu.offsetHeight < innerHeight;
+      const fitsAbove = r.top - 4 - menu.offsetHeight > 0;
+      /* A menu too tall for either side of the trigger stays below it and
+         scrolls in whatever room is actually there, rather than flipping
+         above and landing off the top of the screen: fitsAbove is false in
+         that case too, so flipping never helped. */
+      const below = fitsBelow || !fitsAbove;
       menu.style.setProperty("--_origin", below ? "top" : "bottom");
       menu.style.left = Math.min(r.left, innerWidth - menu.offsetWidth - 8) + "px";
       menu.style.top = (below ? r.bottom + 4 : r.top - menu.offsetHeight - 4) + "px";
+      if (below && !fitsBelow) menu.style.maxHeight = innerHeight - r.bottom - 12 + "px";
       highlight(menu, null);
     });
     menu.addEventListener("keydown", (e) => {
@@ -507,6 +549,14 @@
 
   /* ---- hold to delete ---------------------------------------------------- */
 
+  /* Holding a button down is a pointer gesture: it wants a cursor that can rest
+     on a target without the finger covering it, and a press that is distinct
+     from a tap. Touch has neither, so a held finger there reads as a stuck tap.
+     Fine-pointer devices get the hold; everything else gets a two-step confirm
+     ("Delete" then "Really delete?"), which is the same guard by other means.
+     Both paths end in one `hold-complete` event, so consumers never branch. */
+  const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
+
   function initHold(btn) {
     if (!btn.querySelector("svg")) btn.insertAdjacentHTML("afterbegin", icon("trash"));
     if (!btn.querySelector(".hold-fill")) {
@@ -514,25 +564,66 @@
       f.className = "hold-fill";
       btn.prepend(f);
     }
+    const label = btn.querySelector("span:not(.hold-fill)");
+    const holdLabel = btn.getAttribute("data-hold-label") || (label && label.textContent) || "Hold to delete";
+    const tapLabel = btn.getAttribute("data-tap-label") || "Delete";
+    const confirmLabel = btn.getAttribute("data-confirm-label") || "Really delete?";
     const dur = parseInt(btn.getAttribute("data-hold-ms") || "2000", 10);
     btn.style.setProperty("--hold-dur", dur + "ms");
+
+    const fire = () => btn.dispatchEvent(new CustomEvent("hold-complete", { bubbles: true }));
+
+    /* --- hold path (fine pointer) --- */
     let timer;
     const start = () => {
       if (btn.disabled || btn.hasAttribute("data-holding")) return;
       btn.setAttribute("data-holding", "");
-      timer = setTimeout(() => {
-        cancel();
-        btn.dispatchEvent(new CustomEvent("hold-complete", { bubbles: true }));
-      }, dur);
+      timer = setTimeout(() => { cancel(); fire(); }, dur);
     };
     const cancel = () => { clearTimeout(timer); btn.removeAttribute("data-holding"); };
-    btn.addEventListener("pointerdown", start);
+
+    /* --- confirm path (coarse pointer) --- */
+    let armed;
+    const disarm = () => {
+      clearTimeout(armed);
+      armed = null;
+      btn.removeAttribute("data-confirming");
+      if (label) label.textContent = tapLabel;
+    };
+    const arm = () => {
+      btn.setAttribute("data-confirming", "");
+      if (label) label.textContent = confirmLabel;
+      /* an unanswered confirm goes back to rest rather than sitting armed */
+      armed = setTimeout(disarm, 3000);
+    };
+
+    btn.addEventListener("pointerdown", (e) => { if (btn.dataset.mode === "hold" && e.pointerType !== "touch") start(); });
     btn.addEventListener("pointerup", cancel);
     btn.addEventListener("pointerleave", cancel);
-    btn.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (!e.repeat) start(); } });
+    btn.addEventListener("keydown", (e) => {
+      if (btn.dataset.mode !== "hold") return;
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (!e.repeat) start(); }
+    });
     btn.addEventListener("keyup", (e) => { if (e.key === "Enter" || e.key === " ") cancel(); });
-    /* a completed hold is the click; suppress the plain click action */
-    btn.addEventListener("click", (e) => e.preventDefault());
+    btn.addEventListener("blur", () => { cancel(); if (armed) disarm(); });
+    btn.addEventListener("click", (e) => {
+      e.preventDefault(); /* a completed hold is the click; never the plain action */
+      if (btn.dataset.mode === "hold" || btn.disabled) return;
+      if (armed) { disarm(); fire(); } else arm();
+    });
+
+    /* Mode is an attribute so the button describes its own behaviour in the
+       DOM, and so a hybrid device that gains or loses a mouse re-decides. */
+    const setMode = () => {
+      const hold = finePointer.matches;
+      if (btn.dataset.mode === (hold ? "hold" : "confirm")) return;
+      cancel();
+      if (armed) disarm();
+      btn.dataset.mode = hold ? "hold" : "confirm";
+      if (label) label.textContent = hold ? holdLabel : tapLabel;
+    };
+    setMode();
+    finePointer.addEventListener("change", setMode);
   }
 
   /* ---- dialogs: light-dismiss ------------------------------------------ */
@@ -1273,7 +1364,6 @@
       bits.push(pct);
     }
     for (const part of [].concat(parts || []).filter(Boolean)) {
-      if (bits.length) { const sep = document.createElement("span"); sep.className = "sep"; sep.textContent = "·"; bits.push(sep); }
       const s = document.createElement("span"); s.textContent = part; bits.push(s);
     }
     out.replaceChildren(...bits);
