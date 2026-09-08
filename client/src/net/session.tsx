@@ -231,7 +231,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           writeLiveMatch(null);
           setLiveMatch(null);
           setLiveOpponents(null);
-          /* The match just moved the rating, and the top bar is showing the
+          /* The match just moved the rating, and the account row is showing the
              value from before it. */
           void refreshMe();
         } else if (m.t === 'err' && (m.c === 'bots_busy' || m.c === 'ranked_locked' || m.c === 'cooldown')) {

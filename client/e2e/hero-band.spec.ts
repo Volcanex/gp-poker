@@ -70,24 +70,61 @@ for (const { name: where, size } of SIZES) {
   }
 }
 
-/* The band is your seat, drawn large. The felt must therefore stop drawing it,
-   and must keep the bet that hangs off it, because that is where a chip flies
-   from. */
-test('the felt gives up your seat to the band and keeps your bet', async ({ page }) => {
-  await page.setViewportSize(PHONE);
-  await stubApi(page);
-  await page.goto('/m/mock?v2=1&step=9');
-  await waitForBand(page, 'turn');
+/* The band is your seat, drawn large, at every width: the wide felt drew the
+   same cards, name, stack, last action and clock a hundred pixels above the
+   band that was drawing them again. The felt must therefore stop drawing the
+   seat, and must keep the bet that hangs off it, because that is where a chip
+   flies from. */
+for (const { name: where, size } of SIZES) {
+  test(`the felt gives up your seat to the band and keeps your bet on ${where}`, async ({ page }) => {
+    await page.setViewportSize(size);
+    await stubApi(page);
+    await page.goto('/m/mock?v2=1&step=9');
+    await waitForBand(page, 'turn');
 
-  await expect(page.locator('.pos[data-k="0"] .seat')).toBeHidden();
-  await expect(page.locator('.pos[data-k="0"] .seat-bet')).toBeVisible();
-  await expect(page.locator('.hb-cards .pcard')).toHaveCount(2);
+    await expect(page.locator('.pos[data-k="0"] .seat')).toBeHidden();
+    await expect(page.locator('.pos[data-k="0"] .seat-bet')).toBeVisible();
+    await expect(page.locator('.hb-cards .pcard')).toHaveCount(2);
 
-  /* v1 at the same width keeps the seat it has always had. */
-  await page.goto('/m/mock?step=9');
-  await expect(page.locator('.pos[data-k="0"] .seat')).toBeVisible();
-  await expect(page.locator('.hero-band')).toHaveCount(0);
-});
+    /* And the clock the seat carried is the band's: the bar on its top edge
+       and the seconds in the meta's reserved slot. */
+    await expect(page.locator('.hero-band .turn-bar')).toBeVisible();
+    await expect(page.locator('.hb-clock .turn-secs')).toBeVisible();
+
+    /* v1 at the same width keeps the seat it has always had. */
+    await page.goto('/m/mock?step=9');
+    await expect(page.locator('.pos[data-k="0"] .seat')).toBeVisible();
+    await expect(page.locator('.hero-band')).toHaveCount(0);
+  });
+}
+
+/* The band's content sits on the felt's column: the cards start on the felt's
+   left edge and the controls end on its right one, in both shapes of felt. A
+   band spanning the window put 1300 px between the two on a 1366 px laptop. */
+for (const mode of MODES) {
+  test(`the band sits on the felt's column in ${mode.name}`, async ({ page }) => {
+    await page.setViewportSize({ width: 1366, height: 768 });
+    await stubApi(page);
+    await page.goto(mode.url);
+    await waitForBand(page, 'turn');
+
+    const felt = (await page.locator('.felt-in').boundingBox())!;
+    const cards = (await page.locator('.hb-cards').boundingBox())!;
+    const col = (await page.locator('.hb-col').boundingBox())!;
+    const meta = (await page.locator('.hb-nums').boundingBox())!;
+
+    expect(Math.round(cards.x), 'the hand starts on the felt').toBe(Math.round(felt.x));
+    expect(Math.round(meta.x), 'and so do the figures under it').toBe(Math.round(felt.x));
+    expect(Math.round(col.x + col.width), 'the controls end on it').toBe(Math.round(felt.x + felt.width));
+
+    /* And the whole table is one screen: the band is the one thing that must
+       never be under the fold. */
+    const fits = await page.evaluate(
+      () => document.documentElement.scrollHeight <= window.innerHeight,
+    );
+    expect(fits, 'the table fits 1366 by 768 without a page scrollbar').toBe(true);
+  });
+}
 
 /* Fold is a slide, not a tap. Dragging the handle most of the way across sends
    it; the mock advances a step on any action, which is how the test knows. */
@@ -170,6 +207,53 @@ for (const { name: where, size } of SIZES) {
   });
 }
 
+/* The band is your seat, so its figure moves when the seat's would: when the
+   pot has actually landed, not when the result message arrives. The result
+   carries the paid stack, so a band reading it straight out of the view would
+   only ever print the number you won and this would see one value; holding it
+   is what puts the number you had in front of it.
+
+   Recorded in the page rather than polled from here. The hold is 700ms and a
+   round trip through the driver can spend most of it, which made a poll pass
+   nine times in ten. */
+test("the band's figure waits for the pot to land", async ({ page }) => {
+  await page.setViewportSize(DESKTOP);
+  await stubApi(page);
+  await page.addInitScript(() => {
+    const w = window as unknown as { __figures: string[] };
+    w.__figures = [];
+    const read = () => {
+      const text = document.querySelector('.hb-stack')?.textContent?.trim();
+      if (text && text !== w.__figures[w.__figures.length - 1]) w.__figures.push(text);
+    };
+    const id = setInterval(read, 16);
+    setTimeout(() => clearInterval(id), 8000);
+  });
+
+  await page.goto('/m/mock?v2=1&step=13');
+  await waitForBand(page, 'over');
+  await expect(page.locator('.award-chip')).toBeVisible();
+  await page.waitForTimeout(400);
+
+  const figures = await page.evaluate(
+    () => (window as unknown as { __figures: string[] }).__figures,
+  );
+  expect(figures, 'the stack you had, then the stack you won').toEqual(['134', '266']);
+});
+
+/* The mock's caption printed over the hero's cards, which are the one thing on
+   this screen you have to be able to read. */
+test('the mock caption stands clear of the band', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await stubApi(page);
+  await page.goto('/m/mock?v2=1&step=9');
+  await waitForBand(page, 'turn');
+
+  const note = (await page.locator('.devnote').boundingBox())!;
+  const band = (await page.locator('.hero-band').boundingBox())!;
+  expect(note.y + note.height, 'the caption is above the band').toBeLessThanOrEqual(band.y);
+});
+
 /* The band mirrors on one attribute, stamped before the first paint. */
 test('a left-handed table puts the cards and the sweep the other way round', async ({ page }) => {
   await page.setViewportSize(PHONE);
@@ -192,9 +276,59 @@ test('a left-handed table puts the cards and the sweep the other way round', asy
   expect(track.x, 'the sweep runs up the near edge').toBeLessThan(acts.x + acts.width / 2);
 });
 
+/* The wide band has no sweep. A mouse gets the six sizes as six segments, each
+   printing what it will send, and one press sends it. */
+test('the wide band raises from a row of sizes rather than a sweep', async ({ page }) => {
+  await page.setViewportSize(DESKTOP);
+  await stubApi(page);
+  await page.goto('/m/mock?v2=1&step=9');
+  await waitForBand(page, 'turn');
+
+  await expect(page.locator('.hb-track')).toHaveCount(0);
+  await expect(page.locator('.hb-sizes .hb-size')).toHaveCount(7);
+  await expect(page.locator('.hb-size').nth(0)).toContainText('Min');
+  await expect(page.locator('.hb-size').nth(4)).toContainText('Pot');
+  await expect(page.locator('.hb-size').nth(5)).toContainText('All in');
+  await expect(page.locator('.hb-size').nth(6)).toContainText('Custom');
+
+  /* Pressing one sends that raise: the mock advances a step on any action. */
+  const before = await page.locator('.devnote').innerText();
+  await page.locator('.hb-size').nth(1).click();
+  await expect
+    .poll(() => page.locator('.devnote').innerText(), { timeout: 10_000 })
+    .not.toBe(before);
+});
+
+/* Custom is a field in the segments' own box: Enter sends it, Escape puts the
+   six back. `r` reaches for it, the way it reaches for the dock's field. */
+test('the wide band takes a size of its own', async ({ page }) => {
+  await page.setViewportSize(DESKTOP);
+  await stubApi(page);
+  await page.goto('/m/mock?v2=1&step=9');
+  await waitForBand(page, 'turn');
+
+  await page.keyboard.press('r');
+  const field = page.locator('.hb-custom-field .input');
+  await expect(field).toBeFocused();
+  await expect(page.locator('.hb-sizes')).toHaveCount(0);
+
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.hb-sizes')).toBeVisible();
+
+  await page.locator('.hb-size-custom').click();
+  await field.fill('120');
+  await expect(page.locator('.hb-custom-send')).toHaveText('Raise to 120');
+
+  const before = await page.locator('.devnote').innerText();
+  await field.press('Enter');
+  await expect
+    .poll(() => page.locator('.devnote').innerText(), { timeout: 10_000 })
+    .not.toBe(before);
+});
+
 /* The band answers to the dock's keys, because they are the dock's handlers.
-   `r` reaches for where the size is chosen, which here is the sweep, and a
-   number key writes its preset into it. */
+   A number key does what pressing its segment does, which on a wide band is
+   send it, and F folds outright. */
 test('the wide band takes the same keys the dock does', async ({ page }) => {
   await page.setViewportSize(DESKTOP);
   await stubApi(page);
@@ -202,29 +336,27 @@ test('the wide band takes the same keys the dock does', async ({ page }) => {
   await waitForBand(page, 'turn');
 
   await expect(page.locator('.hb-keys')).toBeVisible();
-  await expect(page.locator('.hb-track')).toHaveCount(0);
 
-  /* R opens the sweep, wherever the focus was. */
-  await page.keyboard.press('r');
-  await expect(page.locator('.hb-track')).toBeVisible();
-  await expect(page.locator('.hb-confirm')).toHaveText('Raise to 86');
-
-  /* A number key addresses a preset and writes it into the open sweep. */
-  await page.keyboard.press('5');
-  await expect(page.locator('.hb-amount')).toHaveText('184');
-  await expect(page.locator('.hb-confirm')).toHaveText('Raise to 184');
-
-  /* And F folds outright: the mock advances a step on any action. */
-  await page.locator('.hb-back').click();
   const before = await page.locator('.devnote').innerText();
-  await page.keyboard.press('f');
+  await page.keyboard.press('5');
   await expect
     .poll(() => page.locator('.devnote').innerText(), { timeout: 10_000 })
     .not.toBe(before);
+
+  /* And F folds outright. From the same decision rather than the one the key
+     above just sent, because the step after it is not always a decision. */
+  await page.goto('/m/mock?v2=1&step=9');
+  await waitForBand(page, 'turn');
+  const next = await page.locator('.devnote').innerText();
+  await page.keyboard.press('f');
+  await expect
+    .poll(() => page.locator('.devnote').innerText(), { timeout: 10_000 })
+    .not.toBe(next);
 });
 
 /* The legend leaves the table's grid on v2: it is inside the band. v1 keeps
-   the row it has always had. */
+   the row it has always had. In the band it is one quiet line under the
+   controls, not a column standing in the space between your hand and them. */
 test('the key legend moves into the band and out of the table grid', async ({ page }) => {
   await page.setViewportSize(DESKTOP);
   await stubApi(page);
@@ -234,5 +366,11 @@ test('the key legend moves into the band and out of the table grid', async ({ pa
 
   await page.goto('/m/mock?v2=1&step=9');
   await expect(page.locator('.match > .dock-keys')).toHaveCount(0);
-  await expect(page.locator('.hero-band .hb-keys')).toBeVisible();
+  const keys = page.locator('.hero-band .hb-keys');
+  await expect(keys).toBeVisible();
+
+  const legend = (await keys.boundingBox())!;
+  const col = (await page.locator('.hb-col').boundingBox())!;
+  expect(legend.height, 'one line, not a column').toBeLessThan(20);
+  expect(Math.round(legend.x), 'under the controls').toBe(Math.round(col.x));
 });

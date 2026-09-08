@@ -45,7 +45,7 @@ until a state with a different `h:n` arrives. The server refuses a stale action
 with `err`, so a replayed act is rejected rather than misapplied.
 
 **`/api/me` is refetched** after `end`, and after claim, login and logout. A
-finished match has just moved the rating, and the top bar was still showing the
+finished match has just moved the rating, and the account row was still showing the
 value from before it. Claim and login also merge the summary they return so the
 name changes immediately, with the refetch behind it for the counts.
 
@@ -121,7 +121,7 @@ Where the mode comes from on each screen:
 
 | Screen | Mode |
 | --- | --- |
-| top bar | `queue.mode`, the mode last played or chosen |
+| account row | `queue.mode`, the mode last played or chosen |
 | home cards | each card shows its own mode |
 | home top ten | `queue.mode`, so the board matches the button above it |
 | leaderboard | its own tab, opening on `queue.mode` |

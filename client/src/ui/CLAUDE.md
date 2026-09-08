@@ -1,6 +1,7 @@
 # ui
 
-The furniture that is not the table: `auth.tsx` (claim, log in, account menu),
+The furniture that is not the table: `shell.tsx` (the site's chrome),
+`auth.tsx` (claim, log in, account menu),
 `settings.tsx` with its pure half `prefs.ts`, `presence.tsx`,
 `ready-check.tsx`, `avatar.tsx`,
 `picture-dialog.tsx`, `flag.tsx` with `country-picker.tsx` and the generated
@@ -22,6 +23,30 @@ there are two of them and they have nothing else in common: the tools pages'
 `hand-grid.tsx` and the preflop puzzle's own chart. It animates cells the
 caller already renders, reading `data-r` and `data-c` off them, so a grid gains
 an entrance without changing its markup, its focus handling or its shading.
+
+## The shell
+
+`shell.tsx` is the site's persistent chrome and it is g-system's `.g-shell`:
+the seven sections in a sidebar on the left, the page beside it, and under
+720px the same sidebar as the off-canvas sheet g ships, behind `.g-scrim` and
+opened by a `.g-nav-toggle` in the slim top bar. The sheet, the scrim, the
+slide and the hamburger's morph to an x are all g's; the icons are Phosphor at
+the regular weight, 20px, and they are used **here and nowhere else in the
+app**. What is ours, and why, is written at the top of the shell block in
+`../app.css`: the scroll model, `data-sheet`, and `.nav-item`.
+
+**A table has no sidebar beside it at any width.** `sidebarIsSheet` says so for
+`/m/...`, next to the two other predicates that say the same thing about the
+same routes: `pageEnters` in `enter.tsx` and the guard in `site-footer.tsx`.
+The felt, the dock and the hero band size themselves against the window and
+`e2e/footprint.spec.ts` holds them to it, so the sidebar there is the sheet and
+the toggle is in the top bar.
+
+**The account and the settings move.** They are one component each and the
+settings panel is a single popover that the profile page opens by id, so there
+is no second copy to hide with a media query: while the sidebar is a sheet the
+two sit in the top bar, and while it is a rail they sit at its foot. That is
+the one thing the shell asks in JavaScript rather than in CSS.
 
 ## The page entrance
 
@@ -103,6 +128,13 @@ event. The dock keeps the range React-controlled and replays a native input
 event after a programmatic change, so g stays the only thing that computes the
 fill. React bails on a set to the same value, so it cannot loop.
 
+**A media query as a value.** `useMedia` in `bits.tsx` is for a layout that is
+two different components rather than one component at two sizes. The hero band
+is the case it exists for: a sweep under a thumb and a row of sizes under a
+mouse, each with its own meaning for the number keys, so rendering both and
+hiding one with CSS would leave two handlers answering the same keyboard. Where
+CSS can do the job, CSS does it.
+
 **Keyboard shortcuts and typing.** `isTextEntry` in `bits.tsx` is the one guard:
 it treats text fields, textareas, selects and contenteditable as typing, but not
 checkboxes, radios, buttons or ranges. Arrow keys stepping a replay must still
@@ -111,7 +143,8 @@ blanket "is it an input" test got wrong.
 
 ## Settings
 
-One panel in the top bar, `settings.tsx`, replacing a button that cycled the
+One panel, `settings.tsx`, at the foot of the sidebar or in the top bar as the
+shell decides, replacing a button that cycled the
 theme: the only way to learn what its third press did was to press it twice. It
 is g's `.menu` popover holding g's own controls, so the choices are radio groups
 and switches and are labelled as such. A menu role over a set of switches
@@ -349,3 +382,14 @@ two rules of its own:
   `presence.tsx` plays the same `yourTurn` cue on `q found`, so it skips its
   own whenever a check announced the table first; a challenge, a home game and
   practice have no check and still get it.
+
+## Level in the shell
+
+The level is rendered by `AccountMenu`, which is the one component `shell.tsx`
+puts in both places an account appears, so it lands in the sidebar's account
+row and in the slim top bar's pill without either knowing about it. It sits
+beside the rating, because they are two readings of the same account.
+
+Under 560 it goes, along with the rating and the mode, and only the name is
+left: that is the shell's own measured decision about a 390px bar, and a level
+is the least of the three things somebody came to that pill for.

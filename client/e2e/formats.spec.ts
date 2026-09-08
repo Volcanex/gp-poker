@@ -293,6 +293,36 @@ test.describe('the level', () => {
     await expect(page.locator('.badge-set')).toContainText('Level 10');
   });
 
+  test('sits beside the rating in the sidebar account row', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await stubApi(page);
+    await setTheme(page, 'dark');
+    await page.goto('/');
+    // Wide enough for the sidebar, so the account is the row at its foot.
+    const row = page.locator('.side-foot .account > .btn');
+    await expect(row).toBeVisible();
+    await expect(row.locator('.lv')).toHaveText('Lv 8');
+  });
+
+  test('sits in the slim top bar once the sidebar is a sheet', async ({ page }) => {
+    await page.setViewportSize({ width: 700, height: 900 });
+    await stubApi(page);
+    await setTheme(page, 'dark');
+    await page.goto('/');
+    await expect(page.locator('.top .account > .btn .lv')).toHaveText('Lv 8');
+  });
+
+  test('goes with the rating on a phone, where only the name fits', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    await stubApi(page);
+    await setTheme(page, 'dark');
+    await page.goto('/');
+    const pill = page.locator('.top .account > .btn');
+    await expect(pill).toContainText('kestrel');
+    await expect(pill.locator('.lv')).toBeHidden();
+    await expect(pill.locator('.r')).toBeHidden();
+  });
+
   test('says nothing about a level nobody has reached', async ({ page }) => {
     await stubApi(page);
     await setTheme(page, 'dark');

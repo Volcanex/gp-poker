@@ -11,16 +11,19 @@
    since cards were paper has read; light, the face is the panel colour and
    the ink the text colour. Red pips take the solid red, not the red text
    tint, because the text tint is tuned for a dark ground and this ground is
-   paper. The four colour deck borrows the chart blue and green the same way. */
+   paper. The four colour deck borrows the chart blue and green the same way.
+   All three are deepened with black: the solid red measures 3.4 to 1 on the
+   paper and the chart blue and green under 3, which is a pip a player in a
+   dark room cannot tell from the ink. Deepened they clear 5 to 1. */
 :root, [data-theme] {
   --card-face: var(--text-primary);
   --card-ink: var(--surface-1);
   --card-edge: var(--border);
   --card-back: var(--surface-2);
   --card-back-line: var(--border-subtle);
-  --card-red: var(--danger-fill);
-  --card-blue: var(--chart-1);
-  --card-green: var(--chart-6);
+  --card-red: color-mix(in oklab, var(--danger-fill) 74%, black);
+  --card-blue: color-mix(in oklab, var(--chart-1) 66%, black);
+  --card-green: color-mix(in oklab, var(--chart-6) 58%, black);
   --pip-s: var(--card-ink);
   --pip-h: var(--card-red);
   --pip-d: var(--card-red);
@@ -93,16 +96,56 @@
 .match[data-look="v2"] .pc[data-best] { box-shadow: none; }
 .match[data-look="v2"] .pc[data-best] .pc-face .pc-paper { stroke: var(--accent-fill); stroke-width: 2.5; }
 
+/* ----------------------------------------------------------------- felt */
+
+/* **The band is your seat, so the felt does not draw it a second time.** It
+   was hidden on a phone only, where there was no room for both; on a wide
+   screen the felt drew your cards, your name, your button marker, your stack,
+   your last action, your avatar, your rating and your clock, and the band drew
+   most of them again a hundred pixels below. Only the seat goes: the bet on
+   the line to the pot hangs off `.seat-bet` and the chip flights are keyed to
+   it, so that element stays. The clock goes to the band with the rest of the
+   seat (see `hero-band.css`).
+
+   In stack mode this hands the felt a whole row back, which is most of what
+   pays for the table fitting one screen. */
+.match[data-look="v2"][data-band] .felt .pos[data-k="0"] .seat { display: none; }
+
+/* And the felt spends what it is given. The table has to fit the window on a
+   1366 by 768 laptop with a practice strip in it, and the felt is the only row
+   that can give: its own padding, the gaps between its three rows and the
+   middle's own padding all come in one step on the spacing scale. Measured at
+   1366 by 768: the document was 903 px tall against a 768 px window. */
+.match[data-look="v2"] .felt { padding-top: var(--sp-2); padding-bottom: var(--sp-2); }
+.match[data-look="v2"] .felt[data-mode="stack"] .felt-in { gap: var(--sp-2); }
+.match[data-look="v2"] .middle { padding: var(--sp-2) 0; gap: var(--sp-2); }
+/* The ring gives its share out of the felt's padding rather than out of the
+   ellipse. Every seat on it already owns a layer inset by half a seat box, so
+   the felt's own vertical padding is a margin on top of a margin: the topmost
+   seat sits eighty pixels below the felt's top edge either way. Flattening the
+   ellipse instead was tried and does not work, and the cliff is sharp: at
+   392 px the two seats either side of the top one overlap by fourteen pixels,
+   at 394 they do not.
+
+   **And the ellipse never squashes.** It is a fixed geometry that places seats
+   by percentage, so a window too short for it shortens the felt, not the ring:
+   the felt scrolls its own overflow instead, and the seats keep the clearances
+   `../../e2e/ergonomics.spec.ts` holds them to. */
+.match[data-look="v2"] .felt[data-mode="ring"] { padding-top: 0; padding-bottom: 0; }
+.match[data-look="v2"] .felt[data-mode="ring"] .felt-in { flex: none; }
+/* Centred with auto margins rather than `justify-content`, because a centred
+   flex item that overflows its container clips at the top and cannot be
+   scrolled back to. Auto margins collapse when there is nothing spare. */
+.match[data-look="v2"] .felt { justify-content: flex-start; }
+.match[data-look="v2"] .felt .felt-in { margin: auto; }
+
 /* ---------------------------------------------------------------- chips */
 
 /* Bigger than the flat discs were: a chip seen from the side needs the room
    to show its rim, and the pot and the bets are the only chips on the felt
    now. The ring and the phone scale down with the rest of their seats. */
-.match[data-look="v2"] { --chip: 24px; }
+.match[data-look="v2"] { --chip: 20px; }
 .match[data-look="v2"] .felt[data-mode="ring"] .seat-bet { --chip: 14px; }
-@media (max-width: 560px) {
-  .match[data-look="v2"] { --chip: 20px; }
-}
 @container (max-width: 740px) {
   .match[data-look="v2"] .felt[data-mode="ring"] .seat-bet { --chip: 12px; }
 }
@@ -132,6 +175,15 @@
 .match[data-look="v2"] .chip[data-d="100"] { --_body: var(--card-ink); --_rim: color-mix(in oklab, var(--card-ink) 70%, white); --_edge: var(--border-hover); }
 .match[data-look="v2"] .chip[data-d="500"] { --_body: var(--chart-2); }
 .match[data-look="v2"] .chip-more { bottom: calc(var(--chip) * 0.72 + 3px); }
+
+/* A v2 column is shorter than the flat one it replaced, and the slot the felt
+   holds open for it was still the flat one's: `--chip + (rows - 1) * 3px`
+   against a column that is `0.72 + (rows - 1) * 0.14` widths. Eight pixels a
+   row, on the two rows the stack felt spends on bets. The pot's slot already
+   uses the right formula; this is the same one. */
+.match[data-look="v2"] .felt[data-mode="stack"] .seat-bet {
+  min-height: calc(var(--chip) * (0.72 + (var(--chip-rows) - 1) * 0.14) + 2px);
+}
 
 /* The stack beside a player's own number goes. A stack is a figure; chips
    are only drawn where they move, which is the bet and the pot. */
@@ -176,6 +228,16 @@
   position: absolute; inset: 0;
   z-index: 3;
   pointer-events: none;
+}
+
+/* The award line under the board is revealed, not faded: a mask that opens
+   from its leading edge, the way a line is written. `--wipe` is how much of
+   it is still covered and is the only thing animated; the pill's own radius
+   is carried in the clip so what grows is a pill and not a rectangle. It is
+   paint, not layout, so the zone's reserved height still holds the felt
+   still, and a split pot's two lines stay side by side in the flow. */
+.match[data-look="v2"] .award-chip {
+  clip-path: inset(0 var(--wipe, 0%) 0 0 round var(--radius-full));
 }
 
 /* A flight is placed by the middle of its bottom edge, the point a stack

@@ -108,24 +108,82 @@ sees any of it, and the rules are scoped to `.hero-band` and
 
 | | Phone | Wide |
 | --- | --- | --- |
-| Band height (`--dock-h`) | 236 px | 260 px |
-| Card | 104 px | 132 px |
-| Action column | 176 px | 340 px, 300 below 900 |
-| Name and stack | under the cards | beside them |
-| Key legend | none, there is no keyboard | the middle column, none below 900 |
+| Band height (`--band-h`) | 236 px | 236 px |
+| Card | 104 px | 104 px |
+| Hand column | the fan's own width | the fan's own width |
+| Action column | 176 px | the rest of the felt's column |
+| Raise control | the sweep sizer | six sizes and Custom |
+| Key legend | none, there is no keyboard | one line under the controls |
+
+**The band's ground is the page's and its content is the felt's.** The ground
+runs the full width, because a band that stopped where the felt does would be a
+floating panel; `.hb-in` inside it is capped at `--felt-w` and centred, so the
+cards start on the felt's left edge and the controls end on its right one.
+`--felt-w` is declared on `.match` (as well as on `.felt`) for exactly this, and
+`table.tsx` stamps `data-mode` on both. Before, the felt sat in a 680 px column
+while the band spanned 1366: the hand was at x 16 and the controls ended at
+1350, with the legend adrift in the middle.
+
+**The band is your seat at every width, not only on a phone.** The felt drew
+your cards, name, button marker, stack, last action, avatar, rating and clock,
+and the band drew most of them again a hundred pixels below; the rule that hid
+the felt's copy has left the phone media query for `look-v2.css`. The clock came
+with the rest of the seat: `TurnBar` is out of the flow on the band's top
+border, the width of the felt's column, and `TurnSeconds` has a reserved 34 px
+slot at the end of the figures line. The avatar and the rating did **not** come
+with it: the avatar is decorative and aria-hidden, and the rating is on the
+profile the name links to, which is the same trade the ring seat already makes.
+
+**Your stack is `table.tsx`'s reading, not the band's.** `HeroBand` takes it as
+a prop because at hand end it is held at what it was until the pot has actually
+moved, which is the same hold the felt puts on every seat's figure: a result
+message arrives 700 ms before the chips get there, and a band reading the view
+straight printed the number you won while the pot was still in the middle. Two
+readings of when a hand is paid is two readings that drift, so there is one, in
+the place the felt already reads it. It counts nothing up: the felt's winner
+rolls with `NumberFlow` inside a reserved `.stack-v`, and the band's figure has
+the last action sitting directly after it, so it takes a reserved `4ch` and
+changes in one step instead.
+
+**One left edge for the corner.** The cards, the name line, the stack and the
+last action all start on the felt's left edge. The figures used to be set in by
+the flag's reserved box so they lined up with the name's first letter, which put
+three edges in a corner that needs one; the flag now stands on the shared edge
+and the name reads as indented behind it.
+
+**Six sizes, not a sweep, under a mouse.** The wide band's raise control is
+`presetsFor`'s six as six equal segments plus a narrower Custom, and one press
+sends. The number keys do what pressing their segment does, so on a wide band
+`1` to `6` **send** rather than writing into a field; `r` opens Custom, which is
+a g input in the segments' own box with Enter to send and Escape to close, and
+it clamps into the field like the dock's rather than sending a number nobody
+chose. The phone keeps the sweep, which is why `useMedia` in `../ui/bits.tsx`
+exists: the two controls cannot both be rendered and hidden with CSS, because
+they would both answer the same keyboard.
+
+g-system ships no segmented control, so `.hb-sizes` is composed from `.btn`'s
+own fill, border and radius with the inner edges collapsed. **It is a g-system
+candidate and belongs there**, not here.
+
+**A spectator's band is 148 px, not 236.** The height a band is is the height
+two giant cards and a thumb's column need, and a spectator has neither; the felt
+still draws the bottom seat, because it belongs to a player. Whether you are
+watching is settled before the first card, the way a practice strip is, so this
+is still one box and one height for as long as the table is on screen.
 
 **The dock's rule holds, and the band is a harder case for it.** One box, four
 states, nothing sized to its content: `../../e2e/hero-band.spec.ts` walks a hand
 through turn, waiting, hand over and the next turn at 390 and 1280, in both
 shapes of felt, and asserts the header, the felt, the board, the pot and the
 band have byte identical boxes and that the layout-shift observer sums to
-exactly zero. The felt's own footprint list cannot be used, because on a phone
-the band **is** your seat: `.match[data-band]` hides `.pos[data-k="0"] .seat`
-under 560px and keeps its `.seat-bet`, which is what a chip flies from.
+exactly zero. The felt's own footprint list cannot be used, because the
+band **is** your seat: `.match[data-band]` hides `.pos[data-k="0"] .seat` at
+every width and keeps its `.seat-bet`, which is what a chip flies from.
 `data-band` is stamped by `table.tsx` only when the band is on screen **and**
 the viewer has a seat, because a spectator's bottom seat belongs to a player
-and hiding it would leave a hole. A wide felt keeps its seat: there is room for
-both, and the seat carries the turn clock.
+and hiding it would leave a hole. A wide felt used to keep its seat on the
+argument that there was room for both; there was, and the result was every fact
+about you drawn twice on one screen.
 
 The only shift this band has ever had was the last-action slot. It is empty for
 most of a hand, an empty box has no baseline of its own, and the phone's row was
@@ -133,8 +191,40 @@ aligned on one, so the label jumped four pixels the moment a word arrived in it.
 The row is aligned to its bottom edge instead.
 
 **The legend leaves the table's grid on v2.** `KeyLegend` takes a class name and
-the band renders it into its middle column, so row 6 is empty and the felt gets
-those pixels back. v1 keeps the row untouched.
+the band renders it into a row of its own under the controls, so row 6 is empty
+and the felt gets those pixels back. v1 keeps the row untouched. It used to
+stand in the middle column, centred in the empty space between your hand and
+your controls, which is the one place on this screen nothing should be asking to
+be read. It is `--text-secondary` rather than the placeholder grey, because the
+placeholder measures 3.68:1 on this ground and this is text a person reads.
+
+**The table is one screen and never the page's scrollbar.** `.match` is capped
+at `calc(100dvh - var(--top-h))` unless it is bare or ended, so a window too
+short for the felt shortens the felt, which is the only `1fr` in the column and
+scrolls its own overflow. Without the cap the column simply grew, because
+`#root` is a `min-height`: measured on a 1366 by 768 laptop, a practice table
+was a 903 px document in a 768 px window and the controls were under the fold.
+The felt pays for the rest out of `look-v2.css`: the hero's seat leaves a whole
+row in stack mode, and the felt's padding, its row gaps, the middle's padding
+and the chip slots all come in one step. **The ring gives its share out of the
+felt's padding rather than out of the ellipse**, and it never squashes: it is a
+percentage geometry, so a `flex: none` keeps it whole and the felt scrolls
+instead. Flattening it was tried and the cliff is sharp, at 392 px the two seats
+either side of the top one overlap and at 394 they do not.
+
+| At 1366 by 768, practice table | Before | After |
+| --- | --- | --- |
+| Document height, heads-up | 903 | 768 |
+| Felt | 521 | 410 |
+| Band | 260 | 236 |
+
+**The mock's caption stands above the band, and the mock places it.** It printed
+over the hero's cards, which are the one thing on this screen you have to be
+able to read. It stays fixed and out of the flow, so it is still no part of the
+footprint the tests measure, and `../routes/match.tsx` adds up `--band-h`,
+`--band-watch-h` and `--strip-h` to lift it: only the mock knows which rows its
+table has, and a `:root:has()` rule to work it out would be a whole document
+selector running on every page in the app to place a caption on one.
 
 **The band sits on the page's gutter, not its own.** `--band-gut` is 16px wide
 and 12px on a phone, which is what the felt, the hand header and the dock this
@@ -196,12 +286,24 @@ the status was centred in a 28px row instead and read six pixels above it.
 watching state is untouched, because there the line is the only thing in a box
 built for a hand and belongs in the middle of it.
 
+**The fan's box is the fan's real bounds**, not the pair's. A card rotated about
+its bottom left corner reaches up past the top of the pair by its width times
+the sine of the tilt and out past their right edge by its height times the same,
+so a box drawn to the cards' own size was eleven pixels shorter and sixteen
+narrower than the thing inside it, and the tilted card crossed the band's top
+edge and the column beside it. `--fan-sin` is written out for that reason. The
+cards rest on the floor of the box and the slack is at the top, which is where
+the tilt goes.
+
 **Handedness is a setting** (`hand` in `../ui/prefs.ts`), stamped as
 `data-hand="left"` on the root by the pre-paint script in `../../index.html` as
 well as by `applyPrefs`, so a left handed player never sees the right handed
 layout flash past. The band mirrors by swapping its grid areas at both sizes,
 the fan tilts the other way, the sweep moves to the near edge and the arrow on
-the fold handle turns round. The tilted card is lifted by its own width times
+the fold handle turns round. **The fan also stacks the other way round**: a
+card's rank is in its top left corner, so mirrored, the second card lands over
+the first one's rank and a left handed player could not read the card they were
+dealt first. The tilted card is lifted by its own width times
 the sine of the tilt, because a card rotated about its bottom corner drops the
 far one off the bottom of the band and onto the page.
 
@@ -352,7 +454,12 @@ zero layout shift as v1.
   when the result does (`paid` in `table.tsx`). The chips sit in front of them
   until the next hand deals; there is nothing to fade them out for. On a ring
   they land over the award line under the board, which is where a bottom seat's
-  bet slot hangs. Reduced motion draws no flights at all: chips are at the
+  bet slot hangs. That line is masked in from its leading edge over 220ms
+  rather than faded and dropped in from the pot: `--wipe` in `look-v2.css` is
+  how much of the pill is still covered, and it is paint, so the zone's
+  reserved height still holds the felt still and a split pot's two lines stay
+  side by side in the flow. v1 keeps the drop and the fade it has. Reduced
+  motion draws no flights at all: chips are at the
   destination and the numbers land with them. v1 keeps the shared-layout
   flights it had.
 - **The reserved columns leave gaps** between present denominations (a pot of

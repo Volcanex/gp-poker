@@ -30,7 +30,7 @@ export function ClaimCard({ onClaimed }: { onClaimed?: () => void }) {
       const user = await api.claim(name.trim(), password);
       /* The summary lands first so the name changes immediately; the full row
          follows, because claiming does not change the counts but a stale /me
-         is how the top bar ends up disagreeing with the page. */
+         is how the account row ends up disagreeing with the page. */
       setMe(user);
       void refreshMe();
       onClaimed?.();
@@ -84,7 +84,7 @@ export function ClaimCard({ onClaimed }: { onClaimed?: () => void }) {
 
 export function AccountMenu() {
   const { me, refreshMe, queue } = useSession();
-  /* Ratings are per mode, so the one in the top bar is the mode you last
+  /* Ratings are per mode, so the one on the account row is the mode you last
      played or chose to play. */
   const mode = queue.mode;
   const wrapRef = useRef<HTMLDivElement>(null);
