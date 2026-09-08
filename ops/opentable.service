@@ -1,0 +1,24 @@
+[Unit]
+Description=Open Table, free ranked no-limit hold'em (poker.gabrielpenman.com)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/gabriel/opentable
+# No EnvironmentFile: the server loads the repo .env itself (server/src/config.ts),
+# so the secrets live in exactly one place and the unit never holds a copy.
+ExecStart=/usr/bin/node release/server/index.js
+# on-failure, not always: a clean exit is the SIGTERM shutdown path in
+# index.ts finishing its work, and restarting after that turns `systemctl
+# stop` into a service that comes back.
+Restart=on-failure
+RestartSec=3
+LimitNOFILE=65536
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=opentable
+
+[Install]
+WantedBy=multi-user.target

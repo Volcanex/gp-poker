@@ -6,7 +6,6 @@ function modeParam(raw: unknown): Mode {
   return MODES.includes(raw as Mode) ? (raw as Mode) : 'heads-up';
 }
 import {
-  sql,
   MODES,
   getLeaderboard,
   getRatingsFor,
@@ -36,6 +35,7 @@ import { claimGuest, login, requireUser, setSessionCookie, clearSessionCookie, c
 import { rosterSummary } from './bots/index.js';
 import { roundRatings, toModeRating, toUserSummary } from './userView.js';
 import { computeInsights, type Insights } from './insights.js';
+import { health } from './health.js';
 import { emptyExplorerCube, explorerQuery, foldExplorerHands, sliceExplorer, type ExplorerCube } from './explorer.js';
 import { acceptChallenge, cancelChallenge, challengeView, createChallenge } from './challenges.js';
 
@@ -44,14 +44,9 @@ function err(reply: { code: (n: number) => { send: (b: unknown) => unknown } }, 
 }
 
 export function registerRoutes(app: FastifyInstance): void {
-  app.get('/health', async () => {
-    try {
-      await sql`select 1`;
-      return { ok: true, checks: { db: { ok: true, detail: 'connected' } } };
-    } catch (e) {
-      return { ok: true, checks: { db: { ok: false, detail: String(e) } } };
-    }
-  });
+  // Always 200 while the process answers; what is actually healthy is in the
+  // body. See health.ts for the contract.
+  app.get('/health', async () => health());
 
   app.get('/api/me', async (request, reply) => {
     const user = await requireUser(request, reply);

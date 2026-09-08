@@ -22,7 +22,21 @@ Schema in `server/db/schema.sql` is applied idempotently at start.
 The server build is an esbuild bundle (`server/build.mjs`) because the
 workspace packages ship TypeScript source only; `server/tsconfig.json` is
 type-check only. Matches left `playing` by a dead process are aborted at
-boot, unrated.
+boot, unrated. `deploy.sh` then polls `/health` for 20s and exits 1 with the
+journal tail if it never reports `ok`, so a build that boots broken is loud.
+
+`/health` follows gcore's contract: always 200 while the process answers,
+with `db`, `bots`, `ladder`, `disk` and `backup` under `checks`
+(`server/src/health.ts`). Its top-level `ok` is the and of all five, which is
+what the deploy gate and brain's L5 probe both read — a stale backup fails a
+deploy, deliberately.
+
+Backups: `opentable-backup.timer` runs `scripts/backup.sh` daily at 04:30
+UTC, keeping the last 14 gzipped `pg_dump`s in
+`/home/gabriel/backups/opentable/`. `scripts/restore.sh <dump> <database>`
+puts one back, and refuses the live database without `--force`. The unit
+files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
+`scripts/CLAUDE.md` for what each script is careful about.
 
 ## Shape (npm workspaces, TypeScript end to end, Node 22)
 - `packages/protocol` — wire types v1 and the per-viewer `TableView`. The
