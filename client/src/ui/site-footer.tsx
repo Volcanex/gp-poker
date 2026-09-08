@@ -13,13 +13,7 @@ export function SiteFooter() {
       <span>
         Open Table, free ranked poker. <Link to="/learn/fair">Provably fair</Link>, no money.
       </span>
-      <span className="sep" aria-hidden="true">
-        &middot;
-      </span>
       <Link to="/leaderboard">Leaderboard</Link>
-      <span className="sep" aria-hidden="true">
-        &middot;
-      </span>
       <a href="https://github.com/Volcanex/opentable" target="_blank" rel="noreferrer">
         Source
       </a>

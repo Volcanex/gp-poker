@@ -285,7 +285,7 @@ export function HomeGame() {
    dealt on, so it cannot drift from the match it opens. A home game is the
    long six-max table, which is what `matchFormat` gives it on the server. */
 function sixMaxBlurb(): string {
-  return modeBlurb('six-max', 'long');
+  return modeBlurb('six-max', 'standard');
 }
 
 /* The same card in every state, so the page does not jump as the lobby loads

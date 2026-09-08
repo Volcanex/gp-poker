@@ -92,17 +92,10 @@ export function StatsStrip() {
 
   return (
     <div className="stats-strip" role="status">
-      {counts.map((c, i) => (
-        <Fragment key={c.label}>
-          {i > 0 && (
-            <span className="sep" aria-hidden="true">
-              &middot;
-            </span>
-          )}
-          <span>
-            <b>{c.n}</b> {c.label}
-          </span>
-        </Fragment>
+      {counts.map((c) => (
+        <span key={c.label}>
+          <b>{c.n}</b> {c.label}
+        </span>
       ))}
     </div>
   );
