@@ -109,7 +109,7 @@ export async function enqueuePractice(userId: string, mode: Mode, level: number)
     hub.send(userId, {
       t: 'err',
       c: 'bots_busy',
-      msg: `every bot near ${info.name.toLowerCase()} is in a match. Try again in a moment.`,
+      msg: `Every bot near ${info.name.toLowerCase()} is in a match. Try again in a moment.`,
     });
     return;
   }

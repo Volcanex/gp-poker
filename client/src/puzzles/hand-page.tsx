@@ -207,12 +207,12 @@ export function RealHand() {
                 <div>
                   <dt>At the table</dt>
                   <dd className="num">{labelFor(spot, puzzle.played)}</dd>
-                  <dd className="muted small">what was actually done</dd>
+                  <dd className="muted small">What was actually done</dd>
                 </div>
                 <div>
                   <dt>Cost of the difference</dt>
                   <dd className="num">{verdict.evLost.toFixed(2)}</dd>
-                  <dd className="muted small">big blinds against the baseline</dd>
+                  <dd className="muted small">Big blinds against the baseline</dd>
                 </div>
               </dl>
               <p className="muted">

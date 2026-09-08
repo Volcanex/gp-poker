@@ -87,15 +87,15 @@ export function registerRoutes(app: FastifyInstance): void {
   app.patch<{ Body: { country?: unknown } }>('/api/me', async (request, reply) => {
     const user = await requireUser(request, reply);
     const country = readCountry(request.body?.country);
-    if (country === undefined) return err(reply, 400, 'country must be a two-letter country code, or null');
+    if (country === undefined) return err(reply, 400, 'Country must be a two-letter country code, or null');
     const updated = await updateUserCountry(user.id, country);
-    if (!updated) return err(reply, 404, 'no such user');
+    if (!updated) return err(reply, 404, 'No such user');
     return meBody(updated, await getRatingsFor(updated.id));
   });
 
   app.post<{ Body: { name?: string; password?: string } }>('/api/claim', async (request, reply) => {
     const { name, password } = request.body ?? {};
-    if (!name || !password) return err(reply, 400, 'name and password are required');
+    if (!name || !password) return err(reply, 400, 'Name and password are required');
     const user = await requireUser(request, reply);
     const result = await claimGuest(user.id, name, password);
     if (!result.ok) return err(reply, 400, result.error);
@@ -104,7 +104,7 @@ export function registerRoutes(app: FastifyInstance): void {
 
   app.post<{ Body: { name?: string; password?: string } }>('/api/login', async (request, reply) => {
     const { name, password } = request.body ?? {};
-    if (!name || !password) return err(reply, 400, 'name and password are required');
+    if (!name || !password) return err(reply, 400, 'Name and password are required');
     const result = await login(name, password);
     if (!result.ok) return err(reply, 401, result.error);
     const existingToken = request.cookies[SESSION_COOKIE];
@@ -144,7 +144,7 @@ export function registerRoutes(app: FastifyInstance): void {
 
   app.get<{ Params: { name: string } }>('/api/users/:name', async (request, reply) => {
     const user = await getUserByNameLower(request.params.name.toLowerCase());
-    if (!user) return err(reply, 404, 'no such user');
+    if (!user) return err(reply, 404, 'No such user');
 
     const ratings = await getRatingsFor(user.id);
     const standings = await getModeStandings(user.id);
@@ -221,7 +221,7 @@ export function registerRoutes(app: FastifyInstance): void {
     '/api/users/:name/insights',
     async (request, reply) => {
       const user = await getUserByNameLower(request.params.name.toLowerCase());
-      if (!user) return err(reply, 404, 'no such user');
+      if (!user) return err(reply, 404, 'No such user');
       const mode = modeParam(request.query.mode);
 
       const matches = await getInsightMatchesForUser(user.id, mode);
@@ -271,7 +271,7 @@ export function registerRoutes(app: FastifyInstance): void {
 
   app.get<{ Params: { id: string } }>('/api/matches/:id', async (request, reply) => {
     const match = await getMatchById(request.params.id);
-    if (!match) return err(reply, 404, 'no such match');
+    if (!match) return err(reply, 404, 'No such match');
     const hands = await getHandsForMatch(match.id);
     return {
       id: match.id,
@@ -305,9 +305,9 @@ export function registerRoutes(app: FastifyInstance): void {
 
   app.get<{ Params: { id: string } }>('/api/hands/:id', async (request, reply) => {
     const hand = await getHandById(request.params.id);
-    if (!hand) return err(reply, 404, 'no such hand');
+    if (!hand) return err(reply, 404, 'No such hand');
     const match = await getMatchById(hand.matchId);
-    if (!match) return err(reply, 404, 'no such match');
+    if (!match) return err(reply, 404, 'No such match');
     const completed = hand.completedAt !== null;
     return {
       id: hand.id,
@@ -376,7 +376,7 @@ export function registerRoutes(app: FastifyInstance): void {
         played: chosen.step.category,
       };
     }
-    return err(reply, 404, 'no finished heads-up hand has a preflop decision to grade yet');
+    return err(reply, 404, 'No finished heads-up hand has a preflop decision to grade yet');
   });
 
   // Latest finished matches, newest first. Aborted matches are left out: they
@@ -456,7 +456,7 @@ export function registerRoutes(app: FastifyInstance): void {
 
   app.get<{ Params: { id: string } }>('/api/challenges/:id', async (request, reply) => {
     const view = await challengeView(request.params.id);
-    if (!view) return err(reply, 404, 'no such challenge');
+    if (!view) return err(reply, 404, 'No such challenge');
     return view;
   });
 
@@ -487,7 +487,7 @@ export function registerRoutes(app: FastifyInstance): void {
 
   app.get<{ Params: { id: string } }>('/api/home-games/:id', async (request, reply) => {
     const view = await homeGameView(request.params.id);
-    if (!view) return err(reply, 404, 'no such table');
+    if (!view) return err(reply, 404, 'No such table');
     return view;
   });
 
@@ -532,7 +532,7 @@ export function registerRoutes(app: FastifyInstance): void {
   app.get<{ Params: { id: string } }>('/api/arenas/:id', async (request, reply) => {
     const user = await requireUser(request, reply);
     const view = await arenaView(request.params.id, user.id);
-    if (!view) return err(reply, 404, 'no such arena');
+    if (!view) return err(reply, 404, 'No such arena');
     return view;
   });
 
@@ -579,7 +579,7 @@ export function registerRoutes(app: FastifyInstance): void {
       bodyLimit: AVATAR_MAX_BYTES,
       errorHandler: (error, _request, reply) => {
         if (error.code === 'FST_ERR_CTP_BODY_TOO_LARGE') {
-          return err(reply, 413, `a picture must be under ${Math.floor(AVATAR_MAX_BYTES / 1024)} KB`);
+          return err(reply, 413, `A picture must be under ${Math.floor(AVATAR_MAX_BYTES / 1024)} KB`);
         }
         return err(reply, error.statusCode && error.statusCode < 500 ? error.statusCode : 500, error.message);
       },
@@ -588,21 +588,21 @@ export function registerRoutes(app: FastifyInstance): void {
       const user = await requireUser(request, reply);
       const declared = String(request.headers['content-type'] ?? '').split(';')[0].trim();
       if (declared !== 'image/webp' && declared !== 'image/png') {
-        return err(reply, 415, 'a picture must be sent as image/webp or image/png');
+        return err(reply, 415, 'A picture must be sent as image/webp or image/png');
       }
       const body = request.body;
       if (!Buffer.isBuffer(body) || body.length === 0) {
-        return err(reply, 400, 'the request body must be the image itself');
+        return err(reply, 400, 'The request body must be the image itself');
       }
       const sniffed = sniffAvatar(body);
-      if (sniffed === null) return err(reply, 400, 'that file is not a png or a webp');
-      if (sniffed !== declared) return err(reply, 400, `that file is a ${sniffed}, not a ${declared}`);
+      if (sniffed === null) return err(reply, 400, 'That file is not a png or a webp');
+      if (sniffed !== declared) return err(reply, 400, `That file is a ${sniffed}, not a ${declared}`);
       if (!avatarLimiter.allow(user.id)) {
-        return err(reply, 429, 'a picture can be changed once every ten seconds');
+        return err(reply, 429, 'A picture can be changed once every ten seconds');
       }
 
       const version = await setUserAvatar(user.id, body, sniffed);
-      if (version === null) return err(reply, 404, 'no such user');
+      if (version === null) return err(reply, 404, 'No such user');
       return { avatarV: version };
     }
   );
@@ -614,7 +614,7 @@ export function registerRoutes(app: FastifyInstance): void {
   app.delete('/api/me/avatar', async (request, reply) => {
     const user = await requireUser(request, reply);
     const version = await clearUserAvatar(user.id);
-    if (version === null) return err(reply, 404, 'no such user');
+    if (version === null) return err(reply, 404, 'No such user');
     return { avatarV: version };
   });
 
@@ -639,7 +639,7 @@ export function registerRoutes(app: FastifyInstance): void {
     },
     async (request, reply) => {
       const row = await getUserAvatar(request.params.id);
-      if (!row) return err(reply, 404, 'no picture');
+      if (!row) return err(reply, 404, 'No picture');
       return reply.type(row.avatarType).send(row.avatar);
     }
   );

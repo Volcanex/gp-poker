@@ -99,7 +99,7 @@ function LiveRow({ match }: { match: LiveMatch }) {
           <span className="name" key={`${p.name}-${i}`}>
             {p.country && <Flag code={p.country} size={16} />}
             <Link to={`/u/${encodeURIComponent(p.name)}`}>{p.name}</Link>
-            {p.bot && <span className="bot-tag">bot</span>}
+            {p.bot && <span className="bot-tag">Bot</span>}
             {p.rating != null && <span className="rating num">{p.rating}</span>}
             {i < match.players.length - 1 && (
               <span className="punct" aria-hidden="true">
@@ -110,11 +110,11 @@ function LiveRow({ match }: { match: LiveMatch }) {
         ))}
       </span>
       <span className="feed-meta">
-        <span>hand {match.hand}</span>
+        <span>Hand {match.hand}</span>
         {match.spectators != null && match.spectators > 0 && (
           <span>{match.spectators} watching</span>
         )}
-        <span>started {ago(match.startedAt)}</span>
+        <span>Started {ago(match.startedAt)}</span>
       </span>
       {/* The whole row is already a link. This one is the affordance: it says
           what the row does, which "match 7f3k" on its own does not. */}

@@ -22,7 +22,7 @@ export function routeClientMessage(userId: string, msg: ClientMsg): void {
     case 'join': {
       const room = getRoom(msg.m);
       if (!room) {
-        hub.send(userId, { t: 'err', c: 'no_match', msg: 'no such match' });
+        hub.send(userId, { t: 'err', c: 'no_match', msg: 'No such match' });
         return;
       }
       room.join(userId);
@@ -35,7 +35,7 @@ export function routeClientMessage(userId: string, msg: ClientMsg): void {
     case 'act': {
       const room = getRoom(msg.m);
       if (!room) {
-        hub.send(userId, { t: 'err', c: 'no_match', msg: 'no such match' });
+        hub.send(userId, { t: 'err', c: 'no_match', msg: 'No such match' });
         return;
       }
       room.handleAct(userId, msg);
@@ -44,7 +44,7 @@ export function routeClientMessage(userId: string, msg: ClientMsg): void {
     case 'chat': {
       const room = getRoom(msg.m);
       if (!room) {
-        hub.send(userId, { t: 'err', c: 'no_match', msg: 'no such match' });
+        hub.send(userId, { t: 'err', c: 'no_match', msg: 'No such match' });
         return;
       }
       room.handleChat(userId, msg);
@@ -56,7 +56,7 @@ export function routeClientMessage(userId: string, msg: ClientMsg): void {
       watchArena(userId, msg.a);
       return;
     default:
-      hub.send(userId, { t: 'err', c: 'bad_msg', msg: 'unknown message type' });
+      hub.send(userId, { t: 'err', c: 'bad_msg', msg: 'Unknown message type' });
   }
 }
 

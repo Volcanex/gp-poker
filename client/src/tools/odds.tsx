@@ -431,7 +431,7 @@ export function Odds() {
           </div>
           <div className="odds-price">
             <span className="price-ratio num">{priceRatio(spot.pot, spot.bet)}</span>
-            <span className="price-need num">needs {Math.round(required * 100)}%</span>
+            <span className="price-need num">Needs {Math.round(required * 100)}%</span>
           </div>
         </div>
 

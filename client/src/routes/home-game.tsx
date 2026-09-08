@@ -90,7 +90,7 @@ export function HomeGame() {
       try {
         await run();
       } catch (e) {
-        setError(e instanceof ApiError ? e.message : 'the table did not answer. Try again in a moment.');
+        setError(e instanceof ApiError ? e.message : 'The table did not answer. Try again in a moment.');
       } finally {
         setBusy(false);
         await load();

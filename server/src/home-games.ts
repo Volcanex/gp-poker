@@ -65,7 +65,7 @@ export interface HomeGameView {
 
 type Refusal = { ok: false; status: number; error: string };
 
-const FULL = 'this table is full';
+const FULL = 'This table is full';
 
 /* The stored status never says expired: a lobby that ran out of time is one
    nobody cancelled and nobody started, and the clock is the only thing that
@@ -112,7 +112,7 @@ export async function createHomeGame(
     return {
       ok: false,
       status: 429,
-      error: `you already have ${MAX_OPEN_HOME_GAMES} tables waiting. Cancel one to make another.`,
+      error: `You already have ${MAX_OPEN_HOME_GAMES} tables waiting. Cancel one to make another.`,
     };
   }
 
@@ -158,15 +158,15 @@ export async function homeGameView(id: string): Promise<HomeGameView | null> {
 // caller, in the order they stop being worth reporting.
 function refuseUnlessOpen(row: HomeGameRow): Refusal | null {
   const state = statusOf(row);
-  if (state === 'started') return { ok: false, status: 409, error: 'this table has already started' };
-  if (state === 'cancelled') return { ok: false, status: 409, error: 'this table was cancelled' };
-  if (state === 'expired') return { ok: false, status: 410, error: 'this link has expired' };
+  if (state === 'started') return { ok: false, status: 409, error: 'This table has already started' };
+  if (state === 'cancelled') return { ok: false, status: 409, error: 'This table was cancelled' };
+  if (state === 'expired') return { ok: false, status: 410, error: 'This link has expired' };
   return null;
 }
 
 export async function joinHomeGame(id: string, userId: string): Promise<{ ok: true } | Refusal> {
   const row = await getHomeGameById(id);
-  if (!row) return { ok: false, status: 404, error: 'no such table' };
+  if (!row) return { ok: false, status: 404, error: 'No such table' };
   const refusal = refuseUnlessOpen(row);
   if (refusal) return refusal;
 
@@ -176,7 +176,7 @@ export async function joinHomeGame(id: string, userId: string): Promise<{ ok: tr
   // A person can only be at one table at a time, and taking a seat here while
   // a match is running would abandon the one they are playing.
   if (roomForPlayer(userId)?.active) {
-    return { ok: false, status: 409, error: 'you are already in a match. Finish it before joining a table.' };
+    return { ok: false, status: 409, error: 'You are already in a match. Finish it before joining a table.' };
   }
 
   const seated = await insertHomeGameSeat(id, userId, homeGameSeats());
@@ -187,11 +187,11 @@ export async function joinHomeGame(id: string, userId: string): Promise<{ ok: tr
 
 export async function leaveHomeGame(id: string, userId: string): Promise<{ ok: true } | Refusal> {
   const row = await getHomeGameById(id);
-  if (!row) return { ok: false, status: 404, error: 'no such table' };
+  if (!row) return { ok: false, status: 404, error: 'No such table' };
   // The host leaving would leave a table nobody can start, so the way out of
   // your own table is to cancel it.
   if (row.hostId === userId) {
-    return { ok: false, status: 400, error: 'this is your table. Cancel it instead of leaving it.' };
+    return { ok: false, status: 400, error: 'This is your table. Cancel it instead of leaving it.' };
   }
   await deleteHomeGameSeat(id, userId);
   // The person who left is sent the same list everyone else gets, so their own
@@ -221,22 +221,22 @@ export interface HomeGameStart {
    rather than quietly changing it. */
 export async function startHomeGame(id: string, userId: string): Promise<HomeGameStart | Refusal> {
   const row = await getHomeGameById(id);
-  if (!row) return { ok: false, status: 404, error: 'no such table' };
+  if (!row) return { ok: false, status: 404, error: 'No such table' };
   if (row.hostId !== userId) {
-    return { ok: false, status: 403, error: 'only the host can start this table' };
+    return { ok: false, status: 403, error: 'Only the host can start this table' };
   }
   const refusal = refuseUnlessOpen(row);
   if (refusal) return refusal;
 
   const seats = await getHomeGameSeats(id);
   const humans = seats.map((s) => s.userId);
-  if (humans.length === 0) return { ok: false, status: 409, error: 'there is nobody at this table' };
+  if (humans.length === 0) return { ok: false, status: 409, error: 'There is nobody at this table' };
 
   // Somebody who wandered off to another table cannot be dealt into this one.
   // The link keeps working, so the answer is to wait rather than to lose them.
   for (const seat of seats) {
     if (roomForPlayer(seat.userId)?.active) {
-      const who = seat.userId === userId ? 'you are' : `${seat.name} is`;
+      const who = seat.userId === userId ? 'You are' : `${seat.name} is`;
       return { ok: false, status: 409, error: `${who} in a match right now. This table still works once it is over.` };
     }
   }
@@ -249,15 +249,15 @@ export async function startHomeGame(id: string, userId: string): Promise<HomeGam
     return {
       ok: false,
       status: 409,
-      error: `every bot near ${info.name.toLowerCase()} is in a match. Try again in a moment.`,
+      error: `Every bot near ${info.name.toLowerCase()} is in a match. Try again in a moment.`,
     };
   }
 
   const rated = row.rated && humans.length >= 2;
-  const reason = row.rated && !rated ? 'a table with one person at it plays casual: a rating needs two humans.' : null;
+  const reason = row.rated && !rated ? 'A table with one person at it plays casual: a rating needs two humans.' : null;
 
   const claimed = await claimHomeGame(id, userId);
-  if (!claimed) return { ok: false, status: 409, error: 'this table has already started' };
+  if (!claimed) return { ok: false, status: 409, error: 'This table has already started' };
 
   const base = matchFormat('six-max', rated);
   const format: MatchFormat = { ...base, rated, homeGame: true };
@@ -278,11 +278,11 @@ export async function startHomeGame(id: string, userId: string): Promise<HomeGam
 
 export async function cancelHomeGame(id: string, userId: string): Promise<{ ok: true } | Refusal> {
   const row = await getHomeGameById(id);
-  if (!row) return { ok: false, status: 404, error: 'no such table' };
-  if (row.hostId !== userId) return { ok: false, status: 403, error: 'only the host can cancel this table' };
+  if (!row) return { ok: false, status: 404, error: 'No such table' };
+  if (row.hostId !== userId) return { ok: false, status: 403, error: 'Only the host can cancel this table' };
   const cancelled = await cancelOpenHomeGame(id, userId);
   if (!cancelled) {
-    if (statusOf(row) === 'started') return { ok: false, status: 409, error: 'this table has already started' };
+    if (statusOf(row) === 'started') return { ok: false, status: 409, error: 'This table has already started' };
     return { ok: true }; // already cancelled, or expired: either way it is spent
   }
   await pushLobby(cancelled);

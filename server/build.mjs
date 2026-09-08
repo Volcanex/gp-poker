@@ -6,7 +6,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 
 // Bundles server + the @opentable/* workspace packages into one file. Those
 // packages ship no compiled output of their own (their package.json `main`
-// points at ./src/index.ts, for tsx in dev) — plain `node` can't execute or
+// points at ./src/index.ts, for tsx in dev). Plain `node` cannot execute or
 // resolve that, so bundling is what makes `node dist/index.js` possible at
 // all. Real npm dependencies stay external and are resolved normally from
 // node_modules at runtime. @opentable/preflop's two JSON files are static

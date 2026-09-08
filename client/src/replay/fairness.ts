@@ -57,8 +57,8 @@ export function verifyHand(input: FairnessInput): Check[] {
     label: 'The seed matches the hash published before the deal',
     ok: commitmentOk,
     detail: commitmentOk
-      ? `sha256 of the seed is ${input.seedHash.slice(0, 16)}...`
-      : `sha256 of the seed is ${computed.slice(0, 16)}..., the commitment was ${input.seedHash.slice(0, 16)}...`,
+      ? `SHA256 of the seed is ${input.seedHash.slice(0, 16)}...`
+      : `SHA256 of the seed is ${computed.slice(0, 16)}..., the commitment was ${input.seedHash.slice(0, 16)}...`,
   });
 
   const dealt = dealFromDeck(deckFromSeed(input.seed), input.seatCount, input.button);
@@ -78,8 +78,8 @@ export function verifyHand(input: FairnessInput): Check[] {
     detail: deckOk
       ? `${Object.keys(input.holes ?? {}).length * 2} hole cards and ${input.board.length} board cards reproduced in order`
       : !holesOk
-        ? 'the hole cards do not match the deck this seed produces'
-        : 'the board does not match the deck this seed produces',
+        ? 'The hole cards do not match the deck this seed produces'
+        : 'The board does not match the deck this seed produces',
   });
 
   return checks;

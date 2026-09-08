@@ -133,7 +133,7 @@ describe('home games', () => {
 
     const refused = await start(bob, id);
     expect(refused.statusCode).toBe(403);
-    expect(refused.json().error).toContain('only the host');
+    expect(refused.json().error).toContain('Only the host');
 
     const res = await start(alice, id);
     expect(res.statusCode).toBe(200);

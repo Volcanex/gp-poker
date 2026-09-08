@@ -331,7 +331,7 @@ const INSIGHTS = {
 
 export async function stubApi(page: Page) {
   await page.route('**/api/**', (route) =>
-    route.fulfill({ status: 404, json: { error: 'not found' } }));
+    route.fulfill({ status: 404, json: { error: 'Not found' } }));
   await page.route('**/api/leaderboard*', (route) => route.fulfill({ json: LEADERBOARD }));
   await page.route('**/api/recent*', (route) => route.fulfill({ json: RECENT }));
   await page.route('**/api/stats', (route) => route.fulfill({ json: STATS }));
@@ -355,7 +355,7 @@ export async function stubApi(page: Page) {
     const profile = PROFILES[name.toLowerCase()];
     return profile
       ? route.fulfill({ json: profile })
-      : route.fulfill({ status: 404, json: { error: 'no such user' } });
+      : route.fulfill({ status: 404, json: { error: 'No such user' } });
   });
   await page.route('**/api/users/*/insights*', (route) => route.fulfill({ json: INSIGHTS }));
 }

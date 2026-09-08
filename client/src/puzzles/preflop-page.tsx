@@ -13,7 +13,7 @@ import { BoardText } from '../ui/board-text.tsx';
 import { useGridEntrance } from '../ui/grid-entrance.ts';
 import { useTitle } from '../ui/title.ts';
 import { KeyHint, ScoreRow, useAnswerKeys, Verdict } from './bits.tsx';
-import { BUCKET_WORDS, SPOT_COPY, chartFor, labelFor, type Action } from './chart.ts';
+import { BUCKET_WORDS, SPOT_COPY, bucketName, chartFor, labelFor, type Action } from './chart.ts';
 import { RANKS, countRegions, dealPreflop, gradePreflop, gridFor, levelFor, type PreflopPuzzle } from './preflop.ts';
 import { afterAnswer, emptyPuzzles, readPuzzles, writePuzzles, type Puzzles } from './store.ts';
 
@@ -110,17 +110,17 @@ export function Preflop() {
                 <div>
                   <dt>Your hand</dt>
                   <dd className="num">{puzzle.hand}</dd>
-                  <dd className="muted small">one of the 169 starting classes</dd>
+                  <dd className="muted small">One of the 169 starting classes</dd>
                 </div>
                 <div>
                   <dt>The chart says</dt>
                   <dd className="num">{labelFor(puzzle.spot, verdict.best)}</dd>
-                  <dd className="muted small">{BUCKET_WORDS[puzzle.bucket]}, {copy.position.toLowerCase()}</dd>
+                  <dd className="muted small">{bucketName(puzzle.bucket)}, {copy.position.toLowerCase()}</dd>
                 </div>
                 <div>
                   <dt>Cost of the difference</dt>
                   <dd className="num">{verdict.evLost.toFixed(2)}</dd>
-                  <dd className="muted small">big blinds, on the same scale a match is scored with</dd>
+                  <dd className="muted small">Big blinds, on the same scale a match is scored with</dd>
                 </div>
               </dl>
               <p className="muted">

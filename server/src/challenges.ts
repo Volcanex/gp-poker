@@ -62,14 +62,14 @@ export async function createChallenge(
   rated: boolean
 ): Promise<{ ok: true; row: ChallengeRow } | Refusal> {
   if (mode !== 'heads-up') {
-    return { ok: false, status: 400, error: 'only heads-up challenges can be shared for now' };
+    return { ok: false, status: 400, error: 'Only heads-up challenges can be shared for now' };
   }
   const open = await countOpenChallenges(creatorId);
   if (open >= MAX_OPEN_CHALLENGES) {
     return {
       ok: false,
       status: 429,
-      error: `you already have ${MAX_OPEN_CHALLENGES} links waiting. Cancel one to make another.`,
+      error: `You already have ${MAX_OPEN_CHALLENGES} links waiting. Cancel one to make another.`,
     };
   }
 
@@ -109,27 +109,27 @@ export async function challengeView(id: string): Promise<ChallengeView | null> {
   };
 }
 
-const TAKEN = 'this challenge was already taken';
+const TAKEN = 'This challenge was already taken';
 
 export async function acceptChallenge(
   id: string,
   userId: string
 ): Promise<{ ok: true; matchId: string } | Refusal> {
   const row = await getChallengeById(id);
-  if (!row) return { ok: false, status: 404, error: 'no such challenge' };
+  if (!row) return { ok: false, status: 404, error: 'No such challenge' };
   if (row.creatorId === userId) {
-    return { ok: false, status: 400, error: 'this is your own link. Send it to the friend you want to play.' };
+    return { ok: false, status: 400, error: 'This is your own link. Send it to the friend you want to play.' };
   }
 
   const state = statusOf(row);
   if (state === 'accepted') return { ok: false, status: 409, error: TAKEN };
-  if (state === 'cancelled') return { ok: false, status: 409, error: 'this challenge was cancelled' };
-  if (state === 'expired') return { ok: false, status: 410, error: 'this link has expired' };
+  if (state === 'cancelled') return { ok: false, status: 409, error: 'This challenge was cancelled' };
+  if (state === 'expired') return { ok: false, status: 410, error: 'This link has expired' };
 
   // A person can only be at one table at a time, and a link that seated
   // somebody twice would abandon the match they are already playing.
   if (roomForPlayer(userId)) {
-    return { ok: false, status: 409, error: 'you are already in a match. Finish it before starting another.' };
+    return { ok: false, status: 409, error: 'You are already in a match. Finish it before starting another.' };
   }
   if (roomForPlayer(row.creatorId)) {
     const creator = await getUserById(row.creatorId);
@@ -161,8 +161,8 @@ export async function acceptChallenge(
 
 export async function cancelChallenge(id: string, userId: string): Promise<{ ok: true } | Refusal> {
   const row = await getChallengeById(id);
-  if (!row) return { ok: false, status: 404, error: 'no such challenge' };
-  if (row.creatorId !== userId) return { ok: false, status: 403, error: 'only the person who made this link can cancel it' };
+  if (!row) return { ok: false, status: 404, error: 'No such challenge' };
+  if (row.creatorId !== userId) return { ok: false, status: 403, error: 'Only the person who made this link can cancel it' };
   const cancelled = await cancelOpenChallenge(id, userId);
   if (!cancelled) {
     const state = statusOf(row);

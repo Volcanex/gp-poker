@@ -57,7 +57,7 @@ describe('admin tickets', () => {
     const cookies = { ot_session: player.token };
     const post = await app.inject({ method: 'POST', url: '/api/tickets', cookies, payload: body('nope') });
     expect(post.statusCode).toBe(403);
-    expect(post.json().error).toBe('admin only');
+    expect(post.json().error).toBe('Admin only');
 
     const list = await app.inject({ method: 'GET', url: '/api/admin/tickets', cookies });
     expect(list.statusCode).toBe(403);

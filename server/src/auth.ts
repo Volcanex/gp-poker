@@ -32,10 +32,10 @@ const NAME_RE = /^[a-zA-Z0-9_]{3,20}$/;
 
 export function validateName(name: string): string | null {
   if (!NAME_RE.test(name)) {
-    return 'name must be 3-20 characters: letters, digits or underscore';
+    return 'Name must be 3-20 characters: letters, digits or underscore';
   }
   if (name.toLowerCase().startsWith('guest-')) {
-    return 'name cannot start with guest-';
+    return 'Name cannot start with guest-';
   }
   return null;
 }
@@ -150,7 +150,7 @@ export async function requireAdmin(
 ): Promise<UserRow | null> {
   const user = await resolveSessionUser(request);
   if (!user || !user.admin) {
-    reply.code(403).send({ error: 'admin only' });
+    reply.code(403).send({ error: 'Admin only' });
     return null;
   }
   await touchLastSeen(user.id);
@@ -164,12 +164,12 @@ export async function claimGuest(
 ): Promise<{ ok: true; user: UserRow } | { ok: false; error: string }> {
   const nameError = validateName(name);
   if (nameError) return { ok: false, error: nameError };
-  if (password.length < 6) return { ok: false, error: 'password must be at least 6 characters' };
+  if (password.length < 6) return { ok: false, error: 'Password must be at least 6 characters' };
   const existing = await getUserByNameLower(name.toLowerCase());
-  if (existing) return { ok: false, error: 'name already taken' };
+  if (existing) return { ok: false, error: 'That name is already taken. Choose another one.' };
   const passwordHash = await hashPassword(password);
   const user = await claimGuestUser(guestId, name, passwordHash);
-  if (!user) return { ok: false, error: 'account is not a guest' };
+  if (!user) return { ok: false, error: 'That account is not a guest' };
   return { ok: true, user };
 }
 
@@ -178,8 +178,8 @@ export async function login(
   password: string
 ): Promise<{ ok: true; user: UserRow } | { ok: false; error: string }> {
   const user = await getUserByNameLower(name.toLowerCase());
-  if (!user || !user.passwordHash) return { ok: false, error: 'invalid name or password' };
+  if (!user || !user.passwordHash) return { ok: false, error: 'Invalid name or password' };
   const valid = await verifyPassword(password, user.passwordHash);
-  if (!valid) return { ok: false, error: 'invalid name or password' };
+  if (!valid) return { ok: false, error: 'Invalid name or password' };
   return { ok: true, user };
 }

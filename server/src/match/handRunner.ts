@@ -179,11 +179,11 @@ export class EngineHandRunner implements HandRunner {
     const seat = this.engineSeat(tableSeat);
 
     if (seat === null || seat !== this.state.toAct) {
-      hub.send(userId, { t: 'err', c: 'not_your_turn', msg: 'it is not your turn' });
+      hub.send(userId, { t: 'err', c: 'not_your_turn', msg: 'It is not your turn' });
       return false;
     }
     if (msg.h !== this.handNumber || msg.n !== this.state.seq) {
-      hub.send(userId, { t: 'err', c: 'stale', msg: 'that hand or action has already moved on' });
+      hub.send(userId, { t: 'err', c: 'stale', msg: 'That hand or action has already moved on' });
       return false;
     }
 
@@ -191,7 +191,7 @@ export class EngineHandRunner implements HandRunner {
     try {
       next = apply(this.state, seat, msg.v !== undefined ? { a: msg.a, v: msg.v } : { a: msg.a });
     } catch (err) {
-      const message = err instanceof IllegalAction ? err.message : 'illegal action';
+      const message = err instanceof IllegalAction ? err.message : 'That action is not legal here';
       hub.send(userId, { t: 'err', c: 'illegal', msg: message });
       return false;
     }
