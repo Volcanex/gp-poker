@@ -1,9 +1,11 @@
 # Sound
 
 Small, framework-free sound module: a Web Audio engine, four swappable
-packs, and a `useSoundSettings()` hook for the settings menu. Nothing here
-is wired into the table or settings UI yet; see "Integration points" below
-for what the next agent needs to call.
+packs, and a `useSoundSettings()` hook for the settings menu. The callers
+live outside this directory: `../table/sounds.ts` plays the table cues,
+`../chat/use-chat.ts` the chat one, `../ui/presence.tsx` the match found
+alert, `../ui/settings.tsx` shows the controls and `../app.tsx` unlocks the
+context on the first gesture. See "Integration points" for the contract.
 
 ## Files
 
@@ -189,8 +191,8 @@ running total so a regeneration cannot quietly blow past it.
 
 ## Integration points
 
-Two things the table/settings agent needs to wire up; nothing in this
-directory calls them itself:
+The two calls the rest of the app makes; nothing in this directory calls
+them itself, which is what keeps the module free of table knowledge:
 
 1. **Unlock on first gesture**: call `sound.unlock()` from the first
    `pointerdown` or `keydown` listener at the app root. Browsers block
