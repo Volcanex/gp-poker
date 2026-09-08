@@ -276,12 +276,27 @@ starts on as though it were earned.
 | `/` | queue, how it works, top ten |
 | `/leaderboard` | top 100 |
 | `/u/:name` | profile |
-| `/m/:id` | live table while playing, result summary once finished |
+| `/watch` | live tables, and the ones that just finished |
+| `/m/:id` | live table while playing, spectator seat if you have none, result summary once finished |
 | `/m/:id/h/:n` | hand replay, scrubber and fairness checks |
-| `/m/mock` | the scripted table, dev only (`?step=N` freezes one moment, `?mode=six-max` runs the six-handed script) |
+| `/m/mock` | the scripted table, dev only (`?step=N` freezes one moment, `?mode=six-max` runs the six-handed script, `?watch=1` drops the seat) |
 
 `useTitle` (`src/ui/title.ts`) sets the document title per route and appends
 the product name, so it is spelled in one place.
+
+## Watching
+
+`/watch` lists the live tables from `/api/live` on a five second clock, with
+`/api/recent` under it. A row opens `/m/:id` like any other match link, and
+whether that is a table or a spectator seat is the server's answer, not the
+route's: `view.you == null` is the whole test. Watching adds a strip above
+`.match` carrying the badges and who is playing, a fourth dock state (`watch`)
+holding the live status and the way out, and an empty key legend, because a
+spectator has no keys to press. **None of it is a row of `.match`'s grid**:
+the header, the felt and the dock keep one box in every state, and the strip
+sits outside that column so the felt is unchanged. `/m/mock?watch=1` runs the
+mock script with the seat removed, which is how the watching table is
+screenshotted without a live match.
 
 ## Socket contract
 The session is a cookie the server sets on the first `GET /api/me`, so the

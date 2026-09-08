@@ -7,6 +7,9 @@ import { ResultPanel } from '../table/result-panel.tsx';
 import type { Match as MatchData } from '../net/types.ts';
 import { api } from '../net/api.ts';
 import { useServerMsg, useSession } from '../net/session.tsx';
+import { playerList } from '../table/dock.tsx';
+import { MODE_NAME } from '../ui/mode-tabs.tsx';
+import { StakeBadge } from './feed.tsx';
 import { useTitle } from '../ui/title.ts';
 import { mockScript } from '../dev/mock.ts';
 
@@ -16,8 +19,12 @@ export function Match() {
   const isMock = id === 'mock' || params.get('mock') === '1';
   const mode: Mode = params.get('mode') === 'six-max' ? 'six-max' : 'heads-up';
   const rated = params.get('rated') !== 'casual';
+  /* `?watch=1` runs the same script with no seat, which is what the server
+     sends a spectator. It is how the watching table gets a screenshot and an
+     e2e pass without a live match to sit at. */
+  const watch = params.get('watch') === '1';
   return isMock ? (
-    <MockMatch step={numOrNull(params.get('step'))} mode={mode} rated={rated} />
+    <MockMatch step={numOrNull(params.get('step'))} mode={mode} rated={rated} watch={watch} />
   ) : (
     <LiveMatch id={id} />
   );
@@ -50,7 +57,11 @@ function LiveMatch({ id }: { id: string }) {
   const [sending, setSending] = useState(false);
   const pending = useRef<string | null>(null);
   const latest = useRef<TableView | null>(null);
-  useTitle(`Match ${id}`);
+  /* Watching is decided by the view, not by the route: the same URL is the
+     table for the two people at it and a spectator seat for everyone else,
+     and the server is the one that knows which you are. */
+  const watching = view != null && view.you == null;
+  useTitle(watching ? `Watching ${playerList(view)}` : `Match ${id}`);
 
   /* The match row decides which of the two pages this is. A finished match
      never opens a socket subscription; a playing one never waits on REST. */
@@ -122,12 +133,18 @@ function LiveMatch({ id }: { id: string }) {
     [view, sending, send, id],
   );
 
-  /* Play again means the match just played: the same mode, rated or not. */
+  /* Play again means the match just played: the same mode, rated or not.
+     Somebody who was watching it has no match to play again, so the primary
+     button sends them back to the tables that are still running. */
   const done = ended ?? opened;
   const playAgain = useCallback(() => {
+    if (watching) {
+      nav('/watch');
+      return;
+    }
     startQueue(done?.format.mode, done?.rated);
     nav('/');
-  }, [startQueue, nav, done]);
+  }, [startQueue, nav, done, watching]);
 
   if (opened) return <MatchSummary match={opened} meId={me?.id ?? null} onAgain={playAgain} />;
 
@@ -143,6 +160,7 @@ function LiveMatch({ id }: { id: string }) {
 
   return (
     <>
+      {watching && !ended && <WatchBar view={view} />}
       <Table view={view} onAct={onAct} sending={sending} ended={ended != null} />
       {ended ? (
         <>
@@ -150,6 +168,7 @@ function LiveMatch({ id }: { id: string }) {
             match={ended}
             meId={me?.id ?? null}
             onAgain={playAgain}
+            againLabel={watching ? 'Watch another table' : undefined}
             onReview={scrollToHands}
           />
           <main className="page">
@@ -163,9 +182,31 @@ function LiveMatch({ id }: { id: string }) {
   );
 }
 
+/* Above the felt, not inside it: the table's header, felt and dock each keep
+   one box in every state of a hand, and a strip that only some viewers see has
+   no business in that column. It sits between the top bar and the table
+   instead, where taking its own height costs the felt nothing. */
+function WatchBar({ view }: { view: TableView }) {
+  return (
+    <div className="watch-bar">
+      <div className="bar-in">
+        <span className="tagset">
+          <span className="badge badge-plain">{MODE_NAME[view.format.mode]}</span>
+          <StakeBadge rated={view.format.rated} practice={view.format.practice === true} />
+        </span>
+        <span className="w-who">
+          Watching <b>{playerList(view)}</b>
+        </span>
+      </div>
+    </div>
+  );
+}
+
 /* ----------------------------------------------------------------- mock */
 
-function MockMatch({ step, mode, rated }: { step: number | null; mode: Mode; rated: boolean }) {
+function MockMatch({
+  step, mode, rated, watch,
+}: { step: number | null; mode: Mode; rated: boolean; watch: boolean }) {
   const script = useMemo(() => mockScript(mode, rated), [mode, rated]);
   const start = step == null ? 0 : Math.max(0, Math.min(script.length - 1, step));
   const [i, setI] = useState(start);
@@ -198,12 +239,18 @@ function MockMatch({ step, mode, rated }: { step: number | null; mode: Mode; rat
   const end = script[i].end ?? null;
 
   /* The script carries a clock offset, not an absolute deadline, so a step
-     looks the same whenever it is entered. */
+     looks the same whenever it is entered. Watching drops the seat and the
+     legal actions with it, which is what the server withholds on the wire.
+     The mock cannot also hide the hero's hole cards, because the script hands
+     them over already dealt: the stripping itself is the server's job and is
+     tested there. */
   const view = useMemo(() => {
     if (!base) return null;
-    if (!base.clock) return base;
-    return { ...base, clock: { ...base.clock, deadline: enteredAt + base.format.clockMs } };
-  }, [base, enteredAt]);
+    const seated = base.clock
+      ? { ...base, clock: { ...base.clock, deadline: enteredAt + base.format.clockMs } }
+      : base;
+    return watch ? { ...seated, you: null, legal: null } : seated;
+  }, [base, enteredAt, watch]);
 
   const replay = useCallback(() => {
     setI(0);
@@ -217,6 +264,7 @@ function MockMatch({ step, mode, rated }: { step: number | null; mode: Mode; rat
 
   return (
     <>
+      {watch && !ended && <WatchBar view={view} />}
       <Table view={view} onAct={advance} sending={false} ended={ended != null} />
       {ended ? (
         <>

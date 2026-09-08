@@ -24,6 +24,9 @@ export interface MatchSeat {
 }
 
 export interface LeaderboardRow {
+  /* Read it through avatarSeed() in src/net/adapt.ts: a row written before the
+     server carried ids has only a name to go on. */
+  id?: string;
   name: string;
   rating: number;
   rd: number;
@@ -41,6 +44,8 @@ export interface RatingPoint {
 export interface UserMatchSummary {
   id: string;
   opponent: string;
+  /* Same bargain as the leaderboard's id: read it through avatarSeed(). */
+  opponentId?: string;
   result: 'win' | 'loss' | 'draw';
   ratingChange: number;
   finishedAt: string | null;

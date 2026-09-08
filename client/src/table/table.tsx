@@ -230,7 +230,7 @@ export function Table({ view, onAct, sending, bare, ended }: TableProps) {
       {!bare && !ended && (
         <>
           <Dock view={view} onAct={onAct} sending={sending} />
-          <KeyLegend />
+          <KeyLegend watching={view.you == null} />
         </>
       )}
     </div>

@@ -119,3 +119,20 @@
 .site-foot a { color: var(--text-secondary); }
 .site-foot a:hover { color: var(--text-primary); }
 .site-foot .sep { color: var(--text-placeholder); }
+
+/* ------------------------------------------------------------------- watch */
+
+/* A live row carries what a finished one does not: the rating each player
+   brought to the table, and the button that says what the row is for. The row
+   is already an overlaid link, so anything clickable inside it has to be
+   lifted above that layer. */
+.feed-players .rating {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.feed-row .watch-go { position: relative; z-index: 1; flex: none; }
+
+@media (max-width: 560px) {
+  .feed-row .watch-go { margin-left: auto; }
+}

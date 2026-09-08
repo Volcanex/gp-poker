@@ -10,6 +10,7 @@ import {
 } from './preactions.ts';
 import type { PreAction } from './preactions.ts';
 import { ordinal } from './labels.ts';
+import { Link } from 'react-router-dom';
 
 export interface DockProps {
   view: TableView;
@@ -17,7 +18,7 @@ export interface DockProps {
   sending: boolean;
 }
 
-export type DockState = 'wait' | 'turn' | 'over';
+export type DockState = 'wait' | 'turn' | 'over' | 'watch';
 
 /* The dock is the hand. One region at the bottom of the table, one fixed
    height, three states rendered in the same box: waiting, your turn, hand
@@ -29,7 +30,12 @@ export function Dock({ view, onAct, sending }: DockProps) {
   const seated = view.you != null;
   const yourTurn = legal != null && seated;
   const over = view.street === 'done';
-  const state: DockState = yourTurn ? 'turn' : over ? 'over' : 'wait';
+  /* Watching is a fourth state in the same box, not a disabled version of the
+     first one: a spectator has no pre-action to arm and no seat to be waited
+     for, so offering them dead pills says less than saying what they are. The
+     hand still ends the way it does for a player, which is the whole reason to
+     be here. */
+  const state: DockState = yourTurn ? 'turn' : over ? 'over' : seated ? 'wait' : 'watch';
 
   const [pre, setPre] = useState<PreAction | null>(null);
   const toCall = amountToCall(view);
@@ -63,6 +69,8 @@ export function Dock({ view, onAct, sending }: DockProps) {
             <TurnControls view={view} legal={legal} sending={sending} onAct={onAct} />
           ) : state === 'over' ? (
             <HandOver view={view} />
+          ) : state === 'watch' ? (
+            <Watching view={view} />
           ) : (
             <Waiting view={view} pre={pre} onPre={setPre} disabled={!seated} />
           )}
@@ -129,7 +137,6 @@ function Waiting({
 }
 
 export function waitingText(view: TableView): string {
-  if (view.you == null) return 'Spectating. Actions are hidden for watchers.';
   const mine = view.seats.find((s) => s.i === view.you);
   if (mine?.out) {
     return mine.place == null
@@ -138,6 +145,40 @@ export function waitingText(view: TableView): string {
   }
   const acting = view.seats.find((s) => s.acting);
   if (acting && acting.i !== view.you) return `Waiting for ${acting.name}`;
+  return 'Waiting for the next card';
+}
+
+/* ----------------------------------------------------------------- watching */
+
+/* The same box the players' controls live in, and the only control a spectator
+   has, which is the way out. Two rows like the waiting state, so the dock is
+   one height in every state a spectator can see it in. Who is at the table is
+   said once, in the strip above the felt, not again here. */
+function Watching({ view }: { view: TableView }) {
+  return (
+    <>
+      <div className="dock-status">{watchingText(view)}</div>
+      <div className="dock-watch">
+        <span className="w-note">Hole cards turn over at showdown</span>
+        <Link className="btn btn-secondary btn-sm" to="/watch">
+          Stop watching
+        </Link>
+      </div>
+    </>
+  );
+}
+
+/* Seat order, which is the order the felt reads in. "and" rather than a bare
+   list, because heads-up is two names and should read as a sentence. */
+export function playerList(view: TableView): string {
+  const names = view.seats.map((s) => s.name);
+  if (names.length <= 1) return names.join('');
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+export function watchingText(view: TableView): string {
+  const acting = view.seats.find((s) => s.acting);
+  if (acting) return `${acting.name} is to act`;
   return 'Waiting for the next card';
 }
 
@@ -173,12 +214,23 @@ function HandOver({ view }: { view: TableView }) {
         </span>
       </div>
       {/* The three choices stay in the box as inert ghosts: the dock's height
-          is the same in every state, and the eye keeps its place. */}
-      <div className="dock-acts" aria-hidden="true">
-        <span className="btn btn-tertiary ghost">Fold</span>
-        <span className="btn btn-secondary ghost">Check</span>
-        <span className="btn btn-primary ghost" data-primary>Raise</span>
-      </div>
+          is the same in every state, and the eye keeps its place. A spectator
+          has no choices to hold open, so the same row carries the one thing
+          that is theirs to press. */}
+      {view.you == null ? (
+        <div className="dock-watch">
+          <span className="w-note">Hole cards turn over at showdown</span>
+          <Link className="btn btn-secondary btn-sm" to="/watch">
+            Stop watching
+          </Link>
+        </div>
+      ) : (
+        <div className="dock-acts" aria-hidden="true">
+          <span className="btn btn-tertiary ghost">Fold</span>
+          <span className="btn btn-secondary ghost">Check</span>
+          <span className="btn btn-primary ghost" data-primary>Raise</span>
+        </div>
+      )}
     </>
   );
 }
@@ -381,7 +433,11 @@ function TurnControls({
 
 /* One spaced line under the dock, desktop only, and the same line in every
    state: a legend that comes and goes is a legend that moves the felt. */
-export function KeyLegend() {
+export function KeyLegend({ watching }: { watching?: boolean } = {}) {
+  /* A spectator has no keys to press, and a legend that offers three of them
+     is a legend that lies. The row still renders, and holds its height, so the
+     felt is the same size whether you are playing or watching. */
+  if (watching) return <div className="dock-keys" aria-hidden="true" />;
   return (
     <div className="dock-keys" aria-hidden="true">
       <span><span className="kbd">F</span> fold</span>
