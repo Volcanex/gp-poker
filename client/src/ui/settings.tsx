@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { GearSix } from '@phosphor-icons/react';
 import { useGInit } from './bits.tsx';
 import {
   ACCENTS, PALETTES, THEMES, applyPrefs, defaultAccentFor, readPrefs, writePrefs,
@@ -62,6 +63,7 @@ export function SettingsMenu() {
         popoverTarget="settings-menu"
         aria-haspopup="dialog"
       >
+        <GearSix size={20} aria-hidden="true" />
         Settings
       </button>
 
@@ -183,8 +185,13 @@ export function SettingsMenu() {
 
         <div className="menu-title">Country</div>
         {/* The flag beside your name at every table. Its own control rather
-            than a list of choices here: 249 of them is a search, not a menu. */}
-        <CountryPicker label="Country" />
+            than a list of choices here: 249 of them is a search, not a menu.
+            Same row shape as every other setting: a label, then a control the
+            same height as the rest. */}
+        <div className="switch-row">
+          <span className="label">Flag</span>
+          <CountryPicker label="Country" />
+        </div>
 
         <hr className="separator" />
         <SoundSection />

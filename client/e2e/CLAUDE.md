@@ -60,12 +60,14 @@ opened only once `/api/me` has answered, which is why `push` waits for it.
 by registering its own handler **after** `stubApi`, for the reason below. Every
 other spec sees the ordinary player, so the bar is not in any other baseline.
 
-**A theme has to be stamped into `ot.prefs`, not into g's key.** `setTheme` here
-writes `g-theme` and the attribute, and the app's `applyPrefs` overwrites both
-from `ot.prefs` the moment it mounts, so a page set up with `setTheme` alone is
-dark whatever the test is called. `settings.spec.ts` stamps the record instead.
-The rest of the suite still uses `setTheme`, which is why every baseline in
-`__screenshots__` whose name ends in `-light` is a picture of the dark theme.
+**A theme has to be stamped into `ot.prefs`, not into g's key.** The app's
+`applyPrefs` reads `ot.prefs` on mount and reapplies it, overwriting whatever
+`g-theme` or the attribute already said, so `setTheme` writes into `ot.prefs`
+(merged with whatever is already there, so it does not clobber other prefs a
+test set first) rather than either of those. Before 2026-09-08 it wrote
+`g-theme` and the attribute directly, which `applyPrefs` undid on mount, and
+every baseline in `__screenshots__` whose name ends in `-light` was quietly a
+picture of the dark theme.
 
 **Playwright runs the last matching route handler**, so a catch-all has to be
 registered first and the fixtures after it. Registered the other way round the

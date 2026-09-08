@@ -24,6 +24,15 @@ there are two of them and they have nothing else in common: the tools pages'
 caller already renders, reading `data-r` and `data-c` off them, so a grid gains
 an entrance without changing its markup, its focus handling or its shading.
 
+**`wave` is optional on purpose.** Leaving it out gives a grid the entrance it
+gets on mount and nothing after, which is what the range explorer wants: the
+wave is for opening the page, not for every edit, so painting, typing, the
+percent slider and the presets all update the cells in place instead of
+restarting it. The opening explorer bumps `wave` on every parameter because
+re-entering is the point there. `CELL_ENTER` and `WAVE_SPAN` are shared by
+both, so a timing change (doubled 2026-09-08, closer to 1s than half a second)
+moves both grids' entrance together.
+
 ## The shell
 
 `shell.tsx` is the site's persistent chrome and it is g-system's `.g-shell`:
@@ -162,6 +171,18 @@ is why the swatch in the menu can paint itself by carrying the same attribute.
 | Palette | `data-palette` | absent (slate), `felt`, `sky`, `umber` |
 | Accent | `data-accent` | absent (g's own), `ocean`, `jade`, `violet`, `clay`, `ember` |
 | Four colour deck | `data-deck` | absent, `four` |
+
+**Every row is one grid.** `.settings-menu .switch-row` is
+`grid-template-columns: 1fr auto`, a label on the left and a control on the
+right, so a button, a select, a slider and the country picker all end on the
+same edge. Every sized control shares `--h-control-sm`; the switch and the
+palette swatches are the exceptions the grid does not force onto the height
+scale, because a 28px toggle would stop reading as one. The country picker
+used to be a section title over a full-width control with nothing beside it;
+it is a `.switch-row` like everything else now, labelled "Flag". The trigger
+button carries `GearSix` at the same size and placement as a nav item's icon,
+overridden to 20px in the sidebar row (`.side-foot .settings > .btn svg`)
+because `.btn`'s own icon rule would otherwise shrink it to 15px.
 
 All three live in one record under `ot.prefs`. **The theme is written twice on
 purpose**: g-ui reads its own `g-theme` key at load and stamps the attribute

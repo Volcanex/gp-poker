@@ -1,4 +1,4 @@
-/* g-system@1.0.0, vendored, do not edit. Update: node scripts/vendor.mjs from the g-system repo. */
+/* g-system@1.1.0, vendored, do not edit. Update: node scripts/vendor.mjs from the g-system repo. */
 /* g-tokens fonts — Inter (UI), Space Grotesk (display, optional), JetBrains Mono. */
 
 @font-face {
@@ -245,17 +245,40 @@
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
   --sp-5: 24px; --sp-6: 32px; --sp-7: 48px; --sp-8: 64px;
 
+  /* ---- vertical rhythm: line-heights in pixels, one per size band, all
+     multiples of 4. A ratio puts a 13px row on 19.5px and a 15px row on
+     22.5px, so nothing beneath them can land on the grid and half-pixel
+     y positions draw hairlines at double weight in Safari. ---- */
+  --lh-1: 16px;   /* 11 to 12px: caption, meta, hint */
+  --lh-2: 20px;   /* 13 to 15px: ui, body, label, subheading */
+  --lh-3: 24px;   /* 16 to 18px: heading, prose body */
+  --lh-4: 28px;   /* 20 to 22px */
+  --lh-5: 32px;   /* 24px and over: page title */
+
+  /* ---- height scale: every control and every row picks from these, so
+     neighbours share a bottom edge without anyone measuring ---- */
+  --h-1: 24px; --h-2: 28px; --h-3: 32px; --h-4: 40px; --h-5: 48px;
+
+  /* ---- page gutter: one token, three breakpoints (widened below) ---- */
+  --gutter: var(--sp-4);
+
+  /* ---- content columns: a page picks a measure, never a number ---- */
+  --col-narrow: 480px;    /* a form, a dialog body, a sign-in */
+  --col-text: 68ch;       /* reading measure, what .prose uses */
+  --col-content: 720px;   /* one column of panels */
+  --col-page: 980px;      /* a dashboard inside the shell */
+
   /* ---- density: remapped by [data-density="compact"] only ---- */
-  --h-control: 32px;
-  --h-control-sm: 28px;
-  --h-control-lg: 38px;
+  --h-control: var(--h-3);
+  --h-control-sm: var(--h-2);
+  --h-control-lg: var(--h-4);
   --pad-control-x: 12px;
   --pad-control-x-sm: 10px;
   --pad-control-x-lg: 16px;
   --pad-card: 16px;
   --font-size-ui: 13px;
   --font-size-body: 14px;
-  --row-h: 40px;
+  --row-h: var(--h-4);
 
   /* ---- motion: two curves, four durations, three springs ---- */
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
@@ -785,18 +808,27 @@
   }
 }
 
+/* Page gutter widens with the viewport. The 720px step is the same one the
+   app shell folds its sidebar at, so chrome and content move together. */
+@media (min-width: 720px) {
+  :root, [data-theme] { --gutter: var(--sp-5); }
+}
+@media (min-width: 1200px) {
+  :root, [data-theme] { --gutter: var(--sp-6); }
+}
+
 /* Density: one attribute on the root, never a per-component prop. */
 [data-density="compact"] {
-  --h-control: 28px;
-  --h-control-sm: 24px;
-  --h-control-lg: 34px;
+  --h-control: var(--h-2);
+  --h-control-sm: var(--h-1);
+  --h-control-lg: var(--h-3);
   --pad-control-x: 10px;
   --pad-control-x-sm: 8px;
   --pad-control-x-lg: 12px;
   --pad-card: 12px;
   --font-size-ui: 12.5px;
   --font-size-body: 13px;
-  --row-h: 32px;
+  --row-h: var(--h-3);
 }
 
 /* Browsers without linear() easing fall back to ease-out. */
@@ -828,15 +860,18 @@ body {
   font-size: var(--font-size-body);
   font-feature-settings: var(--font-features-ui);
   font-optical-sizing: auto;
-  line-height: 1.5;
+  line-height: var(--lh-2);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
-h1, h2, h3, h4 { margin: 0; font-weight: 500; letter-spacing: -0.01em; line-height: 1.25; }
-h1 { font-size: 24px; letter-spacing: -0.02em; }
+/* Headings take a pixel line-height from the rhythm scale, so a heading
+   row is a whole number of 4px steps and whatever follows it stays on
+   the grid. */
+h1, h2, h3, h4 { margin: 0; font-weight: 500; letter-spacing: -0.01em; line-height: var(--lh-3); }
+h1 { font-size: 24px; line-height: var(--lh-5); letter-spacing: -0.02em; }
 h2 { font-size: 18px; }
-h3 { font-size: 15px; }
+h3 { font-size: 15px; line-height: var(--lh-2); }
 p { margin: 0; }
 a { color: var(--text-primary); text-decoration-color: var(--slate-a8); text-underline-offset: 2px; }
 a:hover { text-decoration-color: currentColor; }
@@ -872,7 +907,9 @@ a:hover { text-decoration-color: currentColor; }
   font-size: var(--font-size-ui);
   font-weight: 450;
   letter-spacing: -0.003em;
-  line-height: 1;
+  /* a pixel line-height, not 1: the label box is then a grid step tall and
+     centres on a whole pixel inside every control height */
+  line-height: var(--lh-2);
   white-space: nowrap;
   cursor: pointer;
   user-select: none;
@@ -921,10 +958,11 @@ a:hover { text-decoration-color: currentColor; }
 
 /* ---------------------------------------------------------------- fields */
 
-.field { display: flex; flex-direction: column; gap: 6px; }
+.field { display: flex; flex-direction: column; gap: var(--sp-2); }
 
 .label {
   font-size: var(--font-size-ui);
+  line-height: var(--lh-2);
   font-weight: 500;
   color: var(--text-primary);
 }
@@ -944,7 +982,7 @@ a:hover { text-decoration-color: currentColor; }
     border-color var(--dur-base) var(--ease-out),
     background var(--dur-base) var(--ease-out);
 }
-.textarea { height: auto; min-height: 72px; padding: 8px var(--pad-control-x); resize: vertical; line-height: 1.5; }
+.textarea { height: auto; min-height: 72px; padding: var(--sp-2) var(--pad-control-x); resize: vertical; line-height: var(--lh-2); }
 .input::placeholder, .textarea::placeholder { color: var(--text-placeholder); }
 .input:hover, .textarea:hover, .select:hover { border-color: var(--border-hover); }
 .input:focus, .textarea:focus, .select:focus {
@@ -957,9 +995,9 @@ a:hover { text-decoration-color: currentColor; }
 }
 .field .error {
   display: flex; align-items: center; gap: 5px;
-  font-size: 12px; color: var(--danger-text);
+  font-size: 12px; line-height: var(--lh-1); color: var(--danger-text);
 }
-.field .hint { font-size: 12px; color: var(--text-secondary); }
+.field .hint { font-size: 12px; line-height: var(--lh-1); color: var(--text-secondary); }
 
 /* Native select, real Phosphor caret-up-down as a mask. */
 .select {
@@ -1059,7 +1097,7 @@ a:hover { text-decoration-color: currentColor; }
   border-radius: var(--radius-card);
   padding: var(--pad-card);
 }
-.card-title { font-size: var(--font-size-ui); font-weight: 500; }
+.card-title { font-size: var(--font-size-ui); line-height: var(--lh-2); font-weight: 500; }
 
 .well {
   background: var(--well-bg);
@@ -1110,7 +1148,7 @@ a:hover { text-decoration-color: currentColor; }
 
 .avatar {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 26px; height: 26px;
+  width: var(--h-1); height: var(--h-1);
   border-radius: 50%;
   /* opaque on purpose: alpha fills merge when avatars overlap in a stack */
   background: color-mix(in srgb, var(--text-primary) 9%, var(--surface-1));
@@ -1131,7 +1169,7 @@ a:hover { text-decoration-color: currentColor; }
 
 .kbd {
   display: inline-flex; align-items: center; justify-content: center;
-  min-width: 18px; height: 18px; padding: 0 4px;
+  min-width: 20px; height: 20px; padding: 0 var(--sp-1);
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle);
   border-bottom-width: 2px;
@@ -1139,6 +1177,7 @@ a:hover { text-decoration-color: currentColor; }
   color: var(--text-secondary);
   font-family: var(--font-ui);
   font-size: 11px;
+  line-height: 1;
 }
 
 /* ---------------------------------------------------------------- loading */
@@ -1208,11 +1247,11 @@ dialog.dlg::backdrop {
 dialog.dlg[open]::backdrop { opacity: 1; }
 @starting-style { dialog.dlg[open]::backdrop { opacity: 0; } }
 
-.dlg-body { padding: var(--sp-4) var(--sp-4) var(--sp-3); display: flex; flex-direction: column; gap: 6px; }
-.dlg-title { font-size: 15px; font-weight: 500; }
-.dlg-desc { font-size: var(--font-size-ui); color: var(--text-secondary); line-height: 1.55; }
+.dlg-body { padding: var(--sp-4) var(--sp-4) var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
+.dlg-title { font-size: 15px; line-height: var(--lh-2); font-weight: 500; }
+.dlg-desc { font-size: var(--font-size-ui); color: var(--text-secondary); line-height: var(--lh-2); }
 .dlg-foot {
-  display: flex; justify-content: flex-end; gap: 8px;
+  display: flex; justify-content: flex-end; gap: var(--sp-2);
   padding: var(--sp-3) var(--sp-4);
   border-top: 1px solid var(--border-subtle);
 }
@@ -1228,6 +1267,9 @@ dialog.dlg[open]::backdrop { opacity: 1; }
   background: var(--overlay-bg);
   color: var(--text-primary);
   box-shadow: var(--overlay-shadow);
+  /* Unconstrained until g-ui.js sets an inline max-height, which it only does
+     when the menu fits neither below nor above the trigger. */
+  overflow-y: auto;
   opacity: 0;
   scale: 0.97;
   transform-origin: var(--_origin, top);
@@ -1243,7 +1285,7 @@ dialog.dlg[open]::backdrop { opacity: 1; }
 .menu-item {
   display: flex; align-items: center; gap: 8px;
   width: 100%;
-  height: 30px; padding: 0 8px;
+  height: var(--h-2); padding: 0 var(--sp-2);
   border: none; border-radius: var(--radius-sm);
   background: none;
   color: var(--text-primary);
@@ -1264,13 +1306,13 @@ dialog.dlg[open]::backdrop { opacity: 1; }
   position: fixed;
   z-index: 50;
   max-width: 240px;
-  padding: 5px 8px;
+  padding: var(--sp-1) var(--sp-2);
   border-radius: var(--radius-sm);
   border: 1px solid var(--card-border);
   background: var(--overlay-bg);
   box-shadow: var(--overlay-shadow);
   color: var(--text-primary);
-  font-size: 12px; line-height: 1.4;
+  font-size: 12px; line-height: var(--lh-1);
   pointer-events: none;
   opacity: 0;
   translate: 0 2px;
@@ -1298,7 +1340,7 @@ dialog.dlg[open]::backdrop { opacity: 1; }
   right: 0; bottom: 0;
   width: 100%;
   display: flex; align-items: flex-start; gap: 9px;
-  padding: 11px 12px;
+  padding: var(--sp-3);
   border: 1px solid var(--card-border);
   border-radius: var(--radius-card);
   background: var(--overlay-bg);
@@ -1311,16 +1353,16 @@ dialog.dlg[open]::backdrop { opacity: 1; }
 }
 .toast[data-entering] { translate: 0 16px; opacity: 0; }
 .toast[data-leaving] { translate: 0 8px; opacity: 0; }
-/* Icons sit on the title's first line: a 15px box centred in the title's
-   18px line-box, so the spinner and the status glyphs share one vertical. */
-.toast > svg, .toast > .spinner { width: 15px; height: 15px; flex: none; margin-top: 1.5px; }
+/* Icons sit on the title's first line: a 15px glyph centred in the title's
+   20px line-box, so the spinner and the status glyphs share one vertical. */
+.toast > svg, .toast > .spinner { width: 15px; height: 15px; flex: none; margin-top: 2.5px; }
 .toast .t-ok { color: var(--ok-text); }
 .toast .t-danger { color: var(--danger-text); }
-.toast b { font-weight: 500; display: block; line-height: 18px; }
-.toast .t-desc { color: var(--text-secondary); font-size: 12px; margin-top: 1px; }
+.toast b { font-weight: 500; display: block; line-height: var(--lh-2); }
+.toast .t-desc { color: var(--text-secondary); font-size: 12px; line-height: var(--lh-1); }
 .toast .t-body { flex: 1; min-width: 0; }
 .toast .btn { margin-left: auto; align-self: center; flex: none; }
-.toast[data-progress] { padding-bottom: 14px; }
+.toast[data-progress] { padding-bottom: var(--sp-4); }
 .toast .g-progress.t-bar { position: absolute; left: 0; right: 0; bottom: 0; width: auto; height: 3px; border-radius: 0 0 var(--radius-card) var(--radius-card); background: transparent; }
 .toast .t-bar .g-progress-fill { border-radius: 0; }
 
@@ -1333,7 +1375,7 @@ dialog.dlg[open]::backdrop { opacity: 1; }
 }
 .tab {
   position: relative;
-  height: 34px; padding: 0 11px;
+  height: var(--h-3); padding: 0 var(--sp-3);
   border: none; background: none;
   color: var(--text-secondary);
   font-family: var(--font-ui); font-size: var(--font-size-ui); font-weight: 450;
@@ -1357,11 +1399,14 @@ dialog.dlg[open]::backdrop { opacity: 1; }
 /* ---------------------------------------------------------------- data */
 
 .table-wrap { overflow-x: auto; }
-.table { width: 100%; border-collapse: collapse; font-size: var(--font-size-ui); }
+/* separate, not collapse: a collapsed border is shared between two cells, so
+   each row keeps half of it and lands on a half pixel. Cells only carry a
+   bottom border, so nothing doubles. */
+.table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: var(--font-size-ui); }
 .table th {
-  height: 36px; padding: 0 var(--sp-3);
+  height: var(--h-3); padding: 0 var(--sp-3);
   text-align: left;
-  font-weight: 500; font-size: 12px;
+  font-weight: 500; font-size: 12px; line-height: var(--lh-1);
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border-subtle);
   white-space: nowrap;
@@ -1377,13 +1422,13 @@ dialog.dlg[open]::backdrop { opacity: 1; }
 .table td.r { font-variant-numeric: tabular-nums; }
 
 .empty {
-  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  display: flex; flex-direction: column; align-items: center; gap: var(--sp-3);
   padding: var(--sp-7) var(--sp-5);
   text-align: center;
 }
-.empty svg { width: 22px; height: 22px; color: var(--text-placeholder); }
-.empty .e-title { font-size: var(--font-size-ui); font-weight: 500; }
-.empty .e-desc { font-size: 12px; color: var(--text-secondary); max-width: 300px; }
+.empty svg { width: var(--h-1); height: var(--h-1); color: var(--text-placeholder); }
+.empty .e-title { font-size: var(--font-size-ui); line-height: var(--lh-2); font-weight: 500; }
+.empty .e-desc { font-size: 12px; line-height: var(--lh-1); color: var(--text-secondary); max-width: 300px; }
 
 /* ---------------------------------------------------------------- command menu */
 
@@ -1401,10 +1446,10 @@ dialog.cmdk {
   font-family: var(--font-ui); font-size: 14px;
 }
 .cmdk-input::placeholder { color: var(--text-placeholder); }
-.cmdk-list { max-height: 300px; overflow-y: auto; padding: 5px; }
+.cmdk-list { max-height: 300px; overflow-y: auto; padding: var(--sp-1); }
 .cmdk-group {
-  padding: 7px 8px 4px;
-  font-size: 11px; font-weight: 500;
+  padding: var(--sp-2) var(--sp-2) var(--sp-1);
+  font-size: 11px; line-height: var(--lh-1); font-weight: 500;
   color: var(--text-placeholder);
 }
 .cmdk-empty { padding: var(--sp-5); text-align: center; font-size: var(--font-size-ui); color: var(--text-secondary); }
@@ -1437,7 +1482,7 @@ dialog.cmdk {
   padding: var(--sp-3) var(--sp-4);
   font-family: var(--font-mono);
   font-size: 12.5px;
-  line-height: 1.6;
+  line-height: var(--lh-2);
   overflow-x: auto;
 }
 .codeblock .copy-btn { position: absolute; top: 6px; right: 6px; }
@@ -1578,7 +1623,9 @@ dialog.cmdk {
 .confirm-btn[data-done] .gi-check { width: 15px; margin-right: 0; }
 .confirm-btn[data-done] .gi-check [data-part="tick"] path { stroke-dashoffset: 0; }
 
-/* Hold to delete: a fill sweeps while held; release early and it rewinds. */
+/* Hold to delete: a fill sweeps while held; release early and it rewinds.
+   Only on fine pointers. Touch gets [data-mode="confirm"], where the same
+   guard is a second tap, so the fill never appears and the label carries it. */
 .hold-btn { position: relative; overflow: hidden; }
 .hold-btn .hold-fill {
   content: "";
@@ -1593,6 +1640,8 @@ dialog.cmdk {
   transform: scaleX(1);
   transition: transform var(--hold-dur, 900ms) linear;
 }
+.hold-btn[data-mode="confirm"] .hold-fill { display: none; }
+.hold-btn[data-confirming] { background: var(--danger-fill-hover); }
 @keyframes g-wiggle {
   0%, 100% { rotate: 0deg; }
   25% { rotate: -9deg; }
@@ -1659,7 +1708,7 @@ dialog.cmdk {
   overflow: hidden;
 }
 .g-shell > aside {
-  display: flex; flex-direction: column; gap: 1px;
+  display: flex; flex-direction: column; gap: var(--sp-1);
   padding: var(--sp-3);
   border-right: 1px solid var(--border-subtle);
   background: var(--surface-1);
@@ -1691,6 +1740,22 @@ dialog.cmdk {
   .g-nav-toggle { display: inline-flex; }
 }
 
+/* The page container inside the shell. The horizontal inset is --gutter,
+   which widens with the viewport, so two authors cannot pick 12 and 16 for
+   the same edge; the measure comes off --col-*, never a bare number. */
+.g-page {
+  width: 100%;
+  max-width: var(--col-page);
+  margin-inline: auto;
+  padding: var(--sp-5) var(--gutter);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+.g-page-narrow { max-width: var(--col-narrow); }
+.g-page-content { max-width: var(--col-content); }
+.g-page-text { max-width: var(--col-text); }
+
 /* hamburger morph */
 .gi-list [data-part] {
   transform-box: view-box; transform-origin: 128px 128px;
@@ -1704,25 +1769,28 @@ dialog.cmdk {
 
 /* Long-form rendered content: markdown output, docs, posts. */
 .prose {
-  max-width: 68ch;
+  max-width: var(--col-text);
   font-size: 14px;
-  line-height: 1.65;
+  line-height: var(--lh-3);
   color: var(--text);
 }
-.prose h1, .prose h2, .prose h3 { color: var(--text-primary); margin: 1.6em 0 0.5em; }
+/* Margins come off the spacing scale, not from ems: an em margin under a
+   ratio line-height is a fraction of a pixel and every block below it
+   inherits the drift. */
+.prose h1, .prose h2, .prose h3 { color: var(--text-primary); margin: var(--sp-5) 0 var(--sp-2); }
 .prose h1:first-child, .prose h2:first-child { margin-top: 0; }
-.prose h1 { font-size: 22px; }
-.prose h2 { font-size: 17px; }
-.prose h3 { font-size: 14.5px; }
-.prose p { margin: 0 0 0.9em; }
+.prose h1 { font-size: 22px; line-height: var(--lh-4); }
+.prose h2 { font-size: 17px; line-height: var(--lh-3); }
+.prose h3 { font-size: 14.5px; line-height: var(--lh-2); }
+.prose p { margin: 0 0 var(--sp-3); }
 .prose a { color: var(--text-primary); }
 .prose strong { font-weight: 500; color: var(--text-primary); }
-.prose ul, .prose ol { margin: 0 0 0.9em; padding-left: 1.4em; }
-.prose li { margin: 0.25em 0; }
+.prose ul, .prose ol { margin: 0 0 var(--sp-3); padding-left: 1.4em; }
+.prose li { margin: 0; }
 .prose li::marker { color: var(--text-placeholder); }
 .prose blockquote {
-  margin: 1em 0;
-  padding: 2px 0 2px 14px;
+  margin: var(--sp-4) 0;
+  padding: 0 0 0 var(--sp-4);
   border-left: 2px solid var(--border);
   color: var(--text-secondary);
 }
@@ -1740,14 +1808,17 @@ dialog.cmdk {
   border-radius: var(--radius);
   padding: var(--sp-3) var(--sp-4);
   overflow-x: auto;
-  line-height: 1.6;
+  line-height: var(--lh-2);
 }
 .prose pre code { background: none; border: none; padding: 0; font-size: 12.5px; }
-.prose hr { border: none; border-top: 1px solid var(--border-subtle); margin: 1.6em 0; }
+.prose pre { margin: 0 0 var(--sp-3); }
+.prose hr { border: none; border-top: 1px solid var(--border-subtle); margin: var(--sp-5) 0; }
 .prose img { max-width: 100%; border-radius: var(--radius); }
-.prose table { border-collapse: collapse; width: 100%; margin: 1em 0; font-size: 13px; }
-.prose th { text-align: left; font-weight: 500; padding: 6px 10px; border-bottom: 1px solid var(--border); }
-.prose td { padding: 6px 10px; border-bottom: 1px solid var(--border-subtle); }
+/* separate, not collapse: a collapsed border is shared, so each cell keeps
+   half of it and every row lands on a half pixel */
+.prose table { border-collapse: separate; border-spacing: 0; width: 100%; margin: var(--sp-4) 0; font-size: 13px; line-height: var(--lh-2); }
+.prose th { text-align: left; font-weight: 500; padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--border); }
+.prose td { padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--border-subtle); }
 
 /* ---------------------------------------------------------------- a11y + adaptation */
 
@@ -1790,7 +1861,7 @@ dialog.cmdk {
    var(--chart-N) strings, so a theme switch recolours a chart live and no
    re-render is needed. Everything that is not colour or geometry is here. */
 
-.g-chart { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.g-chart { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
 .g-chart > svg { display: block; flex: 1 1 auto; min-height: 0; overflow: visible; }
 .g-chart text {
   font-family: var(--font-ui);
@@ -1802,13 +1873,14 @@ dialog.cmdk {
 
 /* Donut with its legend beside rather than under it. */
 .g-chart[data-layout="side"] { flex-direction: row; align-items: center; gap: var(--sp-4); }
-.g-chart[data-layout="side"] .g-chart-legend { flex-direction: column; flex-wrap: nowrap; gap: 7px; }
+.g-chart[data-layout="side"] .g-chart-legend { flex-direction: column; flex-wrap: nowrap; gap: var(--sp-2); }
 
 .g-chart-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 14px;
+  gap: var(--sp-2) var(--sp-4);
   font-size: 11px;
+  line-height: var(--lh-1);
   color: var(--text-secondary);
 }
 .g-chart-key { display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap; }
@@ -1825,7 +1897,7 @@ dialog.cmdk {
   font-variant-numeric: tabular-nums;
 }
 
-.g-spark { display: block; height: 28px; }
+.g-spark { display: block; height: var(--h-2); }
 
 /* Entrance: lines draw themselves, bars rise off the baseline. Once per
    element, applied by the renderer, never replayed on a re-render unless
@@ -1942,8 +2014,8 @@ dialog.cmdk {
   z-index: 1;
   background: var(--card-bg, var(--surface-2));
   background-clip: padding-box;
-  /* the hairline is a shadow: collapsed table borders do not travel with a
-     sticky row, so the drawn border vanishes the moment the body scrolls */
+  /* the hairline is a shadow rather than a border: a border on a sticky row
+     is painted before the row is offset, so it drifts as the body scrolls */
   border-bottom: none;
   box-shadow: inset 0 -1px 0 var(--border-subtle);
 }
@@ -2166,8 +2238,8 @@ dialog.cmdk {
   color: var(--text-primary);
   translate: 0 -2px;
 }
-.g-dropzone-title { font-size: var(--font-size-ui); font-weight: 500; }
-.g-dropzone-hint { font-size: 12px; color: var(--text-secondary); }
+.g-dropzone-title { font-size: var(--font-size-ui); line-height: var(--lh-2); font-weight: 500; }
+.g-dropzone-hint { font-size: 12px; line-height: var(--lh-1); color: var(--text-secondary); }
 
 .g-dropzone-files {
   display: flex;
@@ -2202,7 +2274,7 @@ dialog.cmdk {
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.g-dropzone-size { font-size: 12px; color: var(--text-secondary); flex: none; }
+.g-dropzone-size { font-size: 12px; line-height: var(--lh-2); color: var(--text-secondary); flex: none; }
 
 /* ---------------------------------------------------------------- adaptation */
 
@@ -2230,10 +2302,10 @@ dialog.cmdk {
 .g-progress-pinned::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 1px; background: var(--border-subtle); }
 .g-progress-pinned .g-progress-fill { position: relative; border-radius: 0; height: 1px; transition: width var(--dur-slow) var(--ease-out), height var(--dur-base) var(--ease-out); }
 .g-progress-pinned[aria-valuenow]:not([aria-valuenow="0"]) .g-progress-fill, .g-progress-pinned[data-indeterminate] .g-progress-fill { height: 3px; }
-/* Readout: percent first, then whatever the job can honestly report. */
-.progress-readout { display: inline-flex; align-items: baseline; gap: 5px; font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Readout: percent first, then whatever the job can honestly report. The
+   facts are separated by a gap off the spacing scale, never by a glyph. */
+.progress-readout { display: inline-flex; align-items: baseline; gap: var(--sp-2); font-family: var(--font-mono); font-size: 11px; line-height: var(--lh-1); color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .progress-readout .pct { font-weight: 500; color: var(--text-primary); }
-.progress-readout .sep { color: var(--text-placeholder); }
 
 /* g-select and g-combobox, a listbox popup on the Popover API, wired by
    select.js. The control wears the .input recipe; the popup wears the .menu
@@ -2320,12 +2392,12 @@ dialog.cmdk {
   position: relative;
   display: flex; align-items: center; gap: 8px;
   width: 100%;
-  min-height: 30px;
-  padding: 5px 8px 5px 27px;
+  min-height: var(--h-2);
+  padding: var(--sp-1) var(--sp-2) var(--sp-1) 27px;
   border: none; border-radius: var(--radius-sm);
   background: none;
   color: var(--text-primary);
-  font-family: var(--font-ui); font-size: var(--font-size-ui);
+  font-family: var(--font-ui); font-size: var(--font-size-ui); line-height: var(--lh-2);
   text-align: left;
   cursor: pointer;
   scroll-margin: 4px;
@@ -2345,12 +2417,13 @@ dialog.cmdk {
 }
 .g-option[aria-selected="true"] .gi-check [data-part="tick"] path { stroke-dashoffset: 0; }
 
-.g-option-meta { margin-left: auto; padding-left: 10px; color: var(--text-secondary); font-size: 12px; }
+.g-option-meta { margin-left: auto; padding-left: var(--sp-3); color: var(--text-secondary); font-size: 12px; line-height: var(--lh-2); }
 .g-option-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .g-listbox-empty {
-  padding: 9px 8px;
+  padding: var(--sp-2);
   font-size: var(--font-size-ui);
+  line-height: var(--lh-2);
   color: var(--text-secondary);
 }
 

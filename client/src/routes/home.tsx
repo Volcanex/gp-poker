@@ -207,7 +207,7 @@ export function Home() {
                   {queue.seated} of {seats} seated
                 </span>
               )}
-              {queue.range != null && <span className="badge badge-plain num">Within {queue.range} rating</span>}
+              {queue.range != null && <span className="badge badge-plain num">Within {Math.round(queue.range)} rating</span>}
               {queue.w != null && queue.w > 0 && <span className="badge badge-plain num">{queue.w} waiting</span>}
               <button type="button" className="btn btn-tertiary btn-sm" onClick={cancelQueue}>
                 Cancel search

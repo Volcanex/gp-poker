@@ -368,16 +368,21 @@ const EXPLORER = JSON.parse(
   readFileSync(fileURLToPath(new URL('./fixtures/explorer.json', import.meta.url)), 'utf8'),
 );
 
-/* An explicit theme, stored the way g stores it: g-ui reads its own key at load
-   and writes the attribute itself, so setting the attribute alone is undone a
-   moment later. "system" is not a thing a baseline can pin. */
-/* Stamped where the app reads it, `ot.prefs`, as well as into g's own key:
-   applyPrefs re-applies the stored record on mount and its default is the
-   games room, so a page set up through g-theme alone would come back as the
-   room whatever the test asked for. */
+/* An explicit theme, stored where the app reads it: `ot.prefs` is what the
+   pre-paint script in index.html reads before first render and what
+   applyPrefs re-applies on mount, whose default is the games room, so a page
+   set up through g's own key alone would come back as the room whatever the
+   test asked for. Existing prefs are kept, so a test that stamped a palette
+   first keeps it. "system" is not a thing a baseline can pin. */
 export async function setTheme(page: Page, theme: 'room' | 'dark' | 'light') {
   await page.addInitScript((t) => {
-    localStorage.setItem('ot.prefs', JSON.stringify({ theme: t }));
+    let prefs: Record<string, unknown> = {};
+    try {
+      prefs = JSON.parse(localStorage.getItem('ot.prefs') ?? '{}') ?? {};
+    } catch {
+      prefs = {};
+    }
+    localStorage.setItem('ot.prefs', JSON.stringify({ ...prefs, theme: t }));
     localStorage.setItem('g-theme', t as string);
     document.documentElement.setAttribute('data-theme', t as string);
   }, theme);

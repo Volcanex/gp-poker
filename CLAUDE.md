@@ -216,5 +216,10 @@ the entry point; the detail lives down the tree.
 
 ## Gotchas
 - g-system tokens: `--surface-1/-2`, `--bg`, `--text-primary/-secondary`,
-  `--border`. There is no `--surface`.
+  `--border`. There is no `--surface`. g-system 1.1.0 (vendored 2026-09-08)
+  adds pixel line-heights `--lh-1..5`, control/row heights `--h-1..5`, the
+  responsive `--gutter` and `--col-*` measures, and `.g-page`. `.page` in
+  `client/src/app.css` uses `--gutter` and `--col-content`/`--col-page` rather
+  than a hand-rolled max-width and padding; the phone breakpoint keeps a
+  literal `--sp-3` on purpose, one step tighter than the system default.
 - `phe` ranks: lower is better (1 = royal flush, 7462 = worst high card).

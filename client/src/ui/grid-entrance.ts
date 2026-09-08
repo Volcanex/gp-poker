@@ -19,11 +19,11 @@ import { useAnimate, useReducedMotion } from 'motion/react';
 export const GRID_SIZE = 13;
 
 /* One cell's fade, and how long the wave takes to reach a corner from the
-   middle. The two add up to the whole entrance: 520ms, which is inside g's
-   slow duration times three and well short of the point where an entrance
-   starts feeling like a page load. */
-export const CELL_ENTER = 0.16;
-export const WAVE_SPAN = 0.36;
+   middle. The two add up to the whole entrance: roughly 1040ms, doubled from
+   the original 520ms because the opening explorer's wave read as too quick to
+   register as a wave at all. Easing is unchanged. */
+export const CELL_ENTER = 0.32;
+export const WAVE_SPAN = 0.72;
 
 /* Cells come in a shade smaller. */
 export const ENTER_SCALE = 0.84;

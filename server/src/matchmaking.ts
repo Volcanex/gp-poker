@@ -230,8 +230,9 @@ function sendSearching(entry: QueuedPlayer, gathered: number): void {
   const waited = Math.floor((now - entry.joinedAt) / 1000);
   // window() returns Infinity once the search is unbounded; that doesn't
   // survive JSON.stringify (becomes null), so drop the field instead of
-  // passing it through raw.
-  const range = Number.isFinite(window) ? window : undefined;
+  // passing it through raw. It is also derived from a rating deviation,
+  // which is a float, and nobody reads a rating range to the decimal.
+  const range = Number.isFinite(window) ? Math.round(window) : undefined;
   const seats = resolveFormat(entry.mode, entry.rated, entry.speed).players;
   hub.send(entry.id, {
     t: 'q',

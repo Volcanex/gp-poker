@@ -121,7 +121,7 @@
 .nav-item {
   display: flex; align-items: center; gap: var(--sp-2);
   position: relative;
-  height: 32px; padding: 0 8px;
+  height: var(--h-3); padding: 0 var(--sp-2);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-ui); font-weight: 450;
   color: var(--text-secondary); text-decoration: none;
@@ -156,7 +156,7 @@
    is the one it exposes, and it is off here so a hairline box does not appear
    around two of the nine things in the column. */
 .side-foot .account > .btn, .side-foot .settings > .btn {
-  width: 100%; height: 32px; padding: 0 8px;
+  width: 100%; height: var(--h-3); padding: 0 var(--sp-2);
   justify-content: flex-start; gap: var(--sp-2);
   overflow: hidden;
   --_edge: transparent;
@@ -164,6 +164,10 @@
 .side-foot .account > .btn:hover, .side-foot .settings > .btn:hover {
   border-color: transparent;
 }
+/* The gear reads at the same size as the section icons above it, not the 15px
+   g gives a button's own icon: this row is standing in for a nav item, not a
+   button with a decoration. */
+.side-foot .settings > .btn svg { width: 20px; height: 20px; }
 /* The mode the rating belongs to does not fit beside the name in 224px, and
    the profile the row opens says it in full. */
 .side-foot .account .btn .m { display: none; }
@@ -210,7 +214,7 @@
    row does: the name first, then the long form of the words. */
 .playing-pill {
   display: inline-flex; align-items: center; gap: 6px;
-  height: 24px; padding: 0 9px;
+  height: var(--h-1); padding: 0 9px;
   border-radius: var(--radius-full);
   border: 1px solid var(--border);
   background: var(--surface-2);
@@ -236,8 +240,8 @@
    without it */
 .account .btn .m { color: var(--text-secondary); margin-left: 5px; }
 
-.page { flex: 1; width: 100%; max-width: 720px; margin: 0 auto; padding: var(--sp-6) var(--sp-4) var(--sp-7); }
-.page.wide { max-width: 960px; }
+.page { flex: 1; width: 100%; max-width: var(--col-content); margin: 0 auto; padding: var(--sp-6) var(--gutter) var(--sp-7); }
+.page.wide { max-width: var(--col-page); }
 .stack { display: flex; flex-direction: column; gap: var(--sp-5); }
 .h1 { font-size: 20px; font-weight: 500; letter-spacing: -0.015em; }
 .h2 { font-size: var(--font-size-ui); font-weight: 500; }
@@ -298,7 +302,7 @@
 /* ------------------------------------------------------------------- home */
 
 .hero { display: flex; flex-direction: column; gap: var(--sp-4); align-items: flex-start; }
-.hero .lede { font-size: 15px; line-height: 24px; color: var(--text-secondary); max-width: 46ch; }
+.hero .lede { font-size: 15px; line-height: var(--lh-3); color: var(--text-secondary); max-width: 46ch; }
 /* A whole-pixel line height, not a ratio: at 1.55 three lines came to 69.75 px
    and the card under them landed on a fraction, which Safari draws as a top
    border smeared over two device rows, visibly thicker than the sides. */
@@ -450,10 +454,20 @@
 .ps-chip .ps-a { position: absolute; inset: 0 0 0 58%; background: var(--accent-fill); }
 .ps-n { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 
-.settings-menu .switch-row { justify-content: space-between; gap: var(--sp-3); }
+/* One grid for every row: a label column and a control column, so a button, a
+   select, a slider and the flag picker all end on the same right edge and
+   every sized control shares one height. The switch and the swatches are the
+   exceptions the grid does not force onto the height scale: a 28px toggle
+   would stop reading as a toggle. */
+.settings-menu .switch-row {
+  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: var(--sp-3);
+}
 .settings-menu .switch-row .label { font-size: 12px; color: var(--text-primary); font-weight: 400; }
-.settings-menu .g-slider { width: 108px; flex: none; }
-.settings-menu .select { width: 108px; flex: none; height: var(--h-control-sm); }
+.settings-menu .g-slider,
+.settings-menu .select,
+.settings-menu .country-picker { width: 108px; flex: none; }
+.settings-menu .select,
+.settings-menu .country-picker .input { height: var(--h-control-sm); }
 .settings-menu .preview { align-self: flex-start; }
 
 /* ------------------------------------------------------------ card colours */
@@ -1127,6 +1141,9 @@
   }
   .wordmark { font-size: 13px; }
   .whoami { font-size: 12px; gap: 4px; }
+  /* One step tighter than --gutter on purpose: a phone this narrow gives up the
+     4px the system default would keep, the same trade every row on this
+     breakpoint already makes. */
   .page { padding: var(--sp-5) var(--sp-3) var(--sp-6); }
   .how { grid-template-columns: 1fr; }
   .modes { grid-template-columns: 1fr; }
