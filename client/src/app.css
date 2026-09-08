@@ -214,7 +214,13 @@
 /* --------------------------------------------------------------- settings */
 
 .settings { display: flex; flex: none; }
-.settings-menu { min-width: 262px; display: flex; flex-direction: column; gap: 6px; padding: 8px; }
+.settings-menu {
+  min-width: 262px; display: flex; flex-direction: column; gap: 6px; padding: 8px;
+  /* Taller than a short window: g's menu placement flips above the trigger
+     when the menu does not fit below, and a menu taller than the viewport
+     then lands above the screen. Capped, it always fits below the bar. */
+  max-height: calc(100dvh - var(--top-h) - 12px); overflow-y: auto;
+}
 /* display: flex above beats the popover's own display: none while it is shut,
    so a closed menu was still in the tab order: thirty stops of swatches and
    switches between the header and the dock, invisible at opacity 0. */
@@ -1042,6 +1048,14 @@
   .top nav::-webkit-scrollbar { display: none; }
   .top .spacer { flex: none; }
   .top nav a { padding: 0 6px; }
+  /* A sheet from the bottom edge on a phone, whatever the menu script set as
+     the popover's inline top and left: the whole settings list is longer
+     than a phone screen and a sheet scrolls where an anchored menu clips. */
+  .settings-menu {
+    inset: auto 0 0 0 !important; width: auto; min-width: 0;
+    max-height: 86dvh; padding-bottom: calc(8px + env(safe-area-inset-bottom));
+    border-radius: var(--radius-card) var(--radius-card) 0 0;
+  }
   .wordmark { font-size: 13px; }
   .whoami { font-size: 12px; gap: 4px; }
   .page { padding: var(--sp-5) var(--sp-3) var(--sp-6); }

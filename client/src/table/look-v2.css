@@ -11,16 +11,19 @@
    since cards were paper has read; light, the face is the panel colour and
    the ink the text colour. Red pips take the solid red, not the red text
    tint, because the text tint is tuned for a dark ground and this ground is
-   paper. The four colour deck borrows the chart blue and green the same way. */
+   paper. The four colour deck borrows the chart blue and green the same way.
+   All three are deepened with black: the solid red measures 3.4 to 1 on the
+   paper and the chart blue and green under 3, which is a pip a player in a
+   dark room cannot tell from the ink. Deepened they clear 5 to 1. */
 :root, [data-theme] {
   --card-face: var(--text-primary);
   --card-ink: var(--surface-1);
   --card-edge: var(--border);
   --card-back: var(--surface-2);
   --card-back-line: var(--border-subtle);
-  --card-red: var(--danger-fill);
-  --card-blue: var(--chart-1);
-  --card-green: var(--chart-6);
+  --card-red: color-mix(in oklab, var(--danger-fill) 74%, black);
+  --card-blue: color-mix(in oklab, var(--chart-1) 66%, black);
+  --card-green: color-mix(in oklab, var(--chart-6) 58%, black);
   --pip-s: var(--card-ink);
   --pip-h: var(--card-red);
   --pip-d: var(--card-red);
