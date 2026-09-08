@@ -184,3 +184,9 @@
   .ins-bar .track { grid-area: track; }
   .ins-bar .val { grid-area: val; }
 }
+
+/* The row that opens the settings panel rather than repeating it. */
+.appearance {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--sp-4); flex-wrap: wrap;
+}

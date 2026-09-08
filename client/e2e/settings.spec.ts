@@ -1,11 +1,60 @@
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
-import { contrastOf } from '../src/ui/prefs.ts';
-import { setTheme, stubApi } from './table.ts';
+import { PALETTES, contrastOf, defaultAccentFor } from '../src/ui/prefs.ts';
+import { stubApi } from './table.ts';
 
 /* The settings menu, and the two promises it makes that a screenshot cannot
-   check: every accent stays readable, and a choice survives a reload. */
+   check: every accent and every palette stays readable, and a choice survives a
+   reload. */
 
-const ACCENTS = ['default', 'ocean', 'jade', 'violet', 'clay'];
+const ACCENTS = ['default', 'ocean', 'jade', 'violet', 'clay', 'ember'];
+const PALETTE_IDS = PALETTES.map((p) => p.id);
+
+/* Read through real elements rather than off the custom properties: a custom
+   property whose value is another var() comes back unresolved, and half of
+   these are exactly that. A probe painted with the pair reports what the eye
+   would see. */
+async function samples(page: import('@playwright/test').Page, palette: string) {
+  return page.evaluate((p) => {
+    const el = document.documentElement;
+    if (p === 'slate') el.removeAttribute('data-palette');
+    else el.setAttribute('data-palette', p);
+
+    const probe = document.createElement('span');
+    document.body.append(probe);
+    const read = (bg: string, fg: string) => {
+      probe.style.background = bg;
+      probe.style.color = fg;
+      const s = getComputedStyle(probe);
+      return [s.backgroundColor, s.color] as [string, string];
+    };
+    const out = {
+      primaryOn1: read('var(--surface-1)', 'var(--text-primary)'),
+      primaryOn2: read('var(--surface-2)', 'var(--text-primary)'),
+      secondaryOn1: read('var(--surface-1)', 'var(--text-secondary)'),
+      secondaryOn2: read('var(--surface-2)', 'var(--text-secondary)'),
+      accent: read('var(--accent-fill)', 'var(--accent-fg)'),
+    };
+    probe.remove();
+    return out;
+  }, palette);
+}
+
+/* The theme has to be stamped into the app's own record, not into g's key.
+   setTheme in table.ts writes g-theme and the attribute, and applyPrefs
+   overwrites both from ot.prefs the moment the app mounts, so a page set up
+   that way is dark whatever the test is called. */
+async function useTheme(
+  page: import('@playwright/test').Page,
+  theme: 'dark' | 'light',
+  palette = 'slate',
+  accent = 'default',
+) {
+  await page.addInitScript((v) => {
+    localStorage.setItem('ot.prefs', JSON.stringify(v));
+    localStorage.setItem('g-theme', (v as { theme: string }).theme);
+  }, { theme, palette, accent, fourColour: false });
+}
 
 async function openMenu(page: import('@playwright/test').Page) {
   await page.locator('button[popovertarget="settings-menu"]').click();
@@ -47,7 +96,7 @@ test('an accent and a deck survive a reload', async ({ page }) => {
 for (const theme of ['dark', 'light'] as const) {
   test(`every accent keeps its label readable in ${theme}`, async ({ page }) => {
     await stubApi(page);
-    await setTheme(page, theme);
+    await useTheme(page, theme);
     await page.goto('/');
 
     for (const accent of ACCENTS) {
@@ -101,11 +150,119 @@ test('the four colour deck gives each suit its own colour', async ({ page }) => 
   expect(four.c, 'and so do clubs').not.toBe(four.d);
 });
 
+/* A palette re-declares the twelve greys the whole site is built out of, so a
+   badly chosen step 11 is unreadable body text everywhere at once rather than
+   one button nobody can read. Every palette, both themes, both surfaces. */
+for (const theme of ['dark', 'light'] as const) {
+  test(`every palette keeps its text readable in ${theme}`, async ({ page }) => {
+    await stubApi(page);
+    await useTheme(page, theme);
+    await page.goto('/');
+
+    for (const palette of PALETTE_IDS) {
+      const s = await samples(page, palette);
+      const pairs: [string, [string, string]][] = [
+        ['text-primary on surface-1', s.primaryOn1],
+        ['text-primary on surface-2', s.primaryOn2],
+        ['text-secondary on surface-1', s.secondaryOn1],
+        ['text-secondary on surface-2', s.secondaryOn2],
+      ];
+      for (const [what, pair] of pairs) {
+        const ratio = contrastOf(pair[0], pair[1]);
+        expect(ratio, `${palette} in ${theme}: ${what} resolves`).not.toBe(null);
+        expect(ratio!, `${palette} in ${theme}: ${what}`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
+  /* The accent a palette arrives with, on the palette's own ground. The accent
+     loop above walks the accents against g's slate; this one walks the pairing
+     the player actually gets by choosing a palette and touching nothing else. */
+  test(`every palette keeps its own accent readable in ${theme}`, async ({ page }) => {
+    await stubApi(page);
+    await useTheme(page, theme);
+    await page.goto('/');
+
+    for (const palette of PALETTE_IDS) {
+      const accent = defaultAccentFor(palette);
+      await page.evaluate((a) => {
+        const el = document.documentElement;
+        if (a === 'default') el.removeAttribute('data-accent');
+        else el.setAttribute('data-accent', a);
+      }, accent);
+      const s = await samples(page, palette);
+      const ratio = contrastOf(s.accent[0], s.accent[1]);
+      expect(ratio, `${palette} accent resolves`).not.toBe(null);
+      expect(
+        ratio!,
+        `${palette} in ${theme}: ${accent} label on the primary button`,
+      ).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+}
+
+/* Contrast measured off a probe is the palette's arithmetic. axe is the same
+   claim made against the pages as they are drawn, where a colour sits on a
+   material rather than on a token. Home and the felt, every palette. */
+for (const palette of PALETTES) {
+  for (const theme of ['dark', 'light'] as const) {
+    for (const url of ['/', '/m/mock?step=6']) {
+      test(`${palette.id} in ${theme} has no serious accessibility failures on ${url}`, async ({ page }) => {
+        await stubApi(page);
+        await useTheme(page, theme, palette.id, palette.accent);
+        await page.goto(url);
+        await page.waitForTimeout(1500);
+
+        const results = await new AxeBuilder({ page })
+          .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+          .analyze();
+
+        const bad = results.violations.filter(
+          (v) => v.impact === 'serious' || v.impact === 'critical',
+        );
+        expect(
+          bad.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`),
+        ).toEqual([]);
+      });
+    }
+  }
+}
+
+/* A palette arrives wearing an accent, and takes it unless the player has moved
+   off the one they had. */
+test('choosing a palette brings its accent, and keeps a chosen one', async ({ page }) => {
+  await stubApi(page);
+  await page.goto('/');
+  await openMenu(page);
+
+  await page.locator('.pswatch[title="Felt"]').click();
+  await expect(page.locator('html')).toHaveAttribute('data-palette', 'felt');
+  await expect(page.locator('html')).toHaveAttribute('data-accent', 'ember');
+
+  await page.locator('.swatch[data-accent="violet"]').click();
+  await page.locator('.pswatch[title="Sky"]').click();
+  await expect(page.locator('html')).toHaveAttribute('data-palette', 'sky');
+  await expect(page.locator('html')).toHaveAttribute('data-accent', 'violet');
+
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('data-palette', 'sky');
+});
+
+/* The second way in. It opens the panel that already exists rather than a
+   second copy of the controls. */
+test('the profile opens the same settings panel', async ({ page }) => {
+  await stubApi(page);
+  await page.goto('/u/kestrel');
+  await page.locator('.appearance .btn').click();
+  await expect(page.locator('#settings-menu')).toBeVisible();
+  await expect(page.locator('#settings-menu')).toHaveCount(1);
+});
+
 for (const theme of ['dark', 'light'] as const) {
   test(`the settings menu looks right in ${theme}`, async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await stubApi(page);
-    await setTheme(page, theme);
+    await useTheme(page, theme);
     await page.goto('/m/mock?step=9');
     await page.addStyleTag({ content: '.devnote { display: none !important; }' });
     await openMenu(page);

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useGInit } from './bits.tsx';
-import { ACCENTS, THEMES, applyPrefs, readPrefs, writePrefs } from './prefs.ts';
-import type { AccentId, Prefs, ThemeChoice } from './prefs.ts';
+import {
+  ACCENTS, PALETTES, THEMES, applyPrefs, defaultAccentFor, readPrefs, writePrefs,
+} from './prefs.ts';
+import type { AccentId, PaletteId, Prefs, ThemeChoice } from './prefs.ts';
 import { useSoundSettings } from '../sound/react.ts';
 import { PictureDialog } from './picture-dialog.tsx';
 import { CountryPicker } from './country-picker.tsx';
@@ -35,6 +37,23 @@ export function SettingsMenu() {
     });
   }, []);
 
+  /* A palette arrives wearing an accent. Choosing one takes that accent unless
+     the player has already moved off the accent the palette they are leaving
+     came with, which is the only way to tell a chosen accent from a default
+     one without storing a second flag for it. */
+  const choosePalette = useCallback((id: PaletteId) => {
+    setPrefs((p) => {
+      const chosen = p.accent !== defaultAccentFor(p.palette);
+      const next: Prefs = {
+        ...p,
+        palette: id,
+        accent: chosen ? p.accent : defaultAccentFor(id),
+      };
+      writePrefs(next);
+      return next;
+    });
+  }, []);
+
   return (
     <div className="settings" ref={wrapRef}>
       <button
@@ -59,6 +78,33 @@ export function SettingsMenu() {
               onClick={() => update({ theme: t.id as ThemeChoice })}
             >
               {t.label}
+            </button>
+          ))}
+        </div>
+
+        <hr className="separator" />
+
+        <div className="menu-title" id="settings-palette">Palette</div>
+        <div className="pswatches" role="radiogroup" aria-labelledby="settings-palette">
+          {PALETTES.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              className="pswatch"
+              role="radio"
+              aria-checked={prefs.palette === p.id}
+              title={p.label}
+              onClick={() => choosePalette(p.id)}
+            >
+              <span
+                className="ps-chip"
+                data-palette={p.id}
+                data-accent={p.accent === 'default' ? undefined : p.accent}
+                aria-hidden="true"
+              >
+                <span className="ps-a" />
+              </span>
+              <span className="ps-n">{p.label}</span>
             </button>
           ))}
         </div>

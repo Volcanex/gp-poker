@@ -202,6 +202,27 @@ export function Profile() {
 
       {isMe && me?.guest && <ClaimCard onClaimed={load} />}
 
+      {/* How the site looks is one panel in the top bar, and this is the second
+          place to reach it: the profile is where somebody goes to change things
+          about themselves. It opens that panel rather than repeating its
+          controls, so there is one place a setting can be wrong. */}
+      {isMe && (
+        <section className="stack" style={{ gap: 'var(--sp-3)' }}>
+          <span className="h2">Appearance</span>
+          <div className="card appearance">
+            <span className="muted">Theme, palette, accent and the deck, all in one panel.</span>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              popoverTarget="settings-menu"
+              aria-haspopup="dialog"
+            >
+              Open appearance settings
+            </button>
+          </div>
+        </section>
+      )}
+
       <InsightsSection profile={data} />
 
       {/* Accuracy and not a style block: VPIP, PFR, aggression and fold to

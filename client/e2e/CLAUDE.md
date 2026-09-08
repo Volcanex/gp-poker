@@ -52,6 +52,13 @@ says the connection dropped, which is true.
 by registering its own handler **after** `stubApi`, for the reason below. Every
 other spec sees the ordinary player, so the bar is not in any other baseline.
 
+**A theme has to be stamped into `ot.prefs`, not into g's key.** `setTheme` here
+writes `g-theme` and the attribute, and the app's `applyPrefs` overwrites both
+from `ot.prefs` the moment it mounts, so a page set up with `setTheme` alone is
+dark whatever the test is called. `settings.spec.ts` stamps the record instead.
+The rest of the suite still uses `setTheme`, which is why every baseline in
+`__screenshots__` whose name ends in `-light` is a picture of the dark theme.
+
 **Playwright runs the last matching route handler**, so a catch-all has to be
 registered first and the fixtures after it. Registered the other way round the
 catch-all swallows everything: this stub served 404 to every call for its whole
@@ -75,8 +82,8 @@ it.
 | `chat.spec.ts` | opening, sending and closing the panel leave the header, felt and dock in identical boxes, at both widths |
 | `reduced-motion.spec.ts` | the same information with the motion emulated off |
 | `enter.spec.ts` | the page entrance: every block at rest inside 600ms, a fetching block held until its content lands, zero layout shift across an entrance, nothing under `/m`, and nothing at all under reduced motion |
-| `settings.spec.ts` | a choice surviving a reload, the pre-paint stamp, every accent's contrast in both themes, the four colour deck, and the menu itself |
 | `avatar.spec.ts` | a photograph cropped in the dialog leaves as a webp or png square under 120 KB, and the top bar draws the new version |
+| `settings.spec.ts` | a choice surviving a reload, the pre-paint stamp, every accent's and every palette's contrast in both themes, axe under each palette, the accent a palette arrives with, the four colour deck, and the menu itself |
 | `replay.spec.ts` | a recorded hand scrubbed back and forth leaves nothing behind and nothing outside the felt, and still verifies |
 | `odds.spec.ts` | the pot odds trainer's reserved boxes across an answer, at 390 and 1366, and axe in both themes. No baselines: the assertion is the geometry |
 | `puzzles.spec.ts` | the preflop chart's entrance: every cell ends visible, on the first spot and the next, and the page does not reflow while it runs |

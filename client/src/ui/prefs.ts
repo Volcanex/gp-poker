@@ -1,4 +1,4 @@
-/* What the player has chosen about how the table looks. Three settings, one
+/* What the player has chosen about how the table looks. Four settings, one
    record, one key.
 
    Every one of them is applied as an attribute on the root element and the
@@ -8,7 +8,8 @@
    to drift out of step with the stylesheet. */
 
 export type ThemeChoice = 'dark' | 'light' | 'system';
-export type AccentId = 'default' | 'ocean' | 'jade' | 'violet' | 'clay';
+export type AccentId = 'default' | 'ocean' | 'jade' | 'violet' | 'clay' | 'ember';
+export type PaletteId = 'slate' | 'felt' | 'sky' | 'umber';
 /* Which hand holds the phone. The v2 table's action band puts the controls
    under the thumb and the cards on the far side, so it has to be told which
    edge the thumb is on. Right is the default because most people are. */
@@ -16,6 +17,7 @@ export type Handedness = 'right' | 'left';
 
 export interface Prefs {
   theme: ThemeChoice;
+  palette: PaletteId;
   accent: AccentId;
   fourColour: boolean;
   hand: Handedness;
@@ -23,7 +25,9 @@ export interface Prefs {
 
 export const PREFS_KEY = 'ot.prefs';
 
-export const DEFAULT_PREFS: Prefs = { theme: 'dark', accent: 'default', fourColour: false, hand: 'right' };
+export const DEFAULT_PREFS: Prefs = {
+  theme: 'dark', palette: 'slate', accent: 'default', fourColour: false, hand: 'right',
+};
 
 export const THEMES: { id: ThemeChoice; label: string }[] = [
   { id: 'dark', label: 'Dark' },
@@ -39,7 +43,23 @@ export const ACCENTS: { id: AccentId; label: string }[] = [
   { id: 'jade', label: 'Jade' },
   { id: 'violet', label: 'Violet' },
   { id: 'clay', label: 'Clay' },
+  { id: 'ember', label: 'Ember' },
 ];
+
+/* A palette is the twelve greys the whole site is built out of, felt included,
+   and each one arrives wearing an accent that suits it. Names and ids only:
+   what felt is, is in ../palettes.css, and the chip in the menu carries the
+   same data-palette and takes the same colours. */
+export const PALETTES: { id: PaletteId; label: string; accent: AccentId }[] = [
+  { id: 'slate', label: 'Slate', accent: 'default' },
+  { id: 'felt', label: 'Felt', accent: 'ember' },
+  { id: 'sky', label: 'Sky', accent: 'ocean' },
+  { id: 'umber', label: 'Umber', accent: 'clay' },
+];
+
+export function defaultAccentFor(palette: PaletteId): AccentId {
+  return PALETTES.find((p) => p.id === palette)?.accent ?? 'default';
+}
 
 const isTheme = (v: unknown): v is ThemeChoice =>
   v === 'dark' || v === 'light' || v === 'system';
@@ -48,6 +68,9 @@ const isAccent = (v: unknown): v is AccentId =>
   typeof v === 'string' && ACCENTS.some((a) => a.id === v);
 
 const isHand = (v: unknown): v is Handedness => v === 'right' || v === 'left';
+
+const isPalette = (v: unknown): v is PaletteId =>
+  typeof v === 'string' && PALETTES.some((p) => p.id === v);
 
 /* A stored record from an older build, a half-written one, or a browser with
    storage switched off all mean the same thing: take the defaults for whatever
@@ -64,6 +87,7 @@ export function readPrefs(store: Storage | null = safeStorage()): Prefs {
   const r = raw as Partial<Prefs>;
   return {
     theme: isTheme(r.theme) ? r.theme : DEFAULT_PREFS.theme,
+    palette: isPalette(r.palette) ? r.palette : DEFAULT_PREFS.palette,
     accent: isAccent(r.accent) ? r.accent : DEFAULT_PREFS.accent,
     fourColour: typeof r.fourColour === 'boolean' ? r.fourColour : DEFAULT_PREFS.fourColour,
     hand: isHand(r.hand) ? r.hand : DEFAULT_PREFS.hand,
@@ -95,6 +119,9 @@ export function applyPrefs(prefs: Prefs, root: HTMLElement, store: Storage | nul
       /* see writePrefs */
     }
   }
+
+  if (prefs.palette === 'slate') root.removeAttribute('data-palette');
+  else root.setAttribute('data-palette', prefs.palette);
 
   if (prefs.accent === 'default') root.removeAttribute('data-accent');
   else root.setAttribute('data-accent', prefs.accent);

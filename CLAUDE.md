@@ -149,6 +149,11 @@ files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
   never decodes an image: it sniffs the magic number, which is what keeps a
   native image library off this box. `server/src/CLAUDE.md` and
   `client/src/ui/CLAUDE.md`.
+- A palette (`client/src/palettes.css`, `data-palette`) re-declares g's twelve
+  slate steps and their twelve alpha steps, so it colours the whole site and the
+  felt at once while every component still reads only the alias layer. Slate is
+  the default and carries no attribute; felt, sky and umber each declare a full
+  scale for dark and for light, and each arrives wearing its own accent.
 - Auth: a guest user is minted on first visit (cookie session), named by
   `@opentable/identity`'s `generateName` (`guest` boolean column, not a name
   prefix). Claiming sets a name and password on the same row so rating

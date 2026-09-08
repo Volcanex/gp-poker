@@ -116,7 +116,8 @@ is why the swatch in the menu can paint itself by carrying the same attribute.
 | Setting | Attribute | Values |
 | --- | --- | --- |
 | Theme | `data-theme` | absent (dark), `light`, `system` |
-| Accent | `data-accent` | absent (g's own), `ocean`, `jade`, `violet`, `clay` |
+| Palette | `data-palette` | absent (slate), `felt`, `sky`, `umber` |
+| Accent | `data-accent` | absent (g's own), `ocean`, `jade`, `violet`, `clay`, `ember` |
 | Four colour deck | `data-deck` | absent, `four` |
 
 All three live in one record under `ot.prefs`. **The theme is written twice on
@@ -125,6 +126,47 @@ itself, so `applyPrefs` writes both in the one call that changes it, and nothing
 else in this app calls `g.theme()`. Sound is not in that record: it is a separate
 module with its own store and its own key, and playing with the sound off in a
 light theme is the normal case rather than a contradiction.
+
+## Palettes
+
+An accent is four variables. A **palette** is the twelve greys the whole site is
+built out of, so it colours the felt, the cards, the borders and the page at
+once without a component knowing it exists: g's components read only the alias
+layer, the aliases read only `--slate-1..12` and `--slate-a1..a12`, and a palette
+re-declares those twenty four values. `../palettes.css` holds them and nothing
+else. Slate is g's own and the root carries no attribute for it.
+
+**Every block declares the full scale, dark and light.** A block that changed
+only the steps it cared about would leave the rest resolved against whichever
+theme's slate was last to win, which is one page wearing two palettes. Each
+palette therefore has three rules: an unconditional dark one, a light one, and
+the same light one inside `prefers-color-scheme: light` for `data-theme="system"`.
+
+Each selector is a pair, `[data-palette="x"][data-theme="light"]` and
+`[data-theme="light"] [data-palette="x"]`, so that an element other than the root
+can carry a palette and still follow the root's theme. That is what lets the
+menu's chip paint itself out of the palette it names. An element carrying a
+palette also has to re-declare the aliases that read the scale, which the one
+`[data-palette]` rule at the top of the file does: a custom property inherits the
+value it computed where it was declared, so a chip left alone would report the
+root's grey while sitting on its own.
+
+**A palette arrives wearing an accent** (`PALETTES` in `prefs.ts`): felt brings
+`ember`, sky brings `ocean`, umber brings `clay`. Choosing a palette takes its
+accent unless the player has already moved off the accent the palette they are
+leaving came with, which is the only way to tell a chosen accent from a default
+one without storing a second flag. The accent named `ember` and the palette named
+`umber` are different things on purpose: one is four variables, the other is
+twenty four, and giving them the same name would have made every sentence about
+either of them ambiguous.
+
+**To add one:** pick a hue and a chroma ramp in oklch, keep g's lightness step
+for step (that is what holds the contrast), emit all twenty four values for dark
+and for light, derive each alpha step as the colour that composites to its solid
+step over step 1, add the three rules, add the id to `PaletteId` and `PALETTES`,
+and nothing else changes. `../../e2e/settings.spec.ts` walks every palette in both
+themes and measures text-primary and text-secondary on surface-1 and surface-2,
+plus the palette's own accent, and runs axe over the home page and the felt.
 
 **The accents are not the chart tokens.** Those are step 9 solids meant to sit
 under large text, and a 13 px button label on one measures about 3:1. The four
