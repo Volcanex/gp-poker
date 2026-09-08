@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   BADGES,
-  HEADS_UP_LONG,
-  HEADS_UP_SHORT,
-  SIX_MAX_LONG,
-  SIX_MAX_SHORT,
+  HEADS_UP_STANDARD,
+  HEADS_UP_FAST,
+  SIX_MAX_STANDARD,
+  SIX_MAX_FAST,
   badgesFor,
   blindsAt,
   ceilingFor,
@@ -24,11 +24,11 @@ import {
    a database, so this file has neither an app nor a socket in it.
 
    What the schedule half is really holding is the promise the home page
-   makes: a short table is over inside twenty minutes and a long one inside
+   makes: a fast table is over inside twenty minutes and a standard one inside
    two hours. That promise is kept by the blinds, not by a timer, and it is
    only kept if the arithmetic in the format definitions is right. */
 
-const FORMATS: MatchFormat[] = [HEADS_UP_SHORT, SIX_MAX_SHORT, HEADS_UP_LONG, SIX_MAX_LONG];
+const FORMATS: MatchFormat[] = [HEADS_UP_FAST, SIX_MAX_FAST, HEADS_UP_STANDARD, SIX_MAX_STANDARD];
 
 const name = (f: MatchFormat) => `${speedOf(f)} ${f.mode}`;
 
@@ -56,66 +56,66 @@ describe('blind schedules', () => {
     });
   }
 
-  it('puts a short six-max table inside twenty minutes', () => {
-    expect(terminalLevelMs(SIX_MAX_SHORT)).toBe(12 * 90 * 1_000); // thirteen levels, 90s each
-    expect(matchCeilingMs(SIX_MAX_SHORT)).toBeLessThanOrEqual(20 * 60_000);
+  it('puts a fast six-max table inside twenty minutes', () => {
+    expect(terminalLevelMs(SIX_MAX_FAST)).toBe(12 * 90 * 1_000); // thirteen levels, 90s each
+    expect(matchCeilingMs(SIX_MAX_FAST)).toBeLessThanOrEqual(20 * 60_000);
     // And the last level is reached with time to spare rather than at 19:59.
-    expect(matchCeilingMs(SIX_MAX_SHORT)).toBeLessThan(19 * 60_000);
+    expect(matchCeilingMs(SIX_MAX_FAST)).toBeLessThan(19 * 60_000);
   });
 
-  it('puts a short heads-up table inside twenty minutes', () => {
-    expect(terminalLevelMs(HEADS_UP_SHORT)).toBe(10 * 90 * 1_000);
-    expect(matchCeilingMs(HEADS_UP_SHORT)).toBeLessThanOrEqual(20 * 60_000);
-    // The 25 hand cap stays: a short heads-up match is still best of 25.
-    expect(HEADS_UP_SHORT.hands).toBe(25);
+  it('puts a fast heads-up table inside twenty minutes', () => {
+    expect(terminalLevelMs(HEADS_UP_FAST)).toBe(10 * 90 * 1_000);
+    expect(matchCeilingMs(HEADS_UP_FAST)).toBeLessThanOrEqual(20 * 60_000);
+    // The 25 hand cap stays: a fast heads-up match is still best of 25.
+    expect(HEADS_UP_FAST.hands).toBe(25);
   });
 
-  it('keeps a long table inside two hours', () => {
-    expect(matchCeilingMs(SIX_MAX_LONG)).toBeLessThanOrEqual(120 * 60_000);
-    expect(matchCeilingMs(HEADS_UP_LONG)).toBeLessThanOrEqual(120 * 60_000);
+  it('keeps a standard table inside two hours', () => {
+    expect(matchCeilingMs(SIX_MAX_STANDARD)).toBeLessThanOrEqual(120 * 60_000);
+    expect(matchCeilingMs(HEADS_UP_STANDARD)).toBeLessThanOrEqual(120 * 60_000);
   });
 
-  it('gives a short table a clock a player can play at speed with', () => {
-    for (const f of [HEADS_UP_SHORT, SIX_MAX_SHORT]) {
+  it('gives a fast table a clock a player can play at speed with', () => {
+    for (const f of [HEADS_UP_FAST, SIX_MAX_FAST]) {
       expect(f.clockMs).toBe(10_000);
       expect(f.graceMs).toBeGreaterThan(0);
       expect(f.graceMs).toBeLessThan(f.clockMs);
     }
-    for (const f of [HEADS_UP_LONG, SIX_MAX_LONG]) expect(f.clockMs).toBe(20_000);
+    for (const f of [HEADS_UP_STANDARD, SIX_MAX_STANDARD]) expect(f.clockMs).toBe(20_000);
   });
 });
 
 describe('which level is in play', () => {
-  it('climbs a short schedule on the clock and not on hands', () => {
-    expect(SIX_MAX_SHORT.levelHands).toBe(0);
+  it('climbs a fast schedule on the clock and not on hands', () => {
+    expect(SIX_MAX_FAST.levelHands).toBe(0);
     // A hundred hands in a minute is still level 1: the hand basis is off.
-    expect(levelAt(SIX_MAX_SHORT, 100, 60_000)).toBe(0);
-    expect(levelAt(SIX_MAX_SHORT, 1, 90_000)).toBe(1);
-    expect(levelAt(SIX_MAX_SHORT, 1, 89_999)).toBe(0);
-    expect(blindsAt(SIX_MAX_SHORT, 1, 90_000)).toEqual({ sb: 2, bb: 4 });
+    expect(levelAt(SIX_MAX_FAST, 100, 60_000)).toBe(0);
+    expect(levelAt(SIX_MAX_FAST, 1, 90_000)).toBe(1);
+    expect(levelAt(SIX_MAX_FAST, 1, 89_999)).toBe(0);
+    expect(blindsAt(SIX_MAX_FAST, 1, 90_000)).toEqual({ sb: 2, bb: 4 });
   });
 
   it('takes whichever basis is further along on a long six-max table', () => {
     // Eight hands a level, and a table at a normal pace is always ahead of
     // the clock, so the hand basis is the one that leads.
-    expect(levelAt(SIX_MAX_LONG, 9, 60_000)).toBe(1);
+    expect(levelAt(SIX_MAX_STANDARD, 9, 60_000)).toBe(1);
     // A table crawling at three hands in half an hour is pulled up by the
     // clock instead, which is the whole point of the second basis.
-    expect(levelAt(SIX_MAX_LONG, 3, 30 * 60_000)).toBe(3);
+    expect(levelAt(SIX_MAX_STANDARD, 3, 30 * 60_000)).toBe(3);
   });
 
-  it('never moves a long heads-up table inside a normal match', () => {
+  it('never moves a standard heads-up table inside a normal match', () => {
     // Twenty five hands is the whole match, and the first time-keyed level
     // does not arrive for half an hour.
     for (let hand = 1; hand <= 25; hand++) {
-      expect(blindsAt(HEADS_UP_LONG, hand, 20 * 60_000)).toEqual({ sb: 1, bb: 2 });
+      expect(blindsAt(HEADS_UP_STANDARD, hand, 20 * 60_000)).toEqual({ sb: 1, bb: 2 });
     }
-    expect(blindsAt(HEADS_UP_LONG, 1, 30 * 60_000)).toEqual({ sb: 5, bb: 10 });
+    expect(blindsAt(HEADS_UP_STANDARD, 1, 30 * 60_000)).toEqual({ sb: 5, bb: 10 });
   });
 
   it('stops at the top level rather than running off the end', () => {
-    expect(levelAt(SIX_MAX_SHORT, 1, 10 * 60 * 60_000)).toBe(SIX_MAX_SHORT.levels.length - 1);
-    expect(blindsAt(SIX_MAX_SHORT, 1, 10 * 60 * 60_000)).toEqual({ sb: 300, bb: 600 });
+    expect(levelAt(SIX_MAX_FAST, 1, 10 * 60 * 60_000)).toBe(SIX_MAX_FAST.levels.length - 1);
+    expect(blindsAt(SIX_MAX_FAST, 1, 10 * 60 * 60_000)).toEqual({ sb: 300, bb: 600 });
   });
 
   it('reads a format stored before speed existed exactly as it always did', () => {
@@ -137,7 +137,7 @@ describe('which level is in play', () => {
       clockMs: 20_000,
       graceMs: 15_000,
     };
-    expect(speedOf(old)).toBe('long');
+    expect(speedOf(old)).toBe('standard');
     expect(blindsAt(old, 1)).toEqual({ sb: 1, bb: 2 });
     expect(blindsAt(old, 9)).toEqual({ sb: 2, bb: 4 });
     // Even handed a wall clock, nothing about it moves.
@@ -146,10 +146,10 @@ describe('which level is in play', () => {
 });
 
 describe('formatFor', () => {
-  it('answers long unless short is asked for', () => {
-    expect(formatFor('six-max', true)).toEqual({ ...SIX_MAX_LONG, rated: true });
-    expect(formatFor('six-max', false, 'short')).toEqual({ ...SIX_MAX_SHORT, rated: false });
-    expect(formatFor('heads-up', true, 'short').clockMs).toBe(10_000);
+  it('answers standard unless fast is asked for', () => {
+    expect(formatFor('six-max', true)).toEqual({ ...SIX_MAX_STANDARD, rated: true });
+    expect(formatFor('six-max', false, 'fast')).toEqual({ ...SIX_MAX_FAST, rated: false });
+    expect(formatFor('heads-up', true, 'fast').clockMs).toBe(10_000);
   });
 });
 

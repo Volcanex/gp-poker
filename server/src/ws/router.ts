@@ -11,7 +11,7 @@ export function routeClientMessage(userId: string, msg: ClientMsg): void {
   switch (msg.t) {
     case 'queue': {
       const mode = msg.mode ?? DEFAULT_MODE;
-      const speed: Speed = msg.speed === 'short' ? 'short' : DEFAULT_SPEED;
+      const speed: Speed = msg.speed === 'fast' ? 'fast' : DEFAULT_SPEED;
       // A practice request never joins the human queue: it either gets a table
       // of bots straight away or an error saying they are all busy. It skips
       // the ready check too, for the same reason: nobody is waiting on you at

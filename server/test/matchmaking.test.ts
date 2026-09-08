@@ -117,12 +117,12 @@ describe('matchmaking', () => {
 
     // Speed is the third dimension and separates the queues exactly as the
     // other two do: same mode, same rated flag, different game.
-    connA.ws.send(JSON.stringify({ t: 'queue', mode: 'heads-up', rated: true, speed: 'short' }));
-    connB.ws.send(JSON.stringify({ t: 'queue', mode: 'heads-up', rated: true, speed: 'long' }));
-    const shortSearch = await connA.messages.wait((m) => m.t === 'q' && m.s === 'searching' && m.speed === 'short');
-    const longSearch = await connB.messages.wait((m) => m.t === 'q' && m.s === 'searching' && m.speed === 'long');
-    expect(shortSearch.speed).toBe('short');
-    expect(longSearch.speed).toBe('long');
+    connA.ws.send(JSON.stringify({ t: 'queue', mode: 'heads-up', rated: true, speed: 'fast' }));
+    connB.ws.send(JSON.stringify({ t: 'queue', mode: 'heads-up', rated: true, speed: 'standard' }));
+    const fastSearch = await connA.messages.wait((m) => m.t === 'q' && m.s === 'searching' && m.speed === 'fast');
+    const standardSearch = await connB.messages.wait((m) => m.t === 'q' && m.s === 'searching' && m.speed === 'standard');
+    expect(fastSearch.speed).toBe('fast');
+    expect(standardSearch.speed).toBe('standard');
 
     await tick();
     await expect(connA.messages.wait((m) => m.t === 'ready' && m.s === 'pending', 300)).rejects.toThrow();
@@ -133,7 +133,7 @@ describe('matchmaking', () => {
     connB.ws.close();
   });
 
-  it('defaults a bare queue message to a rated long six-max match', async () => {
+  it('defaults a bare queue message to a rated standard six-max match', async () => {
     const a = await mintGuestSession(app);
     const b = await mintGuestSession(app);
     const others = await Promise.all([
@@ -142,7 +142,7 @@ describe('matchmaking', () => {
     createdUserIds.push(a.id, b.id, ...others.map((o) => o.id));
     for (const id of [a.id, b.id, ...others.map((o) => o.id)]) createdMatchIds.push(await unlockRanked(id));
 
-    // No mode, no rated, no speed: six handed and long is what that means now,
+    // No mode, no rated, no speed: six handed and standard is what that means now,
     // and a full ring needs six people before it deals.
     const conns = await Promise.all([a, b, ...others].map((sess) => connectWs(wsUrl, sess.token)));
     const connA = conns[0];
@@ -157,7 +157,7 @@ describe('matchmaking', () => {
 
     const match = await getMatchById(found.m);
     expect(match!.format.mode).toBe('six-max');
-    expect(match!.format.speed).toBe('long');
+    expect(match!.format.speed).toBe('standard');
     expect(match!.format.rated).toBe(true);
     // The column is a copy of the format and must never disagree with it.
     expect(match!.rated).toBe(true);

@@ -1,10 +1,10 @@
 import {
   HAND_HOLD_MS,
   READY_CHECK_MS,
-  SIX_MAX_LONG,
-  SIX_MAX_SHORT,
-  HEADS_UP_LONG,
-  HEADS_UP_SHORT,
+  SIX_MAX_STANDARD,
+  SIX_MAX_FAST,
+  HEADS_UP_STANDARD,
+  HEADS_UP_FAST,
   READY_COOLDOWN_MS,
   ceilingFor,
   matchCeilingMs,
@@ -13,10 +13,10 @@ import { Link } from 'react-router-dom';
 import { LessonPage, Figure } from './lesson.tsx';
 import { secs } from './constants.ts';
 
-const hu = HEADS_UP_LONG;
-const sm = SIX_MAX_LONG;
-const smShort = SIX_MAX_SHORT;
-const huShort = HEADS_UP_SHORT;
+const hu = HEADS_UP_STANDARD;
+const sm = SIX_MAX_STANDARD;
+const smFast = SIX_MAX_FAST;
+const huFast = HEADS_UP_FAST;
 
 const mins = (ms: number) => Math.round(ms / 60_000);
 
@@ -45,33 +45,33 @@ export function Formats() {
         each seat.
       </p>
 
-      <h2>Short and long</h2>
+      <h2>Fast and standard</h2>
       <p>
         Every table is one or the other, picked on the same card you pick rated or casual on. They
         are separate queues and separate games, but <strong>not</strong> separate ratings: there is
         one rating per mode and the speed rides along with it.
       </p>
       <p>
-        A <strong>long</strong> table is the game this site started with. Twenty seconds a decision,
+        A <strong>standard</strong> table is the game this site started with. Twenty seconds a decision,
         and the blinds move slowly enough that a six handed table normally runs on hands rather than
         on any clock. It cannot outlast{' '}
-        <strong>{mins(ceilingFor('long'))} minutes</strong>, and a schedule keyed to elapsed time is
+        <strong>{mins(ceilingFor('standard'))} minutes</strong>, and a schedule keyed to elapsed time is
         what guarantees that: it sits far enough behind normal play never to be noticed, and takes
         over on a table that is running long.
       </p>
       <p>
-        A <strong>short</strong> table is the fast game. {secs(smShort.clockMs)} seconds a decision,
-        and the blinds climb every <strong>{smShort.levelSeconds} seconds</strong> from the moment the
+        A <strong>fast</strong> table is the bullet game. {secs(smFast.clockMs)} seconds a decision,
+        and the blinds climb every <strong>{smFast.levelSeconds} seconds</strong> from the moment the
         match is created, whatever is happening at the table. That is what holds it inside{' '}
-        <strong>{mins(ceilingFor('short'))} minutes</strong>: by the last levels the big blind is
+        <strong>{mins(ceilingFor('fast'))} minutes</strong>: by the last levels the big blind is
         larger than anybody's stack, so every hand is all-in and the table settles. At that speed you
         want the number keys, which bet a fraction of the pot without your hand leaving the keyboard.
       </p>
 
       <Figure
-        caption={`The short six handed schedule, ${smShort.levelSeconds} seconds a level. The last level stays put, and by then a big blind is more than a starting stack.`}
+        caption={`The fast six handed schedule, ${smFast.levelSeconds} seconds a level. The last level stays put, and by then a big blind is more than a starting stack.`}
       >
-        <table className="table" aria-label="Short six-max blind schedule">
+        <table className="table" aria-label="Fast six-max blind schedule">
           <thead>
             <tr>
               <th className="r" style={{ width: 48 }}>Level</th>
@@ -81,8 +81,8 @@ export function Formats() {
             </tr>
           </thead>
           <tbody>
-            {smShort.levels.map((l, i) => {
-              const at = i * (smShort.levelSeconds ?? 0);
+            {smFast.levels.map((l, i) => {
+              const at = i * (smFast.levelSeconds ?? 0);
               return (
                 <tr key={i}>
                   <td className="r">{i + 1}</td>
@@ -98,8 +98,8 @@ export function Formats() {
         </table>
       </Figure>
 
-      <Figure caption={`The long six handed schedule, ${sm.levelHands} hands per level. The last level stays put.`}>
-        <table className="table" aria-label="Long six-max blind schedule">
+      <Figure caption={`The standard six handed schedule, ${sm.levelHands} hands per level. The last level stays put.`}>
+        <table className="table" aria-label="Standard six-max blind schedule">
           <thead>
             <tr>
               <th className="r" style={{ width: 48 }}>Level</th>
@@ -122,17 +122,17 @@ export function Formats() {
       </Figure>
 
       <p>
-        Short heads-up keeps the {huShort.hands} hand cap and adds the same kind of ladder behind it,
+        Fast heads-up keeps the {huFast.hands} hand cap and adds the same kind of ladder behind it,
         so it ends on hands, on a bust, or on the clock, whichever arrives first. The worst case is{' '}
-        {mins(matchCeilingMs(huShort))} minutes.
+        {mins(matchCeilingMs(huFast))} minutes.
       </p>
 
       <h2>The clock</h2>
       <p>
-        You get <strong>{secs(hu.clockMs)} seconds</strong> for every decision at a long table and{' '}
-        <strong>{secs(huShort.clockMs)} seconds</strong> at a short one. If your connection drops, the
+        You get <strong>{secs(hu.clockMs)} seconds</strong> for every decision at a standard table and{' '}
+        <strong>{secs(huFast.clockMs)} seconds</strong> at a fast one. If your connection drops, the
         clock pauses for a grace period while you reconnect, {secs(hu.graceMs)} seconds long or{' '}
-        {secs(huShort.graceMs)}, and then it runs again whether you are there or not.
+        {secs(huFast.graceMs)}, and then it runs again whether you are there or not.
       </p>
       <p>
         Running out of time checks if checking is free and folds if it is not. Three of those in a row

@@ -263,7 +263,7 @@ too. Same injection shape as `setBotDispatch`.
 the runner was constructed, so a room rebuilt over an existing match keeps the
 clock the match was actually created on rather than restarting the ladder.
 `levelAt` takes whichever basis is further along, hands or the clock, which is
-what makes a short format (no hand basis at all) climb on time and a long one
+what makes a short format (no hand basis at all) climb on time and a standard one
 climb on hands with the clock only catching a table that is running long.
 
 **The level the runner settled on is written to the hand row and reported on

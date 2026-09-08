@@ -26,15 +26,15 @@ export type Street = 'pre' | 'flop' | 'turn' | 'river' | 'showdown' | 'done';
 export type Mode = 'heads-up' | 'six-max';
 
 /* How fast a table is played. One dimension beside the mode, the way a chess
-   site keeps bullet apart from classical: `short` is the twenty minute game
-   with a ten second clock, `long` is the two hour one this site started with.
-   Ratings are NOT split by it. There is one Glicko-2 pool per mode and the
-   speed rides along as a tag, because four pools need four populations and
-   this site has one. Split them when the population supports it. */
-export type Speed = 'short' | 'long';
+   site keeps bullet apart from classical: `fast` is the twenty minute game
+   with a ten second clock, `standard` is the two hour one this site started
+   with. Ratings are NOT split by it. There is one Glicko-2 pool per mode and
+   the speed rides along as a tag, because four pools need four populations
+   and this site has one. Split them when the population supports it. */
+export type Speed = 'fast' | 'standard';
 
-export const SPEEDS: Speed[] = ['short', 'long'];
-export const SPEED_NAME: Record<Speed, string> = { short: 'Short', long: 'Long' };
+export const SPEEDS: Speed[] = ['fast', 'standard'];
+export const SPEED_NAME: Record<Speed, string> = { fast: 'Fast', standard: 'Standard' };
 
 export interface MatchFormat {
   mode: Mode;
@@ -45,7 +45,7 @@ export interface MatchFormat {
   sb: number; // level 1 blinds; kept flat so old readers still work
   bb: number;
   levels: { sb: number; bb: number }[]; // blind schedule; a single entry means blinds never escalate
-  levelHands: number; // hands per level, 0 for no hand basis at all (a short format climbs on the clock instead)
+  levelHands: number; // hands per level, 0 for no hand basis at all (a fast format climbs on the clock instead)
   clockMs: number; // per-decision clock
   graceMs: number; // reconnect grace before the clock runs while disconnected
   /* Seconds of elapsed match time per level, the other basis the schedule can
@@ -54,9 +54,9 @@ export interface MatchFormat {
      are set the level is whichever is further along, so the clock cannot
      un-climb a schedule that the hands already climbed. */
   levelSeconds?: number;
-  /* Short or long. Optional for the same reason: a format stored before this
-     existed was the long one, and `speedOf` is where that default is spelled
-     so nothing else has to remember it. */
+  /* Fast or standard. Optional for the same reason: a format stored before
+     this existed was the standard one, and `speedOf` is where that default is
+     spelled so nothing else has to remember it. */
   speed?: Speed;
   // A practice table: one human, the rest bots of a chosen level, never
   // rated. Optional so a format stored before practice existed still parses.
@@ -79,20 +79,20 @@ export interface MatchFormat {
 }
 
 export function speedOf(format: MatchFormat): Speed {
-  return format.speed === 'short' ? 'short' : 'long';
+  return format.speed === 'fast' ? 'fast' : 'standard';
 }
 
 /* ------------------------------------------------------------- the clock
 
-   Two promises, and the blind schedules below are built to keep them: a short
-   table is over inside twenty minutes and a long one inside two hours. Both
-   are enforced by the blinds rather than by a timer that stops a hand, because
-   a hand cut off halfway is not a poker result. */
-export const SHORT_CEILING_MS = 20 * 60_000;
-export const LONG_CEILING_MS = 120 * 60_000;
+   Two promises, and the blind schedules below are built to keep them: a fast
+   table is over inside twenty minutes and a standard one inside two hours.
+   Both are enforced by the blinds rather than by a timer that stops a hand,
+   because a hand cut off halfway is not a poker result. */
+export const FAST_CEILING_MS = 20 * 60_000;
+export const STANDARD_CEILING_MS = 120 * 60_000;
 
 export function ceilingFor(speed: Speed): number {
-  return speed === 'short' ? SHORT_CEILING_MS : LONG_CEILING_MS;
+  return speed === 'fast' ? FAST_CEILING_MS : STANDARD_CEILING_MS;
 }
 
 /* What a hand costs once the blinds have passed every stack at the table.
@@ -142,7 +142,7 @@ export function matchCeilingMs(format: MatchFormat): number {
    The arithmetic for each of the four is written above it. Read the stack to
    big blind ratio as the average one: 200 units against the level's bb. */
 
-/* Short heads-up. 400 chips in play, a level every 90 seconds.
+/* Fast heads-up. 400 chips in play, a level every 90 seconds.
 
      level  blinds    starts at   avg stack in bb   table total in bb
        1     1/2        0:00          100                200
@@ -160,11 +160,11 @@ export function matchCeilingMs(format: MatchFormat): number {
    At the top level the big blind is the whole table, so both seats are
    all-in the moment the blinds are posted and one hand settles it: 15:00 plus
    one forced hand, comfortably inside twenty minutes. In practice a bust
-   arrives around level 6 or 7. The 25 hand cap stays, so a short heads-up
+   arrives around level 6 or 7. The 25 hand cap stays, so a fast heads-up
    match is still "best of 25 or bust", now with a clock behind it. */
-export const HEADS_UP_SHORT: MatchFormat = {
+export const HEADS_UP_FAST: MatchFormat = {
   mode: 'heads-up',
-  speed: 'short',
+  speed: 'fast',
   players: 2,
   rated: true,
   hands: 25,
@@ -190,7 +190,7 @@ export const HEADS_UP_SHORT: MatchFormat = {
   graceMs: 8_000,
 };
 
-/* Short six-max. 1200 chips in play, a level every 90 seconds.
+/* Fast six-max. 1200 chips in play, a level every 90 seconds.
 
      level  blinds    starts at   avg stack in bb   table total in bb
        1     1/2        0:00          100                600
@@ -210,11 +210,11 @@ export const HEADS_UP_SHORT: MatchFormat = {
    From level 11 the average stack is under a big blind, so the table is
    already collapsing; the top level makes it certain, since 600 is half of
    every chip on the table and five forced hands is the worst case. 18:00 plus
-   five of them is 18:50. Most short six-max tables are over by minute twelve,
+   five of them is 18:50. Most fast six-max tables are over by minute twelve,
    which is the point: this is the bullet game. */
-export const SIX_MAX_SHORT: MatchFormat = {
+export const SIX_MAX_FAST: MatchFormat = {
   mode: 'six-max',
-  speed: 'short',
+  speed: 'fast',
   players: 6,
   rated: true,
   hands: null,
@@ -242,7 +242,7 @@ export const SIX_MAX_SHORT: MatchFormat = {
   graceMs: 8_000,
 };
 
-/* Long heads-up. The match this site started with: 200 units a seat, blinds
+/* Standard heads-up. The match this site started with: 200 units a seat, blinds
    1/2, best of 25 hands or bust, a twenty second clock. The 25 hand cap is
    what normally ends it, around the twenty minute mark.
 
@@ -260,9 +260,9 @@ export const SIX_MAX_SHORT: MatchFormat = {
    90:00 plus one forced hand. `levelHands` stays at 25, which is the whole
    match, so the hand basis never moves the blinds: only the clock does, and
    only when the clock has been abused. */
-export const HEADS_UP_LONG: MatchFormat = {
+export const HEADS_UP_STANDARD: MatchFormat = {
   mode: 'heads-up',
-  speed: 'long',
+  speed: 'standard',
   players: 2,
   rated: true,
   hands: 25,
@@ -281,7 +281,7 @@ export const HEADS_UP_LONG: MatchFormat = {
   graceMs: 15_000,
 };
 
-/* Long six-max. The sit-and-go this site started with: nine levels, eight
+/* Standard six-max. The sit-and-go this site started with: nine levels, eight
    hands each, last player standing. Three levels are added on the end and a
    time basis behind them, for the same reason as heads-up above: 50/100 left
    twelve big blinds on the table, which collapses a table but does not
@@ -307,9 +307,9 @@ export const HEADS_UP_LONG: MatchFormat = {
    takes over on a table running slower than 75 seconds a hand, which is a
    table that is going to need the help. 110:00 plus five forced hands is
    110:50. */
-export const SIX_MAX_LONG: MatchFormat = {
+export const SIX_MAX_STANDARD: MatchFormat = {
   mode: 'six-max',
-  speed: 'long',
+  speed: 'standard',
   players: 6,
   rated: true,
   hands: null,
@@ -336,10 +336,10 @@ export const SIX_MAX_LONG: MatchFormat = {
   graceMs: 15_000,
 };
 
-/* The long formats under their original names, because that is what they are
+/* The standard formats under their original names, because that is what they are
    and half the site imports them to print the rules. */
-export const HEADS_UP_FORMAT = HEADS_UP_LONG;
-export const SIX_MAX_FORMAT = SIX_MAX_LONG;
+export const HEADS_UP_FORMAT = HEADS_UP_STANDARD;
+export const SIX_MAX_FORMAT = SIX_MAX_STANDARD;
 
 /* How long a finished hand is held on screen before the next one deals, or
    before the match result is sent. The server sleeps it and the client counts
@@ -357,11 +357,11 @@ export function holdFor(format: MatchFormat): number {
 
 /* Six handed is the main game. It is the one the home page opens on, the one
    a bare `queue` message means, and the one the site is about: a full ring is
-   more poker than a duel, and heads-up is the sideshow beside it. Long,
+   more poker than a duel, and heads-up is the sideshow beside it. Standard,
    because a default should be the ordinary game rather than the fast one. */
-export const DEFAULT_FORMAT = SIX_MAX_LONG;
+export const DEFAULT_FORMAT = SIX_MAX_STANDARD;
 export const DEFAULT_MODE: Mode = 'six-max';
-export const DEFAULT_SPEED: Speed = 'long';
+export const DEFAULT_SPEED: Speed = 'standard';
 
 /* The five bot levels, one table shared by the server (which plays them and
    labels the roster) and the client (which offers them in the practice
@@ -397,12 +397,12 @@ export function botLevelInfo(level: number): BotLevelInfo {
 }
 
 const FORMATS: Record<Mode, Record<Speed, MatchFormat>> = {
-  'heads-up': { short: HEADS_UP_SHORT, long: HEADS_UP_LONG },
-  'six-max': { short: SIX_MAX_SHORT, long: SIX_MAX_LONG },
+  'heads-up': { fast: HEADS_UP_FAST, standard: HEADS_UP_STANDARD },
+  'six-max': { fast: SIX_MAX_FAST, standard: SIX_MAX_STANDARD },
 };
 
 export function formatFor(mode: Mode, rated: boolean, speed: Speed = DEFAULT_SPEED): MatchFormat {
-  const base = FORMATS[mode === 'six-max' ? 'six-max' : 'heads-up'][speed === 'short' ? 'short' : 'long'];
+  const base = FORMATS[mode === 'six-max' ? 'six-max' : 'heads-up'][speed === 'fast' ? 'fast' : 'standard'];
   return { ...base, rated };
 }
 

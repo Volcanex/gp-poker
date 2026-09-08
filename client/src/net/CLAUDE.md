@@ -22,7 +22,7 @@ owns all three and `session.tsx` remembers them in `localStorage`
 (`ot-play-choice`), so "play again" repeats the match that just finished.
 `readPlayChoice()` returns null until something has been played, which is how
 the picker knows not to claim a mode was played last on a first visit. A choice
-saved before speed existed reads as `long`, the same default a stored format
+saved before speed existed reads as `standard`, the same default a stored format
 without one has.
 
 **The ready check is session state, not page state.** A matchmade table is

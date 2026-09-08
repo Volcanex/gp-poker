@@ -42,7 +42,7 @@ export function blindTextShort(blinds: { sb: number; bb: number }): string {
 
 /* The blinds as they stand, and where they are in the schedule. The numbers
    and the level both come from the view, which is the server's word for what
-   is in play: a short format climbs on elapsed match time, and counting hands
+   is in play: a fast format climbs on elapsed match time, and counting hands
    here would print a level the table is not on.
 
    `level` is optional because a client can outlive the server it talks to,
@@ -63,13 +63,13 @@ export function blindText(
 
   /* Two questions, and a schedule the player is not climbing answers no to
      both. The hand basis fires only when a level is shorter than the match;
-     long heads-up sets it to the whole 25, which can never come round. The
-     clock basis is a level the player meets only on a short table, where it
-     is the whole idea; on a long one it is a backstop half an hour away that
-     a normal match ends long before, and printing "Level 1" for the whole of
-     one is a schedule nobody is on. */
+     standard heads-up sets it to the whole 25, which can never come round.
+     The clock basis is a level the player meets only on a fast table, where
+     it is the whole idea; on a standard one it is a backstop half an hour
+     away that a normal match ends long before, and printing "Level 1" for
+     the whole of one is a schedule nobody is on. */
   const climbsOnHands = per > 0 && (format.hands === null || per < format.hands);
-  const climbsOnClock = speedOf(format) === 'short';
+  const climbsOnClock = speedOf(format) === 'fast';
   if (!climbsOnHands && !climbsOnClock) {
     // A backstop that has actually fired is worth saying plainly: the blinds
     // moved, which is the fact, and there is no schedule to place it in.

@@ -85,10 +85,21 @@ export function modePeakAt(profile: Profile, mode: Mode): string | null {
 export function mainMode(profile: Profile): Mode {
   const sent = profile.main;
   if (sent === 'heads-up' || sent === 'six-max') return sent;
-  const sixMax = modeRating(profile.summary, 'six-max');
-  const headsUp = modeRating(profile.summary, 'heads-up');
+  return mainModeOf(profile.summary);
+}
+
+/* The same rule off a bare summary, which is all the home page has: /api/me
+   carries the standings but not the `main` the profile route works out. Used
+   to pin the play panel to the game somebody actually plays, so it is the
+   same answer their profile opens on rather than a second notion of it.
+
+   Six handed wins a genuine tie, unlike the profile's fallback, because it is
+   the main game: a player who has played neither is pinned to it. */
+export function mainModeOf(summary: UserSummary): Mode {
+  const sixMax = modeRating(summary, 'six-max');
+  const headsUp = modeRating(summary, 'heads-up');
   if (sixMax.matches !== headsUp.matches) return sixMax.matches > headsUp.matches ? 'six-max' : 'heads-up';
-  return sixMax.rating > headsUp.rating ? 'six-max' : 'heads-up';
+  return headsUp.rating > sixMax.rating ? 'heads-up' : 'six-max';
 }
 
 /* Where this player sits in a mode. Null covers three different things that

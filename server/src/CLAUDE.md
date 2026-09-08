@@ -236,11 +236,11 @@ a decision for when there is a crowd.
 
 A schedule climbs on two bases and takes whichever is further along
 (`levelAt`): hands, which is what six-max has always used, and elapsed match
-time, which is what a short table uses and what keeps a long one inside two
+time, which is what a fast table uses and what keeps a standard one inside two
 hours. `levelHands: 0` means no hand basis at all. Every hand asks
 `blindsAt(format, handNumber, elapsedMs)` and `TableView.blinds` reports the
 answer, with `TableView.level` beside it, which is the only place the client
-should read either from: a short table's level is a function of a wall clock
+should read either from: a fast table's level is a function of a wall clock
 only the room knows.
 
 **A hand records the blinds it was dealt at** (`hands.sb`, `hands.bb`) for the

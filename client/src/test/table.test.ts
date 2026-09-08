@@ -159,12 +159,12 @@ describe('hand header', () => {
   it('names the level on a short table, where the clock is the schedule', () => {
     // No hand basis at all, so the level comes off the view rather than off a
     // hand count, and there are no hands to count down to the next one.
-    expect(blindText(formatFor('six-max', true, 'short'), { sb: 8, bb: 16 }, 12, 4)).toBe(
+    expect(blindText(formatFor('six-max', true, 'fast'), { sb: 8, bb: 16 }, 12, 4)).toBe(
       'Level 5, blinds 8/16'
     );
-    const short = formatFor('heads-up', true, 'short');
-    expect(blindText(short, { sb: 200, bb: 400 }, 9, short.levels.length - 1)).toBe(
-      `Level ${short.levels.length}, blinds 200/400, top level`
+    const fast = formatFor('heads-up', true, 'fast');
+    expect(blindText(fast, { sb: 200, bb: 400 }, 9, fast.levels.length - 1)).toBe(
+      `Level ${fast.levels.length}, blinds 200/400, top level`
     );
   });
 

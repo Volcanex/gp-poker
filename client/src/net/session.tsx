@@ -78,7 +78,7 @@ export function readPlayChoice(): PlayChoice | null {
     const mode: Mode = v.mode === 'heads-up' ? 'heads-up' : 'six-max';
     // A choice saved before speed existed was the long game, which is what
     // every stored format without one means too.
-    const speed: Speed = v.speed === 'short' ? 'short' : 'long';
+    const speed: Speed = v.speed === 'fast' ? 'fast' : 'standard';
     return { mode, rated: v.rated !== false, speed };
   } catch {
     return null;

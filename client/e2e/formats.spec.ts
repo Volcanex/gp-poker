@@ -74,7 +74,7 @@ const READY = {
   s: 'pending',
   id: 'rc-1',
   mode: 'six-max',
-  speed: 'short',
+  speed: 'fast',
   rated: true,
   seats: 6,
   humans: 4,
@@ -82,83 +82,128 @@ const READY = {
   deadline: 0,
 };
 
-test.describe('the picker', () => {
-  test('puts six handed first and marks it the main game', async ({ page }) => {
+test.describe('the play panel', () => {
+  test('is one panel with three switchers and one button', async ({ page }) => {
     await stubApi(page);
     await setTheme(page, 'dark');
     await page.goto('/');
 
-    const cards = page.locator('.modes .mode');
-    await expect(cards.first()).toContainText('Six-max');
-    await expect(cards.first()).toContainText('Main game');
-    await expect(cards.nth(1)).toContainText('Heads-up');
-    // The main card carries the emphasis, and nothing else does.
-    await expect(page.locator('.mode[data-main]')).toHaveCount(1);
-    await expect(page.locator('.mode[data-main] .btn-lg')).toBeVisible();
+    const panel = page.locator('.play-panel');
+    await expect(panel).toBeVisible();
+    // Speed, stake and table size, in that order, each a two option switcher.
+    const strips = panel.locator('.play-toggles [role="tablist"]');
+    await expect(strips).toHaveCount(3);
+    await expect(strips.nth(0)).toContainText('Fast');
+    await expect(strips.nth(0)).toContainText('Standard');
+    await expect(strips.nth(1)).toContainText('Ranked');
+    await expect(strips.nth(1)).toContainText('Casual');
+    // Six handed is the main game, so it is the first option offered.
+    await expect(strips.nth(2).locator('.tab').first()).toHaveText('Six-max');
+
+    // One primary button, verb first, naming the game it would deal.
+    const go = panel.locator('.play-go');
+    await expect(go).toHaveClass(/btn-lg/);
+    await expect(go).toHaveText(/^Play /);
   });
 
-  test('offers short and long on both modes, long by default', async ({ page }) => {
+  test('pins the game this player has played most', async ({ page }) => {
     await stubApi(page);
     await setTheme(page, 'dark');
     await page.goto('/');
-
-    for (const mode of ['six-max', 'heads-up']) {
-      const speeds = page.locator(`input[name="speed-${mode}"]`);
-      await expect(speeds).toHaveCount(2);
-      await expect(speeds.nth(0)).not.toBeChecked(); // short
-      await expect(speeds.nth(1)).toBeChecked(); // long
-    }
+    // The stubbed account has forty heads-up matches and no six handed ones,
+    // and has chosen nothing, so the panel opens on heads-up.
+    await expect(page.locator('.play-go')).toHaveText('Play heads-up');
+    await expect(page.locator('.player-bar')).toContainText('Heads-up');
+    await expect(page.locator('.play-toggles .tab[data-value="standard"]')).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
   });
 
-  test('remembers the speed and the stake it was left on', async ({ page }) => {
+  test('opens on the last choice rather than on the pin', async ({ page }) => {
     await stubApi(page);
     await setTheme(page, 'dark');
     await page.addInitScript(() => {
-      localStorage.setItem('ot-play-choice', JSON.stringify({ mode: 'six-max', rated: false, speed: 'short' }));
+      localStorage.setItem('ot-play-choice', JSON.stringify({ mode: 'six-max', rated: false, speed: 'fast' }));
     });
     await page.goto('/');
 
-    const card = page.locator('.mode').first();
-    await expect(card.locator('input[name="speed-six-max"]').nth(0)).toBeChecked();
-    await expect(card.locator('input[name="stake-six-max"]').nth(1)).toBeChecked();
-    await expect(card).toContainText('Last played');
-    // The blurb follows the speed rather than describing a table it will not
-    // deal: the short one promises the twenty minute ceiling.
-    await expect(card).toContainText('20 minutes');
+    await expect(page.locator('.play-go')).toHaveText('Play six-max');
+    await expect(page.locator('.play-toggles .tab[data-value="fast"]')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('.play-toggles .tab[data-value="casual"]')).toHaveAttribute('aria-selected', 'true');
+    // The line under the switchers follows them: fast promises twenty minutes.
+    await expect(page.locator('.play-panel')).toContainText('20 minutes');
   });
 
-  test('describes the long table it would actually deal', async ({ page }) => {
+  test('describes the standard table it would actually deal', async ({ page }) => {
     await stubApi(page);
     await setTheme(page, 'dark');
     await page.goto('/');
-    await expect(page.locator('.mode').first()).toContainText('2 hours');
+    await expect(page.locator('.play-panel')).toContainText('2 hours');
+  });
+
+  test('offers the other ways to play as one line each', async ({ page }) => {
+    await stubApi(page);
+    await setTheme(page, 'dark');
+    await page.goto('/');
+
+    const ways = page.locator('.play-ways .way-go');
+    await expect(ways).toHaveCount(4);
+    await expect(ways.nth(0)).toContainText('Practice against bots');
+    await expect(ways.nth(1)).toContainText('Hourly arena');
+    await expect(ways.nth(2)).toContainText('Play a friend');
+    await expect(ways.nth(3)).toContainText('Home game');
+    // Closed until asked for: the controls are there, they are not in the way.
+    await expect(page.locator('.way-body')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Practice against bots' }).click();
+    await expect(page.locator('.way[data-open] .way-body')).toBeVisible();
+    await expect(page.locator('.way-body')).toContainText('never rated');
+  });
+
+  test('puts puzzles, learning and watching beside the panel', async ({ page }) => {
+    await stubApi(page);
+    await setTheme(page, 'dark');
+    await page.goto('/');
+    const cards = page.locator('.home-side .side-card');
+    await expect(cards).toHaveCount(3);
+    await expect(cards.nth(0)).toContainText('Puzzles');
+    await expect(cards.nth(1)).toContainText('Learn');
+    // A live table is stubbed, so the watch card names it rather than the page.
+    await expect(cards.nth(2)).toContainText('riverrat and quarrel');
+  });
+
+  test('carries no middle dot anywhere on the page', async ({ page }) => {
+    await stubApi(page);
+    await setTheme(page, 'dark');
+    await page.goto('/');
+    const text = await page.locator('body').innerText();
+    expect(text).not.toContain('\u00b7');
   });
 });
 
 test.describe('the ranked gate', () => {
-  test('disables rated and says what opens it', async ({ page }) => {
+  test('disables ranked and says what opens it', async ({ page }) => {
     await stubApi(page);
     await page.route('**/api/me', (route) => route.fulfill({ json: { ...ME, rankedUnlocked: false } }));
     await setTheme(page, 'dark');
     await page.goto('/');
 
-    const card = page.locator('.mode').first();
-    const rated = card.locator('input[name="stake-six-max"]').nth(0);
-    const casual = card.locator('input[name="stake-six-max"]').nth(1);
-    await expect(rated).toBeDisabled();
-    await expect(casual).toBeChecked();
-    await expect(card).toContainText('Play one casual game first');
+    const panel = page.locator('.play-panel');
+    await expect(panel.locator('.tab[data-value="ranked"]')).toBeDisabled();
+    await expect(panel.locator('.tab[data-value="casual"]')).toHaveAttribute('aria-selected', 'true');
+    await expect(panel).toContainText('Play one casual game first');
     // The button is still live: casual is a game somebody can play right now.
-    await expect(card.locator('.btn-primary')).toBeEnabled();
+    await expect(panel.locator('.play-go')).toBeEnabled();
   });
 
-  test('leaves rated alone for somebody who has played', async ({ page }) => {
+  test('leaves ranked alone for somebody who has played', async ({ page }) => {
     await stubApi(page);
     await setTheme(page, 'dark');
     await page.goto('/');
-    const card = page.locator('.mode').first();
-    await expect(card.locator('input[name="stake-six-max"]').nth(0)).toBeEnabled();
-    await expect(card).not.toContainText('Play one casual game first');
+    const panel = page.locator('.play-panel');
+    await expect(panel.locator('.tab[data-value="ranked"]')).toBeEnabled();
+    await expect(panel).not.toContainText('Play one casual game first');
   });
 });
 
@@ -176,7 +221,7 @@ test.describe('the ready check', () => {
     await expect(dialog).toBeVisible();
     await expect(dialog).toContainText('Your table is ready');
     // What the table is, in the words the picker used for it.
-    await expect(dialog).toContainText('Six-max, short, rated');
+    await expect(dialog).toContainText('Six-max, fast, ranked');
     await expect(dialog).toContainText('of 4 accepted');
     await expect(dialog.locator('[role="progressbar"]')).toBeVisible();
 
@@ -209,7 +254,7 @@ test.describe('the ready check', () => {
     await page.goto('/');
 
     // Searching first, so there is a card for the reason to land on.
-    await push(page, { t: 'q', s: 'searching', mode: 'six-max', rated: true, speed: 'short', w: 4 });
+    await push(page, { t: 'q', s: 'searching', mode: 'six-max', rated: true, speed: 'fast', w: 4 });
     await push(page, { ...READY, deadline: Date.now() + 20_000 });
     const dialog = page.locator('dialog.ready-dlg');
     await expect(dialog).toBeVisible();
@@ -228,7 +273,7 @@ test.describe('the ready check', () => {
 
     await push(page, { ...READY, deadline: Date.now() + 20_000 });
     await expect(page.locator('dialog.ready-dlg')).toBeVisible();
-    await push(page, { t: 'q', s: 'found', m: 'mock', mode: 'six-max', rated: true, speed: 'short' });
+    await push(page, { t: 'q', s: 'found', m: 'mock', mode: 'six-max', rated: true, speed: 'fast' });
     await expect(page.locator('dialog.ready-dlg')).toBeHidden();
   });
 });

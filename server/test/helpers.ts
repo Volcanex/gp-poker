@@ -100,7 +100,7 @@ export async function connectSession(url: string, session: Session): Promise<Con
 // five test files.
 export function testFormat(overrides: Partial<MatchFormat> = {}): MatchFormat {
   const mode: Mode = overrides.mode ?? 'heads-up';
-  const speed: Speed = overrides.speed ?? 'long';
+  const speed: Speed = overrides.speed ?? 'standard';
   return { ...formatFor(mode, overrides.rated ?? true, speed), ...overrides };
 }
 
