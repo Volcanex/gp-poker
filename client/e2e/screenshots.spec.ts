@@ -18,6 +18,8 @@ interface Shot {
   /* A settings record to stamp before the page loads, for the states that are
      about a setting rather than about a moment in a hand. */
   prefs?: Record<string, unknown>;
+  /* Selectors this state cannot pin, on top of the ones every state masks. */
+  hides?: string[];
 }
 
 const STATES: Shot[] = [
@@ -42,6 +44,11 @@ const STATES: Shot[] = [
     url: '/m/mock?step=13',
     prefs: { theme: 'dark', accent: 'jade', fourColour: true },
   },
+  /* The two grid pages. What a picture of either is for is the heat ramp and
+     the rank strips, so the equity panel's numbers, which come off a twenty
+     thousand deal sample and land a tenth either way each run, are masked. */
+  { name: 'ranges', url: '/tools/ranges', hides: ['.results dd.num'] },
+  { name: 'explorer', url: '/tools/explorer' },
 ];
 
 /* Reduced motion, so a card that is still dealing cannot decide a baseline. */
@@ -78,7 +85,7 @@ for (const theme of THEMES) {
 
         await expect(page).toHaveScreenshot(`${state.name}-${width}-${theme}.png`, {
           fullPage: true,
-          mask: masks(page),
+          mask: [...masks(page), ...(state.hides ?? []).map((sel) => page.locator(sel))],
         });
       });
     }

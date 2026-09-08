@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import type { Locator, Page } from '@playwright/test';
 
 /* The mock table needs no server, but three pages ask the API who you are
@@ -195,7 +197,16 @@ export async function stubApi(page: Page) {
   await page.route('**/api/challenges/*', (route) => route.fulfill({ json: CHALLENGE }));
   await page.route('**/api/home-games/*', (route) => route.fulfill({ json: HOME_GAME }));
   await page.route('**/api/me', (route) => route.fulfill({ json: ME }));
+  /* One book for every selection. The explorer's own arithmetic is the
+     server's and is tested there; what a picture of this page is for is the
+     ramp and the entrance, and those want a full 169 rows with a real spread
+     of frequencies rather than a hand-written handful. */
+  await page.route('**/api/explorer*', (route) => route.fulfill({ json: EXPLORER }));
 }
+
+const EXPLORER = JSON.parse(
+  readFileSync(fileURLToPath(new URL('./fixtures/explorer.json', import.meta.url)), 'utf8'),
+);
 
 /* An explicit theme, stored the way g stores it: g-ui reads its own key at load
    and writes the attribute itself, so setting the attribute alone is undone a

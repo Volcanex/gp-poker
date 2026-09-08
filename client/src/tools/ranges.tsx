@@ -18,6 +18,7 @@ import {
   type Range,
 } from '@opentable/equity/range';
 import { chartPresets } from '@opentable/equity/presets';
+import { percentileOf } from '@opentable/preflop';
 import type { EquityResult } from '@opentable/equity';
 import { analyse, cancel, isCancelled, nextRequestId } from '../analysis/index.ts';
 import { useGInit } from '../ui/bits.tsx';
@@ -25,6 +26,8 @@ import { useTitle } from '../ui/title.ts';
 import { BoardText } from '../ui/board-text.tsx';
 import { CardPicker, readCards } from './cards.tsx';
 import { HandGrid } from './hand-grid.tsx';
+import { FlatLegend, GridLegend } from './grid-legend.tsx';
+import { rampFill, rampHue, rangeHeat } from './ramp.ts';
 
 const PRESETS = chartPresets();
 const START_PERCENT = 20;
@@ -43,6 +46,12 @@ export function Ranges() {
   const [draft, setDraft] = useState<string | null>(null);
   const [textError, setTextError] = useState<string | null>(null);
   const [top, setTop] = useState(asked ? Math.round(asked.percent) : START_PERCENT);
+  /* Two ways of reading the same selection. A range that came off the slider is
+     an ordering, so it is worth shading by where each hand sits in it; a chart
+     or a painted range is a set, where a second colour would claim a ranking
+     the range does not have. */
+  const [heat, setHeat] = useState(!asked);
+  const [wave, setWave] = useState(0);
   const [preset, setPreset] = useState(asked ? asked.id : '');
   const [hero, setHero] = useState<[string, string]>(['Ah', 'Ks']);
   const [boardText, setBoardText] = useState('');
@@ -55,14 +64,20 @@ export function Ranges() {
 
   const text = draft ?? rangeToText(range);
 
-  const apply = (next: Range) => {
+  /* Every wholesale change to the range comes through here, which is also what
+     makes the grid enter again. Painting and typing deliberately do not: a
+     dragged range would restart the entrance under the pointer. */
+  const apply = (next: Range, shaded: boolean) => {
     setRange(next);
+    setHeat(shaded);
+    setWave((n) => n + 1);
     setDraft(null);
     setTextError(null);
   };
 
   const paint = (cls: string, adding: boolean) => {
     setPreset('');
+    setHeat(false);
     setDraft(null);
     setTextError(null);
     setRange((prev) => {
@@ -76,6 +91,7 @@ export function Ranges() {
   const onText = (value: string) => {
     setDraft(value);
     setPreset('');
+    setHeat(false);
     try {
       setRange(parseRange(value));
       setTextError(null);
@@ -103,10 +119,23 @@ export function Ranges() {
         <section className="card stack" aria-label="The range">
           <HandGrid
             label="Starting hands"
-            cell={(cls) => ({ content: cls, label: cls, selected: range.has(cls) })}
+            cell={(cls) => cellFor(cls, range.has(cls), heat, top)}
             onPaint={paint}
+            wave={wave}
             hint="Click or drag to paint. Arrow keys move, space toggles. Pairs run down the diagonal, suited above it, offsuit below."
           />
+          {heat ? (
+            <GridLegend
+              from={`Top ${top}%`}
+              to="Top 1%"
+              note="Shaded by how early a hand enters the range."
+            />
+          ) : (
+            <FlatLegend
+              label="In the range"
+              note="A chart or a painted range is a set, not an order."
+            />
+          )}
           <div className="range-meta">
             <span className="num">{combos}</span>
             <span className="muted">combos</span>
@@ -150,7 +179,7 @@ export function Ranges() {
                     const value = Number(e.target.value);
                     setTop(value);
                     setPreset('');
-                    apply(rangeFromTop(value));
+                    apply(rangeFromTop(value), true);
                   }}
                 />
               </span>
@@ -171,7 +200,7 @@ export function Ranges() {
                     setPreset(e.target.value);
                     if (found) {
                       setTop(Math.round(found.percent));
-                      apply(found.range);
+                      apply(found.range, false);
                     }
                   }}
                 >
@@ -189,7 +218,7 @@ export function Ranges() {
             </div>
 
             <div className="row">
-              <button type="button" className="btn btn-secondary btn-sm" onClick={() => apply(new Set())}>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => apply(new Set(), false)}>
                 Clear the range
               </button>
               <button
@@ -197,7 +226,7 @@ export function Ranges() {
                 className="btn btn-secondary btn-sm"
                 onClick={() => {
                   setTop(100);
-                  apply(rangeFromTop(100));
+                  apply(rangeFromTop(100), true);
                 }}
               >
                 Select every hand
@@ -210,6 +239,22 @@ export function Ranges() {
       </div>
     </main>
   );
+}
+
+/* A cell in the heat view carries where its hand sits in the slice, not what
+   kind of hand it is: the pair, suited and offsuit tiering underneath is the
+   grid's own furniture and stays out of the ramp. */
+function cellFor(cls: string, on: boolean, heat: boolean, top: number) {
+  if (!on || !heat) return { content: cls, label: cls, selected: on };
+  const percentile = percentileOf(cls);
+  const t = rangeHeat(percentile, top);
+  return {
+    content: cls,
+    label: `${cls}, in the top ${Math.max(1, Math.ceil(percentile))}% of hands`,
+    selected: true,
+    tone: 'heat',
+    style: { '--_f': rampFill(t), '--_h': rampHue(t) } as React.CSSProperties,
+  };
 }
 
 function EquityPanel({

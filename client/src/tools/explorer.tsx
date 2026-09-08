@@ -20,6 +20,8 @@ import { useTitle } from '../ui/title.ts';
 import { MODE_NAME, ModeTabs } from '../ui/mode-tabs.tsx';
 import { fmtDate } from '../ui/format.ts';
 import { HandGrid, type HandCell } from './hand-grid.tsx';
+import { GridLegend } from './grid-legend.tsx';
+import { DIVERGE_CAP, rampFill, rampHue } from './ramp.ts';
 
 /* The positions each mode can produce, in seating order from the button, and
    named the way a player would say them. The keys are the server's, which are
@@ -235,6 +237,7 @@ export function Explorer() {
                 cell={(cls) => cellFor(rows.get(cls), cls, shade)}
                 onShow={setShowing}
                 ranks
+                wave={`${mode}|${position}|${facing}|${players}|${shade}`}
                 hint={
                   shade === 'raise'
                     ? 'Shaded by how often the hand was raised. The number is the most common action. Hover or tab a cell for the whole breakdown.'
@@ -269,17 +272,16 @@ export function Explorer() {
   );
 }
 
-/* The shade is a strength between 0 and 1 on a token colour, never a colour of
-   its own: raise frequency runs up one hue, and big blinds won run up or down
-   the two status colours from a neutral middle. Capped short of full strength
-   so the number stays readable on top of it. */
-const MAX_SHADE = 0.72;
-
 /* Where the big blind scale tops out. Two big blinds a hand either way is an
    enormous edge, and letting one freak cell set the scale would flatten every
    other one to nothing. */
 const BB_CAP = 2;
 
+/* A cell is a value on a ramp, never a colour of its own. How often a hand was
+   raised runs up the sequential ramp, cool to hot; big blinds won runs out from
+   the surface towards green or red depending on its sign. Neither ramp encodes
+   whether the hand is a pair, suited or offsuit: the tiering the range explorer
+   uses for that would read here as a second, contradicting variable. */
 function cellFor(row: ExplorerRow | undefined, cls: string, shade: Shade): HandCell {
   const hands = row?.hands ?? 0;
   if (hands === 0) {
@@ -287,14 +289,17 @@ function cellFor(row: ExplorerRow | undefined, cls: string, shade: Shade): HandC
   }
 
   const best = dominant(row!);
-  const strength = shade === 'raise' ? (row!.raise ?? 0) / 100 : Math.min(Math.abs(row!.netBb ?? 0) / BB_CAP, 1);
-  const tone = shade === 'raise' ? 'raise' : (row!.netBb ?? 0) >= 0 ? 'up' : 'down';
+  const heat = shade === 'raise' ? (row!.raise ?? 0) / 100 : Math.min(Math.abs(row!.netBb ?? 0) / BB_CAP, 1);
+  const tone = shade === 'raise' ? 'heat' : (row!.netBb ?? 0) >= 0 ? 'up' : 'down';
 
   return {
     content: <span className="num">{Math.round(best.value)}</span>,
     label: `${cls}, ${hands} ${hands === 1 ? 'hand' : 'hands'}, ${Math.round(best.value)}% ${best.word}, ${fmtBb(row!.netBb)} big blinds a hand`,
     tone,
-    style: { '--_v': strength * MAX_SHADE } as React.CSSProperties,
+    style: {
+      '--_f': rampFill(heat, shade === 'raise' ? undefined : DIVERGE_CAP),
+      '--_h': rampHue(heat),
+    } as React.CSSProperties,
   };
 }
 
@@ -308,22 +313,16 @@ function dominant(row: ExplorerRow): { word: string; value: number } {
 }
 
 function Legend({ shade }: { shade: Shade }) {
-  const stops = shade === 'raise' ? [0, 0.25, 0.5, 0.75, 1] : [-1, -0.5, 0, 0.5, 1];
-  return (
-    <div className="ex-legend">
-      <span className="muted small">{shade === 'raise' ? 'Never raised' : `Lost ${BB_CAP} bb`}</span>
-      <span className="ex-ramp" aria-hidden="true">
-        {stops.map((stop) => (
-          <span
-            key={stop}
-            className="ex-swatch"
-            data-tone={shade === 'raise' ? 'raise' : stop >= 0 ? 'up' : 'down'}
-            style={{ '--_v': Math.abs(stop) * MAX_SHADE } as React.CSSProperties}
-          />
-        ))}
-      </span>
-      <span className="muted small">{shade === 'raise' ? 'Always raised' : `Won ${BB_CAP} bb`}</span>
-    </div>
+  return shade === 'raise' ? (
+    <GridLegend from="Raised 0%" to="Raised 100%" note="A cell left at the surface was never raised." />
+  ) : (
+    <GridLegend
+      from={`Lost ${BB_CAP} bb`}
+      to={`Won ${BB_CAP} bb`}
+      tones={['down', 'up']}
+      cap={DIVERGE_CAP}
+      note="The middle of the ramp is breaking even."
+    />
   );
 }
 

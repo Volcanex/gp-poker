@@ -2,13 +2,16 @@
    opening explorer. Pairs run down the diagonal, suited above it, offsuit
    below, which is the layout every poker chart in the world uses.
 
-   The grid owns the layout, the roving tab index and the paint gesture; what a
-   cell looks like is the caller's, through `cell`. That split is what lets one
-   page paint a range on it and another shade it by a frequency without either
-   of them reimplementing arrow key navigation across 169 buttons. */
+   The grid owns the layout, the roving tab index, the paint gesture and the
+   entrance; what a cell looks like is the caller's, through `cell`. That split
+   is what lets one page paint a range on it and another shade it by a
+   frequency without either of them reimplementing arrow key navigation across
+   169 buttons. */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useAnimate, useReducedMotion } from 'motion/react';
 import { classKind, HAND_GRID, RANKS } from '@opentable/equity/range';
+import { CELL_ENTER, centreDelay, ENTER_SCALE } from './ramp.ts';
 
 export interface HandCell {
   /* What the cell reads, usually the class or a number. */
@@ -37,11 +40,24 @@ export interface HandGridProps {
      cell already names its hand to a screen reader. */
   ranks?: boolean;
   hint?: React.ReactNode;
+  /* Bump this whenever the whole grid means something new: another preset,
+     another seat, another shade. The 169 cells then arrive again in a wave out
+     from the middle. Painting one cell must NOT touch it, or a dragged range
+     restarts the entrance under the pointer. Leaving it out means no
+     entrance at all. */
+  wave?: string | number;
 }
 
-export function HandGrid({ label, cell, onPaint, onShow, ranks, hint }: HandGridProps) {
+/* A run of wave changes settles into one entrance rather than 60 of them: a
+   dragged slider fires a change per step, and each would otherwise blank the
+   grid and start over. Only after the drag stops does the wave run. */
+const SETTLE = 120;
+
+export function HandGrid({ label, cell, onPaint, onShow, ranks, hint, wave }: HandGridProps) {
   const painting = useRef<boolean | null>(null);
-  const gridRef = useRef<HTMLDivElement | null>(null);
+  const [gridRef, animate] = useAnimate<HTMLDivElement>();
+  const reduced = useReducedMotion();
+  const mounted = useRef(false);
   const [focus, setFocus] = useState<[number, number]>([0, 0]);
 
   useEffect(() => {
@@ -55,6 +71,46 @@ export function HandGrid({ label, cell, onPaint, onShow, ranks, hint }: HandGrid
       window.removeEventListener('pointercancel', stop);
     };
   }, []);
+
+  /* The cells are plain buttons driven imperatively rather than 169
+     motion.button elements, so the roving tab index, the paint gesture and the
+     shade stay exactly as React renders them and only opacity and transform
+     are ever touched. Laid out before paint, so the first frame is the hidden
+     one rather than a whole grid flashing in and back out. */
+  useLayoutEffect(() => {
+    if (reduced) {
+      /* The setting can be turned on while a wave is in flight, and a cell the
+         animation never finished would be left at nothing. */
+      for (const node of gridRef.current?.querySelectorAll<HTMLElement>('.cell') ?? []) {
+        node.style.removeProperty('opacity');
+        node.style.removeProperty('transform');
+      }
+      return undefined;
+    }
+    if (wave === undefined) return undefined;
+    const run = () => {
+      const cells = gridRef.current?.querySelectorAll<HTMLElement>('.cell');
+      if (!cells) return;
+      for (const node of cells) {
+        node.style.opacity = '0';
+        node.style.transform = `scale(${ENTER_SCALE})`;
+      }
+      for (const node of cells) {
+        animate(
+          node,
+          { opacity: [0, 1], scale: [ENTER_SCALE, 1] },
+          { duration: CELL_ENTER, ease: [0.2, 0, 0, 1], delay: centreDelay(Number(node.dataset.r), Number(node.dataset.c)) },
+        );
+      }
+    };
+    if (!mounted.current) {
+      mounted.current = true;
+      run();
+      return undefined;
+    }
+    const timer = setTimeout(run, SETTLE);
+    return () => clearTimeout(timer);
+  }, [wave, reduced, animate, gridRef]);
 
   const move = (row: number, col: number) => {
     const r = Math.max(0, Math.min(12, row));

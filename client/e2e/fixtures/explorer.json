@@ -1,0 +1,1373 @@
+{
+  "mode": "heads-up",
+  "position": "button",
+  "facing": "unopened",
+  "players": "all",
+  "minHands": 500,
+  "sample": {
+    "hands": 8354,
+    "matches": 412
+  },
+  "since": "2026-04-02T09:00:00.000Z",
+  "totals": {
+    "hands": 8354,
+    "raise": 42.37,
+    "call": 23.48,
+    "fold": 34.15,
+    "netBb": 0.37
+  },
+  "hands": [
+    {
+      "hand": "AA",
+      "hands": 96,
+      "raise": 100,
+      "call": 0,
+      "fold": 0,
+      "netBb": 1.91
+    },
+    {
+      "hand": "AKs",
+      "hands": 86,
+      "raise": 98,
+      "call": 1,
+      "fold": 1,
+      "netBb": 1.64
+    },
+    {
+      "hand": "AQs",
+      "hands": 71,
+      "raise": 84,
+      "call": 8,
+      "fold": 8,
+      "netBb": 1.27
+    },
+    {
+      "hand": "AJs",
+      "hands": 95,
+      "raise": 84,
+      "call": 8,
+      "fold": 8,
+      "netBb": 1.73
+    },
+    {
+      "hand": "ATs",
+      "hands": 74,
+      "raise": 89,
+      "call": 4,
+      "fold": 7,
+      "netBb": 1.16
+    },
+    {
+      "hand": "A9s",
+      "hands": 86,
+      "raise": 72,
+      "call": 11,
+      "fold": 17,
+      "netBb": 1.31
+    },
+    {
+      "hand": "A8s",
+      "hands": 82,
+      "raise": 79,
+      "call": 6,
+      "fold": 15,
+      "netBb": 1.21
+    },
+    {
+      "hand": "A7s",
+      "hands": 67,
+      "raise": 68,
+      "call": 9,
+      "fold": 23,
+      "netBb": 0.97
+    },
+    {
+      "hand": "A6s",
+      "hands": 66,
+      "raise": 65,
+      "call": 14,
+      "fold": 21,
+      "netBb": 1.02
+    },
+    {
+      "hand": "A5s",
+      "hands": 69,
+      "raise": 72,
+      "call": 9,
+      "fold": 19,
+      "netBb": 0.82
+    },
+    {
+      "hand": "A4s",
+      "hands": 76,
+      "raise": 68,
+      "call": 17,
+      "fold": 15,
+      "netBb": 1.24
+    },
+    {
+      "hand": "A3s",
+      "hands": 54,
+      "raise": 59,
+      "call": 19,
+      "fold": 22,
+      "netBb": 0.73
+    },
+    {
+      "hand": "A2s",
+      "hands": 53,
+      "raise": 50,
+      "call": 24,
+      "fold": 26,
+      "netBb": 0.4
+    },
+    {
+      "hand": "AKo",
+      "hands": 80,
+      "raise": 87,
+      "call": 4,
+      "fold": 9,
+      "netBb": 1.73
+    },
+    {
+      "hand": "KK",
+      "hands": 99,
+      "raise": 100,
+      "call": 0,
+      "fold": 0,
+      "netBb": 1.91
+    },
+    {
+      "hand": "KQs",
+      "hands": 91,
+      "raise": 76,
+      "call": 10,
+      "fold": 14,
+      "netBb": 1.33
+    },
+    {
+      "hand": "KJs",
+      "hands": 86,
+      "raise": 74,
+      "call": 10,
+      "fold": 16,
+      "netBb": 1.3
+    },
+    {
+      "hand": "KTs",
+      "hands": 63,
+      "raise": 78,
+      "call": 8,
+      "fold": 14,
+      "netBb": 0.97
+    },
+    {
+      "hand": "K9s",
+      "hands": 53,
+      "raise": 65,
+      "call": 18,
+      "fold": 17,
+      "netBb": 1.11
+    },
+    {
+      "hand": "K8s",
+      "hands": 51,
+      "raise": 65,
+      "call": 18,
+      "fold": 17,
+      "netBb": 1
+    },
+    {
+      "hand": "K7s",
+      "hands": 81,
+      "raise": 54,
+      "call": 21,
+      "fold": 25,
+      "netBb": 0.93
+    },
+    {
+      "hand": "K6s",
+      "hands": 67,
+      "raise": 44,
+      "call": 25,
+      "fold": 31,
+      "netBb": 0.61
+    },
+    {
+      "hand": "K5s",
+      "hands": 51,
+      "raise": 48,
+      "call": 18,
+      "fold": 34,
+      "netBb": 0.58
+    },
+    {
+      "hand": "K4s",
+      "hands": 49,
+      "raise": 40,
+      "call": 28,
+      "fold": 32,
+      "netBb": 0.75
+    },
+    {
+      "hand": "K3s",
+      "hands": 77,
+      "raise": 38,
+      "call": 24,
+      "fold": 38,
+      "netBb": 0.69
+    },
+    {
+      "hand": "K2s",
+      "hands": 37,
+      "raise": 30,
+      "call": 26,
+      "fold": 44,
+      "netBb": 0.38
+    },
+    {
+      "hand": "AQo",
+      "hands": 69,
+      "raise": 89,
+      "call": 3,
+      "fold": 8,
+      "netBb": 1.12
+    },
+    {
+      "hand": "KQo",
+      "hands": 70,
+      "raise": 74,
+      "call": 10,
+      "fold": 16,
+      "netBb": 1.57
+    },
+    {
+      "hand": "QQ",
+      "hands": 59,
+      "raise": 100,
+      "call": 0,
+      "fold": 0,
+      "netBb": 1.65
+    },
+    {
+      "hand": "QJs",
+      "hands": 78,
+      "raise": 60,
+      "call": 14,
+      "fold": 26,
+      "netBb": 0.75
+    },
+    {
+      "hand": "QTs",
+      "hands": 84,
+      "raise": 56,
+      "call": 11,
+      "fold": 33,
+      "netBb": 0.72
+    },
+    {
+      "hand": "Q9s",
+      "hands": 61,
+      "raise": 60,
+      "call": 18,
+      "fold": 22,
+      "netBb": 0.9
+    },
+    {
+      "hand": "Q8s",
+      "hands": 71,
+      "raise": 38,
+      "call": 24,
+      "fold": 38,
+      "netBb": 0.91
+    },
+    {
+      "hand": "Q7s",
+      "hands": 71,
+      "raise": 31,
+      "call": 31,
+      "fold": 38,
+      "netBb": 0.79
+    },
+    {
+      "hand": "Q6s",
+      "hands": 73,
+      "raise": 36,
+      "call": 21,
+      "fold": 43,
+      "netBb": 0.55
+    },
+    {
+      "hand": "Q5s",
+      "hands": 55,
+      "raise": 38,
+      "call": 32,
+      "fold": 30,
+      "netBb": 0.17
+    },
+    {
+      "hand": "Q4s",
+      "hands": 53,
+      "raise": 32,
+      "call": 17,
+      "fold": 51,
+      "netBb": 0.46
+    },
+    {
+      "hand": "Q3s",
+      "hands": 60,
+      "raise": 30,
+      "call": 38,
+      "fold": 32,
+      "netBb": 0.33
+    },
+    {
+      "hand": "Q2s",
+      "hands": 44,
+      "raise": 26,
+      "call": 20,
+      "fold": 54,
+      "netBb": 0.08
+    },
+    {
+      "hand": "AJo",
+      "hands": 79,
+      "raise": 76,
+      "call": 9,
+      "fold": 15,
+      "netBb": 1.09
+    },
+    {
+      "hand": "KJo",
+      "hands": 56,
+      "raise": 68,
+      "call": 14,
+      "fold": 18,
+      "netBb": 0.9
+    },
+    {
+      "hand": "QJo",
+      "hands": 79,
+      "raise": 53,
+      "call": 17,
+      "fold": 30,
+      "netBb": 0.94
+    },
+    {
+      "hand": "JJ",
+      "hands": 96,
+      "raise": 94,
+      "call": 3,
+      "fold": 3,
+      "netBb": 1.35
+    },
+    {
+      "hand": "JTs",
+      "hands": 76,
+      "raise": 48,
+      "call": 28,
+      "fold": 24,
+      "netBb": 0.88
+    },
+    {
+      "hand": "J9s",
+      "hands": 52,
+      "raise": 42,
+      "call": 28,
+      "fold": 30,
+      "netBb": 0.21
+    },
+    {
+      "hand": "J8s",
+      "hands": 57,
+      "raise": 40,
+      "call": 32,
+      "fold": 28,
+      "netBb": 0.58
+    },
+    {
+      "hand": "J7s",
+      "hands": 59,
+      "raise": 27,
+      "call": 38,
+      "fold": 35,
+      "netBb": 0.31
+    },
+    {
+      "hand": "J6s",
+      "hands": 39,
+      "raise": 17,
+      "call": 33,
+      "fold": 50,
+      "netBb": 0.32
+    },
+    {
+      "hand": "J5s",
+      "hands": 52,
+      "raise": 19,
+      "call": 30,
+      "fold": 51,
+      "netBb": 0.25
+    },
+    {
+      "hand": "J4s",
+      "hands": 59,
+      "raise": 18,
+      "call": 30,
+      "fold": 52,
+      "netBb": 0.18
+    },
+    {
+      "hand": "J3s",
+      "hands": 27,
+      "raise": 22,
+      "call": 29,
+      "fold": 49,
+      "netBb": 0
+    },
+    {
+      "hand": "J2s",
+      "hands": 27,
+      "raise": 9,
+      "call": 41,
+      "fold": 50,
+      "netBb": -0.05
+    },
+    {
+      "hand": "ATo",
+      "hands": 60,
+      "raise": 82,
+      "call": 8,
+      "fold": 10,
+      "netBb": 1.66
+    },
+    {
+      "hand": "KTo",
+      "hands": 54,
+      "raise": 56,
+      "call": 11,
+      "fold": 33,
+      "netBb": 0.64
+    },
+    {
+      "hand": "QTo",
+      "hands": 49,
+      "raise": 53,
+      "call": 18,
+      "fold": 29,
+      "netBb": 0.88
+    },
+    {
+      "hand": "JTo",
+      "hands": 64,
+      "raise": 45,
+      "call": 23,
+      "fold": 32,
+      "netBb": 0.46
+    },
+    {
+      "hand": "TT",
+      "hands": 82,
+      "raise": 93,
+      "call": 3,
+      "fold": 4,
+      "netBb": 1.5
+    },
+    {
+      "hand": "T9s",
+      "hands": 76,
+      "raise": 38,
+      "call": 19,
+      "fold": 43,
+      "netBb": 0.4
+    },
+    {
+      "hand": "T8s",
+      "hands": 44,
+      "raise": 32,
+      "call": 36,
+      "fold": 32,
+      "netBb": 0.06
+    },
+    {
+      "hand": "T7s",
+      "hands": 50,
+      "raise": 25,
+      "call": 27,
+      "fold": 48,
+      "netBb": -0.18
+    },
+    {
+      "hand": "T6s",
+      "hands": 63,
+      "raise": 15,
+      "call": 31,
+      "fold": 54,
+      "netBb": -0.53
+    },
+    {
+      "hand": "T5s",
+      "hands": 47,
+      "raise": 6,
+      "call": 46,
+      "fold": 48,
+      "netBb": -0.71
+    },
+    {
+      "hand": "T4s",
+      "hands": 37,
+      "raise": 12,
+      "call": 32,
+      "fold": 56,
+      "netBb": -0.81
+    },
+    {
+      "hand": "T3s",
+      "hands": 30,
+      "raise": 10,
+      "call": 46,
+      "fold": 44,
+      "netBb": -0.31
+    },
+    {
+      "hand": "T2s",
+      "hands": 34,
+      "raise": 5,
+      "call": 32,
+      "fold": 63,
+      "netBb": -0.31
+    },
+    {
+      "hand": "A9o",
+      "hands": 89,
+      "raise": 74,
+      "call": 13,
+      "fold": 13,
+      "netBb": 1.47
+    },
+    {
+      "hand": "K9o",
+      "hands": 59,
+      "raise": 60,
+      "call": 14,
+      "fold": 26,
+      "netBb": 0.66
+    },
+    {
+      "hand": "Q9o",
+      "hands": 42,
+      "raise": 42,
+      "call": 32,
+      "fold": 26,
+      "netBb": 0.88
+    },
+    {
+      "hand": "J9o",
+      "hands": 74,
+      "raise": 29,
+      "call": 31,
+      "fold": 40,
+      "netBb": 0.49
+    },
+    {
+      "hand": "T9o",
+      "hands": 41,
+      "raise": 29,
+      "call": 26,
+      "fold": 45,
+      "netBb": 0.3
+    },
+    {
+      "hand": "99",
+      "hands": 92,
+      "raise": 87,
+      "call": 3,
+      "fold": 10,
+      "netBb": 1.44
+    },
+    {
+      "hand": "98s",
+      "hands": 42,
+      "raise": 29,
+      "call": 32,
+      "fold": 39,
+      "netBb": -0.19
+    },
+    {
+      "hand": "97s",
+      "hands": 49,
+      "raise": 10,
+      "call": 38,
+      "fold": 52,
+      "netBb": -0.07
+    },
+    {
+      "hand": "96s",
+      "hands": 34,
+      "raise": 7,
+      "call": 31,
+      "fold": 62,
+      "netBb": -0.68
+    },
+    {
+      "hand": "95s",
+      "hands": 32,
+      "raise": 5,
+      "call": 27,
+      "fold": 68,
+      "netBb": -0.21
+    },
+    {
+      "hand": "94s",
+      "hands": 53,
+      "raise": 0,
+      "call": 40,
+      "fold": 60,
+      "netBb": -1.09
+    },
+    {
+      "hand": "93s",
+      "hands": 31,
+      "raise": 8,
+      "call": 42,
+      "fold": 50,
+      "netBb": -1.19
+    },
+    {
+      "hand": "92s",
+      "hands": 41,
+      "raise": 0,
+      "call": 31,
+      "fold": 69,
+      "netBb": -0.62
+    },
+    {
+      "hand": "A8o",
+      "hands": 69,
+      "raise": 67,
+      "call": 10,
+      "fold": 23,
+      "netBb": 0.82
+    },
+    {
+      "hand": "K8o",
+      "hands": 53,
+      "raise": 49,
+      "call": 13,
+      "fold": 38,
+      "netBb": 0.48
+    },
+    {
+      "hand": "Q8o",
+      "hands": 53,
+      "raise": 31,
+      "call": 26,
+      "fold": 43,
+      "netBb": -0.03
+    },
+    {
+      "hand": "J8o",
+      "hands": 36,
+      "raise": 20,
+      "call": 42,
+      "fold": 38,
+      "netBb": 0.16
+    },
+    {
+      "hand": "T8o",
+      "hands": 35,
+      "raise": 24,
+      "call": 37,
+      "fold": 39,
+      "netBb": -0.47
+    },
+    {
+      "hand": "98o",
+      "hands": 55,
+      "raise": 10,
+      "call": 47,
+      "fold": 43,
+      "netBb": -0.43
+    },
+    {
+      "hand": "88",
+      "hands": 62,
+      "raise": 99,
+      "call": 0,
+      "fold": 1,
+      "netBb": 1.37
+    },
+    {
+      "hand": "87s",
+      "hands": 43,
+      "raise": 17,
+      "call": 33,
+      "fold": 50,
+      "netBb": -0.28
+    },
+    {
+      "hand": "86s",
+      "hands": 22,
+      "raise": 12,
+      "call": 36,
+      "fold": 52,
+      "netBb": -0.45
+    },
+    {
+      "hand": "85s",
+      "hands": 53,
+      "raise": 13,
+      "call": 42,
+      "fold": 45,
+      "netBb": -0.73
+    },
+    {
+      "hand": "84s",
+      "hands": 36,
+      "raise": 4,
+      "call": 28,
+      "fold": 68,
+      "netBb": -0.97
+    },
+    {
+      "hand": "83s",
+      "hands": 30,
+      "raise": 2,
+      "call": 48,
+      "fold": 50,
+      "netBb": -1.09
+    },
+    {
+      "hand": "82s",
+      "hands": 29,
+      "raise": 6,
+      "call": 51,
+      "fold": 43,
+      "netBb": -1.2
+    },
+    {
+      "hand": "A7o",
+      "hands": 69,
+      "raise": 57,
+      "call": 21,
+      "fold": 22,
+      "netBb": 1.23
+    },
+    {
+      "hand": "K7o",
+      "hands": 45,
+      "raise": 47,
+      "call": 29,
+      "fold": 24,
+      "netBb": 0.6
+    },
+    {
+      "hand": "Q7o",
+      "hands": 53,
+      "raise": 32,
+      "call": 23,
+      "fold": 45,
+      "netBb": -0.06
+    },
+    {
+      "hand": "J7o",
+      "hands": 31,
+      "raise": 25,
+      "call": 25,
+      "fold": 50,
+      "netBb": -0.35
+    },
+    {
+      "hand": "T7o",
+      "hands": 25,
+      "raise": 19,
+      "call": 24,
+      "fold": 57,
+      "netBb": -0.09
+    },
+    {
+      "hand": "97o",
+      "hands": 29,
+      "raise": 6,
+      "call": 49,
+      "fold": 45,
+      "netBb": -0.15
+    },
+    {
+      "hand": "87o",
+      "hands": 36,
+      "raise": 6,
+      "call": 30,
+      "fold": 64,
+      "netBb": -0.81
+    },
+    {
+      "hand": "77",
+      "hands": 76,
+      "raise": 87,
+      "call": 6,
+      "fold": 7,
+      "netBb": 1.62
+    },
+    {
+      "hand": "76s",
+      "hands": 57,
+      "raise": 11,
+      "call": 41,
+      "fold": 48,
+      "netBb": -0.35
+    },
+    {
+      "hand": "75s",
+      "hands": 21,
+      "raise": 3,
+      "call": 46,
+      "fold": 51,
+      "netBb": -0.63
+    },
+    {
+      "hand": "74s",
+      "hands": 14,
+      "raise": 0,
+      "call": 38,
+      "fold": 62,
+      "netBb": -0.57
+    },
+    {
+      "hand": "73s",
+      "hands": 43,
+      "raise": 2,
+      "call": 48,
+      "fold": 50,
+      "netBb": -1.1
+    },
+    {
+      "hand": "72s",
+      "hands": 7,
+      "raise": 4,
+      "call": 41,
+      "fold": 55,
+      "netBb": -0.96
+    },
+    {
+      "hand": "A6o",
+      "hands": 61,
+      "raise": 50,
+      "call": 13,
+      "fold": 37,
+      "netBb": 0.75
+    },
+    {
+      "hand": "K6o",
+      "hands": 57,
+      "raise": 32,
+      "call": 25,
+      "fold": 43,
+      "netBb": 0.5
+    },
+    {
+      "hand": "Q6o",
+      "hands": 31,
+      "raise": 27,
+      "call": 30,
+      "fold": 43,
+      "netBb": 0.32
+    },
+    {
+      "hand": "J6o",
+      "hands": 27,
+      "raise": 9,
+      "call": 39,
+      "fold": 52,
+      "netBb": -0.35
+    },
+    {
+      "hand": "T6o",
+      "hands": 27,
+      "raise": 9,
+      "call": 25,
+      "fold": 66,
+      "netBb": -0.56
+    },
+    {
+      "hand": "96o",
+      "hands": 52,
+      "raise": 13,
+      "call": 37,
+      "fold": 50,
+      "netBb": -0.76
+    },
+    {
+      "hand": "86o",
+      "hands": 46,
+      "raise": 10,
+      "call": 24,
+      "fold": 66,
+      "netBb": -0.83
+    },
+    {
+      "hand": "76o",
+      "hands": 45,
+      "raise": 3,
+      "call": 33,
+      "fold": 64,
+      "netBb": -0.57
+    },
+    {
+      "hand": "66",
+      "hands": 62,
+      "raise": 80,
+      "call": 9,
+      "fold": 11,
+      "netBb": 1.44
+    },
+    {
+      "hand": "65s",
+      "hands": 17,
+      "raise": 5,
+      "call": 40,
+      "fold": 55,
+      "netBb": -0.91
+    },
+    {
+      "hand": "64s",
+      "hands": 20,
+      "raise": 0,
+      "call": 50,
+      "fold": 50,
+      "netBb": -1.25
+    },
+    {
+      "hand": "63s",
+      "hands": 41,
+      "raise": 2,
+      "call": 48,
+      "fold": 50,
+      "netBb": -1.08
+    },
+    {
+      "hand": "62s",
+      "hands": 38,
+      "raise": 5,
+      "call": 28,
+      "fold": 67,
+      "netBb": -1.61
+    },
+    {
+      "hand": "A5o",
+      "hands": 52,
+      "raise": 59,
+      "call": 20,
+      "fold": 21,
+      "netBb": 0.94
+    },
+    {
+      "hand": "K5o",
+      "hands": 61,
+      "raise": 32,
+      "call": 35,
+      "fold": 33,
+      "netBb": 0.11
+    },
+    {
+      "hand": "Q5o",
+      "hands": 65,
+      "raise": 24,
+      "call": 25,
+      "fold": 51,
+      "netBb": 0.05
+    },
+    {
+      "hand": "J5o",
+      "hands": 24,
+      "raise": 17,
+      "call": 39,
+      "fold": 44,
+      "netBb": -0.08
+    },
+    {
+      "hand": "T5o",
+      "hands": 29,
+      "raise": 14,
+      "call": 41,
+      "fold": 45,
+      "netBb": -0.94
+    },
+    {
+      "hand": "95o",
+      "hands": 28,
+      "raise": 0,
+      "call": 31,
+      "fold": 69,
+      "netBb": -0.53
+    },
+    {
+      "hand": "85o",
+      "hands": 21,
+      "raise": 1,
+      "call": 46,
+      "fold": 53,
+      "netBb": -1.15
+    },
+    {
+      "hand": "75o",
+      "hands": 27,
+      "raise": 4,
+      "call": 41,
+      "fold": 55,
+      "netBb": -1.08
+    },
+    {
+      "hand": "65o",
+      "hands": 18,
+      "raise": 0,
+      "call": 33,
+      "fold": 67,
+      "netBb": -0.82
+    },
+    {
+      "hand": "55",
+      "hands": 56,
+      "raise": 73,
+      "call": 9,
+      "fold": 18,
+      "netBb": 1.27
+    },
+    {
+      "hand": "54s",
+      "hands": 41,
+      "raise": 8,
+      "call": 37,
+      "fold": 55,
+      "netBb": -1.35
+    },
+    {
+      "hand": "53s",
+      "hands": 48,
+      "raise": 0,
+      "call": 40,
+      "fold": 60,
+      "netBb": -0.83
+    },
+    {
+      "hand": "52s",
+      "hands": 31,
+      "raise": 5,
+      "call": 29,
+      "fold": 66,
+      "netBb": -1.38
+    },
+    {
+      "hand": "A4o",
+      "hands": 81,
+      "raise": 47,
+      "call": 29,
+      "fold": 24,
+      "netBb": 1.01
+    },
+    {
+      "hand": "K4o",
+      "hands": 39,
+      "raise": 22,
+      "call": 42,
+      "fold": 36,
+      "netBb": 0.35
+    },
+    {
+      "hand": "Q4o",
+      "hands": 54,
+      "raise": 22,
+      "call": 40,
+      "fold": 38,
+      "netBb": -0.26
+    },
+    {
+      "hand": "J4o",
+      "hands": 47,
+      "raise": 7,
+      "call": 50,
+      "fold": 43,
+      "netBb": -0.3
+    },
+    {
+      "hand": "T4o",
+      "hands": 30,
+      "raise": 9,
+      "call": 28,
+      "fold": 63,
+      "netBb": -0.59
+    },
+    {
+      "hand": "94o",
+      "hands": 26,
+      "raise": 8,
+      "call": 40,
+      "fold": 52,
+      "netBb": -1.11
+    },
+    {
+      "hand": "84o",
+      "hands": 38,
+      "raise": 7,
+      "call": 48,
+      "fold": 45,
+      "netBb": -1.11
+    },
+    {
+      "hand": "74o",
+      "hands": 33,
+      "raise": 0,
+      "call": 54,
+      "fold": 46,
+      "netBb": -1.25
+    },
+    {
+      "hand": "64o",
+      "hands": 33,
+      "raise": 1,
+      "call": 29,
+      "fold": 70,
+      "netBb": -0.95
+    },
+    {
+      "hand": "54o",
+      "hands": 38,
+      "raise": 7,
+      "call": 30,
+      "fold": 63,
+      "netBb": -1.06
+    },
+    {
+      "hand": "44",
+      "hands": 68,
+      "raise": 45,
+      "call": 18,
+      "fold": 37,
+      "netBb": 0.85
+    },
+    {
+      "hand": "43s",
+      "hands": 28,
+      "raise": 0,
+      "call": 28,
+      "fold": 72,
+      "netBb": -1.29
+    },
+    {
+      "hand": "42s",
+      "hands": 25,
+      "raise": 0,
+      "call": 31,
+      "fold": 69,
+      "netBb": -1.03
+    },
+    {
+      "hand": "A3o",
+      "hands": 75,
+      "raise": 38,
+      "call": 28,
+      "fold": 34,
+      "netBb": 0.3
+    },
+    {
+      "hand": "K3o",
+      "hands": 63,
+      "raise": 27,
+      "call": 39,
+      "fold": 34,
+      "netBb": 0.33
+    },
+    {
+      "hand": "Q3o",
+      "hands": 40,
+      "raise": 12,
+      "call": 31,
+      "fold": 57,
+      "netBb": -0.39
+    },
+    {
+      "hand": "J3o",
+      "hands": 23,
+      "raise": 7,
+      "call": 47,
+      "fold": 46,
+      "netBb": -0.26
+    },
+    {
+      "hand": "T3o",
+      "hands": 44,
+      "raise": 0,
+      "call": 52,
+      "fold": 48,
+      "netBb": -0.83
+    },
+    {
+      "hand": "93o",
+      "hands": 48,
+      "raise": 6,
+      "call": 39,
+      "fold": 55,
+      "netBb": -0.78
+    },
+    {
+      "hand": "83o",
+      "hands": 8,
+      "raise": 0,
+      "call": 32,
+      "fold": 68,
+      "netBb": -1.67
+    },
+    {
+      "hand": "73o",
+      "hands": 15,
+      "raise": 0,
+      "call": 49,
+      "fold": 51,
+      "netBb": -1.23
+    },
+    {
+      "hand": "63o",
+      "hands": 14,
+      "raise": 0,
+      "call": 45,
+      "fold": 55,
+      "netBb": -1.26
+    },
+    {
+      "hand": "53o",
+      "hands": 11,
+      "raise": 1,
+      "call": 53,
+      "fold": 46,
+      "netBb": -1.36
+    },
+    {
+      "hand": "43o",
+      "hands": 3,
+      "raise": 0,
+      "call": 32,
+      "fold": 68,
+      "netBb": -1.11
+    },
+    {
+      "hand": "33",
+      "hands": 55,
+      "raise": 41,
+      "call": 29,
+      "fold": 30,
+      "netBb": 0.79
+    },
+    {
+      "hand": "32s",
+      "hands": 32,
+      "raise": 5,
+      "call": 49,
+      "fold": 46,
+      "netBb": -1.41
+    },
+    {
+      "hand": "A2o",
+      "hands": 70,
+      "raise": 44,
+      "call": 25,
+      "fold": 31,
+      "netBb": 0.8
+    },
+    {
+      "hand": "K2o",
+      "hands": 50,
+      "raise": 16,
+      "call": 21,
+      "fold": 63,
+      "netBb": 0.02
+    },
+    {
+      "hand": "Q2o",
+      "hands": 33,
+      "raise": 7,
+      "call": 38,
+      "fold": 55,
+      "netBb": -0.64
+    },
+    {
+      "hand": "J2o",
+      "hands": 52,
+      "raise": 11,
+      "call": 30,
+      "fold": 59,
+      "netBb": -0.95
+    },
+    {
+      "hand": "T2o",
+      "hands": 19,
+      "raise": 4,
+      "call": 35,
+      "fold": 61,
+      "netBb": -1
+    },
+    {
+      "hand": "92o",
+      "hands": 16,
+      "raise": 4,
+      "call": 25,
+      "fold": 71,
+      "netBb": -1.22
+    },
+    {
+      "hand": "82o",
+      "hands": 31,
+      "raise": 0,
+      "call": 40,
+      "fold": 60,
+      "netBb": -1.36
+    },
+    {
+      "hand": "72o",
+      "hands": 25,
+      "raise": 0,
+      "call": 33,
+      "fold": 67,
+      "netBb": -1.43
+    },
+    {
+      "hand": "62o",
+      "hands": 12,
+      "raise": 0,
+      "call": 34,
+      "fold": 66,
+      "netBb": -1.71
+    },
+    {
+      "hand": "52o",
+      "hands": 8,
+      "raise": 1,
+      "call": 51,
+      "fold": 48,
+      "netBb": -1.44
+    },
+    {
+      "hand": "42o",
+      "hands": 23,
+      "raise": 6,
+      "call": 39,
+      "fold": 55,
+      "netBb": -1.88
+    },
+    {
+      "hand": "32o",
+      "hands": 37,
+      "raise": 0,
+      "call": 26,
+      "fold": 74,
+      "netBb": -1.92
+    },
+    {
+      "hand": "22",
+      "hands": 65,
+      "raise": 18,
+      "call": 22,
+      "fold": 60,
+      "netBb": -0.4
+    }
+  ]
+}

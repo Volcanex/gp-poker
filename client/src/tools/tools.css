@@ -235,64 +235,102 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* A shaded cell is one token colour at a strength, never a colour of its own:
-   --_v is how far up the ramp it sits and --_tone is which ramp. Mixing into
-   the cell's own background rather than over it keeps an empty cell and a
-   nearly empty one on the same ground. */
-.cell[data-tone] {
-  --_tone: var(--chart-1);
-  --_v: 0;
-  background: color-mix(in oklab, var(--_tone) calc(var(--_v) * 100%), var(--surface-2));
+/* The heat ramp. A shaded cell is a value on a ramp, never a colour of its
+   own: --_f is how far up the ramp it sits, as a percentage of the hue mixed
+   into the surface, and --_h how far the hue itself has travelled from the
+   cool end to the hot one. Two variables rather than one because a single hue
+   at rising strength is the thing that reads as one colour; travelling from
+   blue through violet to magenta is what makes a heatmap legible at a glance.
+   Both numbers come from ramp.ts, which is also what draws the legend.
+
+   Mixing into the surface rather than painting over the cell's own background
+   keeps an empty cell and a nearly empty one on the same ground, so the
+   pair/suited/offsuit tiering never leaks into the ramp as a second variable.
+
+   The caps in ramp.ts are why the ramp stops short of the raw token: past them
+   the ten pixel number in the cell drops under 4.5 to 1 against the shade. */
+.cell[data-tone],
+.cell[data-tone][aria-selected='true'] {
+  --_cool: var(--chart-1);
+  --_hot: var(--chart-5);
+  --_f: 0;
+  --_h: 0;
+  background: color-mix(
+    in oklab,
+    color-mix(in oklab, var(--_hot) calc(var(--_h) * 1%), var(--_cool)) calc(var(--_f) * 1%),
+    var(--surface-2)
+  );
+  border-color: var(--border);
   color: var(--text-primary);
+}
+
+/* Big blinds won is signed, so it diverges from the surface towards the two
+   status colours instead of running up the sequential ramp. One hue each way:
+   the hue travel would be claiming a second variable that is not there. */
+.cell[data-tone='up'] { --_cool: var(--ok-text); --_hot: var(--ok-text); }
+.cell[data-tone='down'] { --_cool: var(--danger-text); --_hot: var(--danger-text); }
+
+/* A read-only grid takes no pointer. The range explorer's cells are shaded and
+   still paintable, and they are the ones carrying aria-selected. */
+.cell[data-tone]:not([aria-selected]) {
   cursor: default;
 }
 
-.cell[data-tone='up'] { --_tone: var(--ok-text); }
-.cell[data-tone='down'] { --_tone: var(--danger-text); }
-
+/* Nobody has been dealt this hand here: no value, so no box either. Every cell
+   that does carry a value keeps the box the ramp rule gives it, which is what
+   keeps a hand folded every single time distinguishable from one never dealt,
+   since both sit at the bottom of the ramp on bare surface. */
 .cell[data-tone='none'] {
   background: var(--bg);
+  border-color: transparent;
   color: var(--text-secondary);
 }
 
-/* Every cell with hands in it is boxed, so the shape of what the site has
-   actually played is readable even where the shade is at its palest: an
-   untinted cell that somebody folded every time and a cell nobody has been
-   dealt are otherwise the same colour. */
-.cell[data-tone]:not([data-tone='none']) {
-  border-color: var(--border);
-}
-
-/* The base .cell:hover is one class less specific than the rule above, so the
+/* The base .cell:hover is one class less specific than the tone rules, so the
    pointer would otherwise get no answer at all on a shaded grid. */
 .cell[data-tone]:hover {
   border-color: var(--accent-edge);
 }
 
-.ex-legend {
+/* The legend, shared by both grid pages. min-height reserves the slot: the
+   range explorer swaps a ramp for a single swatch when the view changes and
+   the panel beside the grid must not step. */
+.grid-legend {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
   flex-wrap: wrap;
+  min-height: 34px;
 }
 
-.ex-ramp {
+.grid-legend-note {
+  flex-basis: 100%;
+}
+
+.grid-ramp {
   display: flex;
   gap: 2px;
 }
 
-.ex-swatch {
-  --_tone: var(--chart-1);
-  --_v: 0;
+.grid-swatch {
+  --_cool: var(--chart-1);
+  --_hot: var(--chart-5);
+  --_f: 0;
+  --_h: 0;
   width: 20px;
   height: 12px;
   border: 1px solid var(--border);
   border-radius: 3px;
-  background: color-mix(in oklab, var(--_tone) calc(var(--_v) * 100%), var(--surface-2));
+  background: color-mix(
+    in oklab,
+    color-mix(in oklab, var(--_hot) calc(var(--_h) * 1%), var(--_cool)) calc(var(--_f) * 1%),
+    var(--surface-2)
+  );
 }
 
-.ex-swatch[data-tone='up'] { --_tone: var(--ok-text); }
-.ex-swatch[data-tone='down'] { --_tone: var(--danger-text); }
+.grid-swatch[data-tone='up'] { --_cool: var(--ok-text); --_hot: var(--ok-text); }
+.grid-swatch[data-tone='down'] { --_cool: var(--danger-text); --_hot: var(--danger-text); }
+.grid-swatch[data-tone='on'] { background: var(--accent-fill); border-color: var(--accent-fill); }
 
 .results dd.num[data-sign='up'] { color: var(--ok-text); }
 .results dd.num[data-sign='down'] { color: var(--danger-text); }
