@@ -173,3 +173,12 @@ export function startStacks(hand: Hand, seatMap: number[]): number[] {
 export function avatarSeed(id: string | undefined, name: string): string {
   return id && id.length > 0 ? id : name;
 }
+
+/* Which version of somebody's uploaded picture to ask for. Zero means they
+   have none and the generated avatar is the whole answer; absent means the
+   server predates pictures, which reads the same way. Every <Avatar> takes
+   this rather than a URL, so the one place that knows how a picture is
+   addressed is the component that draws it. */
+export function avatarVersion(v: number | null | undefined): number {
+  return typeof v === 'number' && v > 0 ? v : 0;
+}

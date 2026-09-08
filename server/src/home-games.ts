@@ -84,6 +84,7 @@ async function seatViews(gameId: string, hostId: string): Promise<LobbySeat[]> {
   );
   return rows.map((r) => ({
     uid: r.userId,
+    avatarV: r.avatarV,
     name: r.name,
     rating: Math.round(standings.get(r.userId)?.rating ?? 1500),
     host: r.userId === hostId,

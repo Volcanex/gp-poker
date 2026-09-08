@@ -207,6 +207,13 @@ const HOME_GAME = {
   expiresAt: new Date(Date.now() + 20 * HOUR).toISOString(),
 };
 
+/* One player on the mock table has an uploaded picture, so the table baselines
+   cover the <img> path rather than only the generated SVG. It is a real png on
+   disk rather than a data URI because the point is the request: every avatar
+   URL the pages ask for is answered with it, and a picture that never left the
+   network stack would prove nothing about the fallback. */
+const AVATAR_PNG = readFileSync(fileURLToPath(new URL('./fixtures/avatar.png', import.meta.url)));
+
 /* Two profiles, because the page has two shapes worth pinning: somebody rated
    in both modes, with a main mode, a peak and a place in the field, and
    somebody who has played nothing, whose headline says so instead of printing
@@ -226,7 +233,7 @@ const PROFILE_RATINGS = {
 
 const PROFILE_KESTREL = {
   summary: {
-    id: 'u-e2e', name: 'kestrel', guest: false, bot: false,
+    id: 'u-e2e', name: 'kestrel', guest: false, bot: false, avatarV: 0,
     rating: 1518, rd: 84, provisional: false, ratings: PROFILE_RATINGS,
   },
   main: 'heads-up',
@@ -333,6 +340,8 @@ export async function stubApi(page: Page) {
   await page.route('**/api/challenges/*', (route) => route.fulfill({ json: CHALLENGE }));
   await page.route('**/api/home-games/*', (route) => route.fulfill({ json: HOME_GAME }));
   await page.route('**/api/me', (route) => route.fulfill({ json: ME }));
+  await page.route('**/api/avatars/**', (route) =>
+    route.fulfill({ contentType: 'image/png', body: AVATAR_PNG }));
   /* One book for every selection. The explorer's own arithmetic is the
      server's and is tested there; what a picture of this page is for is the
      ramp and the entrance, and those want a full 169 rows with a real spread

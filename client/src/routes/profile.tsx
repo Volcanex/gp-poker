@@ -9,14 +9,15 @@ import { PageResting } from '../ui/enter.tsx';
 import { RatingGraph } from '../ui/rating-graph.tsx';
 import { fmtDate, fmtPct, fmtShortDate, int, signed } from '../ui/format.ts';
 import {
-  avatarSeed, mainMode, matchPlacing, matchPractice, matchRated, modePeakAt, modeRating,
-  modeStanding, modeWinRate, profileAccuracy, ratingHistoryFor,
+  avatarSeed, avatarVersion, mainMode, matchPlacing, matchPractice, matchRated, modePeakAt,
+  modeRating, modeStanding, modeWinRate, profileAccuracy, ratingHistoryFor,
 } from '../net/adapt.ts';
 import { MODES, MODE_NAME, ModeTabs } from '../ui/mode-tabs.tsx';
 import { ordinal } from '../table/labels.ts';
 import { deltaTone } from '../ui/bits.tsx';
 import { ClaimCard } from '../ui/auth.tsx';
 import { Avatar } from '../ui/avatar.tsx';
+import { EditPictureButton } from '../ui/picture-dialog.tsx';
 import './profile.css';
 
 export function Profile() {
@@ -72,11 +73,26 @@ export function Profile() {
     <main className="page wide stack">
       <header className="profile-head">
         <div className="profile-name">
-          <Avatar seed={data.summary.id} name={data.summary.name} size={56} />
+          <Avatar
+            seed={data.summary.id}
+            name={data.summary.name}
+            size={56}
+            /* The higher of the two, which is always the newer: a version only
+               ever goes up, and uploading refreshes the session while this
+               page's copy stays as it was fetched. Re-fetching the profile to
+               move one number would blank the page. */
+            avatarV={Math.max(
+              avatarVersion(data.summary.avatarV),
+              isMe ? avatarVersion(me?.avatarV) : 0
+            )}
+          />
           <h1 className="h1">{data.summary.name}</h1>
           {data.summary.bot && data.summary.botLevel != null && (
             <span className="badge badge-plain">Bot, level {data.summary.botLevel}</span>
           )}
+          {/* Beside your own avatar, because that is the thing it changes. It
+              is the same dialog the settings menu opens. */}
+          {isMe && <EditPictureButton />}
         </div>
         {/* A bot's rating only means something next to how it plays, so the
             level's description sits under its name rather than in a tooltip. */}
@@ -231,7 +247,12 @@ export function Profile() {
                           <span className="muted">{placing.players} players</span>
                         ) : (
                           <span className="player-cell">
-                            <Avatar seed={avatarSeed(m.opponentId, m.opponent)} name={m.opponent} size={24} />
+                            <Avatar
+                              seed={avatarSeed(m.opponentId, m.opponent)}
+                              name={m.opponent}
+                              size={24}
+                              avatarV={avatarVersion(m.opponentAvatarV)}
+                            />
                             <Link to={`/u/${encodeURIComponent(m.opponent)}`}>{m.opponent}</Link>
                           </span>
                         )}

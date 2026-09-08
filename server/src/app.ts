@@ -35,6 +35,18 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   await app.register(cookie);
   await app.register(websocket);
+
+  /* A profile picture is sent as the image itself, so the body needs to reach
+     the route as bytes rather than through the JSON parser. The pattern is
+     `image/*` rather than the two types that are actually allowed, because a
+     content type Fastify has no parser for is refused with a framework 415
+     that says nothing useful: letting the route see it is what lets it answer
+     "a picture must be sent as image/webp or image/png" and, for a file whose
+     magic number disagrees with its header, say which it really is. The route
+     sets its own body limit; nothing else here takes an image body. */
+  app.addContentTypeParser(/^image\/.+$/, { parseAs: 'buffer' }, (_request, body, done) => {
+    done(null, body);
+  });
   // index.html is deliberately not served from disk. Every HTML response goes
   // through the not-found handler and out of meta.ts with a title and a
   // description that are true of the page asked for, and a file route for it

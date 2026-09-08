@@ -17,6 +17,7 @@ file covers the flat files and the subsystems that live in exactly one of them.
 | `ladder.ts` | bots playing each other so their ratings spread out |
 | `chat.ts` | the pure half of table chat: `cleanChatText` and `ChatLimiter` |
 | `admin.ts` | the admin gate's own routes: the tickets the annotation layer writes |
+| `avatars.ts` | the pure half of profile pictures: the size cap, the magic-number sniff and the per-user rate limit |
 | `insights.ts` | the pure derivation behind `/api/users/:name/insights` |
 | `explorer.ts` | the pure derivation behind `/api/explorer` |
 | `meta.ts` | what a pasted link shows, plus `/robots.txt` and `/sitemap.xml` |
@@ -88,6 +89,62 @@ button rather than about abuse; `clearTicketRate()` is the seam the suite uses,
 since writing several tickets in a row is exactly what the limiter refuses. And
 **the list never selects `drawing`**: twenty tickets would otherwise be twenty
 PNGs nobody is looking at.
+## Profile pictures
+
+Three columns on `users`: `avatar bytea`, `avatar_type text` and
+`avatar_v integer not null default 0`. The bytes live on the row rather than on
+disk because there is one box and one backup path, and a 120 KB square per
+player is nothing beside the hand histories.
+
+**`select *` on `users` is gone.** `USER_COLS` in `db.ts` lists every column
+except `avatar`, and every query that reads a user goes through it. A session
+lookup runs on every request; pulling 128 KB of image through the driver to
+answer "who is this" is the kind of cost that only shows up once enough people
+have uploaded one. `getUserAvatar` is the one query that reads the bytes.
+
+**`avatar_v` is bumped on every change, including a removal.** It is what makes
+`/api/avatars/:id?v=N` immutable: a version is only ever handed out beside the
+bytes it belongs to, so a new picture is a different URL rather than a cache to
+invalidate, and taking a picture off has to move the number too or a page
+holding the old URL would keep an answer it was promised would never change.
+Zero means no picture, which is what every payload carrying a display name
+reports when there is none: `/api/me`, `/api/users/:name`, the leaderboard,
+`/api/recent`, `/api/live`, arena standings and podiums, home game seats, and
+`SeatView` on the wire.
+
+The three routes:
+
+- **`PUT /api/me/avatar`** takes the image as the raw body, not base64 in a JSON
+  envelope. `bodyLimit` is 128 KB on the route (`AVATAR_MAX_BYTES`), well under
+  Fastify's 1 MB default, so a picture the client failed to shrink is refused by
+  the framework before any of it is held. The content type is a claim, not
+  evidence: the magic number decides what the bytes are and the header only has
+  to agree with it, because whatever is stored is served back to a browser under
+  the type this route recorded. One change per ten seconds per user
+  (`AvatarLimiter`, in memory).
+- **`DELETE /api/me/avatar`** is deliberately not rate limited. The limiter
+  exists to stop a script writing 128 KB in a loop; a removal writes two nulls,
+  and somebody who has just uploaded a picture they dislike should not be told
+  to wait.
+- **`GET /api/avatars/:id`** serves the bytes, with a route-level `onSend` that
+  overrides `app.ts`'s blanket `no-store` on `/api` the way `/api/explorer`
+  does. `?v=` present means `public, max-age=31536000, immutable`; absent means
+  a short max-age, because "whatever this player looks like now" is a question
+  whose answer moves. **404 is not an error here**: it is what the client draws
+  the generated avatar for.
+
+**Nothing on the server decodes an image.** The client crops and encodes a 256
+square in a canvas, so this side needs a magic-number check rather than a native
+image library, which on this box would be a build dependency, a CVE feed and a
+rebuild on every Node upgrade in exchange for re-encoding something already the
+right size. `app.ts` registers an `image/*` content type parser so the route
+sees the bytes and can answer for itself, rather than the framework refusing an
+unparseable type with a 415 that says nothing useful.
+
+`MatchSeat` carries `avatarV` too, stored in the match row's `seats` jsonb, so a
+seat and a finished match read back as they looked rather than as the players
+look now. It is frozen at match creation, like the name and the rating beside
+it.
 
 ## Ratings are per mode
 

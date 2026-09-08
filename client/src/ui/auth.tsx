@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { api } from '../net/api.ts';
 import { useSession } from '../net/session.tsx';
 import { useGInit } from './bits.tsx';
-import { modeRating } from '../net/adapt.ts';
+import { modeRating, avatarVersion } from '../net/adapt.ts';
 import { MODE_NAME } from './mode-tabs.tsx';
 import { int } from './format.ts';
 import { Avatar } from './avatar.tsx';
@@ -110,7 +110,7 @@ export function AccountMenu() {
         popoverTarget="account-menu"
         aria-haspopup="menu"
       >
-        {me && <Avatar seed={me.id} name={me.name} size={24} />}
+        {me && <Avatar seed={me.id} name={me.name} size={24} avatarV={avatarVersion(me.avatarV)} />}
         {me ? me.name : 'Account'}
         {me && <span className="r num">{int(modeRating(me, mode).rating)}</span>}
         {me && <span className="m">{MODE_NAME[mode].toLowerCase()}</span>}

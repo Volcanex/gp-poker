@@ -287,6 +287,7 @@ export class EngineHandRunner implements HandRunner {
         rating: info.rating,
         connected: connected[i] ?? true,
         bot: info.bot ?? false,
+        avatarV: info.avatarV ?? 0,
         out: e === null,
         place: this.places[i],
       };

@@ -201,7 +201,9 @@ async function moveStatuses(): Promise<void> {
 async function closeArena(arena: ArenaRow): Promise<void> {
   const rows = await getArenaPlayers(arena.id); // already in board order
   const places = rows.map((r, i) => ({ userId: r.userId, place: i + 1 }));
-  const podium = rows.slice(0, 3).map((r, i) => ({ uid: r.userId, name: r.name, score: r.score, place: i + 1 }));
+  const podium = rows
+    .slice(0, 3)
+    .map((r, i) => ({ uid: r.userId, avatarV: r.avatarV, name: r.name, score: r.score, place: i + 1 }));
   await finishArena(arena.id, places, podium);
   for (const key of [...waitingSince.keys()]) {
     if (key.startsWith(`${arena.id}:`)) waitingSince.delete(key);
@@ -359,6 +361,7 @@ const BOARD_ROWS = 20;
 function toStanding(row: ArenaPlayerRow, rank: number): ArenaStanding {
   return {
     uid: row.userId,
+    avatarV: row.avatarV,
     name: row.name,
     bot: row.bot,
     rating: Math.round(row.rating),

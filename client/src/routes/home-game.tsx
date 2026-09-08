@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { botLevelInfo, formatFor } from '@opentable/protocol';
 import { api, ApiError } from '../net/api.ts';
-import { avatarSeed } from '../net/adapt.ts';
+import { avatarSeed, avatarVersion } from '../net/adapt.ts';
 import type { HomeGame } from '../net/types.ts';
 import { useServerMsg, useSession } from '../net/session.tsx';
 import { Avatar } from '../ui/avatar.tsx';
@@ -167,7 +167,11 @@ export function HomeGame() {
     <Shell>
       <div className="mode-head">
         <span className="player-cell">
-          <Avatar seed={avatarSeed(game.host.id, game.host.name)} name={game.host.name} />
+          <Avatar
+            seed={avatarSeed(game.host.id, game.host.name)}
+            name={game.host.name}
+            avatarV={avatarVersion(game.host.avatarV)}
+          />
           <h1 className="t">{host ? 'Your home game' : `${game.host.name}'s home game`}</h1>
         </span>
       </div>
@@ -182,7 +186,12 @@ export function HomeGame() {
         {layout.chairs.map((chair, i) =>
           chair.kind === 'taken' ? (
             <li className="lobby-seat" key={chair.seat.uid}>
-              <Avatar seed={avatarSeed(chair.seat.uid, chair.seat.name)} name={chair.seat.name} size={28} />
+              <Avatar
+                seed={avatarSeed(chair.seat.uid, chair.seat.name)}
+                name={chair.seat.name}
+                size={28}
+                avatarV={avatarVersion(chair.seat.avatarV)}
+              />
               <span className="lobby-who">
                 <span className="n">{chair.seat.name}</span>
                 <span className="muted num">Rated {int(chair.seat.rating)} at six-max</span>

@@ -2,8 +2,9 @@
 
 The furniture that is not the table: `auth.tsx` (claim, log in, account menu),
 `settings.tsx` with its pure half `prefs.ts`, `presence.tsx`, `avatar.tsx`,
-`rating-graph.tsx`, `board-text.tsx`, `mode-tabs.tsx`, `share-link.tsx`,
-`site-footer.tsx`, `bits.tsx`, `format.ts`, `grid-entrance.ts` and `title.ts`.
+`picture-dialog.tsx`, `rating-graph.tsx`, `board-text.tsx`, `mode-tabs.tsx`,
+`share-link.tsx`, `site-footer.tsx`, `bits.tsx`, `format.ts`, `grid-entrance.ts`
+and `title.ts`.
 
 `grid-entrance.ts` is here rather than beside either grid that uses it because
 there are two of them and they have nothing else in common: the tools pages'
@@ -140,6 +141,55 @@ on the card. Diamonds take the palette's blue and clubs its green, borrowed the
 same way the red is borrowed and for the same reason: nothing on this felt means
 ok or info.
 
+## Profile pictures
+
+`avatar.tsx` takes an `avatarV` beside its seed. Above zero it draws
+`/api/avatars/<id>?v=N`; the generated SVG is the element's **background** and
+the `<img>`'s `onError`, so a picture still decoding and a picture that has been
+removed both look like the avatar that was always there rather than like a hole.
+There is no loading state to design because the fallback is already a picture of
+this person. Read the version off a payload through `avatarVersion()` in
+`../net/adapt.ts`: absent and zero have to mean the same thing.
+
+`picture-dialog.tsx` is where a picture is chosen, opened from a button beside
+your own avatar on your profile and from the picture row in the settings menu.
+
+**The crop and the encode happen in a canvas, here.** A phone photo is four
+thousand pixels wide and eight megabytes; a seat is twenty-eight. Shrinking it in
+the browser makes the upload 120 KB and leaves the server with a magic-number
+check instead of a native image library, which on this box would mean a build
+dependency, a CVE feed and a rebuild on every Node upgrade in exchange for
+re-encoding something already the right size. What is sent is a 256 square, four
+times the largest place a picture is drawn.
+
+The budget is met by measuring, never by assuming: webp at four qualities from
+0.85 down, then, for a browser with no webp encoder, png at three sizes, because
+quality is not a dial on a png. `createImageBitmap` with
+`imageOrientation: 'from-image'` is what stops a phone portrait uploading
+sideways, since a canvas does not apply EXIF orientation and an `<img>` does.
+
+Two things about it are g-shaped rather than obvious:
+
+- **The dropzone and the crop editor are separate components, not two branches
+  of one.** g-ui appends a file list into the dropzone it wires, and React knows
+  nothing about that child: swapping `className` on the same `<div>` left the
+  chosen file's chip sitting above the crop. Different component types at the
+  same position always remount, which takes g's DOM with them.
+- **`useGInit` is given a wrapper, never the g component itself.** `g.init(el)`
+  looks *inside* the node it is handed, so a ref on the `.g-dropzone` wires
+  nothing and the file input goes on firing a change event nobody listens to.
+  That is the same rule the four co-owned nodes above follow.
+
+The crop stage takes a drag **and** the arrow keys, and its key handler stops
+the event rather than only preventing the default: the arrow keys step a replay
+elsewhere in this app, and a modal dialog's keydown still reaches the document.
+
+And one about where it is mounted: the settings menu's dialog is rendered
+**outside** `.settings-menu`, as a sibling. A popover is a scope as well as a
+box, and `.settings-menu .g-slider` is 108 px wide, so a zoom slider rendered
+inside the menu silently inherited a width meant for the volume control. A modal
+dialog is in the top layer either way, so nesting it there bought nothing.
+
 ## Presence
 
 Two cues that a match is yours, both in `presence.tsx` and both outside the table
@@ -169,6 +219,12 @@ packs' notification cue and the nearest honest thing to it.
   and by the lessons. **Promotion: no.**
 - **`avatar.tsx`** is not bespoke. It is g's shipped `.avatar` with its size
   adjusted through `--avatar-size`, around the deterministic SVG from
-  `@opentable/identity`. 28 px at a seat, 24 px in a row, 56 px on a header.
+  `@opentable/identity` or an uploaded picture over it. 28 px at a seat, 24 px in
+  a row, 56 px on a header.
+- **`picture-dialog.tsx`** is a composition, not a component: g's dialog,
+  dropzone, slider, buttons and avatar arranged around a canvas. **Promotion:
+  the crop stage alone, maybe.** Cropping a square to a circle with a drag and a
+  zoom is a thing more than one project wants; the rest of this file is
+  Open Table's own copy and its own upload route.
 
 The table's own candidates are in `../table/CLAUDE.md`.

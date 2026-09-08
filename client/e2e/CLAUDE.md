@@ -35,6 +35,10 @@ rated player and an unrated one, and their dates are pinned rather than offset,
 because the profile prints "26 Jul 2026" and not "3d ago". An offset would
 redraw every profile baseline at midnight. The rated one is rated in both modes
 so the percentile column has two rows to fill.
+It also serves your own profile and answers every `/api/avatars/**` with
+`fixtures/avatar.png`, and one scripted player on the mock table carries an
+`avatarV`, so the table baselines cover the uploaded-picture path rather than
+only the generated SVG.
 
 The two link-landing pages, an invite and a home game lobby, are stubbed **from
 the visitor's side** rather than the host's, because that is the side a link is
@@ -72,6 +76,7 @@ it.
 | `reduced-motion.spec.ts` | the same information with the motion emulated off |
 | `enter.spec.ts` | the page entrance: every block at rest inside 600ms, a fetching block held until its content lands, zero layout shift across an entrance, nothing under `/m`, and nothing at all under reduced motion |
 | `settings.spec.ts` | a choice surviving a reload, the pre-paint stamp, every accent's contrast in both themes, the four colour deck, and the menu itself |
+| `avatar.spec.ts` | a photograph cropped in the dialog leaves as a webp or png square under 120 KB, and the top bar draws the new version |
 | `replay.spec.ts` | a recorded hand scrubbed back and forth leaves nothing behind and nothing outside the felt, and still verifies |
 | `odds.spec.ts` | the pot odds trainer's reserved boxes across an answer, at 390 and 1366, and axe in both themes. No baselines: the assertion is the geometry |
 | `puzzles.spec.ts` | the preflop chart's entrance: every cell ends visible, on the first spot and the next, and the page does not reflow while it runs |

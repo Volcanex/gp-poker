@@ -362,7 +362,7 @@ describe('arenas', () => {
     await arenaTick();
     const closed = (await getArenaById(arena.id))!;
     expect(closed.status).toBe('finished');
-    expect(closed.podium).toEqual([{ uid: hero.id, name: hero.name, score: 2, place: 1 }]);
+    expect(closed.podium).toEqual([{ uid: hero.id, avatarV: 0, name: hero.name, score: 2, place: 1 }]);
     expect((await getArenaPlayers(arena.id))[0].place).toBe(1);
 
     // Nothing scores after the freeze.

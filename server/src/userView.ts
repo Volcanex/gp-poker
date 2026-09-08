@@ -56,6 +56,9 @@ export function toUserSummary(user: UserRow, ratings: Record<Mode, RatingRow>): 
     rd: headsUp.rd,
     provisional: headsUp.provisional,
     ratings: map,
+    // 0 is "no picture", which is the honest answer rather than an absent key:
+    // the field is optional on the wire only for a client older than pictures.
+    avatarV: user.avatarV,
   };
 }
 

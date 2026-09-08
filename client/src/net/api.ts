@@ -127,6 +127,18 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     }),
+  /* The picture itself is the body, not a field in a JSON envelope: base64
+     would cost a third more bytes to say the same thing, and the server has to
+     look at the magic number either way. The blob's own type is what the
+     header says, because the client is the only thing that knows whether its
+     browser managed webp. */
+  uploadAvatar: (picture: Blob) =>
+    req<{ avatarV: number }>('/api/me/avatar', {
+      method: 'PUT',
+      headers: { 'content-type': picture.type },
+      body: picture,
+    }),
+  removeAvatar: () => req<{ avatarV: number }>('/api/me/avatar', { method: 'DELETE' }),
   claim: (name: string, password: string) => post<UserSummary>('/api/claim', { name, password }),
   login: (name: string, password: string) => post<UserSummary>('/api/login', { name, password }),
   logout: () => post<{ ok: true }>('/api/logout'),

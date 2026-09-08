@@ -143,6 +143,12 @@ files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
   compare to the recorded board and holes.
 - Replay = `engine.replay(config, actions)`; the stored hand row holds
   seed, stacks, button and the action log, nothing derived is trusted.
+- Profile pictures are cropped and encoded in the browser to a 256 square under
+  120 KB, and stored as bytes on the `users` row with an `avatar_v` that is
+  bumped on every change so `/api/avatars/:id?v=N` is immutable. The server
+  never decodes an image: it sniffs the magic number, which is what keeps a
+  native image library off this box. `server/src/CLAUDE.md` and
+  `client/src/ui/CLAUDE.md`.
 - Auth: a guest user is minted on first visit (cookie session), named by
   `@opentable/identity`'s `generateName` (`guest` boolean column, not a name
   prefix). Claiming sets a name and password on the same row so rating
@@ -160,7 +166,8 @@ the entry point; the detail lives down the tree.
 - `server/CLAUDE.md`, and under it `server/src/`, `server/src/match/`,
   `server/src/ws/`, `server/src/bots/` and `server/test/`
 - one per workspace package: `packages/engine/`, `packages/equity/`,
-  `packages/identity/`, `packages/preflop/`, `packages/rating/`
+  `packages/identity/`, `packages/preflop/`, `packages/protocol/`,
+  `packages/rating/`
 - `ops/CLAUDE.md` for the systemd units, `scripts/CLAUDE.md` for the ops scripts
 
 `AGENTS.md` beside any of them is a symlink to it.

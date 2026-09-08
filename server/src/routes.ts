@@ -27,6 +27,9 @@ import {
   getLiveMatches,
   getSiteStats,
   deleteSession,
+  getUserAvatar,
+  setUserAvatar,
+  clearUserAvatar,
   type MatchRow,
   type ModeStanding,
 } from './db.js';
@@ -51,6 +54,7 @@ import {
 } from './home-games.js';
 import { arenaListing, arenaView, joinArena, leaveArena, pauseArena } from './arena.js';
 import { registerAdminRoutes } from './admin.js';
+import { AVATAR_MAX_BYTES, AvatarLimiter, sniffAvatar } from './avatars.js';
 
 function err(reply: { code: (n: number) => { send: (b: unknown) => unknown } }, status: number, message: string) {
   return reply.code(status).send({ error: message });
@@ -420,7 +424,13 @@ export function registerRoutes(app: FastifyInstance): void {
       // handsPlayed counts completed hands, so the hand being dealt is the
       // next one along.
       hand: m.handsPlayed + 1,
-      players: m.seats.map((s) => ({ name: s.name, bot: s.bot === true, rating: Math.round(s.rating) })),
+      players: m.seats.map((s) => ({
+        uid: s.userId,
+        avatarV: s.avatarV ?? 0,
+        name: s.name,
+        bot: s.bot === true,
+        rating: Math.round(s.rating),
+      })),
       // People watching without a seat. Reported here and nowhere near the
       // table itself: the players are deciding and do not need the number.
       // A room that has already been unregistered reads as nobody watching
@@ -548,6 +558,88 @@ export function registerRoutes(app: FastifyInstance): void {
       return { ok: true };
     }
   );
+
+  /* Profile pictures. Three routes: put one on, take it off, and serve one.
+
+     The body is the image itself rather than a JSON envelope with base64 in
+     it, which would cost a third more bytes for nothing. `bodyLimit` here is
+     the route's own, well under Fastify's 1 MB default: a picture the client
+     failed to shrink is refused by the framework before any of it is held.
+
+     **The content type is not evidence.** It says what the caller claims, and
+     what is actually served back to a browser later has to be what the bytes
+     really are, so the magic number decides and the header only has to agree
+     with it. A gif renamed to image/png dies here. */
+  app.put(
+    '/api/me/avatar',
+    {
+      bodyLimit: AVATAR_MAX_BYTES,
+      errorHandler: (error, _request, reply) => {
+        if (error.code === 'FST_ERR_CTP_BODY_TOO_LARGE') {
+          return err(reply, 413, `a picture must be under ${Math.floor(AVATAR_MAX_BYTES / 1024)} KB`);
+        }
+        return err(reply, error.statusCode && error.statusCode < 500 ? error.statusCode : 500, error.message);
+      },
+    },
+    async (request, reply) => {
+      const user = await requireUser(request, reply);
+      const declared = String(request.headers['content-type'] ?? '').split(';')[0].trim();
+      if (declared !== 'image/webp' && declared !== 'image/png') {
+        return err(reply, 415, 'a picture must be sent as image/webp or image/png');
+      }
+      const body = request.body;
+      if (!Buffer.isBuffer(body) || body.length === 0) {
+        return err(reply, 400, 'the request body must be the image itself');
+      }
+      const sniffed = sniffAvatar(body);
+      if (sniffed === null) return err(reply, 400, 'that file is not a png or a webp');
+      if (sniffed !== declared) return err(reply, 400, `that file is a ${sniffed}, not a ${declared}`);
+      if (!avatarLimiter.allow(user.id)) {
+        return err(reply, 429, 'a picture can be changed once every ten seconds');
+      }
+
+      const version = await setUserAvatar(user.id, body, sniffed);
+      if (version === null) return err(reply, 404, 'no such user');
+      return { avatarV: version };
+    }
+  );
+
+  /* Not rate limited, unlike the upload. The limiter is there to stop a script
+     writing 128 KB into the users table on a loop; taking a picture off writes
+     two nulls, and somebody who has just uploaded one and does not like it
+     should not be told to wait ten seconds before they can undo it. */
+  app.delete('/api/me/avatar', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    const version = await clearUserAvatar(user.id);
+    if (version === null) return err(reply, 404, 'no such user');
+    return { avatarV: version };
+  });
+
+  /* The picture itself. `?v=` is the version the caller was told about, and a
+     version is only ever handed out beside the bytes it belongs to, so a URL
+     carrying one can be cached for good: a new picture is a different URL
+     rather than a cache to invalidate. Without one the answer is still correct,
+     just briefly cacheable, because "whatever this player looks like now" is a
+     question whose answer moves.
+
+     404 when there is no picture, which is not an error: it is what the client
+     draws the generated avatar for, and it is the `onError` the <img> already
+     has. */
+  app.get<{ Params: { id: string }; Querystring: { v?: string } }>(
+    '/api/avatars/:id',
+    {
+      onSend: async (request, reply, payload) => {
+        const pinned = typeof (request.query as { v?: string }).v === 'string';
+        reply.header('Cache-Control', pinned ? 'public, max-age=31536000, immutable' : 'public, max-age=60');
+        return payload;
+      },
+    },
+    async (request, reply) => {
+      const row = await getUserAvatar(request.params.id);
+      if (!row) return err(reply, 404, 'no picture');
+      return reply.type(row.avatarType).send(row.avatar);
+    }
+  );
 }
 
 /* The absolute address of this site as the caller reached it, which is the
@@ -562,6 +654,10 @@ function originOf(request: FastifyRequest): string {
   const host = first(forwardedHost)?.split(',')[0]?.trim() || request.headers.host;
   return `${proto}://${host}`;
 }
+
+/* One per process, swept as it is asked. Not persisted on purpose: a restart
+   letting somebody change their picture a second early is not worth a table. */
+const avatarLimiter = new AvatarLimiter();
 
 const STATS_TTL_MS = 5_000;
 let statsCache: { at: number; body: unknown } | null = null;
@@ -635,6 +731,10 @@ function toFeedMatch(m: MatchRow) {
   const players = m.seats.map((s) => {
     const change = m.ratings?.[s.userId];
     return {
+      uid: s.userId,
+      // Stored with the seat, so a feed row shows the picture the player had
+      // when they played rather than the one they have now.
+      avatarV: s.avatarV ?? 0,
       name: s.name,
       bot: s.bot === true,
       place: m.places?.[s.userId] ?? null,

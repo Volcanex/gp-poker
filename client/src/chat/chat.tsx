@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CHAT_MAX_LENGTH } from '@opentable/protocol';
 import { Avatar } from '../ui/avatar.tsx';
+import { avatarVersion } from '../net/adapt.ts';
 import { useNow } from '../ui/bits.tsx';
 import { QUICK_MESSAGES, canSend, cooldownSeconds, relativeTime } from './chat.ts';
 import type { ChatController } from './use-chat.ts';
@@ -77,7 +78,12 @@ export function ChatPanel({ chat }: { chat: ChatController }) {
               data-rail={line.from.seat == null ? '' : undefined}
               data-mine={line.from.id === chat.meId ? '' : undefined}
             >
-              <Avatar seed={line.from.id} name={line.from.name} size={20} />
+              <Avatar
+                seed={line.from.id}
+                name={line.from.name}
+                size={20}
+                avatarV={avatarVersion(line.from.avatarV)}
+              />
               <span className="chat-meta">
                 <Link className="chat-name" to={`/u/${line.from.name}`}>{line.from.name}</Link>
                 {line.from.seat == null && <span className="chat-rail">watching</span>}
@@ -119,7 +125,10 @@ export function ChatPanel({ chat }: { chat: ChatController }) {
           aria-label="Message"
           enterKeyHint="send"
         />
-        <button type="submit" className="btn btn-primary btn-sm chat-send-btn" disabled={!ready}>
+        {/* Tabular, because the countdown ticks in place: without it the button
+            is three pixels narrower at 1s than at 2s, which is a layout shift
+            the footprint rule does not allow and which chat.spec.ts measures. */}
+        <button type="submit" className="btn btn-primary btn-sm chat-send-btn num" disabled={!ready}>
           {waiting > 0 ? `Send in ${waiting}s` : 'Send'}
         </button>
       </form>

@@ -285,3 +285,17 @@ create table if not exists tickets (
   build text                                   -- the client build this was seen on
 );
 create index if not exists tickets_status on tickets(status, created_at desc);
+-- Profile pictures. The bytes live on the row rather than on disk: there is one
+-- box, one backup path (pg_dump), and a 120 KB square per player is nothing
+-- beside the hand histories. `avatar_v` is bumped on every change, including a
+-- removal, so `/api/avatars/:id?v=N` can be served immutable and a new picture
+-- reaches every open page as a different URL rather than as a cache to bust.
+-- Zero means no picture, which is what every payload carrying a display name
+-- reports when there is none.
+--
+-- **The bytes are never selected by `select *`.** `server/src/db.ts` lists the
+-- user columns explicitly for exactly this reason: a session lookup runs on
+-- every request and must not drag an image through the driver.
+alter table users add column if not exists avatar bytea;
+alter table users add column if not exists avatar_type text;
+alter table users add column if not exists avatar_v integer not null default 0;

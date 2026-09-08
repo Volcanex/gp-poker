@@ -64,6 +64,9 @@ export interface MatchSeat {
   name: string;
   /* Pending on the server. Read it through src/net/adapt.ts, never directly. */
   bot?: boolean;
+  /* The picture this seat had when the match was made. Absent on a match
+     played before pictures existed; read it through avatarVersion(). */
+  avatarV?: number;
 }
 
 export interface LeaderboardRow {
@@ -75,6 +78,7 @@ export interface LeaderboardRow {
   rd: number;
   matches: number;
   peak: number;
+  avatarV?: number;
 }
 
 export interface RatingPoint {
@@ -89,6 +93,7 @@ export interface UserMatchSummary {
   opponent: string;
   /* Same bargain as the leaderboard's id: read it through avatarSeed(). */
   opponentId?: string;
+  opponentAvatarV?: number;
   result: 'win' | 'loss' | 'draw';
   ratingChange: number;
   finishedAt: string | null;
@@ -274,6 +279,12 @@ export interface Match {
    count in the strip and the list underneath it always agree. */
 
 export interface FeedPlayer {
+  /* The id and the picture version, both absent on a server that predates
+     them. Nothing on the feed draws an avatar yet; they are here because a
+     row that names a player and cannot say who it means is a row that has to
+     be widened again the day it wants to. */
+  uid?: string;
+  avatarV?: number;
   name: string;
   bot: boolean;
   place: number | null; // 1 = winner; null on a match stored before places existed
@@ -343,7 +354,7 @@ export interface LiveMatch {
   // rating and spectators are optional because a server that predates
   // watching sends neither, and a missing number is hidden rather than
   // printed as a zero.
-  players: { name: string; bot: boolean; rating?: number }[];
+  players: { uid?: string; avatarV?: number; name: string; bot: boolean; rating?: number }[];
   spectators?: number;
   startedAt: string;
 }
@@ -473,6 +484,10 @@ export interface ArenaPodiumPlace {
   name: string;
   score: number;
   place: number;
+  /* Written onto the arena row when it closed, so a podium shows the picture
+     the winner had that hour. Absent on an arena that finished before pictures
+     existed. */
+  avatarV?: number;
 }
 
 /* A finished arena in the list under the hero card: enough to draw a podium
