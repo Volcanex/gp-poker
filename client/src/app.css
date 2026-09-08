@@ -2,6 +2,11 @@
    poker-specific pieces g-system does not ship. Tokens only: no raw hex, no
    raw slate steps. See client/CLAUDE.md for what is a promotion candidate. */
 
+/* The whole-site palettes, first so that an accent below still wins on an
+   element carrying both attributes. A palette re-declares g's slate scale and
+   nothing else; see palettes.css. */
+@import './palettes.css';
+
 :root { --top-h: 48px; }
 
 /* .stat is the shipped stat tile, but g.css does not carry its rules (they
@@ -146,6 +151,13 @@
   --accent-fill: #ad5700; --accent-fill-hover: #99500a;
   --accent-fg: #ffffff; --accent-edge: #99500a;
 }
+/* Felt's default. A red carried far enough toward the orange side that it does
+   not read as the danger colour sitting next to it, and dark enough to hold
+   white at 5.5:1. */
+[data-accent="ember"] {
+  --accent-fill: #c33420; --accent-fill-hover: #ae2e1c;
+  --accent-fg: #ffffff; --accent-edge: #ae2e1c;
+}
 
 /* --------------------------------------------------------------- settings */
 
@@ -178,6 +190,35 @@
 }
 .swatch:hover { transform: scale(1.08); }
 .swatch[aria-checked="true"] { box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 3px var(--accent-fill); }
+
+/* A palette chip is two tones: the palette's own panel colour and the accent it
+   arrives with. The chip carries data-palette, so it paints itself out of the
+   palette it names, exactly as the accent swatch does. The name is under it
+   rather than only in a title, because four greys at 24 px are not four names.
+
+   The selection ring is set on the button and read on the chip: --sel-ring
+   resolves where it is declared, so the ring is the accent the site is actually
+   wearing rather than the one the chip is showing. */
+.pswatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 2px; }
+.pswatch {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 0; border: none; background: none;
+  font-family: inherit; font-size: 11px; color: var(--text-secondary);
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+.pswatch:hover { color: var(--text-primary); }
+.pswatch[aria-checked="true"] { color: var(--text-primary); --sel-ring: var(--accent-fill); }
+.ps-chip {
+  width: 100%; height: 24px; position: relative; overflow: hidden;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.pswatch:hover .ps-chip { transform: scale(1.06); }
+.pswatch[aria-checked="true"] .ps-chip { outline: 2px solid var(--sel-ring); outline-offset: 2px; }
+.ps-chip .ps-a { position: absolute; inset: 0 0 0 58%; background: var(--accent-fill); }
+.ps-n { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 
 .settings-menu .switch-row { justify-content: space-between; gap: var(--sp-3); }
 .settings-menu .switch-row .label { font-size: 12px; color: var(--text-primary); font-weight: 400; }

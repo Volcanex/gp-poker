@@ -184,6 +184,73 @@ const HOME_GAME = {
   expiresAt: new Date(Date.now() + 20 * HOUR).toISOString(),
 };
 
+/* The account's own profile. The page is stubbed from the owner's side because
+   that is the side the appearance row is on: it is only drawn for the player
+   looking at themselves. Ids match ME, which is what makes it their own. */
+const HISTORY = [
+  { rating: 1500, rd: 350, at: ago(40 * DAY), matchId: null },
+  { rating: 1524, rd: 180, at: ago(31 * DAY), matchId: 'm-1' },
+  { rating: 1497, rd: 140, at: ago(24 * DAY), matchId: 'm-2' },
+  { rating: 1541, rd: 112, at: ago(16 * DAY), matchId: 'm-3' },
+  { rating: 1552, rd: 96, at: ago(9 * DAY), matchId: 'm-4' },
+  { rating: 1537, rd: 88, at: ago(4 * DAY), matchId: 'm-5' },
+  { rating: 1518, rd: 84, at: ago(2.5 * HOUR), matchId: 'qtabzev9' },
+];
+
+const PROFILE = {
+  summary: ME,
+  peak: 1552,
+  peakAt: ago(9 * DAY),
+  provisional: false,
+  winRate: 0.55,
+  accuracy: 62.4,
+  ratingHistory: { 'heads-up': HISTORY, 'six-max': [] },
+  stats: { hands: 812, vpip: 0.28, pfr: 0.19, aggressionFrequency: 0.41, foldTo3bet: 0.52 },
+  lastMatches: [
+    {
+      id: 'qtabzev9', opponent: 'riverrat', opponentId: 'u-riverrat', result: 'loss',
+      ratingChange: -19, finishedAt: ago(2.5 * HOUR), players: 2, rated: true,
+      mode: 'heads-up', practice: false,
+    },
+    {
+      id: 'zqmny5hf', opponent: 'quarrel', opponentId: 'u-quarrel', result: 'win',
+      ratingChange: 15, finishedAt: ago(3.5 * DAY), players: 2, rated: true,
+      mode: 'heads-up', practice: false,
+    },
+    {
+      id: 'hb3kq1te', opponent: 'BriskQuarry', opponentId: 'bot-1', result: 'win',
+      ratingChange: 0, finishedAt: ago(6 * DAY), place: 1, players: 6, rated: false,
+      mode: 'six-max', practice: true,
+    },
+  ],
+  arenas: [],
+};
+
+const INSIGHTS = {
+  mode: 'heads-up',
+  minHands: 100,
+  sample: { hands: 812, matches: 40 },
+  /* Rates are whole percents on the wire, which is what the tiles print. */
+  preflop: { vpip: 28.4, pfr: 19.1, threeBet: 7.2, foldToThreeBet: 52.3 },
+  postflop: {
+    aggressionFactor: 1.9, cbet: 61.2, wentToShowdown: 27.4,
+    wonAtShowdown: 54.1, wonWithoutShowdown: 45.9,
+  },
+  positions: [
+    { key: 'button', hands: 406, bbPerHand: 0.08 },
+    { key: 'big-blind', hands: 406, bbPerHand: -0.05 },
+  ],
+  streets: { preflop: 47, flop: 24, turn: 14, river: 9, showdown: 6 },
+  results: {
+    biggestPot: {
+      chips: 412, bb: 20.6, handId: 'h-9', matchId: 'qtabzev9', handNumber: 9,
+    },
+    longestWinStreak: 4,
+    averageHandMs: 18_400,
+    timeouts: 1,
+  },
+};
+
 export async function stubApi(page: Page) {
   await page.route('**/api/**', (route) =>
     route.fulfill({ status: 404, json: { error: 'not found' } }));
@@ -195,6 +262,8 @@ export async function stubApi(page: Page) {
   await page.route('**/api/challenges/*', (route) => route.fulfill({ json: CHALLENGE }));
   await page.route('**/api/home-games/*', (route) => route.fulfill({ json: HOME_GAME }));
   await page.route('**/api/me', (route) => route.fulfill({ json: ME }));
+  await page.route('**/api/users/*', (route) => route.fulfill({ json: PROFILE }));
+  await page.route('**/api/users/*/insights*', (route) => route.fulfill({ json: INSIGHTS }));
 }
 
 /* An explicit theme, stored the way g stores it: g-ui reads its own key at load

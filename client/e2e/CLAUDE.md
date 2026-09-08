@@ -38,6 +38,13 @@ filled and none of them yours.
 The one thing no route can stub is the websocket, so the home page's baseline
 says the connection dropped, which is true.
 
+**A theme has to be stamped into `ot.prefs`, not into g's key.** `setTheme` here
+writes `g-theme` and the attribute, and the app's `applyPrefs` overwrites both
+from `ot.prefs` the moment it mounts, so a page set up with `setTheme` alone is
+dark whatever the test is called. `settings.spec.ts` stamps the record instead.
+The rest of the suite still uses `setTheme`, which is why every baseline in
+`__screenshots__` whose name ends in `-light` is a picture of the dark theme.
+
 **Playwright runs the last matching route handler**, so a catch-all has to be
 registered first and the fixtures after it. Registered the other way round the
 catch-all swallows everything: this stub served 404 to every call for its whole
@@ -60,7 +67,7 @@ it.
 | `practice.spec.ts` | the strip is on a practice table and off a rated one, that it reads, and that a practice table keeps one footprint with zero layout shift |
 | `chat.spec.ts` | opening, sending and closing the panel leave the header, felt and dock in identical boxes, at both widths |
 | `reduced-motion.spec.ts` | the same information with the motion emulated off |
-| `settings.spec.ts` | a choice surviving a reload, the pre-paint stamp, every accent's contrast in both themes, the four colour deck, and the menu itself |
+| `settings.spec.ts` | a choice surviving a reload, the pre-paint stamp, every accent's and every palette's contrast in both themes, axe under each palette, the accent a palette arrives with, the four colour deck, and the menu itself |
 | `replay.spec.ts` | a recorded hand scrubbed back and forth leaves nothing behind and nothing outside the felt, and still verifies |
 | `screenshots.spec.ts` | 132 baselines: eleven states at 360, 390, 430, 768, 1366 and 1920, dark and light |
 

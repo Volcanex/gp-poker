@@ -3,8 +3,8 @@
    on the root element, and that is worth testing against a real one. */
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  DEFAULT_PREFS, PREFS_KEY, applyPrefs, contrastOf, contrastRatio, parseColour, readPrefs,
-  writePrefs,
+  DEFAULT_PREFS, PALETTES, PREFS_KEY, applyPrefs, contrastOf, contrastRatio, defaultAccentFor,
+  parseColour, readPrefs, writePrefs,
 } from '../ui/prefs.ts';
 import { denominate } from '../table/chips.ts';
 import { shortName } from '../table/labels.ts';
@@ -36,14 +36,17 @@ const throwingStore = (): Storage => ({
 describe('settings persistence', () => {
   it('round trips a choice', () => {
     const store = fakeStore();
-    writePrefs({ theme: 'light', accent: 'jade', fourColour: true }, store);
-    expect(readPrefs(store)).toEqual({ theme: 'light', accent: 'jade', fourColour: true });
+    writePrefs({ theme: 'light', palette: 'felt', accent: 'jade', fourColour: true }, store);
+    expect(readPrefs(store)).toEqual({
+      theme: 'light', palette: 'felt', accent: 'jade', fourColour: true,
+    });
   });
 
   it('keeps everything in one key', () => {
     const store = fakeStore();
-    writePrefs({ theme: 'system', accent: 'clay', fourColour: false }, store);
-    expect(store.getItem(PREFS_KEY)).toBe('{"theme":"system","accent":"clay","fourColour":false}');
+    writePrefs({ theme: 'system', palette: 'sky', accent: 'clay', fourColour: false }, store);
+    expect(store.getItem(PREFS_KEY))
+      .toBe('{"theme":"system","palette":"sky","accent":"clay","fourColour":false}');
   });
 
   it('takes the defaults when nothing has been chosen', () => {
@@ -53,8 +56,12 @@ describe('settings persistence', () => {
   /* A record written by an older build, or half of one, is not a reason to
      show an error page. Whatever reads is kept and the rest defaults. */
   it('keeps the fields it can read out of a stale record', () => {
-    const store = fakeStore({ [PREFS_KEY]: '{"accent":"violet","theme":"chartreuse"}' });
-    expect(readPrefs(store)).toEqual({ theme: 'dark', accent: 'violet', fourColour: false });
+    const store = fakeStore({
+      [PREFS_KEY]: '{"accent":"violet","theme":"chartreuse","palette":"tartan"}',
+    });
+    expect(readPrefs(store)).toEqual({
+      theme: 'dark', palette: 'slate', accent: 'violet', fourColour: false,
+    });
   });
 
   it('survives a value that is not json at all', () => {
@@ -76,13 +83,18 @@ describe('applying settings', () => {
   it('leaves the attributes off for the defaults, because dark and slate are the defaults', () => {
     applyPrefs(DEFAULT_PREFS, root, fakeStore());
     expect(root.getAttribute('data-theme')).toBe(null);
+    expect(root.getAttribute('data-palette')).toBe(null);
     expect(root.getAttribute('data-accent')).toBe(null);
     expect(root.getAttribute('data-deck')).toBe(null);
   });
 
   it('stamps one attribute per choice', () => {
-    applyPrefs({ theme: 'light', accent: 'ocean', fourColour: true }, root, fakeStore());
+    applyPrefs(
+      { theme: 'light', palette: 'felt', accent: 'ocean', fourColour: true },
+      root, fakeStore(),
+    );
     expect(root.getAttribute('data-theme')).toBe('light');
+    expect(root.getAttribute('data-palette')).toBe('felt');
     expect(root.getAttribute('data-accent')).toBe('ocean');
     expect(root.getAttribute('data-deck')).toBe('four');
   });
@@ -91,8 +103,24 @@ describe('applying settings', () => {
      both, so the two cannot disagree on the next reload. */
   it('writes the theme where g-ui will look for it', () => {
     const store = fakeStore();
-    applyPrefs({ theme: 'system', accent: 'default', fourColour: false }, root, store);
+    applyPrefs(
+      { theme: 'system', palette: 'slate', accent: 'default', fourColour: false },
+      root, store,
+    );
     expect(store.getItem('g-theme')).toBe('system');
+  });
+});
+
+/* The rule the settings menu applies when a palette changes. It lives in
+   prefs.ts because "which accent did this palette arrive with" is the only way
+   to tell a chosen accent from a default one without a second stored flag. */
+describe('palette defaults', () => {
+  it('names an accent for every palette', () => {
+    for (const p of PALETTES) expect(defaultAccentFor(p.id)).toBe(p.accent);
+  });
+
+  it('leaves slate on the g accent', () => {
+    expect(defaultAccentFor('slate')).toBe('default');
   });
 });
 
