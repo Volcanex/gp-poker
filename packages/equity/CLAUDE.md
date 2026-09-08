@@ -11,7 +11,10 @@ a database.
   so a name can never disagree with who won; the wording is derived from the
   best five cards.
 - `src/equity.ts` — `equity(hero, board, villains, opts)`. A villain is a
-  `Range` or `'random'`.
+  `Range`, `'random'`, or the two cards a seat actually held. The third is what
+  a replay has once a hand ends, and it is one combination rather than
+  hundreds, so a multiway board that would have been sampled enumerates
+  exactly.
 - `src/outs.ts` — `outs(hero, [3 or 4 board cards])`.
 - `src/range.ts` — the 169 classes, notation in and out, `HAND_GRID`,
   `combosOf`, `rangeFromTop`.

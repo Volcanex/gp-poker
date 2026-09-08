@@ -1,7 +1,8 @@
 /* What crosses the worker boundary. A Range is a Set of hand class strings and
-   structured clone carries a Set as it is, so ranges go over unchanged. */
+   structured clone carries a Set as it is, so ranges go over unchanged, and so
+   does a known holding, which is a pair of cards in an array. */
 
-import type { EquityResult, HandCategory, Range } from '@opentable/equity';
+import type { EquityResult, HandCategory, Villain } from '@opentable/equity';
 import type { OutsRead } from './draw-outs.ts';
 
 export type Card = string;
@@ -11,7 +12,7 @@ export interface EquityRequest {
   kind: 'equity';
   hero: Card[];
   board: Card[];
-  villains: (Range | 'random')[];
+  villains: Villain[];
   samples?: number;
 }
 

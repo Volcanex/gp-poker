@@ -7,11 +7,12 @@
    already there when you press a key. */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { FULL_DECK } from '@opentable/equity/cards';
 import type { EquityResult, OutsResult } from '@opentable/equity';
 import { analyse, analyseOuts, cancel, isCancelled, nextRequestId } from '../analysis/index.ts';
 import { isTextEntry } from '../ui/bits.tsx';
+import { readCards } from './cards.tsx';
 import { BoardText } from '../ui/board-text.tsx';
 import { useTitle } from '../ui/title.ts';
 
@@ -100,8 +101,45 @@ export function dealSpot(random: () => number = Math.random): Spot {
   };
 }
 
+/* A spot handed over from somewhere else, most often a call in a replayed
+   hand: /tools/odds?hand=AhKd&board=Qs7h2c&pot=24&bet=8&opponents=1.
+
+   Every part of it has to read, and any part that does not sends the page back
+   to its own generator rather than showing a spot half built from a link. The
+   board may be any street: a river call is a real price even though there are
+   no cards to come. */
+export function spotFromQuery(search: string): Spot | null {
+  const params = new URLSearchParams(search);
+  const hero = readCards(params.get('hand') ?? '');
+  const board = readCards(params.get('board') ?? '');
+  if (!hero || hero.length !== 2 || !board || board.length > 5) return null;
+  if (new Set([...hero, ...board]).size !== hero.length + board.length) return null;
+
+  const pot = Number(params.get('pot'));
+  const bet = Number(params.get('bet'));
+  const opponents = Number(params.get('opponents') ?? '1');
+  if (!Number.isFinite(pot) || !Number.isFinite(bet) || pot <= 0 || bet <= 0) return null;
+  if (!Number.isFinite(opponents)) return null;
+
+  return {
+    hero: [hero[0], hero[1]],
+    board,
+    pot: Math.round(pot),
+    bet: Math.round(bet),
+    opponents: Math.max(1, Math.min(8, Math.round(opponents))),
+  };
+}
+
+/* Outs are a question about the cards to come, so a river spot has none and a
+   preflop one has too many to name. Either way the trainer is still a price. */
+export function outsReadable(board: string[]): boolean {
+  return board.length === 3 || board.length === 4;
+}
+
 export function Odds() {
-  const [spot, setSpot] = useState<Spot>(() => dealSpot());
+  const { search } = useLocation();
+  const [spot, setSpot] = useState<Spot>(() => spotFromQuery(search) ?? dealSpot());
+  const [fromLink, setFromLink] = useState(() => spotFromQuery(search) !== null);
   const [equity, setEquity] = useState<EquityResult | null>(null);
   const [outs, setOuts] = useState<OutsResult | null>(null);
   const [answer, setAnswer] = useState<'call' | 'fold' | null>(null);
@@ -116,15 +154,18 @@ export function Odds() {
     let live = true;
     setEquity(null);
     setOuts(null);
-    Promise.all([
+    const jobs: Promise<unknown>[] = [
       analyse({
         id: ids[0],
         hero: spot.hero,
         board: spot.board,
         villains: Array.from({ length: spot.opponents }, () => 'random' as const),
       }).then((r) => live && setEquity(r)),
-      analyseOuts({ id: ids[1], hero: spot.hero, board: spot.board }).then((r) => live && setOuts(r)),
-    ]).catch((err) => {
+    ];
+    if (outsReadable(spot.board)) {
+      jobs.push(analyseOuts({ id: ids[1], hero: spot.hero, board: spot.board }).then((r) => live && setOuts(r)));
+    }
+    Promise.all(jobs).catch((err) => {
       if (!live || isCancelled(err)) return;
       console.error(err);
     });
@@ -137,6 +178,7 @@ export function Odds() {
   const next = useCallback(() => {
     answered.current = false;
     setAnswer(null);
+    setFromLink(false);
     setSpot(dealSpot());
   }, []);
 
@@ -174,7 +216,11 @@ export function Odds() {
   const required = requiredEquity(spot);
   const right = equity ? callIsRight(equity.equity, spot) === (answer === 'call') : false;
   const bestAction = equity ? (callIsRight(equity.equity, spot) ? 'Calling' : 'Folding') : '';
-  const heroWord = useMemo(() => (spot.opponents === 1 ? 'one opponent' : 'two opponents'), [spot.opponents]);
+  const heroWord = useMemo(() => {
+    const words = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'];
+    const n = spot.opponents;
+    return `${words[n] ?? n} ${n === 1 ? 'opponent' : 'opponents'}`;
+  }, [spot.opponents]);
 
   return (
     <main className="page stack tools-page">
@@ -203,6 +249,13 @@ export function Odds() {
           Against {heroWord}, the pot is <span className="num">{spot.pot}</span> and it costs{' '}
           <span className="num">{spot.bet}</span> to call.
         </p>
+
+        {fromLink && (
+          <p className="muted small">
+            This spot came from a hand you were replaying. Deal the next one and the trainer goes
+            back to its own.
+          </p>
+        )}
 
         {!answer ? (
           <div className="row">
@@ -236,8 +289,14 @@ export function Odds() {
               </div>
               <div>
                 <dt>Outs</dt>
-                <dd className="num">{outs ? outs.count : '…'}</dd>
-                <dd className="muted small">{outs?.draws.join(', ') || 'no named draw'}</dd>
+                <dd className="num">{!outsReadable(spot.board) ? '' : outs ? outs.count : '…'}</dd>
+                <dd className="muted small">
+                  {!outsReadable(spot.board)
+                    ? spot.board.length >= 5
+                      ? 'no cards to come'
+                      : 'from the flop on'
+                    : outs?.draws.join(', ') || 'no named draw'}
+                </dd>
               </div>
             </dl>
             <p className="muted">

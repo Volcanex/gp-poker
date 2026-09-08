@@ -14,7 +14,12 @@ import type { Card } from '@opentable/protocol';
 import { assertDistinct, combinations, countCombinations, deckWithout } from './cards.js';
 import { combosOf, type Range } from './range.js';
 
-export type Villain = Range | 'random';
+/* A villain is a range, an unknown hand, or a hand you can see. The third is
+   what a replay has: every seat's cards are published once the hand ends, so
+   the equity on that screen is against the hands that were actually held
+   rather than against a cloud. One combination also collapses the assignment
+   count to one, which is what makes an exact answer affordable multiway. */
+export type Villain = Range | 'random' | readonly [Card, Card];
 
 export interface EquityResult {
   win: number; // hero alone with the best hand
@@ -40,7 +45,15 @@ function villainCombos(villain: Villain, deck: Card[], dead: Card[]): [Card, Car
     for (const pair of combinations(deck, 2)) out.push([pair[0], pair[1]]);
     return out;
   }
-  return combosOf(villain, dead);
+  /* A known holding is one combination, and a card of it already in play makes
+     it no combination at all, which the caller reports the same way it reports
+     a range every combination of which is blocked. */
+  if (Array.isArray(villain)) {
+    if (villain.length !== 2) throw new Error(`a known villain hand is two cards, got ${villain.length}`);
+    const blocked = villain.some((card) => dead.includes(card));
+    return blocked ? [] : [[villain[0], villain[1]]];
+  }
+  return combosOf(villain as Range, dead);
 }
 
 export function equity(
@@ -63,7 +76,7 @@ export function equity(
   const lists = villains.map((v, i) => {
     const combos = villainCombos(v, deck, dead);
     if (combos.length === 0) {
-      throw new Error(`villain ${i + 1} has no hands left: every combination in the range is blocked by a card already in play`);
+      throw new Error(`villain ${i + 1} has no hands left: every combination is blocked by a card already in play`);
     }
     return combos;
   });

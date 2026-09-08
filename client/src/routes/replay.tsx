@@ -13,6 +13,26 @@ import { stateToView } from '../replay/to-view.ts';
 import { verifyHand } from '../replay/fairness.ts';
 import type { Check } from '../replay/fairness.ts';
 import { BoardText } from '../ui/board-text.tsx';
+import { useSession } from '../net/session.tsx';
+import {
+  AnalysisPanel,
+  StreetStrip,
+  panelAsks,
+  useHandEquities,
+} from '../analysis/replay-panel.tsx';
+import type { Equities } from '../analysis/replay-panel.tsx';
+import {
+  askFor,
+  contestingSeats,
+  knownHoles,
+  practiceSpot,
+  priceAt,
+  priceText,
+  revealedSeats,
+  streetPoints,
+  streetRows,
+} from '../analysis/replay-analysis.ts';
+import type { EquityAsk, Hole, PracticeSpot, Price, StreetPoint } from '../analysis/replay-analysis.ts';
 
 export function Replay() {
   const { id = '', n = '1' } = useParams();
@@ -121,7 +141,9 @@ function HandReplay({ hand, handCount }: { hand: Hand; handCount: number | null 
     return () => window.removeEventListener('keydown', onKey);
   }, [states, total]);
 
-  const view = states ? stateToView(hand, states[clampStep(step)], clampStep(step), showAll, seatMap) : null;
+  const at = clampStep(step);
+  const view = states ? stateToView(hand, states[at], at, showAll, seatMap) : null;
+  const analysis = useAnalysis(hand, states, seatMap, at, showAll);
 
   return (
     <main className="page wide stack">
@@ -197,15 +219,148 @@ function HandReplay({ hand, handCount }: { hand: Hand; handCount: number | null 
                 />
               </label>
             </div>
+
+            <AnalysisPanel
+              seats={analysis.seats}
+              known={analysis.known}
+              live={analysis.live}
+              board={analysis.board}
+              street={states[at].street}
+              equities={analysis.equities}
+              spot={analysis.spot}
+              colourOf={analysis.colourOf}
+            />
+
+            <StreetStrip
+              points={analysis.points}
+              known={analysis.known}
+              seats={analysis.seats}
+              equities={analysis.equities}
+              colourOf={analysis.colourOf}
+            />
           </div>
 
-          <ActionList hand={hand} states={states} step={clampStep(step)} onPick={setStep} />
+          <ActionList
+            hand={hand}
+            states={states}
+            step={at}
+            onPick={setStep}
+            prices={analysis.prices}
+            equities={analysis.equities}
+          />
         </div>
       )}
 
       <Fairness hand={hand} />
     </main>
   );
+}
+
+/* The whole analysis of one step, gathered in one place because three parts of
+   the page read it: the panel under the felt, the strip under that, and the
+   price beside every call in the list.
+
+   One rule decides what may be analysed, and it is the felt's rule: a hand
+   nobody showed is nobody's to read. So the panel knows your own cards if you
+   played, everybody's once the hand reaches its showdown, and everybody's at
+   any step while "show all cards" is on. Stepping back before the showdown
+   takes the numbers away again, which is the honest thing for a replay to do.
+
+   The asks go to the worker in this order: the step on screen first, then the
+   action it arrived on, then the strip, then every other price. The worker
+   answers one at a time, so the order is the priority. */
+function useAnalysis(
+  hand: Hand,
+  states: HandState[] | null,
+  seatMap: number[],
+  at: number,
+  showAll: boolean,
+) {
+  const { me } = useSession();
+  const mySeat = useMemo(() => {
+    if (!me) return null;
+    return hand.seats.find((s) => s.userId === me.id)?.seat ?? null;
+  }, [hand, me]);
+
+  const state = states?.[at] ?? null;
+
+  const known = useMemo<Map<number, Hole>>(
+    () =>
+      knownHoles({
+        holes: hand.holes,
+        seats: seatMap,
+        revealed: state ? revealedSeats(state, seatMap) : [],
+        mine: mySeat,
+        showAll,
+      }),
+    [hand, seatMap, state, mySeat, showAll],
+  );
+
+  const live = useMemo(() => (state ? contestingSeats(state, seatMap) : []), [state, seatMap]);
+  const board = state ? state.board : [];
+  const points = useMemo<StreetPoint[]>(() => (states ? streetPoints(states, seatMap) : []), [states, seatMap]);
+
+  /* The price of every call and raise in the log, read off the state it was
+     made in, with the question that says how good the hand paying it was. */
+  const prices = useMemo<(PriceRow | null)[]>(() => {
+    if (!states) return [];
+    return hand.actions.map((a, i) => {
+      const before = states[i];
+      if (!before) return null;
+      const price = priceAt(before, a, seatMap);
+      if (!price) return null;
+      return { price, ask: askFor(a.s, before.board, contestingSeats(before, seatMap), known) };
+    });
+  }, [hand, states, seatMap, known]);
+
+  const asks = useMemo<EquityAsk[]>(() => {
+    const out: EquityAsk[] = [];
+    const seen = new Set<string>();
+    const push = (ask: EquityAsk | null) => {
+      if (!ask || seen.has(ask.key)) return;
+      seen.add(ask.key);
+      out.push(ask);
+    };
+    for (const ask of panelAsks(known, live, board)) push(ask);
+    push(prices[at - 1]?.ask ?? null);
+    for (const row of streetRows(points, known)) for (const cell of row.cells) push(cell.ask);
+    for (const row of prices) push(row?.ask ?? null);
+    return out;
+  }, [known, live, board, points, prices, at]);
+
+  const equities = useHandEquities(asks);
+
+  const spot = useMemo<PracticeSpot | null>(() => {
+    if (!states || at === 0) return null;
+    const before = states[at - 1];
+    const action = hand.actions[at - 1];
+    if (!before || !action) return null;
+    return practiceSpot(before, action, seatMap, known);
+  }, [states, hand, seatMap, at, known]);
+
+  const seats = useMemo(
+    () =>
+      seatMap.map((seat) => ({
+        seat,
+        name: hand.seats.find((s) => s.seat === seat)?.name ?? `Seat ${seat}`,
+      })),
+    [hand, seatMap],
+  );
+
+  /* A seat keeps one colour for the whole page, taken from where it sits at
+     the table rather than from who happens to have shown a hand, so the dot
+     beside a name means the same thing at every step. */
+  const colourOf = useCallback(
+    (seat: number) => (Math.max(0, seatMap.indexOf(seat)) % 6) + 1,
+    [seatMap],
+  );
+
+  return { seats, known, live, board, points, prices, equities, spot, colourOf };
+}
+
+interface PriceRow {
+  price: Price;
+  ask: EquityAsk | null;
 }
 
 /* Pairs each of a seat's preflop actions with that seat's scored decisions, in
@@ -237,11 +392,15 @@ function ActionList({
   states,
   step,
   onPick,
+  prices,
+  equities,
 }: {
   hand: Hand;
   states: HandState[];
   step: number;
   onPick: (n: number) => void;
+  prices: (PriceRow | null)[];
+  equities: Equities;
 }) {
   const currentRef = useRef<HTMLButtonElement>(null);
 
@@ -290,12 +449,27 @@ function ActionList({
                 <span className="act-what">{actionText(a.a, a.v)}</span>
                 {a.to && <span className="act-note">on the clock</span>}
                 {verdict && <span className="act-note">{verdict}</span>}
+                <PriceNote row={prices[i] ?? null} equities={equities} />
               </button>
             </li>
           );
         })}
       </ol>
     </aside>
+  );
+}
+
+/* What the call cost, and whether the hand paying it was worth the price. The
+   share needed is arithmetic and is always there; the equity beside it is only
+   there once that seat has shown its cards. */
+function PriceNote({ row, equities }: { row: PriceRow | null; equities: Equities }) {
+  if (!row) return null;
+  const equity = row.ask ? equities.get(row.ask.key)?.equity ?? null : null;
+  const clears = equity != null && equity >= row.price.needed;
+  return (
+    <span className="act-price" data-clears={clears ? '' : undefined}>
+      {priceText(row.price, equity)}
+    </span>
   );
 }
 

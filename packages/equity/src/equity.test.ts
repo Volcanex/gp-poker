@@ -66,6 +66,26 @@ describe('equity', () => {
     expect(() => equity(['Ah', 'Ad'], ['Ac', 'As', '2d'], [parseRange('AA')])).toThrow(/no hands left/);
   });
 
+  /* The replay knows every hand at the end of it, and against a known holding
+     there is one assignment rather than a thousand, so the flop enumerates
+     exactly instead of being sampled. */
+  test('a villain can be the hand they actually held', () => {
+    const r = equity(['Ah', 'Ad'], ['Kh', '3s', '8c'], [['Kc', 'Kd']]);
+    expect(r.exact).toBe(true);
+    expect(r.equity).toBeLessThan(0.2);
+    expect(r.win + r.tie + r.lose).toBeCloseTo(1, 12);
+  });
+
+  test('a known hand and an unknown one sit in the same call', () => {
+    const r = equity(['Ah', 'Ad'], ['Kh', '3s', '8c', '2d'], [['Kc', 'Kd'], 'random']);
+    expect(r.equity).toBeGreaterThan(0);
+    expect(r.equity).toBeLessThan(0.25);
+  });
+
+  test('says so when the hand a villain held is already on the board', () => {
+    expect(() => equity(['Ah', 'Ad'], ['Kh', '3s', '8c'], [['Kh', 'Kd']])).toThrow(/no hands left/);
+  });
+
   test('refuses a hero that is not two cards, or a card dealt twice', () => {
     expect(() => equity(['Ah'], [], ['random'])).toThrow(/two cards/);
     expect(() => equity(['Ah', 'Ad'], ['Ah'], ['random'])).toThrow(/twice/);

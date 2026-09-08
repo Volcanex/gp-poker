@@ -1,0 +1,174 @@
+/* The replay's analysis panel and its street strip.
+
+   Both are g's own table in g's own scroller, so the only rules here are the
+   ones a data table cannot know: which cells hold a number that arrives late,
+   and what colour a seat is. Every cell that a worker fills has a width of its
+   own. The answers land after the row around them is painted, and a cell that
+   sizes to its content would jump from "Computing" to a percentage and drag
+   the column beside it along. */
+
+.ra-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+}
+
+.ra-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.ra-street {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.ra-spacer {
+  flex: 1;
+}
+
+.ra-note {
+  margin: 0;
+}
+
+/* Fixed columns, not columns that fit their strings.
+
+   A hand called "two pair, eights and nines" is twice the width of "a pair",
+   and with the browser sizing the columns the panel would be a different shape
+   at every step. Fixed says the width once and cuts what does not fit, which
+   is also why the hand name carries its full text in a title. */
+.ra-table {
+  table-layout: fixed;
+  width: 100%;
+  min-width: 38.25rem;
+}
+
+.ra-table th,
+.ra-table td,
+.ra-strip th,
+.ra-strip td {
+  vertical-align: baseline;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* g's table drops the last row's bottom border on its cells; the row header
+   is a th and keeps it, which leaves one line hanging under the first column. */
+.ra-table tbody tr:last-child th,
+.ra-strip tbody tr:last-child th {
+  border-bottom: none;
+}
+
+.ra-table tbody tr[data-folded] {
+  color: var(--text-secondary);
+}
+
+/* A seat that folded is still worth reading, so it dims rather than leaves. */
+.ra-table tbody tr[data-folded] .ctext {
+  opacity: 0.6;
+}
+
+/* The five columns add up to the width the replay's column actually has, so
+   the panel fits without scrolling on a desktop and scrolls in its own wrap
+   below that, the way every data table here does. */
+.ra-seat { width: 8.5rem; }
+.ra-equity { width: 6rem; }
+.ra-cards { width: 4.75rem; }
+.ra-name { width: 9.5rem; }
+.ra-outs { width: 9.5rem; }
+
+.ra-outs .ctext {
+  margin-left: var(--sp-2);
+}
+
+/* How the number was arrived at, under the number itself: a percentage from
+   ten thousand deals and one from every runout are not the same claim. */
+.ra-sub {
+  display: block;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-variant-numeric: normal;
+}
+
+.ra-waiting {
+  opacity: 0.7;
+}
+
+.ra-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: var(--sp-2);
+  background: var(--border);
+}
+
+.ra-dot[data-chart="1"] { background: var(--chart-1); }
+.ra-dot[data-chart="2"] { background: var(--chart-2); }
+.ra-dot[data-chart="3"] { background: var(--chart-3); }
+.ra-dot[data-chart="4"] { background: var(--chart-4); }
+.ra-dot[data-chart="5"] { background: var(--chart-5); }
+.ra-dot[data-chart="6"] { background: var(--chart-6); }
+
+/* The shape sits in a box of its own size, so the sparkline never stretches:
+   a point drawn as a circle has to stay a circle. */
+.ra-shape {
+  width: 120px;
+  min-width: 120px;
+  line-height: 0;
+}
+
+.ra-mid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.ra-line {
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.ra-point {
+  stroke: none;
+}
+
+.ra-line[data-chart="1"], .ra-point[data-chart="1"] { stroke: var(--chart-1); fill: var(--chart-1); }
+.ra-line[data-chart="2"], .ra-point[data-chart="2"] { stroke: var(--chart-2); fill: var(--chart-2); }
+.ra-line[data-chart="3"], .ra-point[data-chart="3"] { stroke: var(--chart-3); fill: var(--chart-3); }
+.ra-line[data-chart="4"], .ra-point[data-chart="4"] { stroke: var(--chart-4); fill: var(--chart-4); }
+.ra-line[data-chart="5"], .ra-point[data-chart="5"] { stroke: var(--chart-5); fill: var(--chart-5); }
+.ra-line[data-chart="6"], .ra-point[data-chart="6"] { stroke: var(--chart-6); fill: var(--chart-6); }
+
+.ra-line { fill: none; }
+
+.ra-cell {
+  width: 5.5rem;
+  min-width: 5.5rem;
+}
+
+/* The price beside an action in the list next door, and the verdict under it.
+   Both are read at a glance while stepping, so they stay one line each. */
+.act-price {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.act-price[data-clears] {
+  color: var(--ok-text);
+}
+
+/* Narrower than a laptop the table scrolls in its own wrap, the way every
+   data table in this app does, so the columns give up width in the order they
+   can spare it: the outs list first, then the hand's name. The equity sits
+   second on purpose, right after the seat, so the reading this panel exists
+   for is the one that never needs scrolling to. */
+@media (max-width: 720px) {
+  .ra-outs .ctext { display: none; }
+}

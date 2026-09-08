@@ -6,11 +6,13 @@
    until something is actually analysed, and a browser without workers (or a
    jsdom test) simply gets a rejected promise instead of a broken page. */
 
-import type { EquityResult, Range } from '@opentable/equity';
+import type { EquityResult, Villain } from '@opentable/equity';
 import type { Card, HandNaming, OutsRead, Request, Response, ShowdownRead } from './protocol.ts';
 
 export type { Card, HandNaming, OutsRead, ShowdownHand, ShowdownRead } from './protocol.ts';
-export type Villain = Range | 'random';
+/* A villain is a range, an unknown hand, or the hand a seat actually held: the
+   replay publishes every holding once a hand ends. The package owns the type. */
+export type { Villain };
 
 export class Cancelled extends Error {
   constructor(id: string) {
