@@ -34,8 +34,8 @@ here because the home page and the watch page both draw it and neither owns it.
 The home page is the play panel and three cards beside it, the shape a games
 site settles on: everything that starts a match in one column, everything that
 is not a match beside it. It is the one page wider than `.page.wide`, because
-that layout needs the width, and **all of its styling is in `home.css`**, not
-in `app.css`.
+that layout needs the width, and **all of its styling is in `home.css`**: the
+shell owns `app.css` and the two were built at the same time.
 
 Above it, one row naming the player: picture, flag, name, and the rating for
 the game the panel is pinned to as the largest number on the page. A mode with

@@ -411,3 +411,14 @@ two rules of its own:
   `presence.tsx` plays the same `yourTurn` cue on `q found`, so it skips its
   own whenever a check announced the table first; a challenge, a home game and
   practice have no check and still get it.
+
+## Level in the shell
+
+The level is rendered by `AccountMenu`, which is the one component `shell.tsx`
+puts in both places an account appears, so it lands in the sidebar's account
+row and in the slim top bar's pill without either knowing about it. It sits
+beside the rating, because they are two readings of the same account.
+
+Under 560 it goes, along with the rating and the mode, and only the name is
+left: that is the shell's own measured decision about a 390px bar, and a level
+is the least of the three things somebody came to that pill for.
