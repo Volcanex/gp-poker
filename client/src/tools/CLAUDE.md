@@ -80,3 +80,37 @@ skips the whole thing.
 
 `../test/tools.test.ts` covers the pure parts, including the ramp mapping and
 the centre-out ordering.
+## The pot odds trainer is built on reserved boxes
+
+A trainer is answered in a rhythm, so nothing on `odds.tsx` may move between
+one state and the next. Every box whose contents change is given its size up
+front: the two figures, the price slot, the spot line, the keyboard hint and
+each score cell. The reveal goes further and is **always drawn**, empty bars
+and a placeholder line included, so the answer arrives under the buttons rather
+than pushing the record down the page; that is why its box is identical before
+and after by construction rather than by a min-height somebody has to keep
+true. Both answer buttons and the next one are also always present, one of the
+three disabled, for the same reason. `../../e2e/odds.spec.ts` compares the
+boxes across an answer at three widths **and for both answers**, because a
+stylesheet can break this silently and the two verdicts are not the same
+width: the wrong answer's badge is the wide one, which wraps the sentence at
+phone widths where the right answer's does not. A reserve one line short
+passes on a right answer and slides the record on a wrong one.
+
+The board is laid out so a five card river never wraps at phone width: a board
+that wraps on the river and not on the flop is a page that changes height
+between spots.
+
+The streak steps tone at **three, five and ten** (`streakTone`), and a wrong
+answer flags the tile instead. The tile carries the colour as a wash, an edge
+and a shipped badge; the figure itself stays on `--text-primary`, because a
+coloured number at that size is the one thing here that has to stay readable.
+
+## One key holds the record and the settings
+
+`ot.odds` is the record (right, total, streak, best) **and** the two practice
+settings: the ten second timer and which streets get dealt. They are one thing
+to a player, and every field takes a default on read, so a record written by an
+older build still loads. The timer starts when the equity lands rather than
+when the spot is dealt, since the buttons are dead until then. A change to the
+streets applies to the next deal, not to the spot on screen.

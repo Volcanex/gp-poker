@@ -4,20 +4,33 @@
    The equity is against random hands, which is the honest thing to train
    against here: the point is the arithmetic of the price, not a read. Every
    number is computed in the analysis worker while you think, so the answer is
-   already there when you press a key. */
+   already there when you press a key.
+
+   The page is built to be read at a glance and repeated fast, so every box
+   whose contents change has a reserved size. See ./CLAUDE.md. */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import NumberFlow from '@number-flow/react';
+import { useAnimate, useReducedMotion } from 'motion/react';
 import { FULL_DECK } from '@opentable/equity/cards';
 import type { EquityResult, OutsResult } from '@opentable/equity';
 import { analyse, analyseOuts, cancel, isCancelled, nextRequestId } from '../analysis/index.ts';
 import { isTextEntry } from '../ui/bits.tsx';
 import { readCards } from './cards.tsx';
-import { BoardText } from '../ui/board-text.tsx';
+import { PlayingCard } from '../table/playing-card.tsx';
 import { useTitle } from '../ui/title.ts';
 
 const STORE = 'ot.odds';
 const BET_FRACTIONS = [1 / 3, 1 / 2, 2 / 3, 3 / 4, 1];
+
+export type Street = 'flop' | 'turn' | 'river';
+export const STREETS: Street[] = ['flop', 'turn', 'river'];
+const BOARD_SIZE: Record<Street, number> = { flop: 3, turn: 4, river: 5 };
+const STREET_LABEL: Record<Street, string> = { flop: 'Flop', turn: 'Turn', river: 'River' };
+
+/* Running out of time is an answer, so it lives with the other two. */
+export type Answer = 'call' | 'fold' | 'timeout';
 
 export interface Spot {
   hero: [string, string];
@@ -34,7 +47,16 @@ export interface Score {
   best: number;
 }
 
-const EMPTY: Score = { right: 0, total: 0, streak: 0, best: 0 };
+/* One key holds the record and the two practice settings, because they are one
+   thing to a player: how this trainer is set up for them. */
+export interface Saved extends Score {
+  timer: boolean;
+  streets: Street[];
+}
+
+const EMPTY: Saved = { right: 0, total: 0, streak: 0, best: 0, timer: false, streets: STREETS };
+
+export const TIMER_MS = 10_000;
 
 /* The share of the final pot your call has to win to break even. */
 export function requiredEquity(spot: Spot): number {
@@ -45,29 +67,104 @@ export function callIsRight(equity: number, spot: Spot): boolean {
   return equity >= requiredEquity(spot);
 }
 
+/* Running out of time is a wrong answer rather than a missing one: a price you
+   cannot read in ten seconds is a price you would have got wrong at the table. */
+export function answerIsRight(answer: Answer, equity: number, spot: Spot): boolean {
+  if (answer === 'timeout') return false;
+  return callIsRight(equity, spot) === (answer === 'call');
+}
+
 export function accuracy(score: Score): number {
   return score.total === 0 ? 0 : (score.right / score.total) * 100;
 }
 
-export function readScore(): Score {
+function gcd(a: number, b: number): number {
+  return b === 0 ? a : gcd(b, a % b);
+}
+
+/* The price the way a player says it out loud: the pot against the call, cut
+   down to the smallest whole numbers that still say it. A pot that does not
+   divide cleanly is read against one instead, because "37 to 14" is not odds
+   anybody quotes. */
+export function priceRatio(pot: number, bet: number): string {
+  if (!(pot > 0) || !(bet > 0)) return '';
+  const a = Math.round(pot);
+  const b = Math.round(bet);
+  const g = gcd(a, b) || 1;
+  const x = a / g;
+  const y = b / g;
+  if (y <= 9 && x <= 99) return `${x} to ${y}`;
+  return `${(a / b).toFixed(1)} to 1`;
+}
+
+/* One sentence saying what the spot was and why, in the same shape every time
+   so the eye learns where the two numbers sit. */
+export function verdictLine(equity: number, spot: Spot): string {
+  const win = Math.round(equity * 100);
+  const need = Math.round(requiredEquity(spot) * 100);
+  const action = callIsRight(equity, spot) ? 'Call' : 'Fold';
+  return `${action}. You win ${win}% and needed ${need}%.`;
+}
+
+export type Tone = 'none' | 'warm' | 'hot' | 'blaze';
+
+/* Three thresholds, so a run has somewhere to get to. Three is the first one
+   worth noticing, five is a good session, ten is rare. */
+export function streakTone(streak: number): Tone {
+  if (streak >= 10) return 'blaze';
+  if (streak >= 5) return 'hot';
+  if (streak >= 3) return 'warm';
+  return 'none';
+}
+
+const TONE_BADGE: Record<Tone, { cls: string; text: string }> = {
+  none: { cls: 'badge-plain', text: 'Building' },
+  warm: { cls: 'badge-info', text: 'Warm' },
+  hot: { cls: 'badge-ok', text: 'Hot' },
+  blaze: { cls: 'badge-warn', text: 'On fire' },
+};
+
+/* What is left of the clock, as a fraction of the bar. Clamped at both ends so
+   a tab that slept while a spot was open cannot draw a negative bar. */
+export function timerLeft(elapsed: number, total = TIMER_MS): number {
+  if (!(total > 0)) return 0;
+  return Math.min(1, Math.max(0, 1 - elapsed / total));
+}
+
+export function timedOut(elapsed: number, total = TIMER_MS): boolean {
+  return elapsed >= total;
+}
+
+/* An unknown or empty list of streets is every street rather than none: a
+   filter that filtered everything out would leave the trainer with nothing to
+   deal. */
+export function readStreets(value: unknown): Street[] {
+  if (!Array.isArray(value)) return STREETS;
+  const kept = STREETS.filter((street) => value.includes(street));
+  return kept.length > 0 ? kept : STREETS;
+}
+
+export function readSaved(): Saved {
   try {
     const raw = localStorage.getItem(STORE);
     if (!raw) return EMPTY;
-    const parsed = JSON.parse(raw) as Partial<Score>;
+    const parsed = JSON.parse(raw) as Partial<Saved>;
     return {
       right: Number(parsed.right) || 0,
       total: Number(parsed.total) || 0,
       streak: Number(parsed.streak) || 0,
       best: Number(parsed.best) || 0,
+      timer: parsed.timer === true,
+      streets: readStreets(parsed.streets),
     };
   } catch {
     return EMPTY;
   }
 }
 
-export function writeScore(score: Score): void {
+export function writeSaved(saved: Saved): void {
   try {
-    localStorage.setItem(STORE, JSON.stringify(score));
+    localStorage.setItem(STORE, JSON.stringify(saved));
   } catch {
     // A browser with storage turned off still gets to practise.
   }
@@ -83,15 +180,19 @@ export function scoreAfter(score: Score, right: boolean): Score {
   };
 }
 
-export function dealSpot(random: () => number = Math.random): Spot {
+function pick<T>(list: T[], random: () => number): T {
+  return list[Math.min(list.length - 1, Math.floor(random() * list.length))];
+}
+
+export function dealSpot(random: () => number = Math.random, streets: Street[] = STREETS): Spot {
   const deck = [...FULL_DECK];
   for (let i = deck.length - 1; i > 0; i--) {
     const j = Math.floor(random() * (i + 1));
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }
-  const boardSize = random() < 0.5 ? 3 : 4;
+  const boardSize = BOARD_SIZE[pick(streets.length > 0 ? streets : STREETS, random)];
   const pot = 10 + Math.round(random() * 25) * 2;
-  const bet = Math.max(1, Math.round(pot * BET_FRACTIONS[Math.floor(random() * BET_FRACTIONS.length)]));
+  const bet = Math.max(1, Math.round(pot * pick(BET_FRACTIONS, random)));
   return {
     hero: [deck[0], deck[1]],
     board: deck.slice(2, 2 + boardSize),
@@ -136,18 +237,26 @@ export function outsReadable(board: string[]): boolean {
   return board.length === 3 || board.length === 4;
 }
 
+const OPPONENT_WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'];
+
 export function Odds() {
   const { search } = useLocation();
+  const [saved, setSaved] = useState<Saved>(EMPTY);
   const [spot, setSpot] = useState<Spot>(() => spotFromQuery(search) ?? dealSpot());
   const [fromLink, setFromLink] = useState(() => spotFromQuery(search) !== null);
   const [equity, setEquity] = useState<EquityResult | null>(null);
   const [outs, setOuts] = useState<OutsResult | null>(null);
-  const [answer, setAnswer] = useState<'call' | 'fold' | null>(null);
-  const [score, setScore] = useState<Score>(EMPTY);
+  const [answer, setAnswer] = useState<Answer | null>(null);
+  const [left, setLeft] = useState(1);
+  const [bump, setBump] = useState({ n: 0, right: true });
   const answered = useRef(false);
+  const reduced = useReducedMotion();
+  const [tile, animateTile] = useAnimate<HTMLDivElement>();
   useTitle('Pot odds trainer');
 
-  useEffect(() => setScore(readScore()), []);
+  const { timer: timerOn, streets } = saved;
+
+  useEffect(() => setSaved(readSaved()), []);
 
   useEffect(() => {
     const ids = [nextRequestId('e'), nextRequestId('o')];
@@ -179,23 +288,52 @@ export function Odds() {
     answered.current = false;
     setAnswer(null);
     setFromLink(false);
-    setSpot(dealSpot());
-  }, []);
+    setSpot(dealSpot(Math.random, streets));
+  }, [streets]);
 
   const answerWith = useCallback(
-    (choice: 'call' | 'fold') => {
+    (choice: Answer) => {
       if (answered.current || !equity) return;
       answered.current = true;
       setAnswer(choice);
-      const right = callIsRight(equity.equity, spot) === (choice === 'call');
-      setScore((prev) => {
-        const updated = scoreAfter(prev, right);
-        writeScore(updated);
+      const right = answerIsRight(choice, equity.equity, spot);
+      setSaved((prev) => {
+        const updated = { ...prev, ...scoreAfter(prev, right) };
+        writeSaved(updated);
         return updated;
       });
+      setBump((prev) => ({ n: prev.n + 1, right }));
     },
     [equity, spot],
   );
+
+  /* The clock runs only while there is something to answer, and it starts when
+     the equity lands rather than when the spot is dealt: the buttons are dead
+     until then, so a spot that took a moment to work out would otherwise cost
+     the player part of their ten seconds. */
+  useEffect(() => {
+    setLeft(1);
+    if (!timerOn || answer !== null || !equity) return;
+    const start = performance.now();
+    const id = setInterval(() => {
+      const elapsed = performance.now() - start;
+      setLeft(timerLeft(elapsed));
+      if (timedOut(elapsed)) answerWith('timeout');
+    }, 100);
+    return () => clearInterval(id);
+  }, [timerOn, answer, equity, answerWith]);
+
+  /* The tile answers every spot, including two right ones in a row, so the
+     animation is fired rather than declared: a repeated keyframe set is the
+     same object and would not run twice. */
+  useEffect(() => {
+    if (bump.n === 0 || reduced || !tile.current) return;
+    void animateTile(
+      tile.current,
+      bump.right ? { scale: [1, 1.06, 1] } : { x: [0, -5, 5, -3, 3, 0] },
+      { duration: 0.33, ease: [0.2, 0, 0, 1] },
+    );
+  }, [bump, reduced, animateTile, tile]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -204,7 +342,10 @@ export function Odds() {
       if (!answer && (key === 'c' || key === 'f')) {
         event.preventDefault();
         answerWith(key === 'c' ? 'call' : 'fold');
-      } else if (answer && (key === 'n' || key === 'enter')) {
+      } else if (answer && (key === 'n' || key === 'enter' || key === ' ')) {
+        /* Enter and space already press a focused button. Taking them here as
+           well would deal two spots for one keystroke. */
+        if ((event.target as HTMLElement | null)?.tagName === 'BUTTON') return;
         event.preventDefault();
         next();
       }
@@ -213,17 +354,58 @@ export function Odds() {
     return () => window.removeEventListener('keydown', onKey);
   }, [answer, answerWith, next]);
 
+  const setSetting = useCallback((change: Partial<Saved>) => {
+    setSaved((prev) => {
+      const updated = { ...prev, ...change };
+      writeSaved(updated);
+      return updated;
+    });
+  }, []);
+
+  const toggleStreet = useCallback(
+    (street: Street) => {
+      setSaved((prev) => {
+        const chosen = prev.streets.includes(street)
+          ? prev.streets.filter((s) => s !== street)
+          : STREETS.filter((s) => s === street || prev.streets.includes(s));
+        const updated = { ...prev, streets: chosen.length > 0 ? chosen : prev.streets };
+        writeSaved(updated);
+        return updated;
+      });
+    },
+    [],
+  );
+
   const required = requiredEquity(spot);
-  const right = equity ? callIsRight(equity.equity, spot) === (answer === 'call') : false;
-  const bestAction = equity ? (callIsRight(equity.equity, spot) ? 'Calling' : 'Folding') : '';
-  const heroWord = useMemo(() => {
-    const words = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'];
-    const n = spot.opponents;
-    return `${words[n] ?? n} ${n === 1 ? 'opponent' : 'opponents'}`;
-  }, [spot.opponents]);
+  /* The equity is worked out while the player thinks, so it exists long before
+     it may be shown. This is the one gate on printing it. */
+  const shown = answer !== null && equity ? equity : null;
+  const right = shown && answer !== null ? answerIsRight(answer, shown.equity, spot) : false;
+  const tone: Tone = answer && !right ? 'none' : streakTone(saved.streak);
+  const badge = answer && !right ? { cls: 'badge-danger', text: 'Missed' } : TONE_BADGE[tone];
+  const opponents = spot.opponents;
+  const heroWord = useMemo(
+    () => `${OPPONENT_WORDS[opponents] ?? opponents} ${opponents === 1 ? 'opponent' : 'opponents'}`,
+    [opponents],
+  );
+  const rate = saved.total ? accuracy(saved) : 0;
+  const zone = saved.total === 0 ? undefined : rate >= 70 ? 'ok' : rate >= 50 ? 'warn' : 'danger';
+
+  const outsNote = !outsReadable(spot.board)
+    ? spot.board.length >= 5
+      ? 'No cards to come.'
+      : ''
+    : outs
+      ? `${outs.count} outs${outs.draws.length > 0 ? `: ${outs.draws.join(', ')}` : ''}.`
+      : '';
+  const sampleNote = equity
+    ? equity.exact
+      ? 'Counted exactly.'
+      : `Sampled over ${equity.samples.toLocaleString('en-GB')} deals.`
+    : '';
 
   return (
-    <main className="page stack tools-page">
+    <main className="page stack tools-page odds-page">
       <div className="stack" style={{ gap: 'var(--sp-3)' }}>
         <h1 className="h1">Pot odds trainer</h1>
         <p className="muted">
@@ -233,109 +415,225 @@ export function Odds() {
         </p>
       </div>
 
-      <section className="card stack" aria-label="The spot">
-        <div className="spot-cards">
+      <section className="card stack odds-spot" aria-label="The spot">
+        <div className="odds-figures">
+          <div className="fig">
+            <span className="label">Pot</span>
+            <span className="fig-v num">
+              <NumberFlow value={spot.pot} format={{ useGrouping: false }} respectMotionPreference />
+            </span>
+          </div>
+          <div className="fig">
+            <span className="label">To call</span>
+            <span className="fig-v num">
+              <NumberFlow value={spot.bet} format={{ useGrouping: false }} respectMotionPreference />
+            </span>
+          </div>
+          <div className="odds-price">
+            <span className="price-ratio num">{priceRatio(spot.pot, spot.bet)}</span>
+            <span className="price-need num">needs {Math.round(required * 100)}%</span>
+          </div>
+        </div>
+
+        <div className="odds-hands">
           <div className="field">
             <span className="label">Your hand</span>
-            <BoardText cards={spot.hero} />
+            <div className="odds-cards">
+              {spot.hero.map((card) => (
+                <PlayingCard key={card} card={card} still />
+              ))}
+            </div>
           </div>
           <div className="field">
             <span className="label">Board</span>
-            <BoardText cards={spot.board} />
+            <div className="odds-cards">
+              {spot.board.length === 0 ? (
+                <span className="muted">No board</span>
+              ) : (
+                spot.board.map((card) => <PlayingCard key={card} card={card} still />)
+              )}
+            </div>
           </div>
         </div>
 
         <p className="spot-line">
-          Against {heroWord}, the pot is <span className="num">{spot.pot}</span> and it costs{' '}
-          <span className="num">{spot.bet}</span> to call.
+          Against {heroWord}
+          {fromLink ? ', from a hand you were replaying.' : '.'}
         </p>
 
-        {fromLink && (
-          <p className="muted small">
-            This spot came from a hand you were replaying. Deal the next one and the trainer goes
-            back to its own.
-          </p>
+        {timerOn && (
+          <div
+            className="g-progress odds-timer"
+            role="progressbar"
+            aria-label="Time left in this spot"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(left * 100)}
+            data-low={left <= 0.3 ? '' : undefined}
+          >
+            <span className="g-progress-fill" style={{ width: `${left * 100}%` }} />
+          </div>
         )}
 
-        {!answer ? (
-          <div className="row">
-            <button type="button" className="btn btn-primary" onClick={() => answerWith('call')} disabled={!equity}>
-              Call
-            </button>
-            <button type="button" className="btn btn-secondary" onClick={() => answerWith('fold')} disabled={!equity}>
-              Fold
-            </button>
-            <span className="muted small">{equity ? 'Or press C or F.' : 'Working out the spot.'}</span>
-          </div>
-        ) : (
-          <div className="stack">
-            <span className={`badge verdict ${right ? 'badge-ok' : 'badge-warn'}`}>
-              {right ? 'Right' : 'Not this one'}
-            </span>
-            <dl className="results">
-              <div>
-                <dt>Your equity</dt>
-                <dd className="num">{equity ? `${(equity.equity * 100).toFixed(1)}%` : '…'}</dd>
-                <dd className="muted small">
-                  {equity?.exact ? 'exact' : `sampled, ${equity?.samples.toLocaleString('en-GB')} deals`}
-                </dd>
-              </div>
-              <div>
-                <dt>The price</dt>
-                <dd className="num">{(required * 100).toFixed(1)}%</dd>
-                <dd className="muted small">
-                  {spot.bet} to win {spot.pot + spot.bet}
-                </dd>
-              </div>
-              <div>
-                <dt>Outs</dt>
-                <dd className="num">{!outsReadable(spot.board) ? '' : outs ? outs.count : '…'}</dd>
-                <dd className="muted small">
-                  {!outsReadable(spot.board)
-                    ? spot.board.length >= 5
-                      ? 'no cards to come'
-                      : 'from the flop on'
-                    : outs?.draws.join(', ') || 'no named draw'}
-                </dd>
-              </div>
-            </dl>
-            <p className="muted">
-              {bestAction} is right here: {bestAction === 'Calling' ? 'your equity clears the price' : 'the price is higher than your equity'}.
-              {outs && outs.cards.length > 0 && (
-                <>
-                  {' '}
-                  The cards that improve you: <BoardText cards={outs.cards.slice(0, 10)} />
-                  {outs.cards.length > 10 && ` and ${outs.cards.length - 10} more`}.
-                </>
-              )}
-            </p>
-            <div className="row">
-              <button type="button" className="btn btn-primary" onClick={next}>
-                Deal the next spot
-              </button>
-              <span className="muted small">Or press N.</span>
+        <div className="odds-acts">
+          <button
+            type="button"
+            className={`btn ${answer ? 'btn-secondary' : 'btn-primary'}`}
+            data-picked={answer === 'call' ? '' : undefined}
+            onClick={() => answerWith('call')}
+            disabled={!equity || answer !== null}
+          >
+            Call
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            data-picked={answer === 'fold' ? '' : undefined}
+            onClick={() => answerWith('fold')}
+            disabled={!equity || answer !== null}
+          >
+            Fold
+          </button>
+          <button
+            type="button"
+            className={`btn ${answer ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={next}
+            disabled={answer === null}
+          >
+            Next spot
+          </button>
+        </div>
+
+        <p className="odds-hint muted small">
+          {answer === null ? (
+            equity ? (
+              <>
+                Press <span className="kbd">C</span> to call or <span className="kbd">F</span> to
+                fold.
+              </>
+            ) : (
+              'Working out the spot.'
+            )
+          ) : (
+            <>
+              Press <span className="kbd">Enter</span> for the next spot.
+            </>
+          )}
+        </p>
+
+        {/* The reveal is drawn before it has anything to say, empty bars and
+            all. That is what keeps the answer from pushing the record down the
+            page, and it shows the scale the answer will be read against. */}
+        <div className="odds-reveal" aria-live="polite" data-shown={shown ? '' : undefined}>
+          <p className="verdict-line">
+            {shown ? (
+              <>
+                <span className={`badge ${right ? 'badge-ok' : answer === 'timeout' ? 'badge-warn' : 'badge-danger'}`}>
+                  {right ? 'Right' : answer === 'timeout' ? 'Out of time' : 'Not this one'}
+                </span>
+                <span>{verdictLine(shown.equity, spot)}</span>
+              </>
+            ) : (
+              <span className="muted">Call or fold, and the two numbers land here.</span>
+            )}
+          </p>
+
+          <div className="eq-chart">
+            <div className="eq-row" data-k="win">
+              <span className="eq-name">You win</span>
+              <span className="eq-bar">
+                <span
+                  className="eq-fill"
+                  style={{ width: shown ? `${Math.min(100, shown.equity * 100)}%` : '0%' }}
+                />
+              </span>
+              <span className="eq-v num">{shown ? `${Math.round(shown.equity * 100)}%` : '…'}</span>
+            </div>
+            <div className="eq-row" data-k="need">
+              <span className="eq-name">You need</span>
+              <span className="eq-bar">
+                <span className="eq-fill" style={{ width: `${Math.min(100, required * 100)}%` }} />
+              </span>
+              <span className="eq-v num">{Math.round(required * 100)}%</span>
+            </div>
+            <div className="eq-scale" aria-hidden="true">
+              <span />
+              <span className="eq-ticks">
+                <i className="num">0%</i>
+                <i className="num">50%</i>
+                <i className="num">100%</i>
+              </span>
+              <span />
             </div>
           </div>
-        )}
+
+          <p className="reveal-note muted small">
+            {shown ? [outsNote, sampleNote].filter(Boolean).join(' ') : ''}
+          </p>
+        </div>
       </section>
 
-      <section className="card score-row" aria-label="Your record">
-        <div>
+      <section className="card odds-score" aria-label="Your record">
+        <div className="streak-tile" ref={tile} data-tone={tone} data-miss={answer && !right ? '' : undefined}>
           <span className="label">Streak</span>
-          <span className="num">{score.streak}</span>
+          <span className="streak-v num">
+            <NumberFlow value={saved.streak} format={{ useGrouping: false }} respectMotionPreference />
+          </span>
+          <span className={`badge ${badge.cls}`}>{badge.text}</span>
         </div>
-        <div>
-          <span className="label">Best streak</span>
-          <span className="num">{score.best}</span>
-        </div>
-        <div>
+
+        <div className="score-cell">
           <span className="label">Accuracy</span>
-          <span className="num">{score.total ? `${accuracy(score).toFixed(0)}%` : '…'}</span>
+          <span className="score-v num">{saved.total ? `${Math.round(rate)}%` : '…'}</span>
+          <span
+            className="g-meter"
+            role="meter"
+            aria-label="Accuracy"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(rate)}
+            data-zone={zone}
+          >
+            <span className="g-meter-fill" style={{ width: `${rate}%` }} />
+          </span>
         </div>
-        <div>
+
+        <div className="score-cell">
+          <span className="label">Best streak</span>
+          <span className="score-v num">{saved.best}</span>
+        </div>
+
+        <div className="score-cell">
           <span className="label">Spots</span>
-          <span className="num">{score.total}</span>
+          <span className="score-v num">{saved.total}</span>
         </div>
+      </section>
+
+      <section className="card odds-settings" aria-label="How you practise">
+        <label className="switch-row">
+          <span className="label">Ten second timer</span>
+          <input
+            type="checkbox"
+            className="switch"
+            checked={timerOn}
+            onChange={(e) => setSetting({ timer: e.target.checked })}
+          />
+        </label>
+
+        <fieldset className="odds-streets">
+          <legend className="label">Streets to deal</legend>
+          {STREETS.map((street) => (
+            <label className="check-row" key={street}>
+              <input
+                type="checkbox"
+                className="checkbox"
+                checked={streets.includes(street)}
+                onChange={() => toggleStreet(street)}
+              />
+              <span>{STREET_LABEL[street]}</span>
+            </label>
+          ))}
+        </fieldset>
       </section>
     </main>
   );

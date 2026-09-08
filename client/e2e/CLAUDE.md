@@ -62,6 +62,7 @@ it.
 | `reduced-motion.spec.ts` | the same information with the motion emulated off |
 | `settings.spec.ts` | a choice surviving a reload, the pre-paint stamp, every accent's contrast in both themes, the four colour deck, and the menu itself |
 | `replay.spec.ts` | a recorded hand scrubbed back and forth leaves nothing behind and nothing outside the felt, and still verifies |
+| `odds.spec.ts` | the pot odds trainer's reserved boxes across an answer, at 390 and 1366, and axe in both themes. No baselines: the assertion is the geometry |
 | `screenshots.spec.ts` | 132 baselines: eleven states at 360, 390, 430, 768, 1366 and 1920, dark and light |
 
 ## Reading a baseline diff
