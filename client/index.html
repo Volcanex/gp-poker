@@ -4,10 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="description" content="Free ranked no-limit hold'em, heads-up or six handed. No money, no ads, no rake." />
-    <!-- The browser chrome matches the page. Dark is the unconditional
-         default, so this is g-system's --bg in dark (--slate-1); it is a
+    <!-- The browser chrome matches the page. The games room is the default a
+         visitor gets, so this is its --bg (--slate-1 in src/room.css); it is a
          literal because a meta tag cannot read a custom property. -->
-    <meta name="theme-color" content="#111113" />
+    <meta name="theme-color" content="#14100c" />
     <!-- The mark is favicon.svg; the PNGs are rendered from it for the
          browsers and the home screens that will not take an SVG. -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -20,20 +20,26 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <title>Open Table</title>
     <link rel="stylesheet" href="/g/g.css" />
-    <!-- Four attribute writes before the first paint, so a light theme, a
-         palette or a four colour deck is never a flash of the dark default. g-ui reads its
-         own g-theme key a moment later and lands on the same answer, because
-         the app writes both in one call (src/ui/prefs.ts). Attributes only:
-         what jade is, what felt is, what a four colour deck is and which way the
-         hero band faces are in app.css, palettes.css and hero-band.css. -->
+    <!-- Four attribute writes before the first paint, so a chosen theme, a
+         palette or a four colour deck is never a flash of the wrong ground.
+         g-ui reads its own g-theme key a moment later and lands on the same
+         answer, because the app writes both in one call (src/ui/prefs.ts).
+         Attributes only: what jade is, what felt is, what the games room is,
+         what a four colour deck is and which way the hero band faces are in
+         app.css, palettes.css, room.css and hero-band.css. -->
     <script>
       (() => {
         try {
           const p = JSON.parse(localStorage.getItem('ot.prefs') || '{}');
           const el = document.documentElement;
-          if (p.theme === 'light' || p.theme === 'system') el.setAttribute('data-theme', p.theme);
-          if (p.palette && p.palette !== 'slate') el.setAttribute('data-palette', p.palette);
-          if (p.accent && p.accent !== 'default') el.setAttribute('data-accent', p.accent);
+          /* No record, or one this build does not read, is the games room,
+             exactly as readPrefs in src/ui/prefs.ts decides it. */
+          const theme = ['room', 'dark', 'light', 'system'].includes(p.theme) ? p.theme : 'room';
+          if (theme !== 'dark') el.setAttribute('data-theme', theme);
+          if (theme !== 'room') {
+            if (p.palette && p.palette !== 'slate') el.setAttribute('data-palette', p.palette);
+            if (p.accent && p.accent !== 'default') el.setAttribute('data-accent', p.accent);
+          }
           if (p.fourColour) el.setAttribute('data-deck', 'four');
           if (p.hand === 'left') el.setAttribute('data-hand', 'left');
         } catch {}

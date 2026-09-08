@@ -82,6 +82,9 @@ export function SettingsMenu() {
           ))}
         </div>
 
+        {/* The games room carries its own coordinated set, so the palette and
+            accent rows are not offered while it is on. */}
+        {prefs.theme !== 'room' && (<>
         <hr className="separator" />
 
         <div className="menu-title" id="settings-palette">Palette</div>
@@ -127,6 +130,7 @@ export function SettingsMenu() {
             />
           ))}
         </div>
+        </>)}
 
         <hr className="separator" />
 

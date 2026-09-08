@@ -30,6 +30,9 @@ const Replay = lazy(() => import('./routes/replay.tsx').then((m) => ({ default: 
 const AdminTickets = lazy(() => import('./admin/tickets.tsx').then((m) => ({ default: m.AdminTickets })));
 const AdminTicket = lazy(() => import('./admin/tickets.tsx').then((m) => ({ default: m.AdminTicket })));
 import './app.css';
+/* After app.css on purpose: the room re-declares tokens the palettes, the
+   accents and look-v2.css also declare, and wins on order. */
+import './room.css';
 
 /* A browser will not let a page make a noise until somebody has touched it, so
    the first gesture anywhere is what opens the audio context. Once is enough,

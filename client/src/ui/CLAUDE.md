@@ -158,7 +158,7 @@ is why the swatch in the menu can paint itself by carrying the same attribute.
 
 | Setting | Attribute | Values |
 | --- | --- | --- |
-| Theme | `data-theme` | absent (dark), `light`, `system` |
+| Theme | `data-theme` | `room` (the default), absent (dark), `light`, `system` |
 | Palette | `data-palette` | absent (slate), `felt`, `sky`, `umber` |
 | Accent | `data-accent` | absent (g's own), `ocean`, `jade`, `violet`, `clay`, `ember` |
 | Four colour deck | `data-deck` | absent, `four` |
@@ -169,6 +169,32 @@ itself, so `applyPrefs` writes both in the one call that changes it, and nothing
 else in this app calls `g.theme()`. Sound is not in that record: it is a separate
 module with its own store and its own key, and playing with the sound off in a
 light theme is the normal case rather than a contradiction.
+
+## The games room
+
+`room` is the fourth theme and the one a visitor gets before choosing: a card
+room in one coordinated set rather than a palette wearing an accent, which is
+what the owner found uncoordinated about felt plus ember. It is the one
+deliberate exception to the rule that a reskin touches only the accent slot,
+and it is kept disciplined the way a palette is: **every colour is a token in
+`../room.css`, declared once on `[data-theme="room"]`, and no component is
+restyled.** Walnut greys on g's dark lightness ramp step for step, cream for
+text and card faces, baize for the felt, brass for the accent and the bet
+colour, a deep red for pips and fold, a quiet green for call, and six chart
+colours in the same register. The file is imported after `app.css` so it wins
+over the palettes, the accents and the card tokens at equal specificity.
+
+While the room is on, **the palette and accent are kept but not worn**:
+`applyPrefs` leaves both attributes off, the pre-paint script skips them, and
+the settings menu hides the two rows. Choosing another theme brings all of it
+back. `g.theme("room")` stamps and stores the value like any other, so g's
+`g-theme` key and `ot.prefs` still agree. The felt takes `--felt` through one
+rule at the foot of `room.css` that also maps `--surface-2` to `--felt-panel`
+for the seats; the hero band stays on the walnut and reads as the rail.
+
+`../../e2e/settings.spec.ts` measures the room as one set: every text token on
+the walnut, the baize and the panel, the brass under its ink, and the pips on
+the paper at 5:1, and runs axe over home and both v2 felts.
 
 ## Palettes
 

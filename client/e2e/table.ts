@@ -371,8 +371,13 @@ const EXPLORER = JSON.parse(
 /* An explicit theme, stored the way g stores it: g-ui reads its own key at load
    and writes the attribute itself, so setting the attribute alone is undone a
    moment later. "system" is not a thing a baseline can pin. */
-export async function setTheme(page: Page, theme: 'dark' | 'light') {
+/* Stamped where the app reads it, `ot.prefs`, as well as into g's own key:
+   applyPrefs re-applies the stored record on mount and its default is the
+   games room, so a page set up through g-theme alone would come back as the
+   room whatever the test asked for. */
+export async function setTheme(page: Page, theme: 'room' | 'dark' | 'light') {
   await page.addInitScript((t) => {
+    localStorage.setItem('ot.prefs', JSON.stringify({ theme: t }));
     localStorage.setItem('g-theme', t as string);
     document.documentElement.setAttribute('data-theme', t as string);
   }, theme);

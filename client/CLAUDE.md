@@ -77,7 +77,9 @@ neutral scale, and that is the one accent this app uses: the acting seat's borde
 and clock bar, the winning five at a showdown, the primary action, your own row
 on the leaderboard. A rebrand would set `--accent-fill/-hover/-fg/-edge` and
 nothing else. The four user-chosen accents in settings are a separate thing with
-their own contrast rules (`src/ui/CLAUDE.md`).
+their own contrast rules (`src/ui/CLAUDE.md`). The games room theme
+(`src/room.css`) is the one place more than the accent slot is overridden, on
+purpose and as tokens only; `src/ui/CLAUDE.md` says how it is kept disciplined.
 
 **Two docs-app rules are copied into `src/app.css`**: `.stat` (the stat tile) and
 `.switch-row` ship as markup and as React components, but their CSS lives in the

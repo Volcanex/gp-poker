@@ -186,6 +186,11 @@ files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
   felt at once while every component still reads only the alias layer. Slate is
   the default and carries no attribute; felt, sky and umber each declare a full
   scale for dark and for light, and each arrives wearing its own accent.
+- The games room (`client/src/room.css`, `data-theme="room"`) is the fourth
+  theme and the default for a visitor who has chosen nothing: a coordinated
+  set (walnut, baize, cream, brass, deep red) declared as tokens in that one
+  file, the deliberate exception to reskin-by-accent-only. The palette and
+  accent are kept but not worn while it is on. `client/src/ui/CLAUDE.md`.
 - Auth: a guest user is minted on first visit (cookie session), named by
   `@opentable/identity`'s `generateName` (`guest` boolean column, not a name
   prefix). Claiming sets a name and password on the same row so rating

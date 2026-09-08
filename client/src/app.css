@@ -382,8 +382,10 @@
 .menu-title { font-size: 11px; color: var(--text-secondary); padding: 0 2px; }
 
 .choices { display: flex; gap: 4px; }
+/* Shared out by content rather than equally: four themes in 246px is "Games
+   room" beside three short words, and equal quarters cut it in half. */
 .choice {
-  flex: 1; min-width: 0; height: var(--h-control-sm);
+  flex: 1 1 auto; min-width: 0; height: var(--h-control-sm);
   padding: 0 6px;
   border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
   background: none; color: var(--text-secondary);

@@ -59,40 +59,65 @@ const STATES: Shot[] = [
 /* Reduced motion, so a card that is still dealing cannot decide a baseline. */
 test.use({ reducedMotion: 'reduce' });
 
+async function shoot(
+  page: import('@playwright/test').Page,
+  state: Shot,
+  width: number,
+  theme: 'room' | 'dark' | 'light',
+) {
+  await page.setViewportSize({ width, height: 900 });
+  await stubApi(page);
+  await setTheme(page, theme);
+  if (state.prefs) {
+    await page.addInitScript((p) => {
+      localStorage.setItem('ot.prefs', JSON.stringify(p));
+    }, { ...state.prefs, theme });
+  }
+  await page.goto(state.url);
+  /* The mock's dev caption is fixed to the corner of the viewport and
+     says which step it is on. Hidden rather than masked: a magenta block
+     over the dock hides the thing the baseline is for. */
+  await page.addStyleTag({ content: '.devnote { display: none !important; }' });
+  await page.evaluate(() => document.fonts.ready);
+  /* And every avatar. They are inline SVG data URIs, so they never hit
+     the network and it is tempting to assume they are there, but the
+     decode is still asynchronous: a shot taken between layout and paint
+     differs from one taken after by a few hundred pixels, which is how
+     the whole suite started flaking the day the API stub began serving a
+     logged-in top bar. */
+  await page.evaluate(() => Promise.all(
+    [...document.images].map((img) => img.decode().catch(() => undefined)),
+  ));
+  await page.waitForTimeout(1200);
+
+  await expect(page).toHaveScreenshot(`${state.name}-${width}-${theme}.png`, {
+    fullPage: true,
+    mask: [...masks(page), ...(state.hides ?? []).map((sel) => page.locator(sel))],
+  });
+}
+
 for (const theme of THEMES) {
   for (const width of WIDTHS) {
     for (const state of STATES) {
       test(`${state.name} at ${width} in ${theme}`, async ({ page }) => {
-        await page.setViewportSize({ width, height: 900 });
-        await stubApi(page);
-        await setTheme(page, theme);
-        if (state.prefs) {
-          await page.addInitScript((p) => {
-            localStorage.setItem('ot.prefs', JSON.stringify(p));
-          }, { ...state.prefs, theme });
-        }
-        await page.goto(state.url);
-        /* The mock's dev caption is fixed to the corner of the viewport and
-           says which step it is on. Hidden rather than masked: a magenta block
-           over the dock hides the thing the baseline is for. */
-        await page.addStyleTag({ content: '.devnote { display: none !important; }' });
-        await page.evaluate(() => document.fonts.ready);
-        /* And every avatar. They are inline SVG data URIs, so they never hit
-           the network and it is tempting to assume they are there, but the
-           decode is still asynchronous: a shot taken between layout and paint
-           differs from one taken after by a few hundred pixels, which is how
-           the whole suite started flaking the day the API stub began serving a
-           logged-in top bar. */
-        await page.evaluate(() => Promise.all(
-          [...document.images].map((img) => img.decode().catch(() => undefined)),
-        ));
-        await page.waitForTimeout(1200);
-
-        await expect(page).toHaveScreenshot(`${state.name}-${width}-${theme}.png`, {
-          fullPage: true,
-          mask: [...masks(page), ...(state.hides ?? []).map((sel) => page.locator(sel))],
-        });
+        await shoot(page, state, width, theme);
       });
     }
+  }
+}
+
+/* The games room, the default, on the two pages that are the whole point of
+   it: the home page and the v2 felt, phone and desktop. The states above stay
+   dark and light, because they pin layout and the room changes only colour. */
+const ROOM_STATES: Shot[] = [
+  { name: 'home', url: '/' },
+  { name: 'turn-v2', url: '/m/mock?v2=1&step=9' },
+  { name: 'six-max-v2', url: '/m/mock?v2=1&mode=six-max&step=0' },
+];
+for (const width of [390, 1366]) {
+  for (const state of ROOM_STATES) {
+    test(`${state.name} at ${width} in room`, async ({ page }) => {
+      await shoot(page, state, width, 'room');
+    });
   }
 }
