@@ -1,14 +1,22 @@
 /* Wire protocol v5. JSON over WebSocket, short keys, every message carries t.
    The server is authoritative: clients send intent only. Any change to the
    shapes below is a protocol change: bump PROTOCOL_VERSION and keep the
-   server accepting the previous one for a deploy cycle. v4 is additive: the
+   server accepting the previous one for a deploy cycle. v4 was additive: the
    `arena` message in both directions and `format.arena`, so a v3 client that
    never sends one is served unchanged. Profile pictures and flags were
    additive inside v4 for the same reason: `avatarV` and `country` are optional
    on every shape that carries them, and a client that has never heard of
-   either draws the generated avatar and no flag, as it always did. */
+   either draws the generated avatar and no flag, as it always did.
 
-export const PROTOCOL_VERSION = 4;
+   v5 is the first break, and it is the ready check that makes it one. Speed
+   is additive (`format.speed`, `format.levelSeconds`, `TableView.level`, all
+   optional and all defaulting to what a v4 format already meant), but a
+   matchmade table now waits for every human to accept it, and a v4 client
+   neither draws the prompt nor sends `ready`. It would sit through the
+   countdown, be dropped as a no-show and collect a cooldown for it, so this
+   one cannot be served unchanged. */
+
+export const PROTOCOL_VERSION = 5;
 
 export type Card = string; // 'As', 'Td', '2c' (rank + suit, lowercase suit)
 
@@ -16,6 +24,17 @@ export type ActionKind = 'f' | 'x' | 'c' | 'b' | 'r' | 'a'; // fold check call b
 export type Street = 'pre' | 'flop' | 'turn' | 'river' | 'showdown' | 'done';
 
 export type Mode = 'heads-up' | 'six-max';
+
+/* How fast a table is played. One dimension beside the mode, the way a chess
+   site keeps bullet apart from classical: `short` is the twenty minute game
+   with a ten second clock, `long` is the two hour one this site started with.
+   Ratings are NOT split by it. There is one Glicko-2 pool per mode and the
+   speed rides along as a tag, because four pools need four populations and
+   this site has one. Split them when the population supports it. */
+export type Speed = 'short' | 'long';
+
+export const SPEEDS: Speed[] = ['short', 'long'];
+export const SPEED_NAME: Record<Speed, string> = { short: 'Short', long: 'Long' };
 
 export interface MatchFormat {
   mode: Mode;
@@ -26,9 +45,19 @@ export interface MatchFormat {
   sb: number; // level 1 blinds; kept flat so old readers still work
   bb: number;
   levels: { sb: number; bb: number }[]; // blind schedule; a single entry means blinds never escalate
-  levelHands: number; // hands per level (ignored with a single level)
+  levelHands: number; // hands per level, 0 for no hand basis at all (a short format climbs on the clock instead)
   clockMs: number; // per-decision clock
   graceMs: number; // reconnect grace before the clock runs while disconnected
+  /* Seconds of elapsed match time per level, the other basis the schedule can
+     climb on. Optional, and absent means zero, which is exactly what every
+     format stored before speed existed meant: hands only. Where both bases
+     are set the level is whichever is further along, so the clock cannot
+     un-climb a schedule that the hands already climbed. */
+  levelSeconds?: number;
+  /* Short or long. Optional for the same reason: a format stored before this
+     existed was the long one, and `speedOf` is where that default is spelled
+     so nothing else has to remember it. */
+  speed?: Speed;
   // A practice table: one human, the rest bots of a chosen level, never
   // rated. Optional so a format stored before practice existed still parses.
   practice?: boolean;
@@ -49,23 +78,238 @@ export interface MatchFormat {
   arena?: string;
 }
 
-export const HEADS_UP_FORMAT: MatchFormat = {
+export function speedOf(format: MatchFormat): Speed {
+  return format.speed === 'short' ? 'short' : 'long';
+}
+
+/* ------------------------------------------------------------- the clock
+
+   Two promises, and the blind schedules below are built to keep them: a short
+   table is over inside twenty minutes and a long one inside two hours. Both
+   are enforced by the blinds rather than by a timer that stops a hand, because
+   a hand cut off halfway is not a poker result. */
+export const SHORT_CEILING_MS = 20 * 60_000;
+export const LONG_CEILING_MS = 120 * 60_000;
+
+export function ceilingFor(speed: Speed): number {
+  return speed === 'short' ? SHORT_CEILING_MS : LONG_CEILING_MS;
+}
+
+/* What a hand costs once the blinds have passed every stack at the table.
+   Nobody has a decision to make: the seats are all-in from the blinds, so the
+   hand is a deal, four streets and a showdown with no clock in it at all.
+   Six seconds is generous for that, and it is only ever used to prove the
+   endgame fits inside the ceiling, never to pace anything. */
+export const FORCED_HAND_MS = 6_000;
+
+/* When a level begins, in elapsed match time. Level 0 begins at zero; a
+   format with no time basis has every level beginning at zero, which is the
+   honest answer for a schedule that climbs on hands alone. */
+export function levelStartMs(format: MatchFormat, level: number): number {
+  const seconds = format.levelSeconds ?? 0;
+  if (seconds <= 0) return 0;
+  return Math.max(0, level) * seconds * 1_000;
+}
+
+/* When the top level begins. From there the blinds never move again, and the
+   top level of every schedule below is one where the big blind is at least
+   half of every chip on the table, so each hand puts somebody all-in and
+   busts them. */
+export function terminalLevelMs(format: MatchFormat): number {
+  return levelStartMs(format, format.levels.length - 1);
+}
+
+/* The longest this format can possibly run: the moment the top level begins,
+   plus the hands it takes to knock out everybody but one from there. Each of
+   those hands is forced, so it costs FORCED_HAND_MS plus the hold, and each
+   one busts at least one player, so there are at most `players - 1` of them.
+
+   This is the number the schedules are actually designed against, and
+   `speed.test.ts` on the server is what holds them to it. */
+export function matchCeilingMs(format: MatchFormat): number {
+  const endgame = (format.players - 1) * (FORCED_HAND_MS + holdFor(format));
+  return terminalLevelMs(format) + endgame;
+}
+
+/* -------------------------------------------------------- the schedules
+
+   Every table starts on 200 units a seat, so the chips in play are
+   200 * players: 400 heads-up, 1200 six handed. A schedule ends a table by
+   making the big blind large against that total, and it ends it *provably*
+   once the big blind is at least half the total, because then no seat can
+   post one without being all-in and every hand busts somebody.
+
+   The arithmetic for each of the four is written above it. Read the stack to
+   big blind ratio as the average one: 200 units against the level's bb. */
+
+/* Short heads-up. 400 chips in play, a level every 90 seconds.
+
+     level  blinds    starts at   avg stack in bb   table total in bb
+       1     1/2        0:00          100                200
+       2     2/4        1:30           50                100
+       3     3/6        3:00           33                 66
+       4     5/10       4:30           20                 40
+       5     8/16       6:00           12.5               25
+       6     12/25      7:30            8                 16
+       7     20/40      9:00            5                 10
+       8     30/60     10:30            3.3                6.6
+       9     50/100    12:00            2                  4
+      10    100/200    13:30            1                  2
+      11    200/400    15:00            0.5                1     <- top
+
+   At the top level the big blind is the whole table, so both seats are
+   all-in the moment the blinds are posted and one hand settles it: 15:00 plus
+   one forced hand, comfortably inside twenty minutes. In practice a bust
+   arrives around level 6 or 7. The 25 hand cap stays, so a short heads-up
+   match is still "best of 25 or bust", now with a clock behind it. */
+export const HEADS_UP_SHORT: MatchFormat = {
   mode: 'heads-up',
+  speed: 'short',
   players: 2,
   rated: true,
   hands: 25,
   stack: 200,
   sb: 1,
   bb: 2,
-  levels: [{ sb: 1, bb: 2 }],
+  levels: [
+    { sb: 1, bb: 2 },
+    { sb: 2, bb: 4 },
+    { sb: 3, bb: 6 },
+    { sb: 5, bb: 10 },
+    { sb: 8, bb: 16 },
+    { sb: 12, bb: 25 },
+    { sb: 20, bb: 40 },
+    { sb: 30, bb: 60 },
+    { sb: 50, bb: 100 },
+    { sb: 100, bb: 200 },
+    { sb: 200, bb: 400 },
+  ],
+  levelHands: 0, // the clock is the only basis: a short table climbs on time
+  levelSeconds: 90,
+  clockMs: 10_000,
+  graceMs: 8_000,
+};
+
+/* Short six-max. 1200 chips in play, a level every 90 seconds.
+
+     level  blinds    starts at   avg stack in bb   table total in bb
+       1     1/2        0:00          100                600
+       2     2/4        1:30           50                300
+       3     3/6        3:00           33                200
+       4     5/10       4:30           20                120
+       5     8/16       6:00           12.5                75
+       6     12/25      7:30            8                  48
+       7     20/40      9:00            5                  30
+       8     30/60     10:30            3.3                20
+       9     50/100    12:00            2                  12
+      10     75/150    13:30            1.3                 8
+      11    100/200    15:00            1                   6
+      12    150/300    16:30            0.7                  4
+      13    300/600    18:00            0.3                  2    <- top
+
+   From level 11 the average stack is under a big blind, so the table is
+   already collapsing; the top level makes it certain, since 600 is half of
+   every chip on the table and five forced hands is the worst case. 18:00 plus
+   five of them is 18:50. Most short six-max tables are over by minute twelve,
+   which is the point: this is the bullet game. */
+export const SIX_MAX_SHORT: MatchFormat = {
+  mode: 'six-max',
+  speed: 'short',
+  players: 6,
+  rated: true,
+  hands: null,
+  stack: 200,
+  sb: 1,
+  bb: 2,
+  levels: [
+    { sb: 1, bb: 2 },
+    { sb: 2, bb: 4 },
+    { sb: 3, bb: 6 },
+    { sb: 5, bb: 10 },
+    { sb: 8, bb: 16 },
+    { sb: 12, bb: 25 },
+    { sb: 20, bb: 40 },
+    { sb: 30, bb: 60 },
+    { sb: 50, bb: 100 },
+    { sb: 75, bb: 150 },
+    { sb: 100, bb: 200 },
+    { sb: 150, bb: 300 },
+    { sb: 300, bb: 600 },
+  ],
+  levelHands: 0,
+  levelSeconds: 90,
+  clockMs: 10_000,
+  graceMs: 8_000,
+};
+
+/* Long heads-up. The match this site started with: 200 units a seat, blinds
+   1/2, best of 25 hands or bust, a twenty second clock. The 25 hand cap is
+   what normally ends it, around the twenty minute mark.
+
+   The ladder below is a backstop and nothing else. It climbs every 30 minutes,
+   which is past the end of any match played at a normal pace, and it exists so
+   that a match nobody is actually playing, two people letting the clock and
+   the reconnect grace run on every decision, still cannot outlive two hours.
+
+     level  blinds    starts at   table total in bb
+       1     1/2        0:00           400
+       2     5/10      30:00            40
+       3     30/60     60:00             6.6
+       4    200/400    90:00             1      <- top
+
+   90:00 plus one forced hand. `levelHands` stays at 25, which is the whole
+   match, so the hand basis never moves the blinds: only the clock does, and
+   only when the clock has been abused. */
+export const HEADS_UP_LONG: MatchFormat = {
+  mode: 'heads-up',
+  speed: 'long',
+  players: 2,
+  rated: true,
+  hands: 25,
+  stack: 200,
+  sb: 1,
+  bb: 2,
+  levels: [
+    { sb: 1, bb: 2 },
+    { sb: 5, bb: 10 },
+    { sb: 30, bb: 60 },
+    { sb: 200, bb: 400 },
+  ],
   levelHands: 25,
+  levelSeconds: 1_800,
   clockMs: 20_000,
   graceMs: 15_000,
 };
 
-/* Sit-and-go: last player with chips wins, blinds climb so it ends. */
-export const SIX_MAX_FORMAT: MatchFormat = {
+/* Long six-max. The sit-and-go this site started with: nine levels, eight
+   hands each, last player standing. Three levels are added on the end and a
+   time basis behind them, for the same reason as heads-up above: 50/100 left
+   twelve big blinds on the table, which collapses a table but does not
+   *prove* it ends.
+
+     level  blinds    at hand   at time   table total in bb
+       1     1/2         1       0:00         600
+       2     2/4         9      10:00         300
+       3     3/6        17      20:00         200
+       4     5/10       25      30:00         120
+       5     8/16       33      40:00          75
+       6    12/24       41      50:00          50
+       7    20/40       49      60:00          30
+       8    30/60       57      70:00          20
+       9    50/100      65      80:00          12
+      10   100/200      73      90:00           6
+      11   200/400      81     100:00           3
+      12   400/800      89     110:00           1.5   <- top
+
+   The level is whichever basis is further along. A table played at anything
+   like a normal pace runs eight hands in well under ten minutes, so the hand
+   basis leads the whole way and the clock never touches it. The clock only
+   takes over on a table running slower than 75 seconds a hand, which is a
+   table that is going to need the help. 110:00 plus five forced hands is
+   110:50. */
+export const SIX_MAX_LONG: MatchFormat = {
   mode: 'six-max',
+  speed: 'long',
   players: 6,
   rated: true,
   hands: null,
@@ -82,11 +326,20 @@ export const SIX_MAX_FORMAT: MatchFormat = {
     { sb: 20, bb: 40 },
     { sb: 30, bb: 60 },
     { sb: 50, bb: 100 },
+    { sb: 100, bb: 200 },
+    { sb: 200, bb: 400 },
+    { sb: 400, bb: 800 },
   ],
   levelHands: 8,
+  levelSeconds: 600,
   clockMs: 20_000,
   graceMs: 15_000,
 };
+
+/* The long formats under their original names, because that is what they are
+   and half the site imports them to print the rules. */
+export const HEADS_UP_FORMAT = HEADS_UP_LONG;
+export const SIX_MAX_FORMAT = SIX_MAX_LONG;
 
 /* How long a finished hand is held on screen before the next one deals, or
    before the match result is sent. The server sleeps it and the client counts
@@ -102,7 +355,13 @@ export function holdFor(format: MatchFormat): number {
   return Math.min(format.holdMs ?? HAND_HOLD_MS, format.clockMs);
 }
 
-export const DEFAULT_FORMAT = HEADS_UP_FORMAT;
+/* Six handed is the main game. It is the one the home page opens on, the one
+   a bare `queue` message means, and the one the site is about: a full ring is
+   more poker than a duel, and heads-up is the sideshow beside it. Long,
+   because a default should be the ordinary game rather than the fast one. */
+export const DEFAULT_FORMAT = SIX_MAX_LONG;
+export const DEFAULT_MODE: Mode = 'six-max';
+export const DEFAULT_SPEED: Speed = 'long';
 
 /* The five bot levels, one table shared by the server (which plays them and
    labels the roster) and the client (which offers them in the practice
@@ -137,15 +396,189 @@ export function botLevelInfo(level: number): BotLevelInfo {
   return BOT_LEVELS.find((b) => b.level === level) ?? BOT_LEVELS[DEFAULT_BOT_LEVEL - 1];
 }
 
-export function formatFor(mode: Mode, rated: boolean): MatchFormat {
-  const base = mode === 'six-max' ? SIX_MAX_FORMAT : HEADS_UP_FORMAT;
+const FORMATS: Record<Mode, Record<Speed, MatchFormat>> = {
+  'heads-up': { short: HEADS_UP_SHORT, long: HEADS_UP_LONG },
+  'six-max': { short: SIX_MAX_SHORT, long: SIX_MAX_LONG },
+};
+
+export function formatFor(mode: Mode, rated: boolean, speed: Speed = DEFAULT_SPEED): MatchFormat {
+  const base = FORMATS[mode === 'six-max' ? 'six-max' : 'heads-up'][speed === 'short' ? 'short' : 'long'];
   return { ...base, rated };
 }
 
-export function blindsAt(format: MatchFormat, handNumber: number): { sb: number; bb: number } {
+/* Which level of the schedule is in play. Two bases, and the level is
+   whichever is further along: hands, which is what six-max has always climbed
+   on, and elapsed match time, which is what a short table climbs on and what
+   keeps a long one inside its ceiling. A basis with a zero or missing setting
+   contributes nothing rather than dividing by it, so a format from before
+   speed existed reads exactly as it always did.
+
+   `elapsedMs` is time since the match was created, which the server passes and
+   a reader of a stored hand does not have. That is why a hand row records the
+   blinds it was actually dealt at: see `server/db/schema.sql`. */
+export function levelAt(format: MatchFormat, handNumber: number, elapsedMs = 0): number {
+  if (format.levels.length <= 1) return 0;
+  const byHands = format.levelHands > 0 ? Math.floor((handNumber - 1) / format.levelHands) : 0;
+  const seconds = format.levelSeconds ?? 0;
+  const byTime = seconds > 0 ? Math.floor(elapsedMs / 1_000 / seconds) : 0;
+  return Math.min(format.levels.length - 1, Math.max(0, byHands, byTime));
+}
+
+export function blindsAt(format: MatchFormat, handNumber: number, elapsedMs = 0): { sb: number; bb: number } {
   if (format.levels.length <= 1) return { sb: format.sb, bb: format.bb };
-  const level = Math.min(format.levels.length - 1, Math.floor((handNumber - 1) / format.levelHands));
-  return format.levels[level];
+  return format.levels[levelAt(format, handNumber, elapsedMs)];
+}
+
+/* ---------------------------------------------------------- ready check
+
+   A matchmade table asks everybody at it to say they are there before it
+   deals, the way a CS2 match does. It exists because a queue can hand you a
+   table you walked away from four minutes ago, and five people then wait out
+   a sit-out that a single click could have avoided.
+
+   The numbers live here rather than on either side because the client counts
+   down the same window the server enforces and the same cooldown it applies,
+   and two copies of either drift until the countdown starts lying. */
+
+export const READY_CHECK_MS = 20_000;
+
+/* A no-show costs two minutes, and the cost doubles for every further no-show
+   inside the hour, up to half an hour. It is not a punishment so much as a
+   filter: somebody who has walked away is put behind everybody who has not,
+   and the queue stops offering their seat to five other people. */
+export const READY_COOLDOWN_MS = 2 * 60_000;
+export const READY_COOLDOWN_WINDOW_MS = 60 * 60_000;
+export const READY_COOLDOWN_MAX_MS = 30 * 60_000;
+
+/* How long the nth no-show inside the window costs. n is 1-based, so the
+   first is two minutes, the second four, the third eight, and it caps at
+   thirty. Pure, so the client can print the same number the server set. */
+export function readyCooldownMs(offences: number): number {
+  if (offences < 1) return 0;
+  return Math.min(READY_COOLDOWN_MAX_MS, READY_COOLDOWN_MS * 2 ** (offences - 1));
+}
+
+/* Why a ready check ended without a table. `declined` is somebody pressing
+   no, `timeout` is somebody saying nothing at all; they read differently on
+   screen and they cost the same. */
+export type ReadyFailure = 'declined' | 'timeout';
+
+/* The ready check as one shape in every state it can be in, so a client holds
+   one object rather than reconciling four messages.
+
+   - `pending`: the table has been gathered and is waiting on people.
+   - `accepted`: somebody accepted, including you; `accepted` has moved.
+   - `cancelled`: it will not start. `why` says which way it failed, and
+     `requeued` is true for everybody who did accept, because they go back to
+     the front of the queue rather than to the back of it. `cooldownUntil` is
+     present only for the person who caused it.
+
+   A table that everybody accepts sends no fourth state: the ordinary
+   `q found` arrives instead, which is what every other path to a table sends
+   and what every client already handles. */
+export interface ReadyCheck {
+  id: string;
+  mode: Mode;
+  speed: Speed;
+  rated: boolean;
+  seats: number; // seats at the table, bots included
+  humans: number; // people who have to accept
+  accepted: number;
+  deadline: number; // epoch ms
+}
+
+/* ------------------------------------------------------------ the gate
+
+   Rated play opens after one finished casual or practice match. One, not
+   ten: it is there so nobody's first ever hand moves a rating they did not
+   know they had, and so a bot farm has to play a match before it can touch
+   the ladder. Counted over finished unrated matches, which is casual,
+   practice and a casual home game alike. */
+export const RANKED_GATE_MATCHES = 1;
+
+/* ---------------------------------------------------------------- level
+
+   Level is how many matches somebody has finished, and nothing else. It is
+   not a skill claim, which is what the rating is for, and it unlocks nothing:
+   the queue, the modes and the speeds are open to everybody from the first
+   visit. It exists so that a profile says how much poker has been played on
+   it, which a rating deliberately does not.
+
+   Level L needs LEVEL_STEP * L * (L + 1) / 2 finished matches, so the steps
+   are 1, 3, 6, 10, 15 ... and levels get further apart as they go: level 5 at
+   15 matches, level 10 at 55, level 20 at 210. */
+export const LEVEL_STEP = 1;
+
+export function levelThreshold(level: number): number {
+  if (level <= 0) return 0;
+  return (LEVEL_STEP * level * (level + 1)) / 2;
+}
+
+/* The largest level whose threshold this many matches has reached. Zero for
+   somebody who has finished none, which is a real state and reads as "no
+   level yet" rather than as level 1. */
+export function levelFor(matches: number): number {
+  if (!Number.isFinite(matches) || matches < 1) return 0;
+  return Math.floor((Math.sqrt((8 * matches) / LEVEL_STEP + 1) - 1) / 2);
+}
+
+/* Where somebody is between two levels, for the bar under the number. `into`
+   and `span` are matches, so a progress bar is into/span and the line under
+   it is "N matches to level L+1". */
+export function levelProgress(matches: number): {
+  level: number;
+  into: number;
+  span: number;
+  toNext: number;
+} {
+  const level = levelFor(matches);
+  const at = levelThreshold(level);
+  const next = levelThreshold(level + 1);
+  const played = Math.max(0, Math.floor(matches));
+  return { level, into: played - at, span: next - at, toNext: next - played };
+}
+
+/* --------------------------------------------------------------- badges
+
+   Six of them, derived from counters the profile already carries rather than
+   awarded into a table. Nothing has to be written when one is earned, nothing
+   can be out of date, and a badge is simply true or not true of a player when
+   somebody looks. They unlock nothing either. */
+export type BadgeId = 'first-game' | 'level-5' | 'level-10' | 'level-20' | 'hundred-hands' | 'six-max-win';
+
+export interface BadgeInfo {
+  id: BadgeId;
+  name: string;
+  description: string;
+}
+
+export const BADGES: BadgeInfo[] = [
+  { id: 'first-game', name: 'First game', description: 'Finished a match' },
+  { id: 'level-5', name: 'Level 5', description: 'Finished 15 matches' },
+  { id: 'level-10', name: 'Level 10', description: 'Finished 55 matches' },
+  { id: 'level-20', name: 'Level 20', description: 'Finished 210 matches' },
+  { id: 'hundred-hands', name: 'Hundred hands', description: 'Played 100 hands' },
+  { id: 'six-max-win', name: 'Took a table', description: 'Won a six handed match' },
+];
+
+/* Everything a badge is decided from. All three are counters the profile
+   already prints somewhere else on the page. */
+export interface BadgeStats {
+  matches: number; // finished matches, every mode and both speeds
+  hands: number; // hands dealt to this player
+  sixMaxWins: number;
+}
+
+export function badgesFor(stats: BadgeStats): BadgeId[] {
+  const level = levelFor(stats.matches);
+  const earned: BadgeId[] = [];
+  if (stats.matches >= 1) earned.push('first-game');
+  if (level >= 5) earned.push('level-5');
+  if (level >= 10) earned.push('level-10');
+  if (level >= 20) earned.push('level-20');
+  if (stats.hands >= 100) earned.push('hundred-hands');
+  if (stats.sixMaxWins >= 1) earned.push('six-max-win');
+  return earned;
 }
 
 /* A home game lobby: the private six-max table a host is gathering. The
@@ -210,10 +643,14 @@ export function arenaPoints(outcome: 'win' | 'loss' | 'draw', streakBefore: numb
 
 /* Client -> server */
 export type ClientMsg =
-  // defaults: heads-up, rated. `bots` asks for a practice table instead: no
-  // human queue, seats filled from the roster at that level, never rated.
-  | { t: 'queue'; mode?: Mode; rated?: boolean; bots?: { level: number } }
+  // defaults: six-max, long, rated. `bots` asks for a practice table instead:
+  // no human queue, seats filled from the roster at that level, never rated.
+  | { t: 'queue'; mode?: Mode; rated?: boolean; speed?: Speed; bots?: { level: number } }
   | { t: 'dequeue' }
+  // Accept or decline the table the ready check is offering. Sent without an
+  // id: a player is only ever offered one table at a time, and the server
+  // knows which.
+  | { t: 'ready'; a: boolean }
   | { t: 'join'; m: string } // subscribe to a match as player or spectator
   | { t: 'leave'; m: string }
   | { t: 'act'; m: string; h: number; n: number; a: ActionKind; v?: number } // n = action seq the client is acting at
@@ -249,7 +686,21 @@ export const CHAT_HISTORY = 100; // kept in memory per channel, replayed on join
 /* Server -> client */
 export type ServerMsg =
   | { t: 'hi'; v: number; u: UserSummary }
-  | { t: 'q'; s: 'searching' | 'found' | 'left'; w?: number; range?: number; m?: string; mode?: Mode; rated?: boolean; seated?: number } // seated = players gathered so far for a multiway table
+  | {
+      t: 'q';
+      s: 'searching' | 'found' | 'left';
+      w?: number;
+      range?: number;
+      m?: string;
+      mode?: Mode;
+      rated?: boolean;
+      speed?: Speed;
+      seated?: number; // players gathered so far for a multiway table
+    }
+  // The ready check, in whichever state it is in. See ReadyCheck above for
+  // what each state means and why an accepted one sends `q found` rather
+  // than a fourth state of its own.
+  | ({ t: 'ready'; s: 'pending' | 'accepted' | 'cancelled'; why?: ReadyFailure; requeued?: boolean; cooldownUntil?: number } & ReadyCheck)
   | { t: 'state'; s: TableView }
   | { t: 'end'; m: string; r: MatchResult }
   // Who is sitting in a home game lobby, pushed to everyone seated in it so
@@ -267,7 +718,25 @@ export type ServerMsg =
       endsAt: number; // epoch ms
       playing: number; // arena matches in progress
     }
-  | { t: 'err'; c: 'illegal' | 'stale' | 'not_your_turn' | 'no_match' | 'bad_msg' | 'version' | 'bots_busy' | 'chat'; msg: string }
+  | {
+      t: 'err';
+      // `ranked_locked` is the one refusal that is not about this request
+      // being wrong: rated play opens after one finished casual match, and
+      // the message says so. `cooldown` is a ready check no-show serving out
+      // the wait they earned.
+      c:
+        | 'illegal'
+        | 'stale'
+        | 'not_your_turn'
+        | 'no_match'
+        | 'bad_msg'
+        | 'version'
+        | 'bots_busy'
+        | 'chat'
+        | 'ranked_locked'
+        | 'cooldown';
+      msg: string;
+    }
   | { t: 'pong' };
 
 /* One mode's Glicko-2 standing. Ratings are per mode, the way a chess site
@@ -370,6 +839,12 @@ export interface TableView {
   seed: string | null; // published when the hand completes
   format: MatchFormat;
   blinds: { sb: number; bb: number }; // current level
+  /* Which level of the schedule those blinds are, 0-based. Additive, and the
+     server is the only thing that can work it out: a short format climbs on
+     elapsed match time, which nothing but the room knows. A client that does
+     not get one falls back to counting hands, which is what it always did and
+     what is still right for every long format. */
+  level?: number;
   handsPlayed: number;
   last: LastEvent | null;
   result: HandResult | null; // set while street === 'done'
