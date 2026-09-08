@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { randomBytes } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
-import type { MatchFormat, Mode } from '@opentable/protocol';
+import { formatFor, type MatchFormat, type Mode } from '@opentable/protocol';
 import { makeApp, mintGuestSession, deleteUser, testFormat } from './helpers.js';
 import { configureLadder, currentLadderMatch, ladderTick, resetLadder } from '../src/ladder.js';
 import { dequeue, enqueue } from '../src/matchmaking.js';
@@ -134,7 +135,7 @@ describe('the bot ladder', () => {
     await ladderTick();
   }, 60_000);
 
-  it('keeps ladder matches out of the live list and the feed', async () => {
+  it('keeps a running ladder match out of the live list', async () => {
     const matchId = await startOne();
     createdMatchIds.push(matchId);
 
@@ -142,6 +143,37 @@ describe('the bot ladder', () => {
     expect(live.json().map((m: { id: string }) => m.id)).not.toContain(matchId);
 
     await waitForFinish(matchId);
+    await ladderTick();
+  }, 60_000);
+
+  /* The feed reads `matches` directly, so this is a row rather than a played
+     match, the same bargain feed.test.ts makes. It is also the only shape
+     that is not a race: any other boot of the app aborts every match still
+     `playing`, so a suite running beside this one can abort a real ladder
+     match half a hand before the feed is asked about it. */
+  it('keeps ladder matches out of the feed unless they are asked for', async () => {
+    const bots = await sql<{ id: string; name: string }[]>`
+      select id, name from users where bot = true order by name_lower limit 2
+    `;
+    const matchId = `ladder-feed-${randomBytes(4).toString('hex')}`;
+    createdMatchIds.push(matchId);
+    const seats = bots.map((b, i) => ({ seat: i, userId: b.id, name: b.name, rating: 1500, bot: true }));
+    await sql`
+      insert into matches (id, format, rated, seats, status, reason, hands_played, finished_at)
+      values (
+        ${matchId},
+        ${sql.json({ ...formatFor('heads-up', true), ladder: true } as never)},
+        true,
+        ${sql.json(seats as never)},
+        'finished',
+        'hands',
+        25,
+        ${new Date()}
+      )
+    `;
+    for (const s of seats) {
+      await sql`insert into match_players (match_id, user_id, seat) values (${matchId}, ${s.userId}, ${s.seat})`;
+    }
 
     const recent = await app.inject({ method: 'GET', url: '/api/recent?limit=50' });
     expect(recent.json().map((m: { id: string }) => m.id)).not.toContain(matchId);
@@ -149,15 +181,14 @@ describe('the bot ladder', () => {
     const withLadder = await app.inject({ method: 'GET', url: '/api/recent?limit=50&ladder=1' });
     expect(withLadder.json().map((m: { id: string }) => m.id)).toContain(matchId);
 
-    await ladderTick();
-  }, 60_000);
-
-  it('reports each bot ladder match count on /api/bots', async () => {
+    // And the same row is what /api/bots counts, so the picker can say where
+    // a bot's rating came from.
     const res = await app.inject({ method: 'GET', url: '/api/bots' });
-    const rows = res.json() as { ladderMatches: number }[];
-    expect(rows.length).toBeGreaterThan(0);
+    const rows = res.json() as { id: string; ladderMatches: number }[];
     for (const row of rows) expect(typeof row.ladderMatches).toBe('number');
-    expect(rows.some((r) => r.ladderMatches > 0)).toBe(true);
+    for (const s of seats) {
+      expect(rows.find((r) => r.id === s.userId)!.ladderMatches).toBeGreaterThan(0);
+    }
   });
 });
 
