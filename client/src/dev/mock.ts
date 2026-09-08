@@ -108,8 +108,20 @@ function viewer(players: Player[], you: number, hole: Card[], format: MatchForma
   };
 }
 
-export function mockScript(mode: Mode = 'heads-up', rated = true): MockStep[] {
+export function mockScript(mode: Mode = 'heads-up', rated = true, practice = false): MockStep[] {
   const steps = mode === 'six-max' ? sixMaxScript() : headsUpScript();
+  /* A practice table is a casual table with the flag the client reads to show
+     the analysis strip. Stamped over the finished script rather than threaded
+     through both builders: the flag changes nothing about how a hand plays. */
+  if (practice) {
+    return steps.map((s) => ({
+      ...s,
+      view: s.view
+        ? { ...s.view, format: { ...s.view.format, rated: false, practice: true } }
+        : undefined,
+      end: s.end ? { ...s.end, rated: false } : undefined,
+    }));
+  }
   if (rated) return steps;
   /* A casual match is rated: false with the ratings map still on it, which is
      what the server sends and what the result screen has to ignore. */

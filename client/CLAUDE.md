@@ -34,6 +34,15 @@ declaration for `phe` that the engine's own tsconfig provides.
   `match-summary.tsx` is the page a finished match opens on cold.
   `sizing.ts`, `preactions.ts`, `best-five.ts`, `labels.ts`, `layout.ts`
   (where each seat sits) and `results.ts` (the finishing order) are pure.
+- `src/analysis/` — equity, outs and hand names, computed in a web worker.
+  `worker.ts` is the only module that imports `@opentable/equity` (and so the
+  only one that pulls in `phe`'s half-megabyte lookup table); `index.ts` is the
+  main thread's request/response API with cancellation by request id;
+  `draw-outs.ts` turns the package's category outs into the number a player
+  counts; `live-stats.tsx` is the panel, used as the practice strip.
+- `src/tools/` — the calculators at `/tools`: the range explorer and the pot
+  odds trainer. They import the evaluator-free subpaths of `@opentable/equity`
+  and send every actual computation to the worker.
 - `src/replay/` — `to-view.ts` turns an engine `HandState` into a `TableView`;
   `fairness.ts` re-derives the deck and rehashes the commitment.
 - `src/ui/` — `auth.tsx` (claim, log in, account menu), `avatar.tsx`,
@@ -43,6 +52,8 @@ declaration for `phe` that the engine's own tsconfig provides.
 - `src/dev/mock.ts` — the scripted live table, dev only. Both scripts end on a
   showdown and hold it: the heads-up one on a hand you lose, the six-max one on
   the hand that takes the table. That is what the e2e suite drives.
+  `?practice=1` stamps `format.practice` over either script, which is how the
+  analysis strip is driven without a server.
 - `e2e/` — the Playwright suite. `table.ts` is its shared kit.
 - `src/app.css` — page layout plus the poker-specific pieces. Tokens only.
 
@@ -74,6 +85,32 @@ shift is a regression, and the usual cause is a box sized to a string:
   the outgoing content is still on screen finishing its 120 ms exit: with the
   grid rules keyed to the parent, that content spent those 120 ms laid out under
   the incoming state's rows. It was the last layout shift left on the screen.
+
+## The practice strip
+
+A practice table carries one more fixed row between the felt and the dock:
+`LiveStats` from `src/analysis/`, reading the hand you hold, the outs and your
+equity against that many random hands. It is rendered for the whole match
+rather than only while you hold cards, and `.match[data-practice]` gives it a
+row of its own (`--stats-h`) and renumbers the dock and its legend, which name
+their own rows. The felt gives up the height; the dock never does.
+
+Every reading sits in a fixed cell. The numbers arrive from the worker after
+the labels beside them are already painted, so in a flow the note next to a
+number slides the moment it lands, and that is a layout shift on the one screen
+whose whole rule is that nothing moves. Three widths' worth of detail is
+dropped rather than wrapped: the card list and the draw's name go below 1024,
+and the note under the equity goes on a phone, leaving one line of hand, outs
+and number.
+
+**Outs at the table are draw outs**, not the package's category outs.
+`@opentable/equity` counts every card that improves the made hand category,
+which is nine for a flush draw and twenty six for an open-ender, because
+pairing either hole card improves the category too. Nobody calls that twenty
+six outs. `draw-outs.ts` intersects the category outs with the cards the named
+draws complete, so the strip says eight, and with no draw at all it drops to a
+muted "Improves on N cards" rather than printing a number a player would
+misread.
 
 ## The dock
 
@@ -172,6 +209,7 @@ dev server happens to be up.
 | `ergonomics` | phone target sizes, the primary action in the bottom quarter, the sizing model and clamping, and a pre-action firing |
 | `showdown` | your cards face up through a lost showdown and after the end, the winning five, the award chip clear of the pot label |
 | `access` | axe-core per state with zero serious or critical, a keyboard-only decision, tab reachability, and typing in the field not triggering the shortcuts |
+| `practice` | the strip is on a practice table and off a rated one, that it reads, and that a practice table keeps one footprint with zero layout shift |
 | `reduced-motion` | the same information with the motion emulated off |
 | `screenshots` | 84 baselines: seven states at 360, 390, 430, 768, 1366 and 1920, dark and light |
 

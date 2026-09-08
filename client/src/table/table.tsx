@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import NumberFlow from '@number-flow/react';
 import { Link } from 'react-router-dom';
-import type { ActionKind, Card, TableView } from '@opentable/protocol';
+import type { ActionKind, Card, SeatView, TableView } from '@opentable/protocol';
 import { Seat } from './seat.tsx';
 import { PlayingCard } from './playing-card.tsx';
 import { Dock, KeyLegend } from './dock.tsx';
@@ -13,6 +13,7 @@ import {
 import { dealOrder, layoutMode, seatOrder, slotAt } from './layout.ts';
 import { readShowdown } from './best-five.ts';
 import { useGInit } from '../ui/bits.tsx';
+import { LiveStats } from '../analysis/live-stats.tsx';
 
 export interface TableProps {
   view: TableView;
@@ -77,6 +78,18 @@ export function Table({ view, onAct, sending, bare, ended }: TableProps) {
   }, [view, reduced]);
 
   const board = Array.from({ length: BOARD_SLOTS }, (_, i) => view.board[i] ?? null);
+  /* Practice tables carry the analysis strip. It is a row of the same grid as
+     the header, the felt and the dock, with a height of its own, so the felt
+     divides once and stays divided: a strip that appeared when the flop came
+     would move the whole table under it. Rendered for the length of the match,
+     not only while you hold cards, for the same reason. */
+  const mySeat = view.you == null ? null : view.seats.find((s) => s.i === view.you) ?? null;
+  const strip = view.format.practice === true && !bare && !ended;
+  const hole = holeOf(mySeat);
+  const opponents = view.seats.filter(
+    (s) => s.i !== view.you && !s.folded && !s.out && s.cards != null,
+  ).length;
+
   const result = view.street === 'done' ? view.result : null;
   const phase = useHandEnd(result ? `${view.m}:${view.h}` : null, reduced);
 
@@ -86,7 +99,12 @@ export function Table({ view, onAct, sending, bare, ended }: TableProps) {
   const settled = phase >= 2;
 
   return (
-    <div className="match" data-bare={bare ? '' : undefined} data-ended={ended ? '' : undefined}>
+    <div
+      className="match"
+      data-bare={bare ? '' : undefined}
+      data-ended={ended ? '' : undefined}
+      data-practice={strip ? '' : undefined}
+    >
       {!bare && (
       <div className="hand-head" ref={headRef}>
        <div className="bar-in">
@@ -227,6 +245,12 @@ export function Table({ view, onAct, sending, bare, ended }: TableProps) {
         </div>
       </div>
 
+      {strip && (
+        <div className="practice-strip">
+          {hole && <LiveStats hole={hole} board={view.board} opponents={opponents} />}
+        </div>
+      )}
+
       {!bare && !ended && (
         <>
           <Dock view={view} onAct={onAct} sending={sending} />
@@ -235,6 +259,14 @@ export function Table({ view, onAct, sending, bare, ended }: TableProps) {
       )}
     </div>
   );
+}
+
+/* Your own two cards, or nothing. A seat with no cards is out of the hand and
+   a seat showing '?' is somebody else's, so neither has a holding to analyse. */
+function holeOf(seat: SeatView | null): [Card, Card] | null {
+  const cards = seat?.cards;
+  if (!cards || cards.length !== 2 || cards.some((c) => c === '?')) return null;
+  return [cards[0], cards[1]];
 }
 
 /* Which step of the hand-end sequence we are on: 0 reveal, 1 highlight,

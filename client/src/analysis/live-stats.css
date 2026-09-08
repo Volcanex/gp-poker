@@ -156,7 +156,6 @@
   .practice-strip .ls-row:nth-child(1) .ls-label,
   .practice-strip .ls-row:nth-child(2) .ls-label { display: none; }
   .practice-strip .ls-row:nth-child(2) { width: 8rem; }
-  .practice-strip .ls-row:nth-child(3) { width: 6rem; }
-  .practice-strip .ls-row:nth-child(3) .ls-label { display: none; }
+  .practice-strip .ls-row:nth-child(3) { width: 7rem; }
   .practice-strip .ls-row:nth-child(3) .ls-value { grid-template-columns: minmax(0, 1fr); }
 }

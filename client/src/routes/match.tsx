@@ -19,12 +19,19 @@ export function Match() {
   const isMock = id === 'mock' || params.get('mock') === '1';
   const mode: Mode = params.get('mode') === 'six-max' ? 'six-max' : 'heads-up';
   const rated = params.get('rated') !== 'casual';
+  const practice = params.get('practice') === '1';
   /* `?watch=1` runs the same script with no seat, which is what the server
      sends a spectator. It is how the watching table gets a screenshot and an
      e2e pass without a live match to sit at. */
   const watch = params.get('watch') === '1';
   return isMock ? (
-    <MockMatch step={numOrNull(params.get('step'))} mode={mode} rated={rated} watch={watch} />
+    <MockMatch
+      step={numOrNull(params.get('step'))}
+      mode={mode}
+      rated={rated}
+      practice={practice}
+      watch={watch}
+    />
   ) : (
     <LiveMatch id={id} />
   );
@@ -204,10 +211,11 @@ function WatchBar({ view }: { view: TableView }) {
 
 /* ----------------------------------------------------------------- mock */
 
-function MockMatch({
-  step, mode, rated, watch,
-}: { step: number | null; mode: Mode; rated: boolean; watch: boolean }) {
-  const script = useMemo(() => mockScript(mode, rated), [mode, rated]);
+function MockMatch(
+  { step, mode, rated, practice, watch }:
+  { step: number | null; mode: Mode; rated: boolean; practice: boolean; watch: boolean },
+) {
+  const script = useMemo(() => mockScript(mode, rated, practice), [mode, rated, practice]);
   const start = step == null ? 0 : Math.max(0, Math.min(script.length - 1, step));
   const [i, setI] = useState(start);
   const [enteredAt, setEnteredAt] = useState(() => Date.now());

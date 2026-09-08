@@ -105,12 +105,24 @@
   --head-h: 40px;
   --dock-h: 128px;
   --keys-h: 24px;
+  --stats-h: 34px;
   --dock-r1: 28px; /* pills and presets */
   --dock-r2: 32px; /* the amount field and the slider */
   --dock-r3: 34px; /* fold, call, raise */
   --dock-pad: 10px;
   --dock-gap: 6px;
 }
+
+/* A practice table adds one more fixed row between the felt and the dock, for
+   the analysis strip. Fixed, like every other row here: see live-stats.css.
+   The dock and its legend name their own rows, so they are renumbered here
+   rather than left to auto-placement, which would have put the strip last. */
+.match[data-practice] {
+  grid-template-rows: var(--head-h) minmax(0, 1fr) var(--stats-h) auto auto;
+}
+.match[data-practice] .practice-strip { grid-row: 3; }
+.match[data-practice] .dock { grid-row: 4; }
+.match[data-practice] .dock-keys { grid-row: 5; }
 
 .hand-head {
   height: var(--head-h);
@@ -607,6 +619,7 @@
      for, and the field opens the numeric keypad. The legend goes too. */
   .match {
     --head-h: 36px;
+    --stats-h: 30px;
     --dock-h: 150px;
     --keys-h: 0px;
     --dock-r1: 24px;
