@@ -1036,7 +1036,11 @@
 
 @media (max-width: 560px) {
     .top { gap: 10px; padding: 0 10px; }
-  .top nav { gap: 0; }
+  /* Seven links do not fit beside the account and settings on a phone. The
+     nav scrolls inside its own box so the two controls stay on screen. */
+  .top nav { gap: 0; flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .top nav::-webkit-scrollbar { display: none; }
+  .top .spacer { flex: none; }
   .top nav a { padding: 0 6px; }
   .wordmark { font-size: 13px; }
   .whoami { font-size: 12px; gap: 4px; }

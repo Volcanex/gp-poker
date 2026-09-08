@@ -36,6 +36,12 @@
     --card-ink: var(--text-primary);
   }
 }
+/* The band's own ground is surface-2, the light face's colour, so the hero
+   cards lie on it as paper on the page: one step lighter than the band. */
+[data-theme="light"] .hero-band { --card-face: var(--bg); }
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] .hero-band { --card-face: var(--bg); }
+}
 :root[data-deck="four"] {
   --pip-d: var(--card-blue);
   --pip-c: var(--card-green);

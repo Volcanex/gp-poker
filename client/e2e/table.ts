@@ -126,7 +126,7 @@ const LIVE = [
       { name: 'quarrel', bot: false, rating: 1560 },
     ],
     spectators: 3,
-    startedAt: ago(12.5 * MINUTE),
+    startedAt: ago(1.5 * HOUR),
   },
 ];
 
