@@ -152,11 +152,21 @@
 
 /* The picker: one card per mode, its stake, and the button that starts it. */
 .modes { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); width: 100%; align-items: stretch; }
-.mode { display: flex; flex-direction: column; gap: var(--sp-3); }
+/* Both mode cards run the full width of the picker, in order: six handed is
+   the main game and heads-up is the one under it. The grid stays two columns
+   because the cards below still want a row of their own to sit in. */
+.mode { grid-column: 1 / -1; display: flex; flex-direction: column; gap: var(--sp-3); }
 .mode .muted { flex: 1; }
 .mode[data-last] { border-color: var(--border); }
+/* The main game, marked by size rather than by colour: a larger name, a
+   larger button, and the accent stays where it is on every other card. */
+.mode[data-main] { border-color: var(--border); }
+.mode[data-main] .mode-head .t { font-size: 19px; }
 .mode-head { display: flex; align-items: baseline; gap: var(--sp-3); }
 .mode-head .t { font-size: 15px; font-weight: 500; letter-spacing: -0.01em; }
+/* A stake that cannot be picked yet reads as unavailable rather than as
+   missing: the sentence under it says what opens it. */
+.choice[data-locked] { color: var(--text-secondary); cursor: not-allowed; }
 .stakes { display: flex; gap: var(--sp-4); flex-wrap: wrap; }
 .searching-card { display: flex; flex-direction: column; gap: var(--sp-3); width: 100%; }
 .searching-card .t { font-size: var(--font-size-ui); font-weight: 500; }
@@ -1144,6 +1154,7 @@ a.btn { text-decoration: none; }
 
 .account { display: flex; flex: none; }
 .account .btn .r { color: var(--text-secondary); margin-left: 6px; }
+.account .btn .lv { color: var(--text-secondary); margin-left: 6px; }
 .menu a.menu-item { text-decoration: none; }
 
 /* ---------------------------------------------------------------- profile */
@@ -1302,7 +1313,7 @@ a.btn { text-decoration: none; }
 @media (max-width: 560px) {
   /* The rating is on the profile the button leads to; the name is what has to
      stay on screen next to the theme control. */
-  .account .btn .r, .account .btn .m { display: none; }
+  .account .btn .r, .account .btn .m, .account .btn .lv { display: none; }
 }
 
 .home-foot {
@@ -1373,3 +1384,19 @@ a.btn { text-decoration: none; }
 .country-picker { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
 .country-picker .g-combobox { flex: 1; min-width: 0; }
 .country-current { display: inline-flex; align-items: center; }
+
+/* ------------------------------------------------------------ ready check */
+
+/* The prompt that a matchmade table is waiting on you. g's own dialog, with
+   two rows it does not ship: the count of who has accepted, and the bar
+   counting the window down. */
+.ready-dlg .ready-count {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  font-size: var(--font-size-ui);
+  margin-top: var(--sp-2);
+}
+.ready-dlg .ready-count .num { font-size: 19px; font-weight: 500; }
+.ready-dlg .ready-clock { color: var(--text-secondary); }
+.ready-dlg .ready-bar { margin: 2px 0 var(--sp-2); }

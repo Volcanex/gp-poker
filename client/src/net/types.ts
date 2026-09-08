@@ -19,6 +19,12 @@ export interface Me extends UserSummary {
   /* Absent for everybody but the one account that has it. The admin bar and
      the annotation layer are the only things that read it. */
   admin?: boolean;
+  /* Whether rated play is open: one finished casual or practice match is what
+     opens it. Optional because a client can outlive the server it talks to,
+     and absent reads as open, so an older server never locks a control it
+     knows nothing about. The picker refreshes /api/me on every match end, so
+     this flips without anything pushing it. */
+  rankedUnlocked?: boolean;
 }
 
 /* An annotation made on the running site: what is wrong, where it was seen,

@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import type { ServerMsg } from '@opentable/protocol';
 import { api } from '../net/api.ts';
@@ -35,6 +35,12 @@ export function MatchFoundAlert() {
   const nav = useNavigate();
   const { pathname } = useLocation();
   const { clearFound, me } = useSession();
+  /* A matchmade table announces itself twice over otherwise: once when the
+     ready check asks, and again a second later when the table it turned into
+     arrives. The check is the moment worth hearing, so the cue is skipped for
+     any table that came through one. Every other path here, a challenge link,
+     a home game, practice, has no check and still gets it. */
+  const viaCheck = useRef(false);
 
   const announce = useCallback(
     async (matchId: string) => {
@@ -61,8 +67,13 @@ export function MatchFoundAlert() {
   );
 
   useServerMsg((m: ServerMsg) => {
+    if (m.t === 'ready') {
+      viaCheck.current = m.s !== 'cancelled';
+      return;
+    }
     if (m.t !== 'q' || m.s !== 'found' || !m.m) return;
-    void sound.play('yourTurn');
+    if (viaCheck.current) viaCheck.current = false;
+    else void sound.play('yourTurn');
     /* Pages that walk to the table by themselves get no toast: home, the
        table, and the two lobbies (a challenge or a home game link), which
        would otherwise leave the toast lying on the felt after they moved. */
