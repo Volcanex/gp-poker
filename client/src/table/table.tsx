@@ -20,6 +20,7 @@ import { useGInit } from '../ui/bits.tsx';
 import { LiveStats } from '../analysis/live-stats.tsx';
 import { ChatPanel, ChatToggle } from '../chat/chat.tsx';
 import type { ChatController } from '../chat/use-chat.ts';
+import { LookContext, type Look } from './look.ts';
 
 export interface TableProps {
   view: TableView;
@@ -33,6 +34,8 @@ export interface TableProps {
   /* Table chat, when this table has one. The toggle goes in the header and the
      panel beside or over the felt, never in a row of its own: see chat.css. */
   chat?: ChatController;
+  /* The felt rework, on the mock only until it is the felt: see look.ts. */
+  look?: Look;
 }
 
 interface Flight { id: number; seat: number; amount: number }
@@ -46,7 +49,7 @@ const REVEAL_MS = 0;
 const HIGHLIGHT_MS = 400;
 const SETTLE_MS = 700;
 
-export function Table({ view, onAct, sending, bare, ended, chat }: TableProps) {
+export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: TableProps) {
   const reduced = useReducedMotion();
   const headRef = useRef<HTMLDivElement>(null);
   useGInit(headRef);
@@ -133,8 +136,10 @@ export function Table({ view, onAct, sending, bare, ended, chat }: TableProps) {
   const settled = phase >= 2;
 
   return (
+    <LookContext.Provider value={look}>
     <div
       className="match"
+      data-look={look === 'v2' ? 'v2' : undefined}
       data-bare={bare ? '' : undefined}
       data-ended={ended ? '' : undefined}
       data-practice={strip ? '' : undefined}
@@ -316,6 +321,7 @@ export function Table({ view, onAct, sending, bare, ended, chat }: TableProps) {
         </>
       )}
     </div>
+    </LookContext.Provider>
   );
 }
 

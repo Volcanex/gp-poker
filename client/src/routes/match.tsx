@@ -26,6 +26,7 @@ export function Match() {
      sends a spectator. It is how the watching table gets a screenshot and an
      e2e pass without a live match to sit at. */
   const watch = params.get('watch') === '1';
+  const v2 = params.get('v2') === '1';
   return isMock ? (
     <MockMatch
       step={numOrNull(params.get('step'))}
@@ -33,6 +34,7 @@ export function Match() {
       rated={rated}
       practice={practice}
       watch={watch}
+      v2={v2}
     />
   ) : (
     <LiveMatch id={id} />
@@ -208,8 +210,8 @@ function LiveMatch({ id }: { id: string }) {
 /* ----------------------------------------------------------------- mock */
 
 function MockMatch(
-  { step, mode, rated, practice, watch }:
-  { step: number | null; mode: Mode; rated: boolean; practice: boolean; watch: boolean },
+  { step, mode, rated, practice, watch, v2 }:
+  { step: number | null; mode: Mode; rated: boolean; practice: boolean; watch: boolean; v2: boolean },
 ) {
   const script = useMemo(() => mockScript(mode, rated, practice), [mode, rated, practice]);
   const start = step == null ? 0 : Math.max(0, Math.min(script.length - 1, step));
@@ -284,7 +286,7 @@ function MockMatch(
 
   return (
     <>
-      <Table view={view} onAct={advance} sending={false} ended={ended != null} chat={chat} />
+      <Table view={view} onAct={advance} sending={false} ended={ended != null} chat={chat} look={v2 ? 'v2' : 'v1'} />
       {ended ? (
         <>
           <ResultPanel
