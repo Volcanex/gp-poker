@@ -86,6 +86,10 @@ export interface Profile {
   /* One line per mode. A server that has not shipped that yet sends a single
      flat array, which is why nothing reads this without ratingHistoryFor(). */
   ratingHistory: Record<Mode, RatingPoint[]> | RatingPoint[];
+  /* Only `hands` is read. The four rates are the old lifetime "play style"
+     block, which came off the profile when Insights started giving the same
+     four per mode; the server still sends them for a deploy cycle. Do not
+     start reading them again: the per-mode answer is the one on screen. */
   stats: {
     hands: number;
     vpip: number;

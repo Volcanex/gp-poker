@@ -8,6 +8,11 @@
 
 .ins-group { display: flex; flex-direction: column; gap: var(--sp-3); }
 
+/* One tile on its own. `.tiles` fits as many columns as it can, which for a
+   single card is one column the width of the page and a 22px number adrift in
+   it. */
+.tiles.tiles-one { grid-template-columns: minmax(148px, 232px); }
+
 /* A tile with no denominator behind it prints a phrase, not a number, so it
    drops out of the 22px numeral size the tile reserves for one. */
 .stat .v[data-empty] {

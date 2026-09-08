@@ -68,6 +68,15 @@ decisions; this file covers what's not obvious from the code.
   - `/api/users/:name/insights?mode=heads-up|six-max` is how somebody plays
     rather than how they are rated, derived from their stored hands. Same
     mode fallback as the leaderboard. See "Insights".
+  - **`/api/users/:name`'s `stats.vpip`, `stats.pfr`,
+    `stats.aggressionFrequency` and `stats.foldTo3bet` are no longer read by
+    anything.** The profile printed them as a "play style" block over the
+    player's whole history; the insights route gives the same four rates per
+    mode, and one page carrying both meant two different numbers under one
+    label. The block is gone and these four are removable after a deploy
+    cycle, along with the matching fields on `getUserHandStats`'s aggregate.
+    `stats.hands` stays: the profile still prints how many hands the preflop
+    accuracy was averaged over.
 - `src/matchmaking.ts` — the in-memory queues and their tick. `matchFormat`
   exposes the same resolver the queue reads, so a match created outside the
   queue honours a test's `setFormatResolver` too.

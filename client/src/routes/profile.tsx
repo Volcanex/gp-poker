@@ -70,7 +70,6 @@ export function Profile() {
   }
 
   const isMe = me != null && me.id === data.summary.id;
-  const hasHands = data.stats.hands > 0;
   const standings = MODES.map((mode) => ({ mode, r: modeRating(data.summary, mode) }));
   const played = standings.some((s) => s.r.matches > 0) || data.lastMatches.length > 0;
   const accuracy = profileAccuracy(data);
@@ -155,27 +154,35 @@ export function Profile() {
 
       <InsightsSection profile={data} />
 
+      {/* Accuracy and not a style block: VPIP, PFR, aggression and fold to
+          three-bet used to be printed here as well, over the player's whole
+          history, and they are in Insights above per mode. The same four
+          labels carrying two different numbers on one page is worse than one
+          of them, so this section keeps only the score that Insights does not
+          derive. It is a heads-up number because the baseline charts are
+          heads-up: `hands.study` is null for a six-max hand. */}
       <section className="stack" style={{ gap: 'var(--sp-3)' }}>
-        <span className="h2">Play style</span>
-        {hasHands ? (
-          <div className="tiles">
-            <Tile k="VPIP" v={fmtPct(data.stats.vpip)} d="hands played voluntarily" />
-            <Tile k="PFR" v={fmtPct(data.stats.pfr)} d="hands raised preflop" />
-            <Tile k="Aggression" v={fmtPct(data.stats.aggressionFrequency * 100)} d="bets and raises of all actions" />
-            <Tile k="Fold to 3bet" v={fmtPct(data.stats.foldTo3bet)} d="when facing a 3bet" />
-            {accuracy != null && (
-              <Tile k="Preflop accuracy" v={fmtPct(accuracy)} d="against the baseline charts" />
-            )}
-          </div>
+        <span className="h2">Preflop accuracy</span>
+        {accuracy != null ? (
+          <>
+            <div className="tiles tiles-one">
+              <Tile k="Accuracy" v={fmtPct(accuracy)} d="against the baseline charts" />
+            </div>
+            <span className="muted">
+              Over {data.stats.hands} hands. Six-max hands are not scored: the charts are heads-up.
+            </span>
+          </>
         ) : (
           <div className="card">
             <div className="empty">
-              <span className="e-title">No hands yet</span>
-              <span className="e-desc">Style numbers appear after the first rated match.</span>
+              <span className="e-title">Nothing scored yet</span>
+              <span className="e-desc">
+                Preflop decisions are scored against the baseline charts, which are heads-up only.
+                The number starts at the first heads-up hand.
+              </span>
             </div>
           </div>
         )}
-        <span className="muted">Over {data.stats.hands} hands.</span>
       </section>
 
       <section className="stack" style={{ gap: 'var(--sp-3)' }}>
