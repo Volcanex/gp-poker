@@ -352,7 +352,12 @@ zero layout shift as v1.
   when the result does (`paid` in `table.tsx`). The chips sit in front of them
   until the next hand deals; there is nothing to fade them out for. On a ring
   they land over the award line under the board, which is where a bottom seat's
-  bet slot hangs. Reduced motion draws no flights at all: chips are at the
+  bet slot hangs. That line is masked in from its leading edge over 220ms
+  rather than faded and dropped in from the pot: `--wipe` in `look-v2.css` is
+  how much of the pill is still covered, and it is paint, so the zone's
+  reserved height still holds the felt still and a split pot's two lines stay
+  side by side in the flow. v1 keeps the drop and the fade it has. Reduced
+  motion draws no flights at all: chips are at the
   destination and the numbers land with them. v1 keeps the shared-layout
   flights it had.
 - **The reserved columns leave gaps** between present denominations (a pot of

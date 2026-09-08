@@ -78,6 +78,14 @@ const FLIGHT_MS = 380;
 const STAGGER_MS = 40;
 const EASE_OUT = [0.2, 0, 0, 1] as const;
 
+/* The award line is written in rather than faded in: a mask that opens from
+   its leading edge, over in a fifth of a second so it does not compete with
+   the chips travelling beside it. The shape lives in look-v2.css and only the
+   fraction still covered is animated. */
+const AWARD_MS = 220;
+const AWARD_SHUT = { '--wipe': '100%' };
+const AWARD_OPEN = { '--wipe': '0%' };
+
 const NOBODY: ReadonlySet<number> = new Set();
 
 export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: TableProps) {
@@ -314,6 +322,10 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
      Without flights (v1, a replay, reduced motion) settling is the moment. */
   const landed = (i: number) => (flying ? paid.has(i) : settled);
 
+  /* v1 keeps the award line it has, dropping in from the pot as it fades. v2
+     has no fade anywhere on the felt, so the line is masked in instead. */
+  const v2Award = look === 'v2';
+
   return (
     <LookContext.Provider value={look}>
     {look === 'v2' && <DeckSprite />}
@@ -488,10 +500,10 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
                   <motion.span
                     key={`${a.seat}-${a.amount}`}
                     className="badge num award-chip"
-                    initial={reduced ? false : { y: -54, opacity: 0, scale: 0.9 }}
-                    animate={{ y: 0, opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.34, ease: [0.2, 0, 0, 1] }}
+                    initial={reduced ? false : v2Award ? AWARD_SHUT : { y: -54, opacity: 0, scale: 0.9 }}
+                    animate={v2Award ? AWARD_OPEN : { y: 0, opacity: 1, scale: 1 }}
+                    exit={v2Award ? AWARD_SHUT : { opacity: 0 }}
+                    transition={{ duration: v2Award ? AWARD_MS / 1000 : 0.34, ease: EASE_OUT }}
                   >
                     {a.amount} to {view.seats.find((s) => s.i === a.seat)?.name ?? `seat ${a.seat}`}
                   </motion.span>
