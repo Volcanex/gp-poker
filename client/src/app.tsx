@@ -12,6 +12,8 @@ import { ArenaPage } from './routes/arena.tsx';
 import { learnRoutes } from './routes/learn/index.tsx';
 import { puzzlesRoutes } from './puzzles/index.tsx';
 import { toolsRoutes } from './tools/index.tsx';
+import { NotFound } from './routes/not-found.tsx';
+import { AdminBar } from './admin/bar.tsx';
 import { AccountMenu } from './ui/auth.tsx';
 import { SettingsMenu } from './ui/settings.tsx';
 import { SiteFooter } from './ui/site-footer.tsx';
@@ -23,6 +25,10 @@ import { sound } from './sound/index.ts';
    hand evaluator with a large lookup table. Splitting it here keeps that table
    out of the bundle everyone loads to play. */
 const Replay = lazy(() => import('./routes/replay.tsx').then((m) => ({ default: m.Replay })));
+/* Split for a different reason: nothing about the admin layer belongs in the
+   bundle everybody downloads to play. */
+const AdminTickets = lazy(() => import('./admin/tickets.tsx').then((m) => ({ default: m.AdminTickets })));
+const AdminTicket = lazy(() => import('./admin/tickets.tsx').then((m) => ({ default: m.AdminTicket })));
 import './app.css';
 
 function TopBar() {
@@ -67,6 +73,7 @@ export function App() {
   return (
     <BrowserRouter>
       <SessionProvider>
+        <AdminBar />
         <TopBar />
         <PageEnter />
         <MatchFoundAlert />
@@ -95,24 +102,26 @@ export function App() {
             }
           />
           <Route path="/u/:name" element={<Profile />} />
+          <Route
+            path="/admin/tickets"
+            element={
+              <Suspense fallback={<main className="page"><span className="muted">Loading</span></main>}>
+                <AdminTickets />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/admin/tickets/:id"
+            element={
+              <Suspense fallback={<main className="page"><span className="muted">Loading</span></main>}>
+                <AdminTicket />
+              </Suspense>
+            }
+          />
           <Route path="*" element={<NotFound />} />
         </Routes>
         <SiteFooter />
       </SessionProvider>
     </BrowserRouter>
-  );
-}
-
-function NotFound() {
-  return (
-    <main className="page">
-      <div className="card">
-        <div className="empty">
-          <span className="e-title">No page here</span>
-          <span className="e-desc">The link may be old. Start a match from the home page.</span>
-          <Link className="btn btn-secondary btn-sm" to="/">Go to the home page</Link>
-        </div>
-      </div>
-    </main>
   );
 }

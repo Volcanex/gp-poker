@@ -45,6 +45,7 @@ export interface UserRow {
   guest: boolean;
   bot: boolean;
   botLevel: number | null; // 1..5 on a bot, null on a person
+  admin: boolean; // the annotation layer and the tickets it writes, nothing else
   createdAt: Date;
   lastSeenAt: Date;
   rating: number;
@@ -1408,4 +1409,91 @@ export async function getArenasForUser(userId: string, limit = 20): Promise<User
     order by a.ends_at desc
     limit ${limit}
   `;
+}
+
+/* Tickets: the annotation layer's rows. `drawing` is a PNG data URL and is the
+   only large column here, so a list never selects it: a page of ticket titles
+   is a page of ticket titles, not a megabyte of strokes each. */
+export interface TicketTarget {
+  selector: string;
+  rect: { x: number; y: number; width: number; height: number };
+  text: string;
+  label: string | null;
+}
+
+export interface TicketViewport {
+  width: number;
+  height: number;
+  dpr: number;
+  theme: string;
+}
+
+export interface TicketRow {
+  id: string;
+  createdAt: Date;
+  userId: string;
+  url: string;
+  path: string;
+  title: string;
+  note: string;
+  viewport: TicketViewport;
+  targets: TicketTarget[];
+  drawing: string | null;
+  pageShot: string | null;
+  status: string;
+  build: string | null;
+}
+
+export type TicketListRow = Omit<TicketRow, 'drawing' | 'pageShot'>;
+
+export interface NewTicket {
+  id: string;
+  userId: string;
+  url: string;
+  path: string;
+  title: string;
+  note: string;
+  viewport: TicketViewport;
+  targets: TicketTarget[];
+  drawing: string | null;
+  build: string | null;
+}
+
+export async function insertTicket(ticket: NewTicket): Promise<TicketRow> {
+  const [row] = await sql<TicketRow[]>`
+    insert into tickets (id, user_id, url, path, title, note, viewport, targets, drawing, build)
+    values (
+      ${ticket.id}, ${ticket.userId}, ${ticket.url}, ${ticket.path}, ${ticket.title},
+      ${ticket.note}, ${sql.json(jsonb(ticket.viewport))}, ${sql.json(jsonb(ticket.targets))},
+      ${ticket.drawing}, ${ticket.build}
+    )
+    returning *
+  `;
+  return row;
+}
+
+export async function getTickets(status: string | null, limit = 200): Promise<TicketListRow[]> {
+  return sql<TicketListRow[]>`
+    select id, created_at, user_id, url, path, title, note, viewport, targets, status, build
+    from tickets
+    ${status ? sql`where status = ${status}` : sql``}
+    order by created_at desc
+    limit ${limit}
+  `;
+}
+
+export async function getTicketById(id: string): Promise<TicketRow | null> {
+  const [row] = await sql<TicketRow[]>`select * from tickets where id = ${id}`;
+  return row ?? null;
+}
+
+export async function setTicketStatus(id: string, status: string): Promise<TicketRow | null> {
+  const [row] = await sql<TicketRow[]>`
+    update tickets set status = ${status} where id = ${id} returning *
+  `;
+  return row ?? null;
+}
+
+export async function deleteTicketsForUser(userId: string): Promise<void> {
+  await sql`delete from tickets where user_id = ${userId}`;
 }
