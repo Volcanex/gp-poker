@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import type { ActionKind, TableView } from '@opentable/protocol';
+import type { ActionKind, LegalActions, TableView } from '@opentable/protocol';
 import { holdFor } from '@opentable/protocol';
 import { isTextEntry, useGInit } from '../ui/bits.tsx';
 import { clamp, presetsFor, raiseAction, raiseShape } from './sizing.ts';
+import type { Preset } from './sizing.ts';
 import {
   PRE_ACTIONS, amountToCall, isLastHand, resolvePreAction, survivesRaise,
 } from './preactions.ts';
@@ -300,6 +301,50 @@ function useCountdown(key: string, ms: number): number {
 
 /* ---------------------------------------------------------------- your turn */
 
+/* The table's keys, in one place. `r` reaches for wherever the size is chosen
+   (the dock's field, the band's sizer) and the number keys write a preset into
+   it, so the two renderings differ only in what those two words mean.
+
+   `r` works while typing, because it is how you get back to the field; every
+   other shortcut is blocked by `isTextEntry`, so typing 137 into the field
+   does not fold the hand. */
+export function useTurnKeys({
+  legal, presets, sending, onAct, onRaiseKey, onPresetKey,
+}: {
+  legal: LegalActions;
+  presets: Preset[];
+  sending: boolean;
+  onAct: (a: ActionKind, v?: number) => void;
+  onRaiseKey: () => void;
+  onPresetKey: (value: number) => void;
+}) {
+  const { actions } = legal;
+  const { canRaise, checkOrCall } = raiseShape(legal);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (sending || e.metaKey || e.ctrlKey || e.altKey) return;
+      const typing = isTextEntry(e.target);
+      const k = e.key.toLowerCase();
+      if (k === 'r' && canRaise && !typing) {
+        e.preventDefault();
+        onRaiseKey();
+        return;
+      }
+      if (typing) return;
+      if (k === 'f' && actions.includes('f')) { e.preventDefault(); onAct('f'); }
+      else if (k === 'c' && checkOrCall) { e.preventDefault(); onAct(checkOrCall); }
+      else if (k >= '1' && k <= '6') {
+        const p = presets[Number(k) - 1];
+        if (p) { e.preventDefault(); onPresetKey(p.value); }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [actions, canRaise, checkOrCall, onAct, presets, sending, onRaiseKey, onPresetKey]);
+}
+
+
 function TurnControls({
   view, legal, sending, onAct,
 }: {
@@ -362,28 +407,12 @@ function TurnControls({
     else onAct(kind, amount);
   }, [sending, canRaise, value, min, max, legal, onAct]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (sending || e.metaKey || e.ctrlKey || e.altKey) return;
-      const typing = isTextEntry(e.target);
-      const k = e.key.toLowerCase();
-      if (k === 'r' && canRaise && !typing) {
-        e.preventDefault();
-        fieldRef.current?.focus();
-        fieldRef.current?.select();
-        return;
-      }
-      if (typing) return;
-      if (k === 'f' && actions.includes('f')) { e.preventDefault(); onAct('f'); }
-      else if (k === 'c' && checkOrCall) { e.preventDefault(); onAct(checkOrCall); }
-      else if (k >= '1' && k <= '6') {
-        const p = presets[Number(k) - 1];
-        if (p) { e.preventDefault(); setRaw(String(p.value)); }
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [actions, canRaise, checkOrCall, onAct, presets, sending]);
+  const focusField = useCallback(() => {
+    fieldRef.current?.focus();
+    fieldRef.current?.select();
+  }, []);
+  const writePreset = useCallback((v: number) => setRaw(String(v)), []);
+  useTurnKeys({ legal, presets, sending, onAct, onRaiseKey: focusField, onPresetKey: writePreset });
 
   const raiseLabel = value >= max ? `All in ${max}` : isBet ? `Bet ${value || min}` : `Raise to ${value || min}`;
 
@@ -484,13 +513,15 @@ function TurnControls({
 
 /* One spaced line under the dock, desktop only, and the same line in every
    state: a legend that comes and goes is a legend that moves the felt. */
-export function KeyLegend({ watching }: { watching?: boolean } = {}) {
+export function KeyLegend(
+  { watching, className = 'dock-keys' }: { watching?: boolean; className?: string } = {},
+) {
   /* A spectator has no keys to press, and a legend that offers three of them
      is a legend that lies. The row still renders, and holds its height, so the
      felt is the same size whether you are playing or watching. */
-  if (watching) return <div className="dock-keys" aria-hidden="true" />;
+  if (watching) return <div className={className} aria-hidden="true" />;
   return (
-    <div className="dock-keys" aria-hidden="true">
+    <div className={className} aria-hidden="true">
       <span><span className="kbd">F</span> fold</span>
       <span><span className="kbd">C</span> check or call</span>
       <span><span className="kbd">R</span> raise</span>

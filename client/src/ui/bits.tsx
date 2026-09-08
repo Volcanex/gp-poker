@@ -61,26 +61,6 @@ export function isTextEntry(el: EventTarget | null): boolean {
   return !['checkbox', 'radio', 'button', 'submit', 'reset', 'range'].includes(type);
 }
 
-/* A media query React can branch on, for the cases CSS cannot cover: the phone
-   hero band is a different component, not a different set of rules. Read
-   synchronously on the first render so nothing swaps a frame later and moves
-   the felt under it. */
-export function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
-    return window.matchMedia(query).matches;
-  });
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
-    const mq = window.matchMedia(query);
-    const onChange = () => setMatches(mq.matches);
-    onChange();
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, [query]);
-  return matches;
-}
-
 export function useNow(active: boolean, everyMs = 1000): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {

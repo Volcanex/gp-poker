@@ -4,10 +4,12 @@ import { useReducedMotion } from 'motion/react';
 import type { ActionKind, Card, LegalActions, TableView } from '@opentable/protocol';
 import { PlayingCard } from './playing-card.tsx';
 import {
-  HandResult, PreActionPills, StopWatching, useDockLogic, waitingText, watchingText,
+  HandResult, KeyLegend, PreActionPills, StopWatching, useDockLogic, useTurnKeys,
+  waitingText, watchingText,
 } from './dock.tsx';
 import type { PreAction } from './preactions.ts';
 import { clamp, presetsFor, raiseAction, raiseLabel, raiseShape } from './sizing.ts';
+import type { Preset } from './sizing.ts';
 import { playClick } from './sounds.ts';
 import { actionText, shortName } from './labels.ts';
 import { useFading } from '../ui/bits.tsx';
@@ -40,6 +42,11 @@ export function HeroBand({ view, onAct, sending, best }: HeroBandProps) {
   return (
     <div className="hero-band" data-state={state} data-seated={mine ? '' : undefined}>
       {mine && <HeroCards view={view} best={best} />}
+
+      {/* Between the hand and the controls on a wide screen, and gone on a
+          phone, where there is no keyboard to legend. It says the same thing
+          in every state, so it is rendered outside the column that changes. */}
+      <KeyLegend className="hb-keys" watching={view.you == null} />
 
       <div className="hb-col">
         {state === 'turn' && legal ? (
@@ -129,6 +136,11 @@ function TurnColumn({
   const { call, min, max } = legal;
   const [sizing, setSizing] = useState(false);
   const [value, setValue] = useState(min);
+  const myBet = view.seats.find((s) => s.i === view.you)?.bet ?? 0;
+  const presets = useMemo(
+    () => (canRaise ? presetsFor(legal, view.pot, myBet, view.street) : []),
+    [canRaise, legal, view.pot, myBet, view.street],
+  );
 
   /* A fresh decision resets the size to the minimum and closes the sizer:
      carrying the last one into a new spot is how people put a stack in by
@@ -138,6 +150,13 @@ function TurnColumn({
     setValue(min);
     setSizing(false);
   }, [min, max, view.h, view.n]);
+
+  /* The same keys the dock answers to, doing the same things: `r` reaches for
+     where the size is chosen, which here is the sweep rather than a field, and
+     a number key writes its preset into it. */
+  const openSizer = useCallback(() => setSizing(true), []);
+  const takePreset = useCallback((v: number) => { setValue(v); setSizing(true); }, []);
+  useTurnKeys({ legal, presets, sending, onAct, onRaiseKey: openSizer, onPresetKey: takePreset });
 
   const send = useCallback((v: number) => {
     if (sending || !canRaise) return;
@@ -149,10 +168,10 @@ function TurnColumn({
   if (sizing && canRaise) {
     return (
       <Sizer
-        view={view}
         legal={legal}
         value={value}
         onValue={setValue}
+        presets={presets}
         onBack={() => { playClick(); setSizing(false); }}
         onSend={() => { playClick(); send(value); }}
         sending={sending}
@@ -177,7 +196,7 @@ function TurnColumn({
         className={canRaise ? 'btn btn-primary num hb-act' : 'btn btn-secondary num hb-act'}
         data-primary={canRaise ? '' : undefined}
         disabled={sending || !canRaise}
-        onClick={() => { playClick(); setSizing(true); }}
+        onClick={() => { playClick(); openSizer(); }}
       >
         {canRaise ? raiseLabel(legal, min) : 'Raise'}
       </button>
@@ -317,10 +336,10 @@ function FoldBar({ disabled, onFold }: { disabled: boolean; onFold: () => void }
    a screen reader; everything visible is drawn here because a native slider
    cannot be swept this way. */
 function Sizer({
-  view, legal, value, onValue, onBack, onSend, sending,
+  legal, presets, value, onValue, onBack, onSend, sending,
 }: {
-  view: TableView;
   legal: LegalActions;
+  presets: Preset[];
   value: number;
   onValue: (v: number) => void;
   onBack: () => void;
@@ -331,14 +350,25 @@ function Sizer({
   const { isBet } = raiseShape(legal);
   const trackRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
-  const myBet = view.seats.find((s) => s.i === view.you)?.bet ?? 0;
+
+  /* Enter sends, the way it does from the dock's field. It is added here
+     rather than in the shared key hook because it only means anything while
+     a size is open. */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || sending) return;
+      e.preventDefault();
+      onSend();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onSend, sending]);
 
   /* Three marks, and only three: the ends of the range and the pot. A pot
      sized raise is often all in or nearly it, and two labels three pixels
      apart say less than one, so a mark that lands on one already placed is
      dropped and the ends win. */
   const ticks = useMemo(() => {
-    const presets = presetsFor(legal, view.pot, myBet, view.street);
     const pot = clamp(presets.find((p) => p.key === 'pot')?.value ?? max, min, max);
     const at = (v: number) => (max === min ? 0 : (v - min) / (max - min));
     const out = [
@@ -351,7 +381,7 @@ function Sizer({
       if (kept.every((k) => Math.abs(at(k.value) - at(t.value)) > 0.08)) kept.push(t);
     }
     return kept;
-  }, [legal, view.pot, myBet, view.street, min, max]);
+  }, [presets, min, max]);
 
   const at = useCallback((clientY: number) => {
     const el = trackRef.current;
@@ -399,7 +429,9 @@ function Sizer({
         }}
         onPointerCancel={() => { dragging.current = false; }}
       >
-        <span className="hb-track-fill" aria-hidden="true" />
+        <span className="hb-rail" aria-hidden="true">
+          <span className="hb-rail-fill" />
+        </span>
         {ticks.map((t) => (
           <span
             key={t.key}
@@ -407,7 +439,6 @@ function Sizer({
             style={{ '--p': frac(t.value) } as CSSProperties}
             aria-hidden="true"
           >
-            <i />
             {t.label}
           </span>
         ))}
