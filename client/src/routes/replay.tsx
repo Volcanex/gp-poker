@@ -205,7 +205,7 @@ function HandReplay({ hand, handCount }: { hand: Hand; handCount: number | null 
                 Next
               </button>
               <span className="scrub-hint">
-                <span className="kbd">left</span><span className="kbd">right</span> step
+                <span className="kbd">Left</span><span className="kbd">Right</span> step
               </span>
               <span className="spacer" />
               <label className="switch-row">
@@ -475,7 +475,7 @@ function ActionList({
                   {hand.seats.find((s) => s.seat === a.s)?.name ?? `Seat ${a.s}`}
                 </span>
                 <span className="act-what">{actionText(a.a, a.v)}</span>
-                {a.to && <span className="act-note">on the clock</span>}
+                {a.to && <span className="act-note">On the clock</span>}
                 {verdict && <span className="act-note">{verdict}</span>}
                 <PriceNote row={prices[i] ?? null} equities={equities} />
               </button>

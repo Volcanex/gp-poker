@@ -521,9 +521,9 @@ type Refusal = { ok: false; status: number; error: string };
 
 export async function joinArena(id: string, userId: string): Promise<{ ok: true } | Refusal> {
   const arena = await getArenaById(id);
-  if (!arena) return { ok: false, status: 404, error: 'no such arena' };
+  if (!arena) return { ok: false, status: 404, error: 'No such arena' };
   if (arena.status === 'finished') {
-    return { ok: false, status: 409, error: 'this arena is over. The next one is on the hour.' };
+    return { ok: false, status: 409, error: 'This arena is over. The next one is on the hour.' };
   }
   await insertArenaPlayer(id, userId);
   await pushArena(id, true);
@@ -532,9 +532,9 @@ export async function joinArena(id: string, userId: string): Promise<{ ok: true 
 
 export async function leaveArena(id: string, userId: string): Promise<{ ok: true } | Refusal> {
   const arena = await getArenaById(id);
-  if (!arena) return { ok: false, status: 404, error: 'no such arena' };
+  if (!arena) return { ok: false, status: 404, error: 'No such arena' };
   if (arena.status === 'finished') {
-    return { ok: false, status: 409, error: 'this arena is over. Its standings are final.' };
+    return { ok: false, status: 409, error: 'This arena is over. Its standings are final.' };
   }
   await deleteArenaPlayer(id, userId);
   waitingSince.delete(key(id, userId));
@@ -547,9 +547,9 @@ export async function leaveArena(id: string, userId: string): Promise<{ ok: true
    and somebody stepping out for five minutes has not stopped competing. */
 export async function pauseArena(id: string, userId: string, paused: boolean): Promise<{ ok: true } | Refusal> {
   const arena = await getArenaById(id);
-  if (!arena) return { ok: false, status: 404, error: 'no such arena' };
+  if (!arena) return { ok: false, status: 404, error: 'No such arena' };
   const changed = await setArenaPaused(id, userId, paused);
-  if (!changed) return { ok: false, status: 409, error: 'you are not in this arena. Join it first.' };
+  if (!changed) return { ok: false, status: 409, error: 'You are not in this arena. Join it first.' };
   if (paused) waitingSince.delete(key(id, userId));
   await pushArena(id, true);
   return { ok: true };

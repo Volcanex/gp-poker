@@ -54,6 +54,12 @@ export const BUCKET_WORDS: Record<Bucket, string> = {
   push: 'push or fold',
 };
 
+/* The same words to open a line with, the way `stakeName` opens one. */
+export function bucketName(bucket: Bucket): string {
+  const words = BUCKET_WORDS[bucket];
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 /* What the player is being asked, in the words the table would use. The
    aggressive action is a raise everywhere except a push stack, where it is the
    whole stack, and the passive action is a limp only when nobody has raised. */

@@ -51,7 +51,7 @@ function ensureWorker(): Worker {
     else waiting.reject(new Error(message.error));
   };
   worker.onerror = (event) => {
-    const failure = new Error(event.message || 'the analysis worker stopped');
+    const failure = new Error(event.message || 'The analysis worker stopped');
     for (const [, waiting] of pending) waiting.reject(failure);
     pending.clear();
     worker = null;
@@ -61,7 +61,7 @@ function ensureWorker(): Worker {
 
 function send<T>(request: Request): Promise<T> {
   if (typeof Worker === 'undefined') {
-    return Promise.reject(new Error('this browser has no web workers, so hands cannot be analysed'));
+    return Promise.reject(new Error('This browser has no web workers, so hands cannot be analysed'));
   }
   const w = ensureWorker();
   return new Promise<T>((resolve, reject) => {

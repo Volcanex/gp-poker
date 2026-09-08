@@ -133,19 +133,19 @@ export function registerAdminRoutes(app: FastifyInstance): void {
 
       const body = request.body ?? {};
       const note = typeof body.note === 'string' ? body.note.trim().slice(0, MAX_NOTE) : '';
-      if (!note) return reply.code(400).send({ error: 'a ticket needs a note. Write what is wrong and save again.' });
+      if (!note) return reply.code(400).send({ error: 'A ticket needs a note. Write what is wrong and save again.' });
 
       const drawing = cleanDrawing(body.drawing);
       if (drawing && Buffer.byteLength(drawing, 'utf8') > MAX_DRAWING_BYTES) {
         return reply.code(413).send({
-          error: 'the drawing is over 1.5 MB. Undo some strokes, or save the note without them.',
+          error: 'The drawing is over 1.5 MB. Undo some strokes, or save the note without them.',
         });
       }
 
       const last = lastTicketAt.get(user.id) ?? 0;
       const now = Date.now();
       if (now - last < MIN_INTERVAL_MS) {
-        return reply.code(429).send({ error: 'that ticket was a moment ago. Wait a second and save again.' });
+        return reply.code(429).send({ error: 'That ticket was a moment ago. Wait a second and save again.' });
       }
       lastTicketAt.set(user.id, now);
 
@@ -180,7 +180,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
     const user = await requireAdmin(request, reply);
     if (!user) return reply;
     const row = await getTicketById(request.params.id);
-    if (!row) return reply.code(404).send({ error: 'no such ticket' });
+    if (!row) return reply.code(404).send({ error: 'No such ticket' });
     return row;
   });
 
@@ -190,9 +190,9 @@ export function registerAdminRoutes(app: FastifyInstance): void {
       const user = await requireAdmin(request, reply);
       if (!user) return reply;
       const status = statusParam(request.body?.status);
-      if (!status) return reply.code(400).send({ error: 'status must be open or done' });
+      if (!status) return reply.code(400).send({ error: 'Status must be open or done' });
       const row = await setTicketStatus(request.params.id, status);
-      if (!row) return reply.code(404).send({ error: 'no such ticket' });
+      if (!row) return reply.code(404).send({ error: 'No such ticket' });
       return { id: row.id, status: row.status };
     }
   );

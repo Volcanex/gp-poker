@@ -81,11 +81,11 @@ export function Seat({
               slot the button marker below keeps, and for the same reason. */}
           <FlagSlot code={seat.country} size={16} />
           <span className="seat-name" title={seat.name}>{shortName(seat.name, 16)}</span>
-          {you && <span className="seat-you">you</span>}
+          {you && <span className="seat-you">You</span>}
           {/* Always here, hidden when the button is elsewhere: a marker that
               comes and goes moves every badge after it once a hand. */}
           <span className="btn-marker" title="Button" data-off={seat.button ? undefined : ''}>D</span>
-          {seat.bot && <span className="seat-bot">bot</span>}
+          {seat.bot && <span className="seat-bot">Bot</span>}
           {seat.rating > 0 && <span className="seat-rating num">{int(seat.rating)}</span>}
           {!seat.connected && <span className="seat-off">Disconnected</span>}
         </span>

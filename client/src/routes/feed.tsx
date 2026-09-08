@@ -22,7 +22,7 @@ export function ago(iso: string | null): string {
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return '';
   const secs = Math.max(0, Math.round((Date.now() - then) / 1000));
-  if (secs < 60) return 'just now';
+  if (secs < 60) return 'Just now';
   const mins = Math.floor(secs / 60);
   if (mins < 60) return `${mins}m ago`;
   const hours = Math.floor(mins / 60);
@@ -115,7 +115,7 @@ function PlayerName({ player, showDelta, comma }: { player: FeedPlayer; showDelt
     <span className="name">
       {player.country && <Flag code={player.country} size={16} />}
       <Link to={`/u/${encodeURIComponent(player.name)}`}>{player.name}</Link>
-      {player.bot && <span className="bot-tag">bot</span>}
+      {player.bot && <span className="bot-tag">Bot</span>}
       {showDelta && change !== null && (
         <span className="delta" {...deltaTone(change)}>
           {signed(change)}

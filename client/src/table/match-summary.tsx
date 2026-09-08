@@ -114,8 +114,8 @@ export function MatchSummary({ match, meId, onAgain, againLabel }: MatchSummaryP
                             avatarV={avatarVersion(r.seat.avatarV)}
                           />
                           <Link to={`/u/${encodeURIComponent(r.seat.name)}`}>{r.seat.name}</Link>
-                          {seatIsBot(r.seat) && <span className="seat-bot">bot</span>}
-                          {r.seat.userId === meId && <span className="seat-you">you</span>}
+                          {seatIsBot(r.seat) && <span className="seat-bot">Bot</span>}
+                          {r.seat.userId === meId && <span className="seat-you">You</span>}
                         </span>
                       </td>
                       <td className="r num">{int(r.stack)}</td>
@@ -160,7 +160,7 @@ export function MatchSummary({ match, meId, onAgain, againLabel }: MatchSummaryP
 
 function RatingCell({ rating }: { rating: ResultRating }) {
   const shown = useRatingReveal(rating);
-  if (!rating) return <span className="muted">no change</span>;
+  if (!rating) return <span className="muted">No change</span>;
   const delta = rating.after - rating.before;
   return (
     <span className="rating-cell">
@@ -199,7 +199,7 @@ function PlayerResult({
       <div className="pr-head">
         <Avatar seed={userId} name={name} size={24} avatarV={avatarV} />
         <Link className="pr-name" to={`/u/${encodeURIComponent(name)}`}>{name}</Link>
-        {you && <span className="seat-you">you</span>}
+        {you && <span className="seat-you">You</span>}
         {won && <span className="badge badge-ok">Won</span>}
       </div>
       <div className="pr-stack num">
@@ -212,7 +212,7 @@ function PlayerResult({
             <NumberFlow value={shown} format={{ useGrouping: false }} respectMotionPreference />
           </span>
           <span className="delta" {...deltaTone(delta)}>{signed(delta)}</span>
-          <span className="muted">deviation {int(rating.rdAfter)}</span>
+          <span className="muted">Deviation {int(rating.rdAfter)}</span>
         </div>
       ) : null}
     </div>
@@ -277,7 +277,7 @@ export function HandsSection({ match }: { match: Match }) {
                         const acc = handAccuracy(h, s.seat);
                         return (
                           <td className="r" key={s.userId}>
-                            {acc == null ? <span className="muted">no read</span> : fmtPct(acc, 0)}
+                            {acc == null ? <span className="muted">No read</span> : fmtPct(acc, 0)}
                           </td>
                         );
                       })}

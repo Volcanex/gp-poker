@@ -91,7 +91,7 @@ export function Home() {
               <div className="card mode" key={mode} data-last={last?.mode === mode ? '' : undefined}>
                 <div className="mode-head">
                   <span className="t">{MODE_NAME[mode]}</span>
-                  {last?.mode === mode && <span className="muted">last played</span>}
+                  {last?.mode === mode && <span className="muted">Last played</span>}
                 </div>
                 <span className="muted">{modeBlurb(mode)}</span>
                 {me && <YourRating mode={mode} me={me} />}
@@ -410,7 +410,7 @@ function FriendCard({ disabled }: { disabled: boolean }) {
       writeChallenge(saved);
       setLink(saved);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'the link could not be made. Try again in a moment.');
+      setError(e instanceof ApiError ? e.message : 'The link could not be made. Try again in a moment.');
     } finally {
       setBusy(false);
     }

@@ -86,7 +86,7 @@ export function ChatPanel({ chat }: { chat: ChatController }) {
               />
               <span className="chat-meta">
                 <Link className="chat-name" to={`/u/${line.from.name}`}>{line.from.name}</Link>
-                {line.from.seat == null && <span className="chat-rail">watching</span>}
+                {line.from.seat == null && <span className="chat-rail">Watching</span>}
                 <span className="chat-at num">{relativeTime(line.at, now)}</span>
               </span>
               <span className="chat-text">{line.text}</span>

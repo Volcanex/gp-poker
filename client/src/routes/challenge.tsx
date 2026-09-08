@@ -50,7 +50,7 @@ export function Challenge() {
       const { matchId } = await api.acceptChallenge(id);
       nav(`/m/${matchId}`);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'the table could not be opened. Try the link again.');
+      setError(e instanceof ApiError ? e.message : 'The table could not be opened. Try the link again.');
       setAccepting(false);
       // The link may have been taken or cancelled while this page sat open,
       // so what it says next comes from the server, not from a guess.

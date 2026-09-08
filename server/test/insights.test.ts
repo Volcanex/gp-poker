@@ -198,6 +198,6 @@ describe('player insights', () => {
   it('is a 404 for a name nobody has', async () => {
     const res = await insights('nobody-by-that-name');
     expect(res.statusCode).toBe(404);
-    expect(res.json().error).toBe('no such user');
+    expect(res.json().error).toBe('No such user');
   });
 });

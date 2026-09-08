@@ -79,7 +79,7 @@ export function ResultPanel({ match, meId, onAgain, onReview, againLabel }: Resu
                 avatarV={avatarVersion(r.seat.avatarV)}
               />
               <Link to={`/u/${encodeURIComponent(r.seat.name)}`}>{r.seat.name}</Link>
-              {r.seat.userId === meId && <span className="seat-you">you</span>}
+              {r.seat.userId === meId && <span className="seat-you">You</span>}
             </span>
             <span className="rp-nums num">
               <span className="rp-stack">{int(r.stack)} units</span>

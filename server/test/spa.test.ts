@@ -22,7 +22,7 @@ describe('static/SPA fallback', () => {
   it('does not fall back to index.html for an unknown /api route', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/does-not-exist' });
     expect(res.statusCode).toBe(404);
-    expect(res.json()).toEqual({ error: 'not found' });
+    expect(res.json()).toEqual({ error: 'Not found' });
   });
 
   it('does not fall back to index.html for /ws without a session', async () => {

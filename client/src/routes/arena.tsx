@@ -122,7 +122,7 @@ export function ArenaPage() {
       try {
         await run();
       } catch (e) {
-        setError(e instanceof ApiError ? e.message : 'the arena did not answer. Try again in a moment.');
+        setError(e instanceof ApiError ? e.message : 'The arena did not answer. Try again in a moment.');
       } finally {
         setBusy(false);
         await load().catch(() => {});
@@ -363,8 +363,8 @@ function Standings({ arena, meId }: { arena: Arena; meId: string | null }) {
                         {/* Reserved, so a board of names stays in one column. */}
                         <FlagSlot code={row.standing.country} size={16} />
                         <Link to={`/u/${encodeURIComponent(row.standing.name)}`}>{row.standing.name}</Link>
-                        {row.standing.bot && <span className="bot-tag">bot</span>}
-                        {live && row.standing.paused && <span className="seat-you">paused</span>}
+                        {row.standing.bot && <span className="bot-tag">Bot</span>}
+                        {live && row.standing.paused && <span className="seat-you">Paused</span>}
                       </span>
                     </td>
                     <td className="r num">

@@ -97,7 +97,7 @@ export function attachConnection(
   socket.on('message', (raw: Buffer) => {
     const msg = decodeClient(raw.toString());
     if (!msg) {
-      hub.sendTo(socket, { t: 'err', c: 'bad_msg', msg: 'could not parse message' });
+      hub.sendTo(socket, { t: 'err', c: 'bad_msg', msg: 'Could not parse that message' });
       return;
     }
     if (msg.t === 'ping') {

@@ -162,7 +162,7 @@ export function Profile() {
                       </td>
                       <td className="r">
                         {r.matches === 0 ? (
-                          <span className="muted">unrated</span>
+                          <span className="muted">Unrated</span>
                         ) : (
                           <>
                             {int(r.rating)}
@@ -216,7 +216,7 @@ export function Profile() {
         {accuracy != null ? (
           <>
             <div className="tiles tiles-one">
-              <Tile k="Accuracy" v={fmtPct(accuracy)} d="against the baseline charts" />
+              <Tile k="Accuracy" v={fmtPct(accuracy)} d="Against the baseline charts" />
             </div>
             <span className="muted">
               Over {data.stats.hands} hands. Six-max hands are not scored: the charts are heads-up.
@@ -299,7 +299,7 @@ export function Profile() {
                       </td>
                       <td className="r">
                         {rated === false ? (
-                          <span className="muted">unrated</span>
+                          <span className="muted">Unrated</span>
                         ) : (
                           <span className="delta" {...deltaTone(m.ratingChange)}>{signed(m.ratingChange)}</span>
                         )}
@@ -347,7 +347,7 @@ function ArenasSection({ arenas }: { arenas: ProfileArena[] }) {
                   <td>{a.name}</td>
                   <td className="r">
                     {a.place === null ? (
-                      <span className="muted">unplaced</span>
+                      <span className="muted">Unplaced</span>
                     ) : (
                       <span className="badge badge-plain num">
                         {ordinal(a.place)} of {a.players}
@@ -552,13 +552,13 @@ function InsightsBody({ data, error, mode }: { data: Insights | null; error: str
       <div className="ins-group">
         <span className="muted">Preflop</span>
         <div className="tiles">
-          <Rate k="VPIP" v={preflop.vpip} d="hands played voluntarily" empty="No hands" />
-          <Rate k="PFR" v={preflop.pfr} d="hands raised preflop" empty="No hands" />
-          <Rate k="3bet" v={preflop.threeBet} d="raises over someone else's open" empty="No opens faced" />
+          <Rate k="VPIP" v={preflop.vpip} d="Hands played voluntarily" empty="No hands" />
+          <Rate k="PFR" v={preflop.pfr} d="Hands raised preflop" empty="No hands" />
+          <Rate k="3bet" v={preflop.threeBet} d="Raises over someone else's open" empty="No opens faced" />
           <Rate
             k="Fold to 3bet"
             v={preflop.foldToThreeBet}
-            d="folds when reraised preflop"
+            d="Folds when reraised preflop"
             empty="No 3bets faced"
           />
         </div>
@@ -570,27 +570,27 @@ function InsightsBody({ data, error, mode }: { data: Insights | null; error: str
           <Rate
             k="Aggression"
             v={postflop.aggressionFactor}
-            d="bets and raises per call after the flop"
+            d="Bets and raises per call after the flop"
             empty="No calls yet"
             unit="x"
           />
-          <Rate k="C-bet" v={postflop.cbet} d="flops bet after raising preflop" empty="No chances yet" />
+          <Rate k="C-bet" v={postflop.cbet} d="Flops bet after raising preflop" empty="No chances yet" />
           <Rate
             k="To showdown"
             v={postflop.wentToShowdown}
-            d="flops seen that reach a showdown"
+            d="Flops seen that reach a showdown"
             empty="No flops seen"
           />
           <Rate
             k="Won at showdown"
             v={postflop.wonAtShowdown}
-            d="showdowns that finish ahead"
+            d="Showdowns that finish ahead"
             empty="No showdowns"
           />
           <Rate
             k="Won without"
             v={postflop.wonWithoutShowdown}
-            d="pots won that ended before a showdown"
+            d="Pots won that ended before a showdown"
             empty="No pots won"
           />
         </div>

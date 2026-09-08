@@ -270,7 +270,7 @@ export function AdminTicket() {
           <dt>Theme</dt>
           <dd>{v.theme}</dd>
           <dt>Build</dt>
-          <dd>{ticket.build ?? 'not recorded'}</dd>
+          <dd>{ticket.build ?? 'Not recorded'}</dd>
           <dt>Written</dt>
           <dd>{ago(ticket.createdAt)}</dd>
         </dl>

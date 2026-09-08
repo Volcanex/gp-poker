@@ -380,12 +380,12 @@ function StripRow({
   const answers = points.map((p) => {
     const cell = byStreet.get(p.street);
     if (!cell) return null;
-    if (!cell.ask) return { equity: 1, note: 'the pot was uncontested' };
+    if (!cell.ask) return { equity: 1, note: 'The pot was uncontested' };
     const result = equities.get(cell.ask.key);
     if (!result) return null;
     return {
       equity: result.equity,
-      note: result.exact ? 'exact' : `sampled, ${result.samples.toLocaleString('en-GB')} deals`,
+      note: result.exact ? 'Exact' : `Sampled, ${result.samples.toLocaleString('en-GB')} deals`,
     };
   });
   const values = answers.map((a) => (a == null ? null : a.equity));

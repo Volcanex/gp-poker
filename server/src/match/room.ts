@@ -178,7 +178,7 @@ export class MatchRoom {
      message is ever sent on or stored. */
   handleChat(userId: string, msg: Extract<ClientMsg, { t: 'chat' }>): void {
     if (!this.subscribers.has(userId)) {
-      hub.send(userId, { t: 'err', c: 'no_match', msg: 'join the table before chatting' });
+      hub.send(userId, { t: 'err', c: 'no_match', msg: 'Join the table before chatting' });
       return;
     }
     const clean = cleanChatText(msg.text);
@@ -227,11 +227,11 @@ export class MatchRoom {
 
   handleAct(userId: string, msg: Extract<ClientMsg, { t: 'act' }>): void {
     if (!this.hand || this.match.status !== 'playing') {
-      hub.send(userId, { t: 'err', c: 'no_match', msg: 'match has no active hand' });
+      hub.send(userId, { t: 'err', c: 'no_match', msg: 'This match has no active hand' });
       return;
     }
     if (!this.playerIds.includes(userId)) {
-      hub.send(userId, { t: 'err', c: 'not_your_turn', msg: 'spectators cannot act' });
+      hub.send(userId, { t: 'err', c: 'not_your_turn', msg: 'Spectators cannot act' });
       return;
     }
     // Any attempt to act un-sits a sat-out player, including one the room

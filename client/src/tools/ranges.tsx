@@ -96,7 +96,7 @@ export function Ranges() {
       setRange(parseRange(value));
       setTextError(null);
     } catch (err) {
-      setTextError(err instanceof Error ? err.message : 'that is not a range');
+      setTextError(err instanceof Error ? err.message : 'That is not a range');
     }
   };
 
@@ -383,6 +383,6 @@ function note(result: EquityResult | null, ready: boolean, size: number): string
   if (!ready) return size === 0 ? 'Pick at least one hand' : 'Fix the cards above';
   if (!result) return 'Computing';
   return result.exact
-    ? `exact, all ${result.samples.toLocaleString('en-GB')} deals`
-    : `sampled, ${result.samples.toLocaleString('en-GB')} deals`;
+    ? `Exact, all ${result.samples.toLocaleString('en-GB')} deals`
+    : `Sampled, ${result.samples.toLocaleString('en-GB')} deals`;
 }

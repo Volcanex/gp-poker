@@ -86,7 +86,7 @@ export async function buildApp(): Promise<FastifyInstance> {
       preValidation: async (request, reply) => {
         const user = await resolveSessionUser(request);
         if (!user) {
-          reply.code(401).send({ error: 'no session' });
+          reply.code(401).send({ error: 'No session' });
           return;
         }
         request.sessionUser = user;
@@ -112,7 +112,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     // uptime check that asks for the head of the home page should get one.
     const readable = request.method === 'GET' || request.method === 'HEAD';
     if (url.startsWith('/api/') || url === '/ws' || !readable) {
-      return reply.code(404).send({ error: 'not found' });
+      return reply.code(404).send({ error: 'Not found' });
     }
     if (!shellLoaded()) return reply.sendFile('index.html');
     return sendShell(request, reply);
