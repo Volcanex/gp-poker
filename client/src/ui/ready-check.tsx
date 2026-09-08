@@ -64,7 +64,7 @@ export function ReadyCheckDialog() {
             <span className="dlg-title">Your table is ready</span>
             <span className="dlg-desc">
               {MODE_NAME[readyCheck.mode]}, {SPEED_NAME[readyCheck.speed].toLowerCase()},{' '}
-              {readyCheck.rated ? 'rated' : 'casual'}. Everybody has to accept before it deals.
+              {readyCheck.rated ? 'ranked' : 'casual'}. Everybody has to accept before it deals.
             </span>
             <div className="ready-count">
               <span className="num">{readyCheck.accepted}</span>
