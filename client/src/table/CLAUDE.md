@@ -168,6 +168,47 @@ them), the pot, and a mini stack of the big three denominations beside a
 player's own number. The mini stack is off on a phone and off on a ring, where
 forty two pixels is a name.
 
+## The v2 felt (cards and chips as SVG)
+
+`look.ts` is a context, `v1` or `v2`; `Table` takes `look` and stamps
+`data-look="v2"` on `.match`, and the mock reaches it at `/m/mock?v2=1`. It
+exists so the rework can be looked at beside the felt people play on while the
+suite stays green against v1; once v2 is the only felt, the context goes.
+`look-v2.css` holds every v2 rule and `felt-v2.spec.ts` holds it to the same
+zero layout shift as v1.
+
+- **One sprite, four pips.** `deck-sprite.tsx` is rendered once per table and
+  holds the four suit paths, the back's hatch pattern and the chip symbol. A
+  card face is a `<text>` rank in the house face plus two `<use>`s of its pip;
+  nothing is a font glyph, so a heart is the same heart on every phone. The
+  pattern's colour is a custom property read at the sprite's root, which is
+  why the card tokens are declared on `:root, [data-theme]` and not on the
+  card.
+- **Paper and ink are tokens.** Dark, the face is `--text-primary` and the ink
+  `--surface-1`; light, the face is `--surface-2` and the ink `--text-primary`.
+  Red pips take `--danger-fill`, the solid red, because `--danger-text` is a
+  tint tuned for a dark ground and the face is paper. The four colour deck
+  swaps `--pip-d` and `--pip-c` for the chart blue and green.
+- **A card is two faces on one element** with `preserve-3d`; a showdown card
+  mounts at `rotateY(180)` and turns to its face. A face down card shows its
+  back at rest, so `[data-back] .pc-back` is not rotated.
+- **Chips are drawn only where they move**: the bet and the pot. The mini
+  stack beside a player's own number is hidden. The chip symbol is a low
+  three-quarter view whose rim is 0.14 of its width; a column steps by that,
+  so `.chip-col` is `0.72 + (rows - 1) * 0.14` widths tall and the reserved
+  slots per denomination are unchanged. Colours are set per denomination on
+  the stack and read through the `<use>` as `--_body`, `--_rim`, `--_mark`.
+- **The pot's stack flies to the winner.** `.pot-chips` is a fixed-height slot;
+  the stack inside it carries `layoutId="pot-chips"` and at settle a flight
+  with the same id mounts in the winner's `.seat-bet`, absolutely positioned,
+  because that seat's last bet can still be drawn there at a showdown and the
+  flight in flow pushed it sideways, which the observer counted (0.0003).
+- **The reserved columns leave gaps** between present denominations (a pot of
+  28 is a green chip, two empty slots, a white one). Packing them would move
+  chips when a denomination appears; it could be done with a fixed-width
+  container and a layout animation, which the observer would not count, but
+  it has not been.
+
 ## Two to six seats
 
 One component draws every table. `layout.ts` is the whole geometry and it is
