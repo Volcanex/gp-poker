@@ -20,6 +20,10 @@ interface Player {
   name: string;
   rating: number;
   bot?: boolean;
+  /* One scripted player has an uploaded picture, so the table's baselines
+     cover the <img> path and not only the generated avatar. The e2e stub
+     answers every avatar URL with a fixture png. */
+  avatarV?: number;
 }
 
 interface SeatSpec {
@@ -65,6 +69,7 @@ function seatOf(players: Player[], i: number, you: number, hole: Card[], spec: S
     uid: p.uid,
     name: p.name,
     rating: p.rating,
+    avatarV: p.avatarV ?? 0,
     stack: spec.stack,
     bet: spec.bet ?? 0,
     cards: spec.cards === undefined ? (spec.out ? null : i === you ? hole : HIDDEN) : spec.cards,
@@ -132,7 +137,7 @@ export function mockScript(mode: Mode = 'heads-up', rated = true, practice = fal
 /* ------------------------------------------------------------- heads-up */
 
 const HU: Player[] = [
-  { uid: 'u-opp', name: 'riverrat', rating: 1642 },
+  { uid: 'u-opp', name: 'riverrat', rating: 1642, avatarV: 1 },
   { uid: 'u-you', name: 'kestrel', rating: 1518 },
 ];
 const OPP = 0;

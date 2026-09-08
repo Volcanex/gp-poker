@@ -186,6 +186,28 @@ const HOME_GAME = {
   expiresAt: new Date(Date.now() + 20 * HOUR).toISOString(),
 };
 
+/* One player on the mock table has an uploaded picture, so the table baselines
+   cover the <img> path rather than only the generated SVG. It is a real png on
+   disk rather than a data URI because the point is the request: every avatar
+   URL the pages ask for is answered with it, and a picture that never left the
+   network stack would prove nothing about the fallback. */
+const AVATAR_PNG = readFileSync(fileURLToPath(new URL('./fixtures/avatar.png', import.meta.url)));
+
+/* Your own profile, so the page with the picture control on it can be opened
+   without a server. kestrel is who ME is. */
+const PROFILE = {
+  summary: { ...ME, avatarV: 0 },
+  peak: 1552,
+  peakAt: '2026-08-01T00:00:00.000Z',
+  provisional: false,
+  winRate: 22 / 40,
+  accuracy: 0.71,
+  ratingHistory: { 'heads-up': [], 'six-max': [] },
+  stats: { hands: 940, vpip: 0, pfr: 0, aggressionFrequency: 0, foldTo3bet: 0 },
+  lastMatches: [],
+  arenas: [],
+};
+
 export async function stubApi(page: Page) {
   await page.route('**/api/**', (route) =>
     route.fulfill({ status: 404, json: { error: 'not found' } }));
@@ -197,6 +219,9 @@ export async function stubApi(page: Page) {
   await page.route('**/api/challenges/*', (route) => route.fulfill({ json: CHALLENGE }));
   await page.route('**/api/home-games/*', (route) => route.fulfill({ json: HOME_GAME }));
   await page.route('**/api/me', (route) => route.fulfill({ json: ME }));
+  await page.route('**/api/users/*', (route) => route.fulfill({ json: PROFILE }));
+  await page.route('**/api/avatars/**', (route) =>
+    route.fulfill({ contentType: 'image/png', body: AVATAR_PNG }));
   /* One book for every selection. The explorer's own arithmetic is the
      server's and is tested there; what a picture of this page is for is the
      ramp and the entrance, and those want a full 169 rows with a real spread

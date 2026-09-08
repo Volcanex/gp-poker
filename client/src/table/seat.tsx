@@ -6,6 +6,7 @@ import { TurnBar, TurnSeconds } from './turn-clock.tsx';
 import { actionText, ordinal, shortName } from './labels.ts';
 import { useFading } from '../ui/bits.tsx';
 import { Avatar } from '../ui/avatar.tsx';
+import { avatarVersion } from '../net/adapt.ts';
 import { int } from '../ui/format.ts';
 
 export interface SeatProps {
@@ -71,7 +72,7 @@ export function Seat({
         ))}
       </div>
 
-      <Avatar seed={seat.uid || seat.name} name={seat.name} size={28} />
+      <Avatar seed={seat.uid || seat.name} name={seat.name} size={28} avatarV={avatarVersion(seat.avatarV)} />
 
       <div className="seat-id">
         <span className="seat-line">

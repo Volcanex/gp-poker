@@ -1,0 +1,59 @@
+/* The picture dialog. g ships the shell (dialog, dropzone, slider, buttons,
+   avatar); what is here is the arrangement of the crop stage beside the sizes
+   the crop will be drawn at, and nothing else. Every value is a g token. */
+
+/* g's own rule is `dialog.dlg`, so this has to be at least as specific or
+   the wider dialog silently stays 440. */
+dialog.pic-dlg { width: min(560px, calc(100vw - 32px)); }
+
+.pic-drop { margin-top: var(--sp-2); }
+
+.pic-edit {
+  display: flex;
+  gap: var(--sp-4);
+  align-items: flex-start;
+  margin-top: var(--sp-2);
+}
+
+/* The circle is the crop: a square canvas under a round window, so what is
+   dragged is exactly what everybody else will see. */
+.pic-stage {
+  flex: none;
+  border-radius: 50%;
+  background: var(--well-bg);
+  border: 1px solid var(--border);
+  cursor: grab;
+  touch-action: none;
+}
+.pic-stage:active { cursor: grabbing; }
+.pic-stage:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+.pic-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  min-width: 0;
+  flex: 1;
+}
+
+.pic-zoom { display: flex; flex-direction: column; gap: 4px; }
+.pic-zoom .label { font-size: var(--font-size-ui); color: var(--text-secondary); }
+
+.pic-previews {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.pic-previews .avatar { background: var(--well-bg); }
+.pic-previews canvas { width: 100%; height: 100%; display: block; }
+
+.pic-hint { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+
+.pic-side .btn { align-self: flex-start; }
+
+/* Below the phone breakpoint the stage and its sizes stack, because 224 px of
+   crop and a slider will not share a 358 px line. */
+@media (max-width: 560px) {
+  .pic-edit { flex-direction: column; align-items: center; }
+  .pic-side { width: 100%; }
+}

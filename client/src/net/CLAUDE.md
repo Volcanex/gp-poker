@@ -67,8 +67,9 @@ lives on the replay page, which has the hand row.
 per-seat accuracy on the hands list of `/api/matches/:id`, a seat's bot flag,
 `place`/`players`/`rated` on a profile's match history (a placing needs both
 halves before "1st of 6" can be said at all), a hand row's `live_seats` and
-starting stacks, a bot level's average rating, an avatar seed, and the per-mode
-readers below. That file is the single place to change when the names are
+starting stacks, a bot level's average rating, an avatar seed, a picture version
+(`avatarVersion()`, where absent and zero both mean "no picture, draw the
+generated one"), and the per-mode readers below. That file is the single place to change when the names are
 confirmed, and the UI above it never learns a name.
 
 Absent and null both mean "no number", and the caller hides its tile or column

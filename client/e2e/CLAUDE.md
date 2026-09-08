@@ -30,6 +30,11 @@ offline state. Its timestamps are offsets from now, sitting in the middle of
 their bucket, because the feed prints "2h ago" and a pinned date would read
 differently every day.
 
+It also serves your own profile and answers every `/api/avatars/**` with
+`fixtures/avatar.png`, and one scripted player on the mock table carries an
+`avatarV`, so the table baselines cover the uploaded-picture path rather than
+only the generated SVG.
+
 The two link-landing pages, an invite and a home game lobby, are stubbed **from
 the visitor's side** rather than the host's, because that is the side a link is
 for: somebody else's invite to accept, and a lobby with three of its six chairs
@@ -61,6 +66,7 @@ it.
 | `chat.spec.ts` | opening, sending and closing the panel leave the header, felt and dock in identical boxes, at both widths |
 | `reduced-motion.spec.ts` | the same information with the motion emulated off |
 | `settings.spec.ts` | a choice surviving a reload, the pre-paint stamp, every accent's contrast in both themes, the four colour deck, and the menu itself |
+| `avatar.spec.ts` | a photograph cropped in the dialog leaves as a webp or png square under 120 KB, and the top bar draws the new version |
 | `replay.spec.ts` | a recorded hand scrubbed back and forth leaves nothing behind and nothing outside the felt, and still verifies |
 | `screenshots.spec.ts` | 132 baselines: eleven states at 360, 390, 430, 768, 1366 and 1920, dark and light |
 

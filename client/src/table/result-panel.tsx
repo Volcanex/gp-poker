@@ -4,6 +4,7 @@ import NumberFlow from '@number-flow/react';
 import { motion, useReducedMotion } from 'motion/react';
 import type { Match } from '../net/types.ts';
 import { Avatar } from '../ui/avatar.tsx';
+import { avatarVersion } from '../net/adapt.ts';
 import { deltaTone } from '../ui/bits.tsx';
 import { int, signed } from '../ui/format.ts';
 import { ordinal, stakeWord } from './labels.ts';
@@ -51,7 +52,12 @@ export function ResultPanel({ match, meId, onAgain, onReview, againLabel }: Resu
       transition={{ duration: 0.32, ease: [0.2, 0, 0, 1] }}
     >
       <header className="rp-head">
-        <Avatar seed={winner?.seat.userId ?? 'table'} name={winner?.seat.name ?? 'winner'} size={56} />
+        <Avatar
+          seed={winner?.seat.userId ?? 'table'}
+          name={winner?.seat.name ?? 'winner'}
+          size={56}
+          avatarV={avatarVersion(winner?.seat.avatarV)}
+        />
         <div className="rp-verdict">
           <span className="rp-t">{verdict}</span>
           <span className="muted num">
@@ -66,7 +72,12 @@ export function ResultPanel({ match, meId, onAgain, onReview, againLabel }: Resu
           <li key={r.seat.userId} data-mine={r.seat.userId === meId ? '' : undefined}>
             <span className="rp-who">
               {multiway && <span className="rp-place num">{ordinal(r.place)}</span>}
-              <Avatar seed={r.seat.userId} name={r.seat.name} size={24} />
+              <Avatar
+                seed={r.seat.userId}
+                name={r.seat.name}
+                size={24}
+                avatarV={avatarVersion(r.seat.avatarV)}
+              />
               <Link to={`/u/${encodeURIComponent(r.seat.name)}`}>{r.seat.name}</Link>
               {r.seat.userId === meId && <span className="seat-you">you</span>}
             </span>

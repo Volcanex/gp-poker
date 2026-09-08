@@ -3,6 +3,7 @@ import { useGInit } from './bits.tsx';
 import { ACCENTS, THEMES, applyPrefs, readPrefs, writePrefs } from './prefs.ts';
 import type { AccentId, Prefs, ThemeChoice } from './prefs.ts';
 import { useSoundSettings } from '../sound/react.ts';
+import { PictureDialog } from './picture-dialog.tsx';
 import type { PackId } from '../sound/index.ts';
 
 /* One panel for everything about how the table looks and sounds. It replaced a
@@ -14,6 +15,7 @@ import type { PackId } from '../sound/index.ts';
    as such: a menu role over a set of switches announces the wrong thing. */
 export function SettingsMenu() {
   const wrapRef = useRef<HTMLDivElement>(null);
+  const pictureRef = useRef<HTMLDialogElement>(null);
   useGInit(wrapRef);
   const [prefs, setPrefs] = useState<Prefs>(() => readPrefs());
 
@@ -81,6 +83,25 @@ export function SettingsMenu() {
 
         <hr className="separator" />
 
+        <div className="menu-title">You</div>
+        <div className="switch-row">
+          <span className="label">Picture</span>
+          <button
+            type="button"
+            className="btn btn-tertiary btn-sm"
+            onClick={() => {
+              /* The menu is a popover over the whole page, so it goes before a
+                 modal opens rather than sitting on top of the backdrop. */
+              document.getElementById('settings-menu')?.hidePopover();
+              pictureRef.current?.showModal();
+            }}
+          >
+            Edit picture
+          </button>
+        </div>
+
+        <hr className="separator" />
+
         <div className="menu-title">Cards</div>
         <label className="switch-row">
           <span className="label">Four colour deck</span>
@@ -110,6 +131,10 @@ export function SettingsMenu() {
         <hr className="separator" />
         <SoundSection />
       </div>
+
+      {/* Outside the menu on purpose: a dialog rendered inside `.settings-menu`
+          inherits the widths that menu gives its own controls. */}
+      <PictureDialog ref={pictureRef} />
     </div>
   );
 }

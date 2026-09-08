@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { formatFor } from '@opentable/protocol';
 import type { ArenaStanding } from '@opentable/protocol';
 import { api, ApiError } from '../net/api.ts';
-import { avatarSeed } from '../net/adapt.ts';
+import { avatarSeed, avatarVersion } from '../net/adapt.ts';
 import type { Arena, ArenaSummary } from '../net/types.ts';
 import { useServerMsg, useSession } from '../net/session.tsx';
 import { Avatar } from '../ui/avatar.tsx';
@@ -245,7 +245,12 @@ function HeroCard({
               {arena.podium.map((place) => (
                 <li key={place.uid}>
                   <span className="muted">{podiumLabel(place.place)}</span>
-                  <Avatar seed={avatarSeed(place.uid, place.name)} name={place.name} size={20} />
+                  <Avatar
+                    seed={avatarSeed(place.uid, place.name)}
+                    name={place.name}
+                    size={20}
+                    avatarV={avatarVersion(place.avatarV)}
+                  />
                   <Link className="n" to={`/u/${encodeURIComponent(place.name)}`}>{place.name}</Link>
                   <span className="num muted">{int(place.score)}</span>
                 </li>
@@ -350,6 +355,7 @@ function Standings({ arena, meId }: { arena: Arena; meId: string | null }) {
                           seed={avatarSeed(row.standing.uid, row.standing.name)}
                           name={row.standing.name}
                           size={24}
+                          avatarV={avatarVersion(row.standing.avatarV)}
                         />
                         <Link to={`/u/${encodeURIComponent(row.standing.name)}`}>{row.standing.name}</Link>
                         {row.standing.bot && <span className="bot-tag">bot</span>}
@@ -415,7 +421,12 @@ function FinishedArenas({ arenas }: { arenas: ArenaSummary[] }) {
               {(arena.podium ?? []).map((place) => (
                 <li key={place.uid}>
                   <span className="muted">{podiumLabel(place.place)}</span>
-                  <Avatar seed={avatarSeed(place.uid, place.name)} name={place.name} size={20} />
+                  <Avatar
+                    seed={avatarSeed(place.uid, place.name)}
+                    name={place.name}
+                    size={20}
+                    avatarV={avatarVersion(place.avatarV)}
+                  />
                   <span className="n">{place.name}</span>
                   <span className="num muted">{int(place.score)}</span>
                 </li>

@@ -6,7 +6,7 @@ import type { MatchResult, TableView } from '@opentable/protocol';
 import type { Match } from '../net/types.ts';
 import { BoardText } from '../ui/board-text.tsx';
 import { fmtDate, fmtPct, int, signed } from '../ui/format.ts';
-import { handAccuracy, matchHasAccuracy, seatIsBot } from '../net/adapt.ts';
+import { handAccuracy, matchHasAccuracy, seatIsBot, avatarVersion } from '../net/adapt.ts';
 import { deltaTone } from '../ui/bits.tsx';
 import { Avatar } from '../ui/avatar.tsx';
 import { ordinal, stakeName, stakeSentence } from './labels.ts';
@@ -107,7 +107,12 @@ export function MatchSummary({ match, meId, onAgain, againLabel }: MatchSummaryP
                       <td className="r num">{ordinal(r.place)}</td>
                       <td>
                         <span className="who">
-                          <Avatar seed={r.seat.userId} name={r.seat.name} size={24} />
+                          <Avatar
+                            seed={r.seat.userId}
+                            name={r.seat.name}
+                            size={24}
+                            avatarV={avatarVersion(r.seat.avatarV)}
+                          />
                           <Link to={`/u/${encodeURIComponent(r.seat.name)}`}>{r.seat.name}</Link>
                           {seatIsBot(r.seat) && <span className="seat-bot">bot</span>}
                           {r.seat.userId === meId && <span className="seat-you">you</span>}
@@ -131,6 +136,7 @@ export function MatchSummary({ match, meId, onAgain, againLabel }: MatchSummaryP
               key={r.seat.userId}
               userId={r.seat.userId}
               name={r.seat.name}
+              avatarV={avatarVersion(r.seat.avatarV)}
               stack={r.stack}
               rating={match.rated ? r.rating : null}
               won={match.winner === r.seat.userId}
@@ -171,6 +177,7 @@ type ResultRating = { before: number; after: number; rdBefore: number; rdAfter: 
 function PlayerResult({
   userId,
   name,
+  avatarV,
   stack,
   rating,
   won,
@@ -178,6 +185,7 @@ function PlayerResult({
 }: {
   userId: string;
   name: string;
+  avatarV: number;
   stack: number;
   rating: ResultRating;
   won: boolean;
@@ -189,7 +197,7 @@ function PlayerResult({
   return (
     <div className="card player-result" data-won={won ? '' : undefined}>
       <div className="pr-head">
-        <Avatar seed={userId} name={name} size={24} />
+        <Avatar seed={userId} name={name} size={24} avatarV={avatarV} />
         <Link className="pr-name" to={`/u/${encodeURIComponent(name)}`}>{name}</Link>
         {you && <span className="seat-you">you</span>}
         {won && <span className="badge badge-ok">Won</span>}

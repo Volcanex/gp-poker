@@ -683,6 +683,12 @@
 
 .avatar { width: var(--avatar-size, 26px); height: var(--avatar-size, 26px); overflow: hidden; }
 .avatar img { width: 100%; height: 100%; display: block; }
+/* An uploaded picture is already a 256 square, so cover only matters for the
+   moment a browser is handed one that is not: it crops rather than squashing a
+   face. The generated SVG sits behind it as the element's background, which is
+   what a picture still decoding, and a picture that has been removed, both
+   fall back to. */
+.avatar .avatar-photo { object-fit: cover; }
 .avatar[data-size="24"] { --avatar-size: 24px; }
 .avatar[data-size="28"] { --avatar-size: 28px; }
 .avatar[data-size="56"] { --avatar-size: 56px; }

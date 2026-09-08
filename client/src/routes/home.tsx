@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { BOT_LEVELS, botLevelInfo, formatFor } from '@opentable/protocol';
 import type { Mode } from '@opentable/protocol';
 import { api, ApiError } from '../net/api.ts';
-import { levelAverageRating, modeRating } from '../net/adapt.ts';
+import { levelAverageRating, modeRating, avatarVersion } from '../net/adapt.ts';
 import type { ArenaListing, BotRow, CreatedChallenge, LeaderboardRow, Me } from '../net/types.ts';
 import { readPlayChoice, useSession } from '../net/session.tsx';
 import { MODES, MODE_NAME } from '../ui/mode-tabs.tsx';
@@ -591,7 +591,12 @@ function Leaderboard({ mode }: { mode: Mode }) {
                     <td>
                       {list ? (
                         <span className="player-cell">
-                          <Avatar seed={avatarSeed(r.id, r.name)} name={r.name} size={24} />
+                          <Avatar
+                            seed={avatarSeed(r.id, r.name)}
+                            name={r.name}
+                            size={24}
+                            avatarV={avatarVersion(r.avatarV)}
+                          />
                           <Link to={`/u/${encodeURIComponent(r.name)}`}>{r.name}</Link>
                         </span>
                       ) : (

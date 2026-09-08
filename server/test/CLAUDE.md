@@ -138,7 +138,11 @@ The full-match files are the ones with the most to say about how they are built:
 
 The rest each cover one surface and read as their names suggest:
 `arena.test.ts` (an arena opening, pairing, scoring and closing through
-`configureArena`), `auth.test.ts`, `challenge.test.ts`, `chat.test.ts`,
+`configureArena`), `auth.test.ts`, `avatar.test.ts` (a webp and a png in and
+back out byte for byte, a gif refused on its magic number whatever its header
+says, an oversized body refused by the route's own limit, the ten second gap,
+removal bumping the version, the cache header with and without `?v=`, and the
+version reaching a seat at the table), `challenge.test.ts`, `chat.test.ts`,
 `explorer.test.ts`, `feed.test.ts`, `health.test.ts`, `identity.test.ts`,
 `insights.test.ts`, `ladder.test.ts`, `leaderboard.test.ts` (the board reads the
 `ratings` table, hides provisional players, and a six-max standing never shows on

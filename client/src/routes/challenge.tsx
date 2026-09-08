@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError } from '../net/api.ts';
-import { avatarSeed, modeRating } from '../net/adapt.ts';
+import { avatarSeed, modeRating, avatarVersion } from '../net/adapt.ts';
 import type { Challenge as ChallengeLink } from '../net/types.ts';
 import { useSession } from '../net/session.tsx';
 import { Avatar } from '../ui/avatar.tsx';
@@ -139,7 +139,11 @@ export function Challenge() {
     <Shell>
       <div className="mode-head">
         <span className="player-cell">
-          <Avatar seed={avatarSeed(link.creator.id, link.creator.name)} name={link.creator.name} />
+          <Avatar
+            seed={avatarSeed(link.creator.id, link.creator.name)}
+            name={link.creator.name}
+            avatarV={avatarVersion(link.creator.avatarV)}
+          />
           <h1 className="t">{link.creator.name} wants to play you</h1>
         </span>
       </div>

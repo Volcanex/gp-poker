@@ -172,6 +172,7 @@ export async function createMatchForPlayers(
       name: u!.name,
       rating: Math.round(standings.get(u!.id)!.rating),
       bot: u!.bot,
+      avatarV: u!.avatarV,
     }));
     try {
       const match = await insertMatch(id, format, seats, format.rated);

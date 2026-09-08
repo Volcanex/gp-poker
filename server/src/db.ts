@@ -57,7 +57,20 @@ export interface UserRow {
   wins: number;
   losses: number;
   draws: number;
+  avatarType: string | null; // null while they have no picture
+  avatarV: number; // bumped on every change, 0 while they have never had one
 }
+
+/* Every column of `users` except the picture itself, which is the one column
+   nothing but `/api/avatars/:id` ever wants. `select *` would put up to 128 KB
+   of image bytes on the wire for every session lookup, and a session lookup
+   runs on every request. The list is beside `UserRow` because a new column has
+   to be added to both anyway, so the two cannot drift apart quietly. */
+const USER_COLS = sql`
+  id, name, name_lower, password_hash, guest, bot, bot_level, created_at,
+  last_seen_at, rating, rd, volatility, rating_at, peak_rating, peak_at,
+  matches, wins, losses, draws, avatar_type, avatar_v
+`;
 
 /* One row per (user, mode). This is where the Glicko-2 state lives now; the
    matching columns on `users` are legacy, mirrored from the heads-up row on
@@ -136,6 +149,10 @@ export interface MatchSeat {
   name: string;
   rating: number;
   bot: boolean;
+  /* Picture version at the moment the table was made, 0 for none. Stored with
+     the seat like the name and the rating are, so a finished match reads back
+     as it looked, and absent on a match played before pictures existed. */
+  avatarV?: number;
 }
 
 export interface MatchRow {
@@ -196,18 +213,18 @@ export async function insertGuestUser(name: string): Promise<UserRow> {
   const [row] = await sql<UserRow[]>`
     insert into users (name, name_lower, guest)
     values (${name}, ${name.toLowerCase()}, true)
-    returning *
+    returning ${USER_COLS}
   `;
   return row;
 }
 
 export async function getUserById(id: string): Promise<UserRow | null> {
-  const [row] = await sql<UserRow[]>`select * from users where id = ${id}`;
+  const [row] = await sql<UserRow[]>`select ${USER_COLS} from users where id = ${id}`;
   return row ?? null;
 }
 
 export async function getUserByNameLower(nameLower: string): Promise<UserRow | null> {
-  const [row] = await sql<UserRow[]>`select * from users where name_lower = ${nameLower}`;
+  const [row] = await sql<UserRow[]>`select ${USER_COLS} from users where name_lower = ${nameLower}`;
   return row ?? null;
 }
 
@@ -220,7 +237,7 @@ export async function claimGuestUser(
     update users
     set name = ${name}, name_lower = ${name.toLowerCase()}, password_hash = ${passwordHash}, guest = false
     where id = ${id} and guest = true
-    returning *
+    returning ${USER_COLS}
   `;
   return row ?? null;
 }
@@ -239,12 +256,12 @@ export async function ensureBotUser(name: string, level: number): Promise<UserRo
     update users set bot_level = ${level}
     where name_lower = ${name.toLowerCase()} and bot = true and bot_level is distinct from ${level}
   `;
-  const [row] = await sql<UserRow[]>`select * from users where name_lower = ${name.toLowerCase()}`;
+  const [row] = await sql<UserRow[]>`select ${USER_COLS} from users where name_lower = ${name.toLowerCase()}`;
   return row;
 }
 
 export async function getBotUsers(): Promise<UserRow[]> {
-  return sql<UserRow[]>`select * from users where bot = true order by name_lower asc`;
+  return sql<UserRow[]>`select ${USER_COLS} from users where bot = true order by name_lower asc`;
 }
 
 // Advisory-locked so two concurrent boots (a rolling deploy, or several
@@ -257,8 +274,8 @@ const BOT_MIGRATION_LOCK_KEY = 727101;
 export async function migrateLegacyBotNames(names: string[]): Promise<void> {
   await sql.begin(async (tx) => {
     await tx`select pg_advisory_xact_lock(${BOT_MIGRATION_LOCK_KEY})`;
-    const legacy = await tx<UserRow[]>`
-      select * from users where bot = true and name_lower like 'bot-%' order by name_lower asc
+    const legacy = await tx<{ id: string }[]>`
+      select id from users where bot = true and name_lower like 'bot-%' order by name_lower asc
     `;
     for (let i = 0; i < legacy.length && i < names.length; i++) {
       await tx`
@@ -273,6 +290,53 @@ export async function touchLastSeen(id: string): Promise<void> {
   await sql`update users set last_seen_at = now() where id = ${id}`;
 }
 
+// ---- profile pictures ----
+
+/* The one query that reads the bytes. Everything else about a user goes
+   through USER_COLS, which leaves the picture behind on purpose. */
+export interface AvatarRow {
+  avatar: Buffer;
+  avatarType: string;
+  avatarV: number;
+}
+
+export async function getUserAvatar(id: string): Promise<AvatarRow | null> {
+  const [row] = await sql<AvatarRow[]>`
+    select avatar, avatar_type, avatar_v from users
+    where id = ${id} and avatar is not null and avatar_type is not null
+  `;
+  return row ?? null;
+}
+
+/* Stores a picture and returns the version it now has. The bump is part of the
+   same statement as the write, so a version can never be handed out for bytes
+   that are not there yet. */
+export async function setUserAvatar(id: string, bytes: Buffer, type: string): Promise<number | null> {
+  const [row] = await sql<{ avatarV: number }[]>`
+    update users
+    set avatar = ${bytes}, avatar_type = ${type}, avatar_v = avatar_v + 1
+    where id = ${id}
+    returning avatar_v
+  `;
+  return row ? row.avatarV : null;
+}
+
+/* Removing a picture bumps the version too: a page holding the old URL is
+   holding an immutable answer, so the only way to tell it the picture has gone
+   is to give it a different number to ask about. Removing a picture nobody had
+   changes nothing and reports the version that already stood. */
+export async function clearUserAvatar(id: string): Promise<number | null> {
+  const [row] = await sql<{ avatarV: number }[]>`
+    update users
+    set avatar = null, avatar_type = null, avatar_v = avatar_v + 1
+    where id = ${id} and avatar is not null
+    returning avatar_v
+  `;
+  if (row) return row.avatarV;
+  const [current] = await sql<{ avatarV: number }[]>`select avatar_v from users where id = ${id}`;
+  return current ? current.avatarV : null;
+}
+
 export interface LeaderboardRow {
   id: string;
   name: string;
@@ -280,13 +344,14 @@ export interface LeaderboardRow {
   rd: number;
   matches: number;
   peakRating: number;
+  avatarV: number;
 }
 
 export async function getLeaderboard(mode: Mode, limit = 100): Promise<LeaderboardRow[]> {
   // 110 mirrors @opentable/rating's isProvisional threshold (see userView.ts);
   // it's duplicated here only because SQL can't call into that package.
   return sql<LeaderboardRow[]>`
-    select u.id, u.name, r.rating, r.rd, r.matches, r.peak_rating
+    select u.id, u.name, r.rating, r.rd, r.matches, r.peak_rating, u.avatar_v
     from ratings r
     join users u on u.id = r.user_id
     where r.mode = ${mode} and r.rd <= 110 and u.bot = false
@@ -358,9 +423,10 @@ export async function insertSession(token: string, userId: string, expiresAt: Da
 
 export async function getSessionUser(token: string): Promise<UserRow | null> {
   const [row] = await sql<UserRow[]>`
-    select u.* from sessions s
-    join users u on u.id = s.user_id
-    where s.token = ${token} and s.expires_at > now()
+    select ${USER_COLS} from users
+    where id = (
+      select user_id from sessions where token = ${token} and expires_at > now()
+    )
   `;
   return row ?? null;
 }
@@ -433,6 +499,7 @@ export interface UserMatchSummary {
   mode: MatchFormat['mode'];
   opponent: string; // the other seat heads-up, the next seat along multiway
   opponentId: string | null;
+  opponentAvatarV: number; // their picture as the match stored it, 0 for none
   players: number; // seats in the match, so a client can render "3rd of 6"
   place: number | null;
   result: 'win' | 'loss' | 'draw';
@@ -470,6 +537,7 @@ export async function getMatchesForUser(userId: string, limit = 20): Promise<Use
       mode: m.format.mode,
       opponent: opponentSeat?.name ?? 'unknown',
       opponentId: opponentSeat?.userId ?? null,
+      opponentAvatarV: opponentSeat?.avatarV ?? 0,
       players: m.seats.length,
       place,
       result,
@@ -903,6 +971,7 @@ export interface HomeGameRow {
 export interface HomeGameSeatRow {
   userId: string;
   name: string;
+  avatarV: number;
   joinedAt: Date;
 }
 
@@ -940,7 +1009,7 @@ export async function countOpenHomeGames(hostId: string): Promise<number> {
 // In join order, which is the order the lobby fills its seats in.
 export async function getHomeGameSeats(gameId: string): Promise<HomeGameSeatRow[]> {
   return sql<HomeGameSeatRow[]>`
-    select s.user_id, u.name, s.joined_at
+    select s.user_id, u.name, u.avatar_v, s.joined_at
     from home_game_seats s join users u on u.id = s.user_id
     where s.game_id = ${gameId}
     order by s.joined_at asc
@@ -1189,7 +1258,7 @@ export interface ArenaRow {
   startsAt: Date;
   endsAt: Date;
   status: 'upcoming' | 'running' | 'finished';
-  podium: { uid: string; name: string; score: number; place: number }[] | null;
+  podium: { uid: string; avatarV?: number; name: string; score: number; place: number }[] | null;
   createdAt: Date;
 }
 
@@ -1198,6 +1267,7 @@ export interface ArenaPlayerRow {
   userId: string;
   name: string;
   bot: boolean;
+  avatarV: number;
   rating: number; // heads-up, filled in by the join below
   joinedAt: Date;
   score: number;
@@ -1277,8 +1347,8 @@ export async function finishArena(
 export async function getArenaPlayers(arenaId: string): Promise<ArenaPlayerRow[]> {
   return sql<ArenaPlayerRow[]>`
     select
-      ap.arena_id, ap.user_id, u.name, u.bot, ap.joined_at, ap.score, ap.wins,
-      ap.losses, ap.draws, ap.streak, ap.matches, ap.paused, ap.place,
+      ap.arena_id, ap.user_id, u.name, u.bot, u.avatar_v, ap.joined_at, ap.score,
+      ap.wins, ap.losses, ap.draws, ap.streak, ap.matches, ap.paused, ap.place,
       coalesce(r.rating, 1500) as rating
     from arena_players ap
     join users u on u.id = ap.user_id

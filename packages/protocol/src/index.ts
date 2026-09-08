@@ -3,7 +3,10 @@
    shapes below is a protocol change: bump PROTOCOL_VERSION and keep the
    server accepting the previous one for a deploy cycle. v4 is additive: the
    `arena` message in both directions and `format.arena`, so a v3 client that
-   never sends one is served unchanged. */
+   never sends one is served unchanged. Profile pictures were additive inside
+   v4 for the same reason: `avatarV` is optional on every shape that carries
+   it, and a client that has never heard of it draws the generated avatar it
+   always did. */
 
 export const PROTOCOL_VERSION = 4;
 
@@ -157,6 +160,7 @@ export interface LobbySeat {
   name: string;
   rating: number; // their six-max standing, the mode a home game is played in
   host: boolean;
+  avatarV?: number; // picture version, 0 for none
 }
 
 /* An arena: a half-hour heads-up event that pairs you again the moment your
@@ -181,6 +185,7 @@ export interface ArenaStanding {
   streak: number; // consecutive wins; two of them and the next win is worth three
   matches: number;
   paused: boolean;
+  avatarV?: number; // picture version, 0 for none
 }
 
 /* What a result is worth on the board, and when a run of wins starts paying
@@ -228,6 +233,7 @@ export interface ChatFrom {
   name: string;
   bot: boolean;
   seat: number | null;
+  avatarV?: number; // picture version, 0 for none
 }
 
 /* The limits, here rather than on either side of the wire, because the client
@@ -289,6 +295,10 @@ export interface UserSummary {
   rd: number;
   provisional: boolean;
   ratings: Record<Mode, ModeRating>;
+  /* Which version of this player's picture to ask for, 0 when they have none.
+     Optional so a client talking to a server that predates pictures reads the
+     generated avatar rather than a broken image. */
+  avatarV?: number;
 }
 
 export interface LastEvent {
@@ -316,6 +326,10 @@ export interface SeatView {
   out: boolean; // eliminated from a multiway match, seat stays visible with its place
   place: number | null; // finishing position once out (1 = winner), null while in
   last: { a: ActionKind; v?: number } | null;
+  /* Picture version, 0 for none. Frozen when the match was created, like the
+     name and the rating beside it: a seat is what the table looked like when
+     it sat down. */
+  avatarV?: number;
 }
 
 export interface LegalActions {
