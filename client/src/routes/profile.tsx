@@ -9,8 +9,8 @@ import { PageResting } from '../ui/enter.tsx';
 import { RatingGraph } from '../ui/rating-graph.tsx';
 import { fmtDate, fmtPct, fmtShortDate, int, signed } from '../ui/format.ts';
 import {
-  avatarSeed, matchPlacing, matchPractice, matchRated, modePeakAt, modeRating, modeWinRate,
-  profileAccuracy, ratingHistoryFor,
+  avatarSeed, mainMode, matchPlacing, matchPractice, matchRated, modePeakAt, modeRating,
+  modeStanding, modeWinRate, profileAccuracy, ratingHistoryFor,
 } from '../net/adapt.ts';
 import { MODES, MODE_NAME, ModeTabs } from '../ui/mode-tabs.tsx';
 import { ordinal } from '../table/labels.ts';
@@ -66,7 +66,6 @@ export function Profile() {
 
   const isMe = me != null && me.id === data.summary.id;
   const standings = MODES.map((mode) => ({ mode, r: modeRating(data.summary, mode) }));
-  const played = standings.some((s) => s.r.matches > 0) || data.lastMatches.length > 0;
   const accuracy = profileAccuracy(data);
 
   return (
@@ -84,8 +83,15 @@ export function Profile() {
         {data.summary.bot && data.summary.botLevel != null && (
           <span className="muted">{botLevelInfo(data.summary.botLevel).description}</span>
         )}
-        {/* One standing per mode: a six-max result never moves a heads-up
-            rating, so a single number here would be two things at once. */}
+      </header>
+
+      <RatingSection profile={data} />
+
+      {/* One standing per mode: a six-max result never moves a heads-up
+          rating, so a single number here would be two things at once. The
+          headline above is one of these rows blown up; this is the rest. */}
+      <section className="stack" style={{ gap: 'var(--sp-3)' }}>
+        <span className="h2">Every mode</span>
         <div className="card lb-card">
           <div className="table-wrap">
             <table className="table" aria-label="Rating in each mode">
@@ -94,6 +100,7 @@ export function Profile() {
                   <th>Mode</th>
                   <th className="r">Rating</th>
                   <th className="r">Peak</th>
+                  <th className="r">Percentile</th>
                   <th className="r">Matches</th>
                   <th className="r">Win rate</th>
                 </tr>
@@ -102,6 +109,7 @@ export function Profile() {
                 {standings.map(({ mode, r }) => {
                   const winRate = modeWinRate(r);
                   const peakAt = modePeakAt(data, mode);
+                  const standing = modeStanding(data, mode);
                   return (
                     <tr key={mode}>
                       <td>
@@ -126,6 +134,16 @@ export function Profile() {
                         {r.matches === 0 ? '' : int(r.peak)}
                         {r.matches > 0 && peakAt && <span className="rd">{fmtShortDate(peakAt)}</span>}
                       </td>
+                      <td className="r">
+                        {standing == null ? (
+                          ''
+                        ) : (
+                          <>
+                            <span className="num">Top {topShare(standing.percentile)}</span>
+                            <span className="rd num">{standing.rank} of {standing.population}</span>
+                          </>
+                        )}
+                      </td>
                       <td className="r num">{r.matches}</td>
                       <td className="r num">
                         {winRate == null ? '' : fmtPct(winRate * 100, 0)}
@@ -140,12 +158,9 @@ export function Profile() {
             </table>
           </div>
         </div>
-        {!played && <span className="muted">No rated matches yet.</span>}
-      </header>
+      </section>
 
       {isMe && me?.guest && <ClaimCard onClaimed={load} />}
-
-      <RatingSection profile={data} />
 
       <InsightsSection profile={data} />
 
@@ -306,15 +321,18 @@ function ArenasSection({ arenas }: { arenas: ProfileArena[] }) {
   );
 }
 
-/* The line is per mode as well: splicing a six-max result into a heads-up
-   curve would draw a shape neither ladder ever had. */
+/* The headline and the line under it, one mode at a time. They share the mode
+   the tabs pick rather than keeping one each, so the big number and the curve
+   below it are never two different modes at once. It opens on the mode this
+   player actually plays, which is what the number is for: their rating where
+   they play, not the higher of two. */
 function RatingSection({ profile }: { profile: ProfileData }) {
-  const [mode, setMode] = useState<Mode>(() => busiestMode(profile));
+  const [mode, setMode] = useState<Mode>(() => mainMode(profile));
   const points = ratingHistoryFor(profile, mode);
 
   return (
     <section className="stack" style={{ gap: 'var(--sp-3)' }}>
-      <span className="h2">Rating</span>
+      <HeroRating profile={profile} mode={mode} />
       <ModeTabs mode={mode} onPick={setMode} label="Rating history mode" />
       {points.length === 0 ? (
         <div className="card">
@@ -330,14 +348,76 @@ function RatingSection({ profile }: { profile: ProfileData }) {
   );
 }
 
-/* The mode a profile opens on: whichever of the two this player has actually
-   played, heads-up when neither. Both switches on the page start here, so a
-   profile does not open showing a rating line for one mode beside insights
-   for the other. */
-function busiestMode(profile: ProfileData): Mode {
-  const sixMax = modeRating(profile.summary, 'six-max').matches;
-  const headsUp = modeRating(profile.summary, 'heads-up').matches;
-  return sixMax > headsUp ? 'six-max' : 'heads-up';
+/* The one number this page is for. The rating is the largest thing on the
+   screen, the peak sits under it, and beside them is the only part of a rating
+   anybody can read without knowing the scale: where it puts you among everyone
+   else who plays this mode.
+
+   The card holds its height across both states and every field is reserved at
+   its widest, so picking the other mode moves nothing on the page under it. */
+function HeroRating({ profile, mode }: { profile: ProfileData; mode: Mode }) {
+  const r = modeRating(profile.summary, mode);
+  const standing = modeStanding(profile, mode);
+  const modeName = MODE_NAME[mode].toLowerCase();
+
+  if (r.matches === 0) {
+    return (
+      <div className="card rating-hero">
+        <div className="rating-hero-main">
+          <span className="k">{MODE_NAME[mode]}</span>
+          <span className="v" data-empty="">Unrated</span>
+          <span className="d">No rated {modeName} matches yet.</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card rating-hero">
+      <div className="rating-hero-main">
+        <span className="k">{MODE_NAME[mode]}</span>
+        <span className="v num">{int(r.rating)}</span>
+        <span className="d">
+          Peak <span className="num">{int(r.peak)}</span>
+        </span>
+      </div>
+      {/* A field of one is not a field: nobody is above or below you, so
+          there is no share to print and the card shows the rating alone. */}
+      {standing != null && standing.population > 1 && (
+        <div className="rating-hero-place">
+          <span className="rating-hero-share">
+            Top {topShare(standing.percentile)} of {modeName} players
+          </span>
+          {/* g's progress bar, filled to the share of the field this player is
+              above, so a fuller bar is a better standing. The numbers are both
+              in the text either side of it, which is why it is not read out a
+              third time. */}
+          <span
+            className="g-progress"
+            role="progressbar"
+            aria-hidden="true"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={standing.percentile}
+          >
+            <span className="g-progress-fill" style={{ width: `${standing.percentile}%` }} />
+          </span>
+          <span className="rating-hero-rank num">
+            Rank {standing.rank} of {standing.population}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* "Top 12%": the share of the field above this player, which is the other side
+   of the percentile the server sends. Anything under one percent keeps a
+   decimal, because the best of two hundred and eighty is top 0.4% and rounding
+   that to zero would say nothing at all. */
+function topShare(percentile: number): string {
+  const above = 100 - percentile;
+  return above > 0 && above < 1 ? `${above.toFixed(1)}%` : `${Math.round(above)}%`;
 }
 
 const POSITION_NAME: Record<PositionKey, string> = {
@@ -363,7 +443,7 @@ const STREET_ORDER: { key: keyof NonNullable<Insights['streets']>; label: string
    wait for. The server caches it per player and mode. */
 function InsightsSection({ profile }: { profile: ProfileData }) {
   const name = profile.summary.name;
-  const [mode, setMode] = useState<Mode>(() => busiestMode(profile));
+  const [mode, setMode] = useState<Mode>(() => mainMode(profile));
   const [data, setData] = useState<Insights | null>(null);
   const [error, setError] = useState<string | null>(null);
 

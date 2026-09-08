@@ -76,8 +76,26 @@ export interface BotRow {
   ratings: Record<Mode, { rating: number; matches: number }>;
 }
 
+/* Where a player sits in one mode: their 1-based place counting from the top,
+   the size of the field that place is in, and the share of that field rated
+   strictly below them. The field is every non-bot with at least one rated match
+   in the mode, which is why a bot and a mode nobody has played have no standing
+   at all rather than a rank of zero. */
+export interface ModeStanding {
+  rank: number;
+  population: number;
+  percentile: number;
+}
+
 export interface Profile {
   summary: UserSummary;
+  /* The mode this player plays most, which the headline and both mode switches
+     open on. Absent on a server from before it; read it through mainMode() in
+     src/net/adapt.ts, never directly. */
+  main?: Mode;
+  /* One standing per mode, null for a mode with no rated match behind it and
+     for a bot. Absent on an older server; read it through modeStanding(). */
+  percentiles?: Partial<Record<Mode, ModeStanding | null>>;
   /* Flat fields are the heads-up standing. Per mode, read summary.ratings
      through modeRating() in src/net/adapt.ts. */
   peak: number;

@@ -129,6 +129,35 @@ that the shapes themselves do not say:
   rather than the client fetching hands until one fits; the client replays the
   log to that index itself. 404 while no such hand exists.
 
+### Percentiles and the main mode
+
+`/api/users/:name` also answers "where does this put me", which is the only
+reading of a rating that needs no scale beside it. Two additive fields:
+
+- **`percentiles`**, one entry per mode. `rank` is the 1-based place counting
+  from the top, `population` is the field that place is in, and `percentile` is
+  the share of that field rated **strictly below** this player, to one decimal.
+  The best of five reads 80.0, not 100. A mode with no rated match behind it,
+  and every mode of a bot, is `null` rather than a rank in a field they are not
+  in.
+- **`main`**, the mode with the most rated matches, the higher rating breaking
+  a tie and heads-up when they have played neither (`userView.mainMode`). It
+  answers "where do you play", not "where are you best": two hundred heads-up
+  matches make somebody a heads-up player on a day their six-max rating happens
+  to read higher. The profile opens its headline, its rating line and its
+  insights on it.
+
+**The population is every non-bot with at least one rated match in the mode**
+(`getModeStandings` in `db.ts`, one window query). Bots are excluded because
+they hold ratings the ladder keeps moving, so counting them would make a
+person's place depend on how many robots the box happens to run; rows with no
+rated match behind them are excluded because a default 1500 nobody earned would
+stack a crowd of ghosts in the middle of the board. Unlike `/api/leaderboard`
+this does **not** drop provisional players: somebody four matches in is still
+somebody you are ahead of, and dropping them would shrink the field as the site
+got busier. Ranks are `rank()`, not `row_number()`, so a tie shares a place, and
+ranking from the bottom gives the strictly-below count for free.
+
 **`stats.vpip`, `stats.pfr`, `stats.aggressionFrequency` and `stats.foldTo3bet`
 on `/api/users/:name` are no longer read by anything.** The profile printed them
 as a play-style block over the player's whole history; the insights route gives

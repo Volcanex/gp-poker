@@ -8,6 +8,7 @@ function modeParam(raw: unknown): Mode {
 import {
   MODES,
   getLeaderboard,
+  getModeStandings,
   getRatingsFor,
   getUserByNameLower,
   getUserHandStats,
@@ -27,6 +28,7 @@ import {
   getSiteStats,
   deleteSession,
   type MatchRow,
+  type ModeStanding,
 } from './db.js';
 import { config } from './config.js';
 import { hub } from './ws/hub.js';
@@ -34,7 +36,7 @@ import { queueSize } from './matchmaking.js';
 import { getRoom } from './match/rooms.js';
 import { claimGuest, login, requireUser, setSessionCookie, clearSessionCookie, createSessionForUser, SESSION_COOKIE } from './auth.js';
 import { rosterSummary } from './bots/index.js';
-import { roundRatings, toModeRating, toUserSummary } from './userView.js';
+import { mainMode, roundRatings, toModeRating, toUserSummary } from './userView.js';
 import { computeInsights, type Insights } from './insights.js';
 import { health } from './health.js';
 import { emptyExplorerCube, explorerQuery, foldExplorerHands, sliceExplorer, type ExplorerCube } from './explorer.js';
@@ -131,6 +133,7 @@ export function registerRoutes(app: FastifyInstance): void {
     if (!user) return err(reply, 404, 'no such user');
 
     const ratings = await getRatingsFor(user.id);
+    const standings = await getModeStandings(user.id);
     const history = await getRatingHistoryForUser(user.id);
     const stats = await getUserHandStats(user.id);
     const accuracy = await getUserPreflopAccuracy(user.id);
@@ -162,8 +165,17 @@ export function registerRoutes(app: FastifyInstance): void {
       stats.aggrTotal + stats.passiveTotal > 0 ? stats.aggrTotal / (stats.aggrTotal + stats.passiveTotal) : 0;
     const foldTo3bet = stats.faced3betHands > 0 ? (stats.foldTo3betHands / stats.faced3betHands) * 100 : 0;
 
+    /* Where this player sits in each mode, keyed the way the standings are.
+       A mode they have never played rated, and every mode of a bot, is null
+       rather than a rank in a field they are not in. */
+    const percentiles = {} as Record<Mode, ModeStanding | null>;
+    for (const mode of MODES) percentiles[mode] = standings.find((s) => s.mode === mode) ?? null;
+
     return {
       summary: toUserSummary(user, ratings),
+      // The mode the page opens on and puts in its headline.
+      main: mainMode(ratings),
+      percentiles,
       // Flat fields stay heads-up for compatibility; summary.ratings has the
       // per-mode standings including peak and the counters.
       peak: headsUpStanding.peak,

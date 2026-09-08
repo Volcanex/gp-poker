@@ -33,6 +33,11 @@ const STATES: Shot[] = [
   /* The list of tables to watch: the one page whose whole content is the live
      endpoint, so it is worth a picture now that the endpoint has fixtures. */
   { name: 'watch', url: '/watch' },
+  /* The profile twice: somebody rated, whose headline carries a peak and a
+     place in the field, and somebody who has played nothing, whose headline
+     says so rather than printing a rating they never earned. */
+  { name: 'profile', url: '/u/kestrel' },
+  { name: 'profile-unrated', url: '/u/newcomer' },
   /* The two pages a shared link opens on, from the side that receives it. */
   { name: 'invite', url: '/c/ch-open' },
   { name: 'lobby', url: '/g/hg-open' },
