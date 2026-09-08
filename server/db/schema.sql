@@ -249,3 +249,10 @@ create table if not exists arena_players (
   primary key (arena_id, user_id)
 );
 create index if not exists arena_players_board on arena_players(arena_id, score desc);
+
+-- The flag a player chose to put beside their name: a lowercase ISO 3166-1
+-- alpha-2 code, or null for no flag, which is the default and stays the
+-- default. Nothing infers it from an address or a request header: it is
+-- something a player says about themselves, and guests may say it too.
+-- Validated against server/src/countries.ts before it is written here.
+alter table users add column if not exists country char(2);

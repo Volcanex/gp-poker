@@ -8,6 +8,7 @@ import { avatarSeed } from '../net/adapt.ts';
 import type { Arena, ArenaSummary } from '../net/types.ts';
 import { useServerMsg, useSession } from '../net/session.tsx';
 import { Avatar } from '../ui/avatar.tsx';
+import { FlagSlot } from '../ui/flag.tsx';
 import { useNow } from '../ui/bits.tsx';
 import { int } from '../ui/format.ts';
 import { ordinal } from '../table/labels.ts';
@@ -351,6 +352,8 @@ function Standings({ arena, meId }: { arena: Arena; meId: string | null }) {
                           name={row.standing.name}
                           size={24}
                         />
+                        {/* Reserved, so a board of names stays in one column. */}
+                        <FlagSlot code={row.standing.country} size={16} />
                         <Link to={`/u/${encodeURIComponent(row.standing.name)}`}>{row.standing.name}</Link>
                         {row.standing.bot && <span className="bot-tag">bot</span>}
                         {live && row.standing.paused && <span className="seat-you">paused</span>}

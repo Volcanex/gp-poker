@@ -7,6 +7,7 @@ import { modeRating } from '../net/adapt.ts';
 import { MODE_NAME } from './mode-tabs.tsx';
 import { int } from './format.ts';
 import { Avatar } from './avatar.tsx';
+import { Flag } from './flag.tsx';
 
 /* Shown on your own profile while the account is still a guest. The point it
    has to make is that nothing is lost by claiming: the rating is already
@@ -111,6 +112,7 @@ export function AccountMenu() {
         aria-haspopup="menu"
       >
         {me && <Avatar seed={me.id} name={me.name} size={24} />}
+        {me?.country && <Flag code={me.country} size={16} />}
         {me ? me.name : 'Account'}
         {me && <span className="r num">{int(modeRating(me, mode).rating)}</span>}
         {me && <span className="m">{MODE_NAME[mode].toLowerCase()}</span>}

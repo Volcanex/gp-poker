@@ -49,7 +49,20 @@ shift is a regression, and the usual cause is a box sized to a string:
 - Centred text that changes length moves. `.dock-status` is full width with
   `text-align: center` rather than a box that shrinks to its string.
 - A marker that comes and goes moves everything after it. The button `D` is
-  always rendered and hidden with `visibility`.
+  always rendered and hidden with `visibility`, and the flag beside a name is
+  the same bargain in a different shape: `FlagSlot` (`../ui/flag.tsx`) draws
+  either the picture or an empty box of exactly its size, so a seat with a
+  country and a seat without measure the same. The hairline is drawn inside the
+  box for that reason.
+- **A reserved slot has to be paid for somewhere.** The name line had nothing
+  spare when it gained one, and a truncated name is worse than a moved badge,
+  so two things left it: the avatar leaves the ring's name line below a 900 px
+  felt (which the phone ring already did with it), and the dealer button leaves
+  the stack table's name line below 560 px. Both go to a seat corner, out of
+  the flow, where they cost no width and still cannot shift anything by
+  arriving. Widening the ring seat instead was tried and does not work: a wider
+  seat reaches further in, and at that width the two upper seats meet the pot.
+  `../../e2e/ergonomics.spec.ts` is what holds the names whole.
 - **`data-state` lives on `.dock-in`, the element that fades, not on `.dock`
   around it.** The dock's own attribute changes the moment the view does, while
   the outgoing content is still on screen finishing its 120 ms exit: with the

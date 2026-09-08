@@ -8,6 +8,7 @@ import { useTitle } from '../ui/title.ts';
 import { MODE_NAME, ModeTabs } from '../ui/mode-tabs.tsx';
 import { int } from '../ui/format.ts';
 import { Avatar } from '../ui/avatar.tsx';
+import { FlagSlot } from '../ui/flag.tsx';
 import { avatarSeed } from '../net/adapt.ts';
 
 export function Leaderboard() {
@@ -81,6 +82,10 @@ export function Leaderboard() {
                         {list ? (
                           <span className="player-cell">
                             <Avatar seed={avatarSeed(r.id, r.name)} name={r.name} size={24} />
+                            {/* Reserved, unlike the feed's: this is a column
+                                of names and a flag on some rows would leave
+                                the rest of them out of line. */}
+                            <FlagSlot code={r.country} size={16} />
                             <Link to={`/u/${encodeURIComponent(r.name)}`}>{r.name}</Link>
                           </span>
                         ) : (

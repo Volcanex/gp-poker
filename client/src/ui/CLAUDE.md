@@ -2,6 +2,7 @@
 
 The furniture that is not the table: `auth.tsx` (claim, log in, account menu),
 `settings.tsx` with its pure half `prefs.ts`, `presence.tsx`, `avatar.tsx`,
+`flag.tsx` with `country-picker.tsx` and the generated `countries.ts`,
 `rating-graph.tsx`, `board-text.tsx`, `mode-tabs.tsx`, `share-link.tsx`,
 `site-footer.tsx`, `bits.tsx`, `format.ts` and `title.ts`.
 
@@ -80,6 +81,58 @@ The four colour deck is four variables, `--suit-s/h/d/c`, read by one rule each
 on the card. Diamonds take the palette's blue and clubs its green, borrowed the
 same way the red is borrowed and for the same reason: nothing on this felt means
 ok or info.
+
+## Flags
+
+`flag.tsx` draws the country somebody put beside their own name. Two exports:
+`Flag` is the picture, `FlagSlot` is the picture or the same box with nothing
+in it.
+
+**An image, never an emoji flag.** The regional indicator pairs render as two
+grey letters on Windows, which is most of the people who would ever see one.
+The artwork is `flag-icons`' 4x3 SVG set, MIT, committed under
+`../../public/flags/` and refreshed by `../../scripts/flags.mjs`, which also
+writes `countries.ts` here and its twin in the server. They are committed rather
+than pulled from the package at build time: 249 small files are worth less than
+a dependency, and only the one a seat asks for is ever fetched.
+
+The flag carries a **hairline drawn inside its own box** (`outline-offset: -1px`
+in `../app.css`), because Japan and Switzerland and a dozen others are mostly
+white and read as a hole in a light surface without it. Inside, so an outlined
+flag and an empty slot measure the same and a footprint test cannot tell them
+apart. It is **not decorative**: nothing else on the row says the country, so
+the alt text is the country's name.
+
+**`FlagSlot` is for a column, `Flag` is for a sentence.** A seat, the phone
+band, the leaderboard, an arena board and a home game's guest list all keep the
+box whether or not there is a flag in it, so a flag on one row cannot leave the
+rest out of line, and on the table nothing can move by arriving (see
+`../table/CLAUDE.md`, "One footprint"). The feed and the watch list print names
+in a sentence, where a reserved gap would read as a missing word, so they draw
+the flag only when there is one.
+
+`country-picker.tsx` is the **one** control that sets it, mounted by the
+settings menu and by your own profile: two copies of "which code did they pick"
+would be two chances to send a code the server refuses. It is g's combobox over
+249 options with "No flag" first, and the choice is the save, with a toast
+saying so. Three things about living with g's control:
+
+- **g owns the field and reads the selection once**, when it wires the control.
+  So the picker does not mount until `me` has arrived, and it is remounted (keyed
+  on the id and the country) when the answer changes under it, which is a
+  different account or the other picker on the page having just saved. Its own
+  save needs no remount: g has already written the name into the field.
+- **g's choice arrives as a bubbling `change` CustomEvent**, which React's
+  synthetic `onChange` never sees, because it is not an input event on an input.
+  A native listener on the wrapper is the whole binding.
+- **g filters the list by whatever is in the field**, and the field opens
+  holding the country already chosen, so a click would offer the one option you
+  are already on. Emptying it on focus is what keeps the control a search. That
+  belongs in g-system's combobox rather than here, and is flagged.
+
+The options carry no flags of their own: g renders all 249 into the DOM at once,
+so a flag per row would be 249 images fetched to show one. The chosen flag sits
+beside the field, which is where the answer is.
 
 ## Presence
 

@@ -37,6 +37,9 @@ export function toUserSummary(user: UserRow, ratings: Record<Mode, RatingRow>): 
     // Only a bot has one, and a person's summary should not carry the key at
     // all rather than carry a null.
     ...(user.botLevel != null ? { botLevel: user.botLevel } : {}),
+    // Always sent, null included: a summary is merged over the one the client
+    // holds, so clearing a flag has to say so rather than go quiet.
+    country: user.country,
     rating: headsUp.rating,
     rd: headsUp.rd,
     provisional: headsUp.provisional,

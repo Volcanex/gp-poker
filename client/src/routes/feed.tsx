@@ -5,6 +5,7 @@ import type { FeedMatch, FeedPlayer, SiteStats } from '../net/types.ts';
 import { MODE_NAME } from '../ui/mode-tabs.tsx';
 import { deltaTone } from '../ui/bits.tsx';
 import { fmtShortDate, signed } from '../ui/format.ts';
+import { Flag } from '../ui/flag.tsx';
 import './home.css';
 
 /* The live counts and the finished matches under the mode cards. The watch
@@ -112,6 +113,7 @@ function PlayerName({ player, showDelta, comma }: { player: FeedPlayer; showDelt
     player.ratingBefore !== null && player.ratingAfter !== null ? player.ratingAfter - player.ratingBefore : null;
   return (
     <span className="name">
+      {player.country && <Flag code={player.country} size={16} />}
       <Link to={`/u/${encodeURIComponent(player.name)}`}>{player.name}</Link>
       {player.bot && <span className="bot-tag">bot</span>}
       {showDelta && change !== null && (

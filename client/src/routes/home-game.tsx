@@ -7,6 +7,7 @@ import { avatarSeed } from '../net/adapt.ts';
 import type { HomeGame } from '../net/types.ts';
 import { useServerMsg, useSession } from '../net/session.tsx';
 import { Avatar } from '../ui/avatar.tsx';
+import { Flag, FlagSlot } from '../ui/flag.tsx';
 import { ShareLink } from '../ui/share-link.tsx';
 import { int } from '../ui/format.ts';
 import { useTitle } from '../ui/title.ts';
@@ -168,6 +169,7 @@ export function HomeGame() {
       <div className="mode-head">
         <span className="player-cell">
           <Avatar seed={avatarSeed(game.host.id, game.host.name)} name={game.host.name} />
+          {game.host.country && <Flag code={game.host.country} size={20} />}
           <h1 className="t">{host ? 'Your home game' : `${game.host.name}'s home game`}</h1>
         </span>
       </div>
@@ -184,7 +186,11 @@ export function HomeGame() {
             <li className="lobby-seat" key={chair.seat.uid}>
               <Avatar seed={avatarSeed(chair.seat.uid, chair.seat.name)} name={chair.seat.name} size={28} />
               <span className="lobby-who">
-                <span className="n">{chair.seat.name}</span>
+                <span className="n">
+                  {/* Reserved, so the guest list stays in one column. */}
+                  <FlagSlot code={chair.seat.country} size={16} />
+                  {chair.seat.name}
+                </span>
                 <span className="muted num">Rated {int(chair.seat.rating)} at six-max</span>
               </span>
               {chair.seat.host && <span className="badge badge-plain">Host</span>}

@@ -45,6 +45,9 @@ export interface UserRow {
   guest: boolean;
   bot: boolean;
   botLevel: number | null; // 1..5 on a bot, null on a person
+  // The flag beside their name: lowercase ISO 3166-1 alpha-2, or null for
+  // none, which is what everyone starts as. See ./countries.ts.
+  country: string | null;
   createdAt: Date;
   lastSeenAt: Date;
   rating: number;
@@ -136,6 +139,11 @@ export interface MatchSeat {
   name: string;
   rating: number;
   bot: boolean;
+  // Snapshotted with the name and the rating when the match is created, and
+  // left off the row entirely when the player has no flag, so a match stored
+  // before countries existed reads the same way as one played by somebody who
+  // never set one.
+  country?: string;
 }
 
 export interface MatchRow {
@@ -225,6 +233,17 @@ export async function claimGuestUser(
   return row ?? null;
 }
 
+/* Sets or clears the flag beside a player's name. Guests included: a guest
+   plays here like anybody else, and the flag belongs to the seat rather than
+   to the account. The code is validated against ./countries.ts before it
+   reaches this, so anything arriving here is already a country or null. */
+export async function updateUserCountry(id: string, country: string | null): Promise<UserRow | null> {
+  const [row] = await sql<UserRow[]>`
+    update users set country = ${country} where id = ${id} returning *
+  `;
+  return row ?? null;
+}
+
 // Bot accounts are ordinary users with bot = true: real names, real ratings,
 // real history, no password and never a guest. Created once at boot. The level
 // is re-asserted on every boot rather than only at creation, so the roster in
@@ -280,13 +299,14 @@ export interface LeaderboardRow {
   rd: number;
   matches: number;
   peakRating: number;
+  country: string | null;
 }
 
 export async function getLeaderboard(mode: Mode, limit = 100): Promise<LeaderboardRow[]> {
   // 110 mirrors @opentable/rating's isProvisional threshold (see userView.ts);
   // it's duplicated here only because SQL can't call into that package.
   return sql<LeaderboardRow[]>`
-    select u.id, u.name, r.rating, r.rd, r.matches, r.peak_rating
+    select u.id, u.name, u.country, r.rating, r.rd, r.matches, r.peak_rating
     from ratings r
     join users u on u.id = r.user_id
     where r.mode = ${mode} and r.rd <= 110 and u.bot = false
@@ -903,6 +923,7 @@ export interface HomeGameRow {
 export interface HomeGameSeatRow {
   userId: string;
   name: string;
+  country: string | null;
   joinedAt: Date;
 }
 
@@ -940,7 +961,7 @@ export async function countOpenHomeGames(hostId: string): Promise<number> {
 // In join order, which is the order the lobby fills its seats in.
 export async function getHomeGameSeats(gameId: string): Promise<HomeGameSeatRow[]> {
   return sql<HomeGameSeatRow[]>`
-    select s.user_id, u.name, s.joined_at
+    select s.user_id, u.name, u.country, s.joined_at
     from home_game_seats s join users u on u.id = s.user_id
     where s.game_id = ${gameId}
     order by s.joined_at asc
@@ -1198,6 +1219,7 @@ export interface ArenaPlayerRow {
   userId: string;
   name: string;
   bot: boolean;
+  country: string | null;
   rating: number; // heads-up, filled in by the join below
   joinedAt: Date;
   score: number;
@@ -1277,7 +1299,7 @@ export async function finishArena(
 export async function getArenaPlayers(arenaId: string): Promise<ArenaPlayerRow[]> {
   return sql<ArenaPlayerRow[]>`
     select
-      ap.arena_id, ap.user_id, u.name, u.bot, ap.joined_at, ap.score, ap.wins,
+      ap.arena_id, ap.user_id, u.name, u.bot, u.country, ap.joined_at, ap.score, ap.wins,
       ap.losses, ap.draws, ap.streak, ap.matches, ap.paused, ap.place,
       coalesce(r.rating, 1500) as rating
     from arena_players ap

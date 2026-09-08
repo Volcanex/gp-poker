@@ -41,6 +41,12 @@ const post = <T>(path: string, body?: unknown) =>
 
 export const api = {
   me: () => req<Me>('/api/me'),
+  /* The flag beside your name. `null` clears it. The body says the state it
+     wants rather than asking for a toggle, and the answer is the whole of
+     /api/me again, so the caller replaces what it holds instead of patching
+     its own copy and guessing at the rest. */
+  setCountry: (country: string | null) =>
+    req<Me>('/api/me', { method: 'PATCH', body: JSON.stringify({ country }) }),
   /* One board per mode; the server defaults to heads-up and falls back to it
      for anything it does not recognise. */
   leaderboard: (mode?: Mode) =>

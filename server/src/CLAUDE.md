@@ -20,6 +20,7 @@ file covers the flat files and the subsystems that live in exactly one of them.
 | `explorer.ts` | the pure derivation behind `/api/explorer` |
 | `meta.ts` | what a pasted link shows, plus `/robots.txt` and `/sitemap.xml` |
 | `health.ts` | `/health`, five checks (see the repo root `CLAUDE.md`) |
+| `countries.ts` | **generated.** The country codes a flag may be set to, and `readCountry` |
 | `pgError.ts` | `isUniqueViolation`, the one place a driver error code is read |
 | `app.ts` | builds the Fastify instance without listening, so tests can inject into it and control timing themselves |
 | `index.ts` | thin: build, start matchmaking, listen, graceful shutdown |
@@ -93,6 +94,38 @@ win/loss/draw counters are all per mode. `userView.ts`'s `isProvisional`
 delegates to `@opentable/rating`'s own threshold rather than keeping a second
 constant; the leaderboard SQL's `rd <= 110` is the one unavoidable duplicate,
 since SQL cannot call into the package, and it is commented at the query.
+
+## Countries
+
+A player may put a flag beside their name: `users.country`, a lowercase ISO
+3166-1 alpha-2 code or null for none, which is what everyone starts as.
+**Nothing infers it.** No geolocation, no `Accept-Language`, no address: it is
+something a player says about themselves, and a guest may say it too, because a
+guest plays here like anybody else and the flag belongs to the seat.
+
+`PATCH /api/me` is the only way to set it. It says the state it wants rather
+than asking for a toggle, so `null` clears the flag and two tabs cannot flip
+each other, and it answers with the whole of `/api/me` so the client replaces
+what it holds instead of patching its own copy. `readCountry` in `countries.ts`
+is what a body is read through: it lowercases, treats an empty string as a
+clear, and returns `undefined` for anything that is not on the list, which the
+route turns into a 400 rather than storing a code that would never draw.
+
+**`countries.ts` is generated and duplicated on purpose.** It holds the codes;
+`../../client/src/ui/countries.ts` holds the same codes with their English
+names. Both are written by `../../client/scripts/flags.mjs` beside the flag
+artwork, so they cannot disagree unless one is hand-edited, and
+`../test/country.test.ts` imports both and fails if they do. The alternative was
+249 country names on the wire in `@opentable/protocol`, which is a table only
+the client prints.
+
+The flag travels with the name wherever a name goes out: `SeatView` (snapshotted
+into `matches.seats` when the match is created, like the name and the rating, so
+a stored match says what the table looked like), the leaderboard, `/api/recent`,
+`/api/live`, arena standings, home game seats, and every `UserSummary`, which is
+what carries it onto a profile and a challenge page. Every one of those fields
+is optional; see `../../packages/protocol/CLAUDE.md` for which are omitted and
+which are sent as null, and why.
 
 ## Modes and formats
 

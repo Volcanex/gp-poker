@@ -158,8 +158,9 @@ the entry point; the detail lives down the tree.
   `client/src/chat/`, `client/src/ui/`, `client/src/sound/` and `client/e2e/`
 - `server/CLAUDE.md`, and under it `server/src/`, `server/src/match/`,
   `server/src/ws/`, `server/src/bots/` and `server/test/`
-- one per workspace package: `packages/engine/`, `packages/equity/`,
-  `packages/identity/`, `packages/preflop/`, `packages/rating/`
+- one per workspace package: `packages/protocol/`, `packages/engine/`,
+  `packages/equity/`, `packages/identity/`, `packages/preflop/`,
+  `packages/rating/`
 - `ops/CLAUDE.md` for the systemd units, `scripts/CLAUDE.md` for the ops scripts
 
 `AGENTS.md` beside any of them is a symlink to it.

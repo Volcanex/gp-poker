@@ -20,6 +20,7 @@ interface Player {
   name: string;
   rating: number;
   bot?: boolean;
+  country?: string;
 }
 
 interface SeatSpec {
@@ -64,6 +65,7 @@ function seatOf(players: Player[], i: number, you: number, hole: Card[], spec: S
     i,
     uid: p.uid,
     name: p.name,
+    ...(p.country ? { country: p.country } : {}),
     rating: p.rating,
     stack: spec.stack,
     bet: spec.bet ?? 0,
@@ -131,8 +133,11 @@ export function mockScript(mode: Mode = 'heads-up', rated = true, practice = fal
 
 /* ------------------------------------------------------------- heads-up */
 
+/* One seat with a flag and one without, so a screenshot of this table shows
+   both halves of the promise: the flag is drawn where there is one, and the
+   seat line is the same width where there is not. */
 const HU: Player[] = [
-  { uid: 'u-opp', name: 'riverrat', rating: 1642 },
+  { uid: 'u-opp', name: 'riverrat', rating: 1642, country: 'gb' },
   { uid: 'u-you', name: 'kestrel', rating: 1518 },
 ];
 const OPP = 0;
@@ -412,7 +417,7 @@ function headsUpScript(): MockStep[] {
    screenshot suite never noticed that every ring seat was truncating at six
    letters on a live table. A mock that is easier than reality tests nothing. */
 const SIX: Player[] = [
-  { uid: 'u-dredger', name: 'PoliteSaxophone', rating: 1602 },
+  { uid: 'u-dredger', name: 'PoliteSaxophone', rating: 1602, country: 'jp' },
   { uid: 'u-hexmark', name: 'BriskQuarry', rating: 1500, bot: true },
   { uid: 'u-you', name: 'RustyAlligator', rating: 1518 },
   { uid: 'u-ninecut', name: 'IcyPencil', rating: 1477 },

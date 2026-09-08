@@ -6,6 +6,7 @@ import { TurnBar, TurnSeconds } from './turn-clock.tsx';
 import { actionText, ordinal, shortName } from './labels.ts';
 import { useFading } from '../ui/bits.tsx';
 import { Avatar } from '../ui/avatar.tsx';
+import { FlagSlot } from '../ui/flag.tsx';
 import { int } from '../ui/format.ts';
 
 export interface SeatProps {
@@ -75,6 +76,9 @@ export function Seat({
 
       <div className="seat-id">
         <span className="seat-line">
+          {/* Always here, empty when the player has no flag: the same reserved
+              slot the button marker below keeps, and for the same reason. */}
+          <FlagSlot code={seat.country} size={16} />
           <span className="seat-name" title={seat.name}>{shortName(seat.name, 16)}</span>
           {you && <span className="seat-you">you</span>}
           {/* Always here, hidden when the button is elsewhere: a marker that

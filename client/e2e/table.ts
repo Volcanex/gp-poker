@@ -5,7 +5,7 @@ import type { Locator, Page } from '@playwright/test';
    server is what makes a run reproducible: the real endpoint mints a fresh
    guest with a fresh name every time, and a name nobody chose is a name that
    changes every baseline. */
-const ME = {
+export const ME = {
   id: 'u-e2e',
   name: 'kestrel',
   guest: true,

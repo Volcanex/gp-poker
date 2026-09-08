@@ -284,6 +284,7 @@ export class EngineHandRunner implements HandRunner {
         i,
         uid,
         name: info.name,
+        ...(info.country ? { country: info.country } : {}),
         rating: info.rating,
         connected: connected[i] ?? true,
         bot: info.bot ?? false,

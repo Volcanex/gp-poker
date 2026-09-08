@@ -11,6 +11,7 @@ import { clamp, presetsFor, raiseAction, raiseLabel, raiseShape } from './sizing
 import { playClick } from './sounds.ts';
 import { actionText, shortName } from './labels.ts';
 import { useFading } from '../ui/bits.tsx';
+import { FlagSlot } from '../ui/flag.tsx';
 import './hero-band.css';
 
 export interface HeroBandProps {
@@ -99,6 +100,9 @@ function HeroCards({ view, best }: { view: TableView; best?: ReadonlySet<Card> }
 
       <div className="hb-meta">
         <span className="hb-who">
+          {/* Reserved like the button marker beside it: an empty slot keeps
+              the name where it was for a player with no flag. */}
+          <FlagSlot code={mine?.country} size={16} />
           <span className="hb-name" title={mine?.name}>{shortName(mine?.name ?? '', 16)}</span>
           {/* Always rendered, hidden when the button is elsewhere: a marker
               that comes and goes moves the name beside it once a hand. */}

@@ -6,6 +6,7 @@ import { avatarSeed, modeRating } from '../net/adapt.ts';
 import type { Challenge as ChallengeLink } from '../net/types.ts';
 import { useSession } from '../net/session.tsx';
 import { Avatar } from '../ui/avatar.tsx';
+import { Flag } from '../ui/flag.tsx';
 import { ShareLink } from '../ui/share-link.tsx';
 import { int } from '../ui/format.ts';
 import { useTitle } from '../ui/title.ts';
@@ -140,6 +141,7 @@ export function Challenge() {
       <div className="mode-head">
         <span className="player-cell">
           <Avatar seed={avatarSeed(link.creator.id, link.creator.name)} name={link.creator.name} />
+          {link.creator.country && <Flag code={link.creator.country} size={20} />}
           <h1 className="t">{link.creator.name} wants to play you</h1>
         </span>
       </div>
