@@ -118,6 +118,14 @@ decisions; this file covers what's not obvious from the code.
   plugins, `/ws` auth), aborts any match left `'playing'` from a previous
   process, without listening or starting matchmaking's tick, so tests can
   build it, inject into it, and control timing themselves.
+- `src/meta.ts` — what a pasted link shows: the built `index.html` read once
+  at boot, with a per-request `<title>`, description, Open Graph and Twitter
+  card tags injected for matches, hands, profiles, challenges and the static
+  pages, plus `/robots.txt` and `/sitemap.xml`. `index.html` is deliberately
+  excluded from `@fastify/static` (`globIgnore`), so `/` and every client
+  route reach the shell through the not-found handler and nothing can serve
+  the generic head; per-id lookups are cached 10s and any miss or failure
+  falls back to the plain shell with a 200.
 - `src/index.ts` — thin: build, start matchmaking, listen, graceful shutdown.
 - `build.mjs` — the production build (see "Building for production" below).
 

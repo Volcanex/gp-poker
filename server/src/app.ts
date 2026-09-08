@@ -7,6 +7,7 @@ import fastifyStatic from '@fastify/static';
 import { config } from './config.js';
 import { abortStalePlayingMatches, applySchema, getRatingsFor } from './db.js';
 import { registerRoutes } from './routes.js';
+import { loadShell, registerCrawlRoutes, sendShell, shellLoaded } from './meta.js';
 import { resolveSessionUser } from './auth.js';
 import { attachConnection } from './ws/hub.js';
 import { routeClientMessage, routeConnect, routeDisconnect } from './ws/router.js';
@@ -34,9 +35,16 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   await app.register(cookie);
   await app.register(websocket);
+  // index.html is deliberately not served from disk. Every HTML response goes
+  // through the not-found handler and out of meta.ts with a title and a
+  // description that are true of the page asked for, and a file route for it
+  // would be the one way to get the generic head instead. Ignoring it here
+  // also drops the '/' index route, so the home page takes the same path as
+  // every other client route.
   await app.register(fastifyStatic, {
     root: clientDist,
     wildcard: false,
+    globIgnore: ['index.html'],
     setHeaders(reply, filePath) {
       const isHashedAsset = filePath.includes(`${path.sep}assets${path.sep}`);
       reply.header('Cache-Control', isHashedAsset ? 'public, max-age=31536000, immutable' : 'no-cache');
@@ -53,6 +61,11 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
 
   registerRoutes(app);
+  registerCrawlRoutes(app);
+  // Read once, here, so a request only has to insert its own tags. A build
+  // with no index.html leaves the shell unloaded and the fallback below
+  // serves the file the way it always did, which keeps that failure loud.
+  await loadShell(clientDist);
 
   app.get(
     '/ws',
@@ -77,13 +90,20 @@ export async function buildApp(): Promise<FastifyInstance> {
     }
   );
 
-  app.setNotFoundHandler((request, reply) => {
+  // Every client route lands here, including '/'. An id nobody has still gets
+  // the shell with a 200: the SPA is what says there is no such match, and a
+  // crawler asking for a page that has gone is not an error worth a 404 body
+  // it cannot render.
+  app.setNotFoundHandler(async (request, reply) => {
     const url = request.raw.url ?? '';
-    if (url.startsWith('/api/') || url === '/ws' || request.method !== 'GET') {
-      reply.code(404).send({ error: 'not found' });
-      return;
+    // HEAD as well as GET: '/' no longer has a file route of its own, and an
+    // uptime check that asks for the head of the home page should get one.
+    const readable = request.method === 'GET' || request.method === 'HEAD';
+    if (url.startsWith('/api/') || url === '/ws' || !readable) {
+      return reply.code(404).send({ error: 'not found' });
     }
-    reply.sendFile('index.html');
+    if (!shellLoaded()) return reply.sendFile('index.html');
+    return sendShell(request, reply);
   });
 
   return app;
