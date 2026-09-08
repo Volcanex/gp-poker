@@ -62,9 +62,9 @@ decisions; this file covers what's not obvious from the code.
     `/puzzles/hand`: a random finished, non-practice, heads-up hand whose
     action log holds a spot the charts have an answer for, with the seat to
     grade and the index of that action in the log. The walk is done here
-    because `@opentable/preflop` reads its charts with `node:fs` and cannot
-    run in a browser; the client replays the log to that index itself. 404
-    while no such hand exists.
+    so the random pick and the "has a gradeable spot" filter happen in one
+    query rather than the client fetching hands until one fits; the client
+    replays the log to that index itself. 404 while no such hand exists.
   - `/api/users/:name/insights?mode=heads-up|six-max` is how somebody plays
     rather than how they are rated, derived from their stored hands. Same
     mode fallback as the leaderboard. See "Insights".

@@ -64,9 +64,9 @@
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
-.ins-bar .val .n { color: var(--text-placeholder); margin-left: 5px; }
+.ins-bar .val .n { color: var(--text-secondary); margin-left: 5px; }
 .ins-bar[data-idle] .lab,
-.ins-bar[data-idle] .val { color: var(--text-placeholder); }
+.ins-bar[data-idle] .val { color: var(--text-secondary); }
 
 /* ------------------------------------------------------ where hands end */
 
@@ -105,7 +105,7 @@
 
 .ins-results { display: flex; flex-direction: column; gap: var(--sp-3); }
 .ins-results .kv dd { font-variant-numeric: tabular-nums; }
-.ins-results .kv dd .u { color: var(--text-placeholder); margin-left: 5px; }
+.ins-results .kv dd .u { color: var(--text-secondary); margin-left: 5px; }
 
 /* A phone has no room for a fixed label column beside a bar that still has
    to be readable, so the label goes above its own row. */
