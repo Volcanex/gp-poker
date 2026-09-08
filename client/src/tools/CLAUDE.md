@@ -33,4 +33,14 @@ through `cell`. That split is the reason one page can paint a range on the grid
 and another shade it by a frequency without either reimplementing arrow key
 navigation. Add a third view of the grid by supplying cells, not by forking it.
 
+## The explorer's panel has one footprint
+
+`Breakdown` re-reads on every pointer move across 169 cells, so it always draws
+the full set of rates, empty as a dash, rather than collapsing to a line of prose
+when there is nothing to say, and the one line that names the hovered hand sits
+in a slot kept two lines tall (`.ex-said`). It used to size to what it was
+reading, which reflowed the page by up to 190 pixels on every hover and moved the
+grid the pointer was crossing. `../../e2e/learn-hover.spec.ts` sweeps all 169
+cells and fails if the panel's box moves.
+
 `../test/tools.test.ts` covers the pure parts.

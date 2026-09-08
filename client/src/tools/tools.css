@@ -269,6 +269,14 @@
   border-color: var(--accent-edge);
 }
 
+/* The line under the rates that names the hovered cell. Reserved at two lines
+   so a longer message cannot make the panel taller: the panel sits beside a
+   grid the pointer is crossing, and a panel that grows on hover moves the page
+   under the pointer. */
+.ex-said {
+  min-height: 2lh;
+}
+
 .ex-legend {
   display: flex;
   align-items: center;
