@@ -1,4 +1,4 @@
-import type { FeedMatch, Hand, LeaderboardRow, LiveMatch, Match, Me, Profile, SiteStats } from './types.ts';
+import type { BotRow, FeedMatch, Hand, LeaderboardRow, LiveMatch, Match, Me, Profile, SiteStats } from './types.ts';
 import type { Mode, UserSummary } from '@opentable/protocol';
 
 export class ApiError extends Error {
@@ -41,6 +41,9 @@ export const api = {
      for anything it does not recognise. */
   leaderboard: (mode?: Mode) =>
     req<LeaderboardRow[]>(mode ? `/api/leaderboard?mode=${encodeURIComponent(mode)}` : '/api/leaderboard'),
+  /* The bot roster with the level each one plays at. Bots are off the
+     leaderboard, so this is the only list of them. */
+  bots: () => req<BotRow[]>('/api/bots'),
   user: (name: string) => req<Profile>(`/api/users/${encodeURIComponent(name)}`),
   match: (id: string) => req<Match>(`/api/matches/${encodeURIComponent(id)}`),
   /* A hand's primary key is '<match id>-<number>' (server/db/schema.sql), so a

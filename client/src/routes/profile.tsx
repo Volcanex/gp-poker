@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import type { Mode } from '@opentable/protocol';
+import { botLevelInfo, type Mode } from '@opentable/protocol';
 import { api, ApiError } from '../net/api.ts';
 import type { Profile as ProfileData } from '../net/types.ts';
 import { useSession } from '../net/session.tsx';
@@ -8,7 +8,8 @@ import { useTitle } from '../ui/title.ts';
 import { RatingGraph } from '../ui/rating-graph.tsx';
 import { fmtDate, fmtPct, fmtShortDate, int, signed } from '../ui/format.ts';
 import {
-  matchPlacing, matchRated, modePeakAt, modeRating, modeWinRate, profileAccuracy, ratingHistoryFor,
+  matchPlacing, matchPractice, matchRated, modePeakAt, modeRating, modeWinRate, profileAccuracy,
+  ratingHistoryFor,
 } from '../net/adapt.ts';
 import { MODES, MODE_NAME, ModeTabs } from '../ui/mode-tabs.tsx';
 import { ordinal } from '../table/labels.ts';
@@ -79,7 +80,15 @@ export function Profile() {
         <div className="profile-name">
           <Avatar seed={data.summary.id} name={data.summary.name} size={56} />
           <h1 className="h1">{data.summary.name}</h1>
+          {data.summary.bot && data.summary.botLevel != null && (
+            <span className="badge badge-plain">Bot, level {data.summary.botLevel}</span>
+          )}
         </div>
+        {/* A bot's rating only means something next to how it plays, so the
+            level's description sits under its name rather than in a tooltip. */}
+        {data.summary.bot && data.summary.botLevel != null && (
+          <span className="muted">{botLevelInfo(data.summary.botLevel).description}</span>
+        )}
         {/* One standing per mode: a six-max result never moves a heads-up
             rating, so a single number here would be two things at once. */}
         <div className="card lb-card">
@@ -193,6 +202,7 @@ export function Profile() {
                     const placing = matchPlacing(m);
                     const multiway = placing != null && placing.players > 2;
                     const rated = matchRated(m);
+                    const practice = matchPractice(m);
                     return (
                     <tr key={m.id}>
                       <td>{fmtDate(m.finishedAt)}</td>
@@ -217,7 +227,9 @@ export function Profile() {
                               {m.result === 'win' ? 'Won' : m.result === 'loss' ? 'Lost' : 'Drew'}
                             </span>
                           )}
-                          {rated === false && <span className="badge badge-plain">Casual</span>}
+                          {rated === false && (
+                            <span className="badge badge-plain">{practice ? 'Practice' : 'Casual'}</span>
+                          )}
                         </span>
                       </td>
                       <td className="r">

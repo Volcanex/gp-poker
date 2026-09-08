@@ -1,6 +1,6 @@
 import type { Mode, ModeRating, UserSummary } from '@opentable/protocol';
 import type {
-  Hand, Match, MatchHandSummary, MatchSeat, Profile, RatingPoint, UserMatchSummary,
+  BotRow, Hand, Match, MatchHandSummary, MatchSeat, Profile, RatingPoint, UserMatchSummary,
 } from './types.ts';
 
 /* Fields the server is adding but has not shipped yet: mean preflop accuracy
@@ -100,6 +100,24 @@ export function matchPlacing(m: UserMatchSummary): { place: number; players: num
    which it was, and the tag stays off. */
 export function matchRated(m: UserMatchSummary): boolean | null {
   return typeof m.rated === 'boolean' ? m.rated : null;
+}
+
+/* Practice and casual are both unrated, so the rated flag cannot tell them
+   apart and the label has to come from here. A row with no flag was played
+   before practice existed, which makes it casual. */
+export function matchPractice(m: UserMatchSummary): boolean {
+  return m.practice === true;
+}
+
+/* What the bots at one level are rated in one mode, for the practice picker.
+   Averaged over the bots that have actually played the mode: a 1500 nobody
+   earned is not form, so a level with no matches in that mode reads as null
+   and the picker says so rather than printing a number. */
+export function levelAverageRating(bots: BotRow[], level: number, mode: Mode): number | null {
+  const played = bots.filter((b) => b.level === level && (b.ratings?.[mode]?.matches ?? 0) > 0);
+  if (played.length === 0) return null;
+  const total = played.reduce((sum, b) => sum + b.ratings[mode].rating, 0);
+  return Math.round(total / played.length);
 }
 
 /* Engine seat index to table seat. A heads-up hand row carries no map because

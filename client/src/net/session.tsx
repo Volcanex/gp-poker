@@ -11,10 +11,15 @@ export interface QueueState {
   since: number;
   mode: Mode;
   rated: boolean;
+  practice?: boolean; // a table of bots, asked for by level, never rated
   range?: number;
   w?: number;
   seated?: number; // players gathered so far for a multiway table
   m?: string;
+  /* Why the last search stopped, when it stopped for a reason worth reading:
+     every bot near the level asked for is in a match. Cleared by the next
+     search rather than by a dismiss, because starting one is the answer. */
+  error?: string;
 }
 
 /* What the player last chose to play, so the picker opens where they left it
@@ -83,6 +88,7 @@ interface Session {
   queue: QueueState;
   send: (m: ClientMsg) => void;
   startQueue: (mode?: Mode, rated?: boolean) => void;
+  startPractice: (mode: Mode, level: number) => void;
   cancelQueue: () => void;
   clearFound: () => void;
 }
@@ -162,6 +168,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           /* The match just moved the rating, and the top bar is showing the
              value from before it. */
           void refreshMe();
+        } else if (m.t === 'err' && m.c === 'bots_busy') {
+          /* Practice never queues, so there is nothing to cancel: the search
+             is simply over and the reason goes on screen. */
+          setQueue((prev) => ({ s: 'idle', since: 0, mode: prev.mode, rated: prev.rated, error: m.msg }));
         } else if (m.t === 'q') {
           setQueue((prev) => ({
             s: m.s,
@@ -170,6 +180,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
                screen shows what you asked for rather than nothing. */
             mode: m.mode ?? prev.mode,
             rated: m.rated ?? prev.rated,
+            /* The server has no queue message for practice, so what kind of
+               search this is is only ever known here. */
+            practice: prev.practice,
             range: m.range,
             w: m.w,
             seated: m.seated,
@@ -192,6 +205,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     socket.send({ t: 'queue', ...choice });
   }, []);
 
+  /* Practice skips the queue on the server: the table is built the moment the
+     message lands, so this searching state lasts a round trip rather than the
+     bot-fill wait a rated search has. It is deliberately not remembered as the
+     play choice, since "play again" should repeat a real match. */
+  const startPractice = useCallback((mode: Mode, level: number) => {
+    setQueue({ s: 'searching', since: Date.now(), mode, rated: false, practice: true });
+    socket.send({ t: 'queue', mode, bots: { level } });
+  }, []);
+
   const cancelQueue = useCallback(() => {
     setQueue((prev) => ({ s: 'idle', since: 0, mode: prev.mode, rated: prev.rated }));
     socket.send({ t: 'dequeue' });
@@ -209,8 +231,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ me, setMe, refreshMe, liveMatch, ready, offline, conn, queue, send, startQueue, cancelQueue, clearFound }),
-    [me, setMe, refreshMe, liveMatch, ready, offline, conn, queue, send, startQueue, cancelQueue, clearFound],
+    () => ({ me, setMe, refreshMe, liveMatch, ready, offline, conn, queue, send, startQueue, startPractice, cancelQueue, clearFound }),
+    [me, setMe, refreshMe, liveMatch, ready, offline, conn, queue, send, startQueue, startPractice, cancelQueue, clearFound],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

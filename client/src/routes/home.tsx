@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { formatFor } from '@opentable/protocol';
+import { BOT_LEVELS, botLevelInfo, formatFor } from '@opentable/protocol';
 import type { Mode } from '@opentable/protocol';
 import { api } from '../net/api.ts';
-import { modeRating } from '../net/adapt.ts';
-import type { LeaderboardRow, Me } from '../net/types.ts';
+import { levelAverageRating, modeRating } from '../net/adapt.ts';
+import type { BotRow, LeaderboardRow, Me } from '../net/types.ts';
 import { readPlayChoice, useSession } from '../net/session.tsx';
 import { MODES, MODE_NAME } from '../ui/mode-tabs.tsx';
 import { elapsed, useNow } from '../ui/bits.tsx';
@@ -25,7 +25,7 @@ function modeBlurb(mode: Mode): string {
 }
 
 export function Home() {
-  const { me, queue, startQueue, cancelQueue, offline, ready, conn, liveMatch } = useSession();
+  const { me, queue, startQueue, startPractice, cancelQueue, offline, ready, conn, liveMatch } = useSession();
   const nav = useNavigate();
   const searching = queue.s === 'searching';
   const { hash } = useLocation();
@@ -49,6 +49,7 @@ export function Home() {
   }, [hash]);
 
   const seats = formatFor(queue.mode, queue.rated).players;
+  const searchingFor = queue.practice ? 'Dealing you in against the bots' : `Searching for a ${MODE_NAME[queue.mode].toLowerCase()} table`;
 
   return (
     <main className="page stack">
@@ -107,14 +108,17 @@ export function Home() {
                 </button>
               </div>
             ))}
+            <PracticeCard onPlay={startPractice} disabled={!ready || offline} error={queue.error} />
           </div>
         ) : (
           <div className="card searching-card" role="status">
-            <span className="t">Searching for a {MODE_NAME[queue.mode].toLowerCase()} table</span>
+            <span className="t">{searchingFor}</span>
             <div className="searching">
               <span className="spinner" aria-hidden="true" />
               <span className="el num">{elapsed(now - queue.since)}</span>
-              <span className="badge badge-plain">{queue.rated ? 'Rated' : 'Casual'}</span>
+              <span className="badge badge-plain">
+                {queue.practice ? 'Practice' : queue.rated ? 'Rated' : 'Casual'}
+              </span>
               {queue.mode === 'six-max' && queue.seated != null && (
                 <span className="badge badge-plain num">{queue.seated} of {seats} seated</span>
               )}
@@ -171,6 +175,91 @@ export function Home() {
         <Link to="/learn">Learn how to play</Link>
       </footer>
     </main>
+  );
+}
+
+/* The third way to play: a table of bots at a level you pick, never rated.
+   The card spans the picker's row because it is one card, not a mode of its
+   own, and the level list reads better wide than squeezed into a column.
+
+   The rating beside each level is the live average of the bots that play at
+   it, in the mode chosen above, so the number is what those opponents have
+   actually earned rather than a claim about the level. */
+function PracticeCard({
+  onPlay,
+  disabled,
+  error,
+}: {
+  onPlay: (mode: Mode, level: number) => void;
+  disabled: boolean;
+  error?: string;
+}) {
+  const [mode, setMode] = useState<Mode>('heads-up');
+  const [level, setLevel] = useState(2);
+  const [bots, setBots] = useState<BotRow[]>([]);
+
+  useEffect(() => {
+    let live = true;
+    api
+      .bots()
+      .then((rows) => live && setBots(rows))
+      .catch(() => {
+        /* the picker still works; it just cannot show what the bots are rated */
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  return (
+    <div className="card mode" style={{ gridColumn: '1 / -1' }}>
+      <div className="mode-head">
+        <span className="t">Practice against bots</span>
+      </div>
+      <span className="muted">
+        Live equity and outs are shown at the table. Practice matches are never rated.
+      </span>
+      <div className="stakes">
+        {MODES.map((m) => (
+          <label className="choice" key={m}>
+            <input
+              type="radio"
+              className="radio"
+              name="practice-mode"
+              checked={mode === m}
+              onChange={() => setMode(m)}
+            />
+            {MODE_NAME[m]}
+          </label>
+        ))}
+      </div>
+      <label className="field">
+        <span className="label">Level</span>
+        <span className="select-wrap">
+          <select
+            className="select"
+            value={level}
+            onChange={(e) => setLevel(Number(e.target.value))}
+            aria-label="Bot level"
+          >
+            {BOT_LEVELS.map((b) => {
+              const avg = levelAverageRating(bots, b.level, mode);
+              const form = avg == null ? 'no rated matches yet' : `rated ${avg}`;
+              return (
+                <option key={b.level} value={b.level}>
+                  Level {b.level}, {b.name.toLowerCase()}, {form}
+                </option>
+              );
+            })}
+          </select>
+        </span>
+      </label>
+      <span className="muted">{botLevelInfo(level).description}</span>
+      {error && <span className="badge badge-warn">{error}</span>}
+      <button type="button" className="btn btn-primary" disabled={disabled} onClick={() => onPlay(mode, level)}>
+        Play against bots
+      </button>
+    </div>
   );
 }
 

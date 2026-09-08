@@ -50,6 +50,22 @@ export interface UserMatchSummary {
   players?: number | null;
   rated?: boolean | null;
   mode?: Mode | null;
+  /* A practice table is unrated like a casual one, so only this tells them
+     apart. Absent means a server from before practice existed. */
+  practice?: boolean | null;
+}
+
+/* One bot on the roster, from /api/bots. The level table itself lives in
+   @opentable/protocol (BOT_LEVELS) so the picker and the server cannot
+   describe a level differently; this is the live part, which is who plays at
+   each level and how they are doing. */
+export interface BotRow {
+  id: string;
+  name: string;
+  level: number;
+  levelName: string;
+  description: string;
+  ratings: Record<Mode, { rating: number; matches: number }>;
 }
 
 export interface Profile {
@@ -141,7 +157,11 @@ export interface LiveMatch {
   rated: boolean;
   practice: boolean;
   hand: number; // the hand being dealt now, 1-based
-  players: { name: string; bot: boolean }[];
+  // rating and spectators are optional because a server that predates
+  // watching sends neither, and a missing number is hidden rather than
+  // printed as a zero.
+  players: { name: string; bot: boolean; rating?: number }[];
+  spectators?: number;
   startedAt: string;
 }
 
