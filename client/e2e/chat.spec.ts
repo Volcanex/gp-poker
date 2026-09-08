@@ -43,14 +43,15 @@ for (const size of SIZES) {
     await expect(page.locator('.chat-line[data-rail]')).toHaveCount(1);
 
     await page.getByRole('button', { name: 'Good game', exact: true }).click();
+    /* Sending starts the same gap the server holds, and the button says so
+       rather than failing silently on the next press. Checked first: the gap
+       is two seconds, and measuring every box on a loaded machine can take
+       longer than that. */
+    await expect(page.locator('.chat-send-btn')).toBeDisabled();
+    await expect(page.locator('.chat-send-btn')).toContainText(/Send in \ds/);
     await expect(page.locator('.chat-line')).toHaveCount(5);
     await expect(page.locator('.chat-line').last()).toContainText('Good game');
     expect(diff(shut, await boxes(page)), 'boxes that moved when a message was sent').toEqual([]);
-
-    /* Sending starts the same gap the server holds, and the button says so
-       rather than failing silently on the next press. */
-    await expect(page.locator('.chat-send-btn')).toBeDisabled();
-    await expect(page.locator('.chat-send-btn')).toContainText(/Send in \ds/);
 
     await toggle.click();
     await expect(panel).toBeHidden();
