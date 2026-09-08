@@ -70,7 +70,7 @@ export interface UserRow {
 const USER_COLS = sql`
   id, name, name_lower, password_hash, guest, bot, bot_level, created_at,
   last_seen_at, rating, rd, volatility, rating_at, peak_rating, peak_at,
-  matches, wins, losses, draws, avatar_type, avatar_v
+  matches, wins, losses, draws, admin, avatar_type, avatar_v
 `;
 
 /* One row per (user, mode). This is where the Glicko-2 state lives now; the
