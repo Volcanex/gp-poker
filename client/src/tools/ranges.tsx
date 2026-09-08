@@ -407,12 +407,12 @@ function EquityPanel({
         <dl className="results">
           <div>
             <dt>Against this range</dt>
-            <dd className="num">{vsRange ? `${(vsRange.equity * 100).toFixed(1)}%` : '—'}</dd>
+            <dd className="num">{vsRange ? `${(vsRange.equity * 100).toFixed(1)}%` : '…'}</dd>
             <dd className="muted small">{note(vsRange, ready, range.size)}</dd>
           </div>
           <div>
             <dt>Against a random hand</dt>
-            <dd className="num">{vsRandom ? `${(vsRandom.equity * 100).toFixed(1)}%` : '—'}</dd>
+            <dd className="num">{vsRandom ? `${(vsRandom.equity * 100).toFixed(1)}%` : '…'}</dd>
             <dd className="muted small">{note(vsRandom, ready, range.size)}</dd>
           </div>
         </dl>

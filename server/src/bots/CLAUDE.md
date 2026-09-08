@@ -3,12 +3,12 @@
 The bot roster, one bot's message loop, and the pure decision function.
 
 ## Shape
-- `strategy.ts` — `decide(view, rng, level)`. Pure: same `TableView` a browser
+- `strategy.ts` - `decide(view, rng, level)`. Pure: same `TableView` a browser
   gets in, one legal action out. No socket, no room, no database, so every
   branch is reachable from a synthetic view.
-- `player.ts` — `BotPlayer`. Holds a level, thinks on a timer capped against
+- `player.ts` - `BotPlayer`. Holds a level, thinks on a timer capped against
   the decision clock, and answers through the ordinary client router.
-- `index.ts` — the roster: names, levels, who is free, and the summary
+- `index.ts` - the roster: names, levels, who is free, and the summary
   `/api/bots` serves.
 
 ## Five levels, not five brains

@@ -222,7 +222,7 @@ export function Odds() {
             <dl className="results">
               <div>
                 <dt>Your equity</dt>
-                <dd className="num">{equity ? `${(equity.equity * 100).toFixed(1)}%` : '—'}</dd>
+                <dd className="num">{equity ? `${(equity.equity * 100).toFixed(1)}%` : '…'}</dd>
                 <dd className="muted small">
                   {equity?.exact ? 'exact' : `sampled, ${equity?.samples.toLocaleString('en-GB')} deals`}
                 </dd>
@@ -236,7 +236,7 @@ export function Odds() {
               </div>
               <div>
                 <dt>Outs</dt>
-                <dd className="num">{outs ? outs.count : '—'}</dd>
+                <dd className="num">{outs ? outs.count : '…'}</dd>
                 <dd className="muted small">{outs?.draws.join(', ') || 'no named draw'}</dd>
               </div>
             </dl>
@@ -271,7 +271,7 @@ export function Odds() {
         </div>
         <div>
           <span className="label">Accuracy</span>
-          <span className="num">{score.total ? `${accuracy(score).toFixed(0)}%` : '—'}</span>
+          <span className="num">{score.total ? `${accuracy(score).toFixed(0)}%` : '…'}</span>
         </div>
         <div>
           <span className="label">Spots</span>
