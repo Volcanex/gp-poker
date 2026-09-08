@@ -202,7 +202,7 @@ export function Profile() {
 
       {isMe && me?.guest && <ClaimCard onClaimed={load} />}
 
-      {/* How the site looks is one panel in the top bar, and this is the second
+      {/* How the site looks is one panel the shell places, and this is the second
           place to reach it: the profile is where somebody goes to change things
           about themselves. It opens that panel rather than repeating its
           controls, so there is one place a setting can be wrong. */}

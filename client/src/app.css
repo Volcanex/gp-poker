@@ -20,32 +20,152 @@
 
 #root { min-height: 100dvh; display: flex; flex-direction: column; }
 
+/* The site's chrome is g-system's `.g-shell`: the sections in a sidebar on the
+   left, the page beside it, and under 720px the same sidebar as the off-canvas
+   sheet g-shell already ships, behind its scrim and opened by its
+   `.g-nav-toggle`. The sheet, the scrim, the slide and the hamburger's morph
+   are all g's. Three things here are not, and all three are candidates for
+   g-system rather than permanent residents:
+
+   One, the scroll model. g-shell holds a 100vh box and scrolls its content
+   column inside it. This site scrolls the document instead, because the table
+   sizes itself against the window, the footer belongs under the page and the
+   picture suite shoots full pages. So the shell is as tall as its content and
+   the sidebar's contents stick.
+
+   Two, `data-sheet`, which puts the sidebar off canvas at every width rather
+   than only under 720px. The table wears it: `src/ui/shell.tsx` says why.
+
+   Three, `.nav-item`. g-system's app shell card draws one and g.css does not
+   carry its rules yet, so they are copied here like `.stat` above.
+
+   `.site` is display: contents, so it holds the two attributes without adding
+   a box to the layout. */
+.site { display: contents; }
+
+.g-shell.shell {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  overflow: visible;
+}
+.g-shell.shell > aside { padding: 0; }
+/* `align-self: start` with a minimum rather than a stretch, which is what
+   `#root` above is and what the pages were laid out against. A grid item that
+   stretches has a definite height, and a flex column with a definite height
+   shares its free space between everything that grows: on a finished table
+   that took 160px off the felt and gave it to the summary below, which is a
+   scrolling felt and an accessibility failure. Content-sized, with a floor of
+   the window, the table fills the screen and nothing is squeezed. */
+.shell-main {
+  display: flex; flex-direction: column;
+  min-width: 0;
+  align-self: start;
+  min-height: 100%;
+}
+
+/* The sidebar's surface runs the whole height of the document, so nothing
+   below the fold is a strip of bare page beside the content, and the rows
+   inside it stay put under the top bar as the page scrolls. */
+.side-in {
+  display: flex; flex-direction: column; gap: 1px;
+  height: 100%;
+  padding: var(--sp-3);
+  overflow-y: auto; overscroll-behavior: contain;
+}
+@media (min-width: 721px) {
+  .site:not([data-sheet]) .side-in {
+    position: sticky; top: var(--top-h);
+    height: calc(100dvh - var(--top-h));
+  }
+}
+
+.side-in nav { display: flex; flex-direction: column; gap: 1px; }
+
+.nav-item {
+  display: flex; align-items: center; gap: var(--sp-2);
+  position: relative;
+  height: 32px; padding: 0 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-ui); font-weight: 450;
+  color: var(--text-secondary); text-decoration: none;
+  white-space: nowrap;
+  transition: color var(--dur-base) var(--ease-out), background var(--dur-base) var(--ease-out);
+}
+.nav-item svg { flex: none; }
+.nav-item:hover { background: var(--fill-hover); color: var(--text-primary); }
+.nav-item[aria-current="page"] {
+  background: var(--fill-active); color: var(--text-primary); font-weight: 500;
+}
+/* The section you are in, in the accent. A bar on the leading edge rather than
+   a filled row: the accent is a whole palette away in some of them, and a row
+   of it under the label is the one place the sidebar would shout. */
+.nav-item[aria-current="page"]::before {
+  content: ""; position: absolute; left: 0; top: 6px; bottom: 6px;
+  width: 2px; border-radius: var(--radius-full);
+  background: var(--accent-edge);
+}
+
+/* Who you are and how it looks, at the foot of the sidebar. Both are the same
+   two components the top bar carried, with their menus and their behaviour
+   untouched; only the row they sit in is new. */
+.side-foot {
+  margin-top: auto;
+  display: flex; flex-direction: column; gap: 1px;
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--border-subtle);
+}
+.side-foot .account, .side-foot .settings { display: block; }
+/* The two rows read as rows, like the sections above them: the button's edge
+   is the one it exposes, and it is off here so a hairline box does not appear
+   around two of the nine things in the column. */
+.side-foot .account > .btn, .side-foot .settings > .btn {
+  width: 100%; height: 32px; padding: 0 8px;
+  justify-content: flex-start; gap: var(--sp-2);
+  overflow: hidden;
+  --_edge: transparent;
+}
+.side-foot .account > .btn:hover, .side-foot .settings > .btn:hover {
+  border-color: transparent;
+}
+/* The mode the rating belongs to does not fit beside the name in 224px, and
+   the profile the row opens says it in full. */
+.side-foot .account .btn .m { display: none; }
+.side-foot .account .btn .r { margin-left: auto; }
+
+/* The table wants the whole window, so its sidebar is the sheet at every
+   width. The declarations are g's own 720px block, applied by the attribute
+   instead of by a media query. */
+.site[data-sheet] .g-nav-toggle { display: inline-flex; }
+@media (min-width: 721px) {
+  .site[data-sheet] .g-shell.shell { grid-template-columns: 1fr; }
+  .site[data-sheet] .g-shell.shell > aside {
+    position: fixed; inset: 0 auto 0 0;
+    width: 248px;
+    z-index: 40;
+    translate: -100% 0;
+    transition: translate 280ms var(--ease-ios);
+  }
+  .site[data-sheet][data-nav-open] .g-shell.shell > aside {
+    translate: 0 0; border-right-color: var(--border);
+  }
+}
+
 .top {
   display: flex; align-items: center; gap: var(--sp-4);
   height: var(--top-h); flex: none; flex-wrap: nowrap; overflow: hidden;
   padding: 0 var(--sp-4);
   border-bottom: 1px solid var(--border-subtle);
   background: var(--surface-1);
+  position: sticky; top: 0; z-index: 30;
 }
 .wordmark {
   font-size: 14px; font-weight: 500; letter-spacing: -0.012em;
   color: var(--text-primary); text-decoration: none;
   white-space: nowrap; flex: none;
 }
-.top nav { display: flex; align-items: center; gap: 2px; }
-.top nav a {
-  height: 26px; padding: 0 9px;
-  display: inline-flex; align-items: center;
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-ui); color: var(--text-secondary);
-  text-decoration: none;
-  transition: color var(--dur-base) var(--ease-out), background var(--dur-base) var(--ease-out);
-}
-.top nav a:hover { color: var(--text-primary); background: var(--fill-hover); }
-.top nav a[aria-current="page"] { color: var(--text-primary); }
 .top .spacer { flex: 1; }
 .whoami { display: flex; align-items: baseline; gap: 6px; font-size: var(--font-size-ui); white-space: nowrap; flex: none; }
-.top nav a { white-space: nowrap; }
 .whoami .r { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 /* "You are playing", in the top bar on every page except the table it points
    at, where it would be a link to the page being read. A link, because going
@@ -1035,13 +1155,7 @@
 /* ------------------------------------------------------------------- phone */
 
 @media (max-width: 560px) {
-    .top { gap: 10px; padding: 0 10px; }
-  /* Seven links do not fit beside the account and settings on a phone. The
-     nav scrolls inside its own box so the two controls stay on screen. */
-  .top nav { gap: 0; flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
-  .top nav::-webkit-scrollbar { display: none; }
-  .top .spacer { flex: none; }
-  .top nav a { padding: 0 6px; }
+  .top { gap: 10px; padding: 0 10px; }
   .wordmark { font-size: 13px; }
   .whoami { font-size: 12px; gap: 4px; }
   .page { padding: var(--sp-5) var(--sp-3) var(--sp-6); }
