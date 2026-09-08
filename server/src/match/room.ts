@@ -246,6 +246,17 @@ export class MatchRoom {
     this.settleIfDone();
   }
 
+  // Practice only: the human deciding to deal the next hand rather than wait
+  // out the hold. A spectator's is dropped here, silently like a rejected
+  // `next` from the hand runner itself; everything else (wrong hand, wrong
+  // seat, no hold to answer) the hand runner ignores on its own. Whatever
+  // happens next (a new hand dealt, or the match finished) reaches
+  // subscribers through the hand runner's own `onChange`, not from here.
+  handleNext(userId: string, msg: Extract<ClientMsg, { t: 'next' }>): void {
+    if (!this.hand || this.match.status !== 'playing' || !this.playerIds.includes(userId)) return;
+    this.hand.next(userId, msg);
+  }
+
   // The decision clock. A fresh clockMs window starts whenever toActSeat()
   // changes; it is armed with a real setTimeout to the deadline, and the
   // deadline is also mirrored into `clock` so viewFor can report it. While

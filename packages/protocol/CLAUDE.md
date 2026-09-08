@@ -100,6 +100,13 @@ decision worth writing down at the field:
 on a person rather than null, because it is a fact about what the row is rather
 than a value that can be cleared.
 
+`TableView.hold` is the same shape again: present as `'you'` only in the one
+state it describes (a practice table holding a finished hand for the human),
+absent for everyone and everything else rather than a boolean that is usually
+false. `ClientMsg`'s `next` answers it, the way `ready` answers the ready
+check: sent without needing to ask what state the table thinks it is in,
+because the server already knows and ignores anything that does not match.
+
 ## What lives here rather than on one side
 
 Anything both sides have to agree a number for, so two copies of it cannot

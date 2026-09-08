@@ -148,6 +148,12 @@ function LiveMatch({ id }: { id: string }) {
     [view, sending, send, id],
   );
 
+  // Practice's hold: deal the next hand (or finish the match) instead of
+  // waiting the table out. Takes the match id and hand number rather than
+  // closing over `view` itself, so a future caller answering a different
+  // table's hold is not tempted to reach into this one's state for it.
+  const onNext = useCallback((m: string, h: number) => send({ t: 'next', m, h }), [send]);
+
   /* Play again means the match just played: the same mode, rated or not.
      Somebody who was watching it has no match to play again, so the primary
      button sends them back to the tables that are still running.
@@ -190,7 +196,15 @@ function LiveMatch({ id }: { id: string }) {
           action band. The mock keeps v1 as its default so the footprint and
           screenshot suites go on measuring the felt they were written for,
           and offers ?v2=1 for the one people play on. */}
-      <Table view={view} onAct={onAct} sending={sending} ended={ended != null} chat={chat} look="v2" />
+      <Table
+        view={view}
+        onAct={onAct}
+        onNext={() => onNext(id, view.h)}
+        sending={sending}
+        ended={ended != null}
+        chat={chat}
+        look="v2"
+      />
       {ended ? (
         <>
           <ResultPanel

@@ -41,6 +41,12 @@ export interface HandRunner {
   // Called by the room's clock on expiry. Applies 'x' if legal for this
   // seat, else 'f', logging the action with `to: true`.
   onTimeout(seat: number): void;
+  // Practice only: the human asking to deal the next hand (or finish the
+  // match) instead of waiting out the hold. A no-op everywhere else: a
+  // non-practice table was never waiting, and a stale hand number, a
+  // spectator or a seat that is not the human is ignored rather than erred,
+  // the same way a late `act` on a hand that has moved on is.
+  next(userId: string, msg: Extract<ClientMsg, { t: 'next' }>): void;
   // Seat numbers crossing this interface are always TABLE seats (0..N-1,
   // fixed for the match). The runner maps them onto the engine's live-seat
   // config in both directions.

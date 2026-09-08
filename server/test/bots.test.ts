@@ -14,6 +14,7 @@ import {
 } from './helpers.js';
 import { setFormatResolver, tick } from '../src/matchmaking.js';
 import { getHandsForMatch, getMatchById, sql } from '../src/db.js';
+import { thinkRange } from '../src/bots/player.js';
 
 // The queue path builds its own format, so the test replaces the resolver
 // rather than passing one in: small stacks and a short clock, which also
@@ -144,4 +145,30 @@ describe('bots', () => {
     },
     240_000
   );
+});
+
+describe('bot pacing', () => {
+  const RATED = testFormat({ clockMs: 20_000 });
+  const PRACTICE = testFormat({ clockMs: 20_000, practice: true });
+  const LADDER = testFormat({ clockMs: 20_000, ladder: true });
+
+  it('thinks longer on a practice table than on a rated or ladder one', () => {
+    const [practiceLo, practiceHi] = thinkRange(PRACTICE, false);
+    const [ratedLo, ratedHi] = thinkRange(RATED, false);
+    const [ladderLo, ladderHi] = thinkRange(LADDER, false);
+
+    expect(practiceLo).toBeGreaterThan(ratedLo);
+    expect(practiceHi).toBeGreaterThan(ratedHi);
+    // Rated and casual tables against bots (the ladder included) keep the
+    // same ranges: only `practice` changes anything.
+    expect([ladderLo, ladderHi]).toEqual([ratedLo, ratedHi]);
+  });
+
+  it('doubles the quick range on a practice table too', () => {
+    const [practiceLo, practiceHi] = thinkRange(PRACTICE, true);
+    const [ratedLo, ratedHi] = thinkRange(RATED, true);
+
+    expect(practiceLo).toBe(ratedLo * 2);
+    expect(practiceHi).toBe(ratedHi * 2);
+  });
 });

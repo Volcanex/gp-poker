@@ -28,6 +28,9 @@ import './look-v2.css';
 export interface TableProps {
   view: TableView;
   onAct: (a: ActionKind, v?: number) => void;
+  // Practice's hold: deal the next hand, or finish the match, instead of
+  // waiting the table out. Present only when `view.hold === 'you'`.
+  onNext?: () => void;
   sending: boolean;
   /* The replay supplies its own hand header and its own controls, so it asks
      for the felt on its own. */

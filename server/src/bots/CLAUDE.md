@@ -11,6 +11,19 @@ The bot roster, one bot's message loop, and the pure decision function.
 - `index.ts` - the roster: names, levels, who is free, and the summary
   `/api/bots` serves.
 
+## Thinking time is a function of the format, not of the bot
+
+One `BotPlayer` instance is loaded per bot account for the life of the process
+and plays a rated queue fill, a practice table and a ladder match one after
+another, so the pacing cannot be fixed at construction: `thinkRange(format,
+trivial)` reads `format.practice` on every decision instead. A practice table
+(a person against bots) gets the slower `PRACTICE_*` ranges, 1400-3200ms for a
+real decision and 200-800ms for a trivial one (a check, a call that costs
+nothing); everything else — a rated or casual queue fill, a filled heads-up
+seat, the ladder — keeps the ranges that existed before practice tables had
+their own pacing. Both are still capped against a quarter of `format.clockMs`
+exactly as before, so a short test clock is unaffected either way.
+
 ## Five levels, not five brains
 `decide` takes a level, default 4. **Level 4 is the bot that existed before
 levels did, byte for byte**: `server/test/strategy.test.ts` pins it and must
