@@ -61,6 +61,23 @@ export function isTextEntry(el: EventTarget | null): boolean {
   return !['checkbox', 'radio', 'button', 'submit', 'reset', 'range'].includes(type);
 }
 
+/* A media query as a value. The hero band draws two different raise controls
+   rather than one control at two sizes: a sweep under a thumb and a row of
+   sizes under a mouse, each with its own meaning for the number keys. Which
+   one exists has to be a render decision, not a CSS one, because both of them
+   would answer the same keyboard. */
+export function useMedia(query: string): boolean {
+  const [on, setOn] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const read = () => setOn(mq.matches);
+    read();
+    mq.addEventListener('change', read);
+    return () => mq.removeEventListener('change', read);
+  }, [query]);
+  return on;
+}
+
 export function useNow(active: boolean, everyMs = 1000): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {

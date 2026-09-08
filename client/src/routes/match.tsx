@@ -305,7 +305,21 @@ function MockMatch(
           </main>
         </>
       ) : (
-        <span className="devnote" style={{ padding: '4px var(--sp-4)' }}>
+        /* Fixed to the corner of the page and out of the flow, so it is no
+           part of the footprint the tests measure, and lifted clear of the
+           table's bottom rows: over the hero band's cards it covered the one
+           thing on the screen you have to be able to read. Only the mock knows
+           which rows this table has, so the mock is where the sum lives. */
+        <span
+          className="devnote"
+          style={{
+            padding: '4px var(--sp-4)',
+            bottom: v2
+              ? `calc(${watch ? 'var(--band-watch-h)' : 'var(--band-h)'}`
+                + `${practice ? ' + var(--strip-h)' : ''} + 6px)`
+              : undefined,
+          }}
+        >
           Mock table, no server. Step {i + 1} of {script.length}: {script[i].label}
         </span>
       )}

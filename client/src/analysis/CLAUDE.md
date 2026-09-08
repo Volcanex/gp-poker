@@ -19,8 +19,10 @@ A practice table carries one more fixed row between the felt and the dock, row 4
 of the table's grid (`../table/CLAUDE.md`), reading the hand you hold, the outs
 and your equity against that many random hands. It is rendered for the whole
 match rather than only while you hold cards, and `.practice-strip` holds
-`--stats-h` from `live-stats.css` whether or not a number has arrived. The felt
-gives up the height; the dock never does.
+`--stats-h` whether or not a number has arrived. The felt gives up the height;
+the dock never does. `--stats-h` is `.match`'s, and it comes off `--strip-h` at
+the root, because the mock's caption stands above this strip and is fixed to the
+page rather than inside the table (`../app.css`).
 
 Every reading sits in a fixed cell. The numbers arrive from the worker after the
 labels beside them are already painted, so in a flow the note next to a number

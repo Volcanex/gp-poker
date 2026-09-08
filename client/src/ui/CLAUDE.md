@@ -93,6 +93,13 @@ event. The dock keeps the range React-controlled and replays a native input
 event after a programmatic change, so g stays the only thing that computes the
 fill. React bails on a set to the same value, so it cannot loop.
 
+**A media query as a value.** `useMedia` in `bits.tsx` is for a layout that is
+two different components rather than one component at two sizes. The hero band
+is the case it exists for: a sweep under a thumb and a row of sizes under a
+mouse, each with its own meaning for the number keys, so rendering both and
+hiding one with CSS would leave two handlers answering the same keyboard. Where
+CSS can do the job, CSS does it.
+
 **Keyboard shortcuts and typing.** `isTextEntry` in `bits.tsx` is the one guard:
 it treats text fields, textareas, selects and contenteditable as typing, but not
 checkboxes, radios, buttons or ranges. Arrow keys stepping a replay must still

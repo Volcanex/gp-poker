@@ -7,7 +7,22 @@
    nothing else; see palettes.css. */
 @import './palettes.css';
 
-:root { --top-h: 48px; }
+/* The practice strip's height, said once here so that the mock's caption can
+   stand above it: the caption is fixed to the page rather than inside the
+   table, so a number declared on `.match` is one it cannot read, and `.match`
+   takes its own from this rather than the two drifting apart. The band's is
+   `--band-h`, in `table/hero-band.css`, and it is at the root for the same
+   reason.
+
+   **A `:root` rule inside a media query is not worth what it costs**, which is
+   why the phone's shorter strip overrides `--stats-h` on `.match` rather than
+   `--strip-h` here, and why the caption is four pixels high on a phone. Adding
+   one to the phone block moved 1208 pixels of antialiased text on the opening
+   explorer at 768 px, a width the query does not even match and a page with no
+   table on it: Chromium rasterises some text greyscale rather than subpixel
+   once the root carries a conditional declaration. Nothing about it is
+   semantic and nothing on that page reads the property. */
+:root { --top-h: 48px; --strip-h: 34px; }
 
 /* .stat is the shipped stat tile, but g.css does not carry its rules (they
    live in the g-system docs app). Copied verbatim until g-system ships them. */
@@ -319,6 +334,17 @@
   container-type: inline-size;
   flex: 1;
   display: grid;
+  /* **The table is one screen and never the page's scrollbar.** Every row in
+     this grid is a fixed height except the felt, which is the `1fr` and
+     scrolls its own overflow, so a window too short for the felt shortens the
+     felt. Without the cap the column simply grew: `#root` is `min-height`, so
+     the page took the overflow instead and the controls at the bottom of the
+     band went under the fold, which is the one thing on a poker table that
+     must always be under the hand. Measured on a 1366 by 768 laptop before
+     the cap: a 903 px document in a 768 px window.
+
+     A finished match and the replay are documents rather than screens: the
+     result panel and the hand list are meant to be scrolled to. */
   /* Six rows, every one of them placed explicitly. Two are optional (a
      spectator's strip and a practice table's) and an empty row is nought
      pixels, so the four combinations are one template rather than four, and
@@ -329,7 +355,7 @@
   --head-h: 40px;
   --dock-h: 128px;
   --keys-h: 24px;
-  --stats-h: 34px;
+  --stats-h: var(--strip-h);
   --watch-h: 32px;
   --dock-r1: 28px; /* pills and presets */
   --dock-r2: 32px; /* the amount field and the slider */
@@ -341,6 +367,8 @@
   --chip: 18px;
   --chip-rows: 5;
 }
+
+.match:not([data-bare]):not([data-ended]) { max-height: calc(100dvh - var(--top-h)); }
 
 /* One column, said out loud. Every child names its row and none of them named
    a column, which was fine while exactly one thing sat in each: the moment two
@@ -397,7 +425,12 @@
 .bar-in { width: 100%; max-width: 680px; margin: 0 auto; }
 
 /* Capped: the whole table has to read in a single glance, so the felt never
-   spreads to the width of the window. */
+   spreads to the width of the window.
+
+   **The cap is declared on `.match`, not on the felt**, because the hero band
+   is the felt's sibling and sits on the felt's column: it reads `--felt-w` to
+   know where that column's edges are, and a value declared on the felt is a
+   value the band cannot see. `table.tsx` stamps the mode on both. */
 .felt[data-mode="stack"] { --felt-w: 680px; }
 .felt[data-mode="stack"] .felt-in { display: grid; grid-template-rows: auto auto auto; gap: var(--sp-4); }
 .felt[data-mode="stack"] .pos { display: flex; flex-direction: column; gap: 2px; }
@@ -412,6 +445,9 @@
   --felt-w: 960px; --seat-w: 300px; --seat-h: 78px; --ring-h: 404px;
   --seat-card: 30px; --board-card: 40px;
 }
+/* The same two numbers, on the element the band can read them from. */
+.match[data-mode="stack"] { --felt-w: 680px; }
+.match[data-mode="ring"] { --felt-w: 960px; }
 .felt[data-mode="ring"][data-seats="3"], .felt[data-mode="ring"][data-seats="4"] { --ring-h: 340px; }
 .felt[data-mode="ring"] .felt-in { position: relative; height: var(--ring-h); }
 /* Each seat owns a full-size layer inset by half a seat box, so a seat placed
