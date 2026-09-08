@@ -16,6 +16,11 @@ const STATES = [
   { name: 'home', url: '/' },
   { name: 'an invite', url: '/c/ch-open' },
   { name: 'a lobby', url: '/g/hg-open' },
+  /* The two grid pages. Both shade 169 cells on a ramp, which is the one place
+     in the app where a colour is doing the reading rather than decorating it,
+     so the contrast rule is the point of having them here. */
+  { name: 'the range explorer', url: '/tools/ranges' },
+  { name: 'the opening explorer', url: '/tools/explorer' },
 ];
 
 for (const state of STATES) {
