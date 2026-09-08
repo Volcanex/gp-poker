@@ -142,42 +142,299 @@
   color: var(--text-primary);
 }
 
-/* The odds trainer */
+/* The odds trainer.
 
-.verdict {
-  align-self: flex-start;
+   Every box on this page whose contents change between one spot and the next
+   is given its size up front: the figures, the price, the hint, the reveal and
+   each score cell. A trainer is answered in a rhythm, and a page that resettles
+   under the pointer between spots breaks it. */
+
+.odds-figures {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: end;
+  gap: var(--sp-6);
 }
 
-.spot-cards {
+.odds-figures .fig {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.fig-v {
+  display: block;
+  min-width: 3ch;
+  font-size: 44px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--text-primary);
+}
+
+.odds-price {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--sp-1);
+  min-width: 9ch;
+  color: var(--text-secondary);
+}
+
+.price-ratio {
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.1;
+  color: var(--text-primary);
+}
+
+.price-need {
+  font-size: var(--font-size-ui);
+  line-height: 1.2;
+}
+
+.odds-hands {
   display: flex;
   flex-wrap: wrap;
   gap: var(--sp-5);
 }
 
-.spot-cards .ctext {
-  font-size: 1.4rem;
+.odds-cards {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: calc(var(--odds-card) * 1.4);
+}
+
+.odds-page .odds-cards .pcard {
+  --card-w: var(--odds-card);
+}
+
+.odds-page {
+  --odds-card: 62px;
 }
 
 .spot-line {
   margin: 0;
+  min-height: 1.6em;
   font-size: var(--font-size-ui);
 }
 
-.score-row {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+/* The button you pressed stays legible while the pair is disabled, so the
+   record of your own answer is on the page next to what was right. */
+.odds-acts .btn[data-picked] {
+  opacity: 1;
+  border-color: var(--accent-edge);
+  box-shadow: 0 0 0 1px var(--accent-edge);
+  color: var(--text-primary);
+}
+
+/* The clock is information rather than decoration, so it keeps depleting with
+   reduced motion on; only its colour change is a flourish. */
+.odds-timer {
+  height: 4px;
+}
+
+.odds-timer .g-progress-fill {
+  transition: width 120ms linear, background var(--dur-base) var(--ease-out);
+}
+
+.odds-timer[data-low] .g-progress-fill {
+  background: var(--danger-text);
+}
+
+.odds-acts {
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--sp-3);
 }
 
-.score-row > div {
+.odds-hint {
+  margin: 0;
+  min-height: 20px;
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
 }
 
-.score-row .num {
-  font-size: 1.25rem;
+/* The reveal is always drawn, so its box is the same before and after an
+   answer by construction rather than by a number that has to be kept true. */
+.odds-reveal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.verdict-line {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  min-height: 1.5em;
+  font-size: var(--font-size-ui);
   color: var(--text-primary);
+}
+
+.eq-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.eq-row,
+.eq-scale {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr) 3rem;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.eq-name {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* One scale for both bars, with the halfway line drawn on the track: a bar
+   whose length means nothing without a ruler is a decoration. */
+.eq-bar {
+  position: relative;
+  display: block;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background: var(--fill-active);
+  overflow: hidden;
+}
+
+.eq-bar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: var(--border);
+}
+
+.eq-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--chart-1);
+}
+
+.eq-row[data-k="need"] .eq-fill {
+  background: var(--chart-4);
+}
+
+.eq-v {
+  font-size: var(--font-size-ui);
+  text-align: right;
+  color: var(--text-primary);
+}
+
+.eq-ticks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.eq-ticks i {
+  font-style: normal;
+}
+
+.reveal-note {
+  margin: 0;
+  min-height: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.odds-score {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--sp-3);
+}
+
+.odds-score .score-cell,
+.odds-score .streak-tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-height: 92px;
+}
+
+.score-v {
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+/* The tile carries the run: a wash and an edge that step through the tones at
+   three, five and ten, and a badge that names where the run has got to. The
+   figure itself stays on the text colour, because a coloured number at this
+   size is the one thing on the page that has to stay readable. */
+.streak-tile {
+  --_tone: var(--border);
+  padding: var(--sp-3);
+  margin: calc(var(--sp-3) * -1) 0 calc(var(--sp-3) * -1) calc(var(--sp-3) * -1);
+  border: 1px solid color-mix(in oklab, var(--_tone) 55%, transparent);
+  border-radius: var(--radius);
+  background: color-mix(in oklab, var(--_tone) 10%, transparent);
+  transition:
+    background var(--spring-smooth-dur) var(--ease-out),
+    border-color var(--spring-smooth-dur) var(--ease-out);
+}
+
+.streak-tile[data-tone="warm"] { --_tone: var(--chart-1); }
+.streak-tile[data-tone="hot"] { --_tone: var(--ok-text); }
+.streak-tile[data-tone="blaze"] { --_tone: var(--chart-4); }
+.streak-tile[data-miss] { --_tone: var(--danger-text); }
+
+.streak-tile .badge {
+  align-self: flex-start;
+}
+
+.streak-v {
+  font-size: 32px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.odds-settings {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-5);
+}
+
+.odds-streets {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.odds-streets legend {
+  float: left;
+  margin-right: var(--sp-3);
+  padding: 0;
+}
+
+.check-row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--font-size-ui);
+  cursor: pointer;
 }
 
 /* The index */
@@ -210,8 +467,53 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .score-row {
+  .odds-page {
+    --odds-card: 46px;
+  }
+
+  /* The price drops under the two figures rather than squeezing beside them,
+     and the hand and the board take a row each so a five card board never
+     wraps: a board that wraps on the river and not on the flop is a page that
+     changes height between spots. */
+  .odds-figures {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--sp-4) var(--sp-5);
+  }
+
+  .odds-price {
+    grid-column: 1 / -1;
+    align-items: flex-start;
+  }
+
+  .fig-v {
+    font-size: 36px;
+  }
+
+  .odds-hands {
+    flex-direction: column;
+    gap: var(--sp-4);
+  }
+
+  /* Two lines each, because at this width the note on a spot that arrived
+     from a link takes a second one, and so does the verdict once the badge
+     beside it is the wide one. A reserve one line short is the same as no
+     reserve at all: the record slides the moment somebody gets one wrong. */
+  .spot-line {
+    min-height: 3.2em;
+  }
+
+  .verdict-line {
+    min-height: 3em;
+  }
+
+  .odds-score {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .eq-row,
+  .eq-scale {
+    grid-template-columns: 4.5rem minmax(0, 1fr) 2.5rem;
+    gap: var(--sp-2);
   }
 }
 
