@@ -37,6 +37,12 @@ declaration for `phe` that the engine's own tsconfig provides.
 `src/app.tsx` mounts the routes, `src/app.css` is page layout plus the
 poker-specific pieces, and `src/test/` holds the unit tests for everything pure.
 
+**Every page enters the same way and no page arranges it.** The direct children
+of a routed `<main class="page">` slide in from the leading edge, staggered,
+driven by `src/ui/enter.tsx` and the rules beside `.page` in `src/app.css`. A
+block that fetches carries `data-enter-ready`; nothing under `/m` enters at all.
+The contract is in `src/ui/CLAUDE.md`.
+
 ## The mark
 `public/favicon.svg` is a spade on g-system's dark ground with both colours
 written as literals, because an icon cannot read a custom property.

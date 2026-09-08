@@ -5,6 +5,7 @@ import { api, ApiError } from '../net/api.ts';
 import type { Insights, PositionKey, Profile as ProfileData, ProfileArena } from '../net/types.ts';
 import { useSession } from '../net/session.tsx';
 import { useTitle } from '../ui/title.ts';
+import { PageResting } from '../ui/enter.tsx';
 import { RatingGraph } from '../ui/rating-graph.tsx';
 import { fmtDate, fmtPct, fmtShortDate, int, signed } from '../ui/format.ts';
 import {
@@ -61,13 +62,7 @@ export function Profile() {
       </main>
     );
   }
-  if (!data) {
-    return (
-      <main className="page">
-        <span className="muted">Loading</span>
-      </main>
-    );
-  }
+  if (!data) return <PageResting wide label="Loading the profile" />;
 
   const isMe = me != null && me.id === data.summary.id;
   const standings = MODES.map((mode) => ({ mode, r: modeRating(data.summary, mode) }));

@@ -162,11 +162,13 @@ export function ArenaPage() {
           </div>
         </div>
       ) : (
-        <div className="card">
-          <div className="searching">
-            <span className="spinner" aria-hidden="true" />
-            <span className="muted">Opening the arena</span>
-          </div>
+        /* The frame the arena is about to fill, rather than a spinner: the
+           card keeps its place and its shape, and the arena enters into it. */
+        <div className="card resting-card" aria-busy="true" data-enter-ready="no">
+          <span className="sr-only" role="status">Opening the arena</span>
+          <span className="skeleton skeleton-text" style={{ width: 160 }} />
+          <span className="skeleton skeleton-text" style={{ width: 280 }} />
+          <span className="skeleton skeleton-text" style={{ width: 210 }} />
         </div>
       )}
       {!routeId && <FinishedArenas arenas={finished} />}

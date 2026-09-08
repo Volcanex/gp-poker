@@ -60,6 +60,7 @@ it.
 | `practice.spec.ts` | the strip is on a practice table and off a rated one, that it reads, and that a practice table keeps one footprint with zero layout shift |
 | `chat.spec.ts` | opening, sending and closing the panel leave the header, felt and dock in identical boxes, at both widths |
 | `reduced-motion.spec.ts` | the same information with the motion emulated off |
+| `enter.spec.ts` | the page entrance: every block at rest inside 600ms, a fetching block held until its content lands, zero layout shift across an entrance, nothing under `/m`, and nothing at all under reduced motion |
 | `settings.spec.ts` | a choice surviving a reload, the pre-paint stamp, every accent's contrast in both themes, the four colour deck, and the menu itself |
 | `replay.spec.ts` | a recorded hand scrubbed back and forth leaves nothing behind and nothing outside the felt, and still verifies |
 | `screenshots.spec.ts` | 132 baselines: eleven states at 360, 390, 430, 768, 1366 and 1920, dark and light |

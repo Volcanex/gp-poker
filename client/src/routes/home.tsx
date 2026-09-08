@@ -561,7 +561,7 @@ function Leaderboard({ mode }: { mode: Mode }) {
   }, [mode]);
 
   return (
-    <section className="stack" id="leaderboard" style={{ gap: 'var(--sp-3)' }}>
+    <section className="stack" id="leaderboard" style={{ gap: 'var(--sp-3)' }} data-enter-ready={list ? 'yes' : 'no'}>
       <div className="lb-head">
         <span className="h2">Top ten, {MODE_NAME[mode].toLowerCase()}</span>
         <span className="muted">Rating, with the deviation beside it</span>

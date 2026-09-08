@@ -15,6 +15,7 @@ import { toolsRoutes } from './tools/index.tsx';
 import { AccountMenu } from './ui/auth.tsx';
 import { SettingsMenu } from './ui/settings.tsx';
 import { SiteFooter } from './ui/site-footer.tsx';
+import { PageEnter } from './ui/enter.tsx';
 import { MatchFoundAlert, PlayingPill } from './ui/presence.tsx';
 import { sound } from './sound/index.ts';
 
@@ -67,6 +68,7 @@ export function App() {
     <BrowserRouter>
       <SessionProvider>
         <TopBar />
+        <PageEnter />
         <MatchFoundAlert />
         <Routes>
           <Route path="/" element={<Home />} />
