@@ -4,6 +4,12 @@ Heads-up preflop accuracy scoring against cached baseline range charts.
 Preflop only. Everything at runtime is a table read: no equity or range is
 computed on the fly.
 
+Pure and isomorphic: both JSON data files are static imports
+(`with { type: 'json' }`), not `readFileSync`, so this package runs unchanged
+on the server, in a client bundle and in a web worker. It imports nothing
+from `@opentable/engine` and never touches `phe`, so pulling it into a bundle
+never drags the hand evaluator along.
+
 **The charts are heuristic baselines**, hand-built from an equity ranking
 and standard heads-up strategy shapes (wide button opens, ranges that
 narrow as raises stack up, Nash push/fold approximations under 12bb). They
@@ -17,9 +23,10 @@ fold"), not a training target.
   equity, generated offline by `scripts/equity.ts`. Deliberately an array,
   not an object: JS reorders integer-like object keys ('22', '33', ...) to
   the front regardless of insertion order, which would silently wreck a
-  plain-object "sorted" file. `src/equity.ts` loads it and re-sorts
-  defensively rather than trusting the file's order, and derives each
-  class's percentile in the ranking (0 = best hand, ~99.4 = worst).
+  plain-object "sorted" file. `src/equity.ts` imports it as a static JSON
+  module (`with { type: 'json' }`) and re-sorts defensively rather than
+  trusting the file's order, and derives each class's percentile in the
+  ranking (0 = best hand, ~99.4 = worst).
 - `data/charts.json` — per stack bucket and spot, cumulative percentile
   cutoffs for the aggressive and passive regions. See below.
 - `src/charts.ts`, `src/score.ts` — turn a chart entry into three

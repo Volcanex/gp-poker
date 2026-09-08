@@ -1,13 +1,10 @@
-import { RANKS } from '../../../../packages/preflop/src/hand.ts';
-import chartsJson from '../../../../packages/preflop/data/charts.json';
-import equityJson from '../../../../packages/preflop/data/equity.json';
+import { RANKS, chartFor as realChartFor, percentileOf, regionsOf, type Spot, type StackBucket } from '@opentable/preflop';
 
-/* The real baseline chart, read from the same two files the server scores
-   against. It cannot come through @opentable/preflop: that package loads its
-   data with node:fs, which is fine on the server and impossible here, so the
-   JSON is imported directly and the region walk below is the one piece of
-   logic mirrored from src/charts.ts. If regionsOf ever changes shape, this
-   grid is what drifts. */
+/* The range grid's display shape, built from @opentable/preflop's own chart,
+   percentile and region logic. It cannot import @opentable/protocol-shaped
+   bucket/spot literals from callers that only have strings (`ranges.tsx`
+   passes constants), so the two lookups below take `string` and narrow
+   internally rather than pushing the union types out to every caller. */
 
 export interface ChartEntry {
   aggr?: number;
@@ -16,24 +13,21 @@ export interface ChartEntry {
 
 export type Region = 'aggr' | 'passive' | 'fold';
 
-const charts = chartsJson as unknown as Record<string, Record<string, ChartEntry | undefined>>;
-
-/* equity.json is written sorted, and re-sorted here for the same reason
-   src/equity.ts re-sorts it: the file's order is not something to trust. */
-const ranked = ([...(equityJson as unknown as [string, number][])] as [string, number][]).sort((a, b) => b[1] - a[1]);
-const percentileByHand = new Map(ranked.map(([hand], i) => [hand, (i / ranked.length) * 100]));
+const REGION_ORDER: Region[] = ['aggr', 'passive', 'fold'];
 
 export function chartFor(bucket: string, spot: string): ChartEntry {
-  return charts[bucket]?.[spot] ?? {};
+  return realChartFor(bucket as StackBucket, spot as Spot);
 }
 
-/* Cumulative cutoffs: aggr owns [0, aggr), passive owns [aggr, passive),
-   fold takes the rest. A spot with only one of the two has two regions. */
+/* The same first-matching-region walk scoreDecision uses to pick `best`, so
+   the grid always agrees with what the accuracy scorer would call correct. */
 export function regionFor(entry: ChartEntry, hand: string): Region {
-  const p = percentileByHand.get(hand) ?? 100;
-  if (entry.aggr !== undefined && p < entry.aggr) return 'aggr';
-  if (entry.passive !== undefined && p < entry.passive) return 'passive';
-  return 'fold';
+  const p = percentileOf(hand);
+  const regions = regionsOf(entry);
+  return REGION_ORDER.find((r) => {
+    const range = regions[r];
+    return range && p >= range[0] && p <= range[1];
+  }) ?? 'fold';
 }
 
 export interface GridCell {

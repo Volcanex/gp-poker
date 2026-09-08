@@ -615,13 +615,9 @@ postgres, ws, …) stay external and resolve from `node_modules` normally at
 runtime. `npm start` / the `opentable` systemd unit then just runs
 `node dist/index.js`.
 
-One consequence of bundling: `@opentable/preflop`'s chart/equity JSON is
-loaded relative to its own source file's location at runtime
-(`import.meta.url` in `packages/preflop/src/data.ts`). Once everything is
-one file at `server/dist/index.js`, that same relative path resolves to
-`server/data/` instead of `packages/preflop/data/` — `build.mjs` copies the
-JSON there as its last step. `server/data/` is gitignored (generated), same
-as `server/dist/`.
+`@opentable/preflop`'s chart/equity JSON is a static import (`with { type:
+'json' }`), so esbuild inlines both files into `dist/index.js` at bundle
+time — nothing needs copying alongside it for the bundle to find them.
 
 ## Tests
 Real Postgres, no mocks. Run with:

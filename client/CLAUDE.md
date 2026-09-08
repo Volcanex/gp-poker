@@ -455,17 +455,16 @@ straight nobody can beat so the pot splits. That is what keeps the generator
 pure and the answer the evaluator's. The preflop ramp is the distance from the
 hand to the nearest chart cutoff, which narrows as the streak grows.
 
-**`puzzles/chart.ts` does not go through `@opentable/preflop`.** That package
-loads its JSON with `node:fs` at module scope, so it cannot be imported in a
-browser, and the client mirrors three things from it: the percentile ranking,
-the region walk and the EV-lost scale. The mirror is pinned rather than
-trusted: `src/test/puzzles.test.ts` imports the real package (a test runs in
-node) and checks every bucket, spot and hand class against the copy, so a
-change to the scorer fails there instead of grading a puzzle differently from
-the way the same decision is graded at the table.
-`src/routes/learn/chart-data.ts` reads the same two files for the lesson's
-grid, which is a second copy of the same bargain. Making the package
-browser-safe would remove both.
+**`puzzles/chart.ts` goes through `@opentable/preflop` directly.** The
+package reads its two JSON files with static imports now, so it is pure and
+isomorphic and safe to import here; `chart.ts` re-exports its ranking, region
+and scoring functions rather than recomputing them, and only keeps the
+puzzle-specific copy (`SPOT_COPY`, `BUCKET_WORDS`, `SPOTS_BY_BUCKET`) local.
+`src/test/puzzles.test.ts` still checks every bucket, spot and hand class
+against the real package by name — now mostly a regression pin against a
+future edit reintroducing a local copy, rather than a guard against an
+existing one. `src/routes/learn/chart-data.ts` does the same for the lesson's
+grid.
 
 `/puzzles/hand` is lazy loaded because it replays a stored hand with the
 engine, the same reason `/m/:id/h/:n` is. The server does the walk that finds

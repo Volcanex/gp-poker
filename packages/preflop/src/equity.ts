@@ -3,14 +3,13 @@
    heads-up equity ranking. Percentile 0 = the best hand (AA), percentile
    just under 100 = the worst. Nothing here recomputes equity at runtime. */
 
-import { loadJson } from './data.js';
+import raw from '../data/equity.json' with { type: 'json' };
 
 // [class, equity] tuples, already sorted descending by the generating
 // script. Re-sorted defensively here rather than trusted, since a plain
 // object can't hold this order (JS floats integer-like keys like '22' to
 // the front regardless of insertion order).
-const raw = loadJson<[string, number][]>('equity.json');
-const ranked = [...raw].sort((a, b) => b[1] - a[1]);
+const ranked = [...(raw as [string, number][])].sort((a, b) => b[1] - a[1]);
 
 export const TOTAL_HANDS = ranked.length;
 

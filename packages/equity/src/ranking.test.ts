@@ -1,8 +1,8 @@
-/* This package reads preflop's data files directly, because preflop's own
-   loader is node only and this code has to run in a browser worker. That is a
-   copy of two derivations (the sort and the percentile), so it is worth a test:
-   if preflop ever changes how it ranks, this fails rather than quietly serving
-   a different ranking to the client than the one the server grades against. */
+/* ranking.ts re-exports @opentable/preflop's own ranking and percentile
+   functions rather than deriving them again, so this is a thin regression
+   pin: if a future edit turns that re-export back into a local copy, this
+   fails the moment the two disagree instead of quietly serving the client a
+   different ranking from the one the server grades against. */
 
 import { describe, expect, test } from 'vitest';
 import { chartFor, percentileOf, rankedHands, TOTAL_HANDS as PREFLOP_TOTAL } from '@opentable/preflop';

@@ -12,7 +12,7 @@
    one of aggr/passive defined has just two legal regions (raise-or-fold, or
    call-or-fold) rather than three. */
 
-import { loadJson } from './data.js';
+import rawCharts from '../data/charts.json' with { type: 'json' };
 import type { DecisionAction, Spot, StackBucket } from './types.js';
 
 export interface ChartEntry {
@@ -22,7 +22,7 @@ export interface ChartEntry {
 
 type ChartData = Record<StackBucket, Partial<Record<Spot, ChartEntry>>>;
 
-const raw = loadJson<ChartData>('charts.json');
+const raw = rawCharts as unknown as ChartData;
 
 export function chartFor(bucket: StackBucket, spot: Spot): ChartEntry {
   const entry = raw[bucket]?.[spot];

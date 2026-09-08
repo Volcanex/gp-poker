@@ -56,10 +56,12 @@ and the flush outs are the cards of the drawing suit. A double gutshot is
 reported as an open-ended straight draw, since both leave eight cards.
 
 ## The preflop data files
-`ranking.ts` imports `@opentable/preflop`'s `data/*.json` directly and
-re-derives the sort and the percentiles. That duplicates six lines of
-`packages/preflop/src/equity.ts` on purpose: preflop reads its own data with
-`readFileSync`, which cannot run in a browser, and this package exists to be
-imported by a web worker. `ranking.test.ts` asserts the two agree, so a
-change to preflop's ranking fails here rather than quietly serving the client
-a different ranking from the one the server grades against.
+`ranking.ts` re-exports `@opentable/preflop`'s own ranking and percentile
+functions rather than re-deriving them: preflop reads its two JSON files with
+static imports now, so it is pure and isomorphic and safe to import here, in
+a web worker. `ranking.ts` keeps only `charts()` local, a plain read of the
+raw chart JSON with the `notes` key stripped, because preflop's public API
+only offers single-entry lookups (`chartFor(bucket, spot)`) and `presets.ts`
+needs to enumerate every entry. `ranking.test.ts` still asserts the ranking
+functions agree with preflop's own, now mostly a regression pin against a
+future edit turning the re-export back into a local copy.

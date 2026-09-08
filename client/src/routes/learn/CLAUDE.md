@@ -29,19 +29,16 @@ them would pull its hand evaluator's lookup table into the bundle everybody
 loads, which is the whole reason the replay route is lazy loaded. The comment
 at the top of that file says so.
 
-## The range grid does not go through @opentable/preflop
+## The range grid goes through @opentable/preflop
 
-`chart-data.ts` imports `packages/preflop/data/charts.json` and
-`equity.json` directly, by relative path, along with `RANKS` from that
-package's `src/hand.ts`. It cannot import the package itself: `src/data.ts`
-loads both files with `node:fs`, which is right on the server and impossible
-in a browser, and `src/index.ts` runs that loader at module scope.
-
-The consequence is that the three lines walking the percentile regions in
-`chart-data.ts` mirror `regionsOf` in `packages/preflop/src/charts.ts`. If that
-function's shape changes, this grid is what silently drifts. Making the package
-browser-safe would remove the duplication, and is the right fix if anything
-else ever needs the same data.
+`chart-data.ts` imports `chartFor`, `percentileOf`, `regionsOf` and `RANKS`
+straight from `@opentable/preflop`. The package reads its two JSON files with
+static imports now, so it is pure and isomorphic and this import works
+unchanged in the browser. `chart-data.ts` keeps only what is genuinely
+display logic: `gridFor` and `countRegions`, which turn a chart entry into
+the 13 by 13 grid `ranges.tsx` draws. `regionFor` does the same
+first-matching-region walk `scoreDecision` uses to pick its `best`, so the
+grid always agrees with what the accuracy scorer would call correct.
 
 ## Diagrams reuse the app's own components
 
