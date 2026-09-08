@@ -333,13 +333,46 @@
   padding: 6px var(--sp-2);
 }
 .felt[data-mode="ring"] .seat[data-acting] { background: var(--fill-hover); border-color: var(--border); }
+/* The bet hangs off its own seat, on the edge facing the middle: the same layer
+   as the seat, the same --x and --y, offset by half a seat and a gap.
+
+   It used to ride a second ellipse inset between the seats and the pot, which
+   read beautifully and only worked while the seats were narrow. Widening them
+   so a name would fit left a band a few pixels across for that ellipse to sit
+   in, and the chips ended up on the seats' own cards and on the pot figure.
+   Anchored to a seat, a chip cannot reach either: it moves with the thing whose
+   money it is, and the flight to the pot still carries it because that is one
+   element with one layout id, not a position. */
 .felt[data-mode="ring"] .seat-bet {
   position: absolute;
-  inset: calc(var(--seat-h) / 2 + 18px) calc(var(--seat-w) / 2 + 44px);
+  inset: calc(var(--seat-h) / 2) calc(var(--seat-w) / 2);
   min-height: 0;
+  /* Smaller chips than the felt uses elsewhere. A ring seat is a compact card
+     with 68 px between its inner edge and the board, and the full size stack is
+     wider than that on its own. */
+  --chip: 10px;
 }
+.felt[data-mode="ring"] .seat-bet .chips { gap: 2px; }
+.felt[data-mode="ring"] .bet-chip { gap: 4px; font-size: 12px; }
+/* Hugging its own seat, not reaching for the middle: the gap between the two
+   seats on one side is 84 px and two chips reaching into it meet. */
 .felt[data-mode="ring"] .seat-bet > * {
   position: absolute; left: var(--x); top: var(--y); translate: -50% -50%;
+  margin-top: calc(var(--seat-h) / 2 + 6px);
+}
+/* A seat below the middle hangs its bet above itself, so every chip on the felt
+   points the same way: inwards. */
+.felt[data-mode="ring"] .pos[data-half="bottom"] .seat-bet > * {
+  margin-top: calc(-1 * (var(--seat-h) / 2 + 6px));
+}
+/* A seat down one side keeps its chip over its own outer half. Centred, the
+   chip reaches back towards the board, and on the narrower ring the board and
+   two seats fill the felt with nothing in between. */
+.felt[data-mode="ring"] .pos[data-side="left"] .seat-bet > * {
+  translate: 0 -50%; margin-left: calc(-1 * var(--seat-w) / 2);
+}
+.felt[data-mode="ring"] .pos[data-side="right"] .seat-bet > * {
+  translate: -100% -50%; margin-left: calc(var(--seat-w) / 2);
 }
 .felt[data-mode="ring"] .middle { position: absolute; inset: 0; padding: 0; border: none; }
 .felt[data-mode="ring"] .seat .pcard { --card-w: var(--seat-card); }
@@ -419,6 +452,9 @@
   .felt[data-mode="ring"] .seat-bet .chips { gap: 2px; }
   .felt[data-mode="ring"] .bet-chip { gap: 4px; font-size: 11px; }
   .felt[data-mode="ring"] .seat-bet > * { position: static; left: auto; top: auto; translate: none; }
+  /* Portrait puts the bet in its seat's own column, so the ellipse's outer edge
+     alignment has to be undone at the same specificity it was set with. */
+  .felt[data-mode="ring"] .pos[data-side] .seat-bet > * { translate: none; margin: 0; }
 
   .felt[data-mode="ring"] .middle {
     position: static;
@@ -461,8 +497,11 @@
   /* The dealer button leaves the name line and sits on the corner of the seat,
      where it costs no width and reads like the button on a real table. It is
      out of the flow, so it still cannot move anything by arriving. */
+  /* Bottom right, not top right: the top right of a portrait seat is where the
+     name line ends, and a bot badge and a dealer button were landing on each
+     other there. The stack row's right side is empty on every seat. */
   .felt[data-mode="ring"] .btn-marker {
-    position: absolute; top: 3px; right: 3px; z-index: 1;
+    position: absolute; bottom: 3px; right: 4px; z-index: 1;
     width: 14px; height: 14px; font-size: 9px;
   }
   .felt[data-mode="ring"] .seat-stack .u { display: none; }

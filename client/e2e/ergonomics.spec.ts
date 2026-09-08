@@ -164,4 +164,92 @@ test.describe('the ring', () => {
       expect(new Set(seen.lines).size, 'a name line that wrapped').toBe(1);
     });
   }
+
+  /* Where a bet chip may sit: beside its own seat, and nowhere near the pot
+     figure, the board, another seat or another bet. The ellipse between the
+     seats and the middle that these used to ride ran out of room the moment
+     the seats grew wide enough to hold a name, and the chips ended up on the
+     pot. Four steps of the script, because how many seats have bet in front of
+     them is the thing that changes. */
+  for (const width of [768, 1280, 1920]) {
+    test(`keeps every bet chip clear of everything at ${width}`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await stubApi(page);
+
+      for (const step of [0, 1, 2, 5]) {
+        await page.goto(`/m/mock?mode=six-max&step=${step}`);
+        await expect(page.locator('.seat').first()).toBeVisible();
+        await page.waitForTimeout(700);
+
+        const seen = await page.evaluate(() => {
+          const hit = (a: DOMRect, b: DOMRect) => !(
+            a.right < b.left + 1 || a.left > b.right - 1
+            || a.bottom < b.top + 1 || a.top > b.bottom - 1);
+          const box = (sel: string) => document.querySelector(sel)!.getBoundingClientRect();
+          const bets = [...document.querySelectorAll('.seat-bet .bet-chip')]
+            .map((e) => e.getBoundingClientRect());
+          const seats = [...document.querySelectorAll('.seat')].map((e) => e.getBoundingClientRect());
+          return {
+            bets: bets.length,
+            onPot: bets.filter((r) => hit(r, box('.pot'))).length,
+            onBoard: bets.filter((r) => hit(r, box('.board'))).length,
+            onSeat: bets.filter((r) => seats.some((s) => hit(r, s))).length,
+            onBet: bets.filter((r, i) => bets.some((o, j) => j !== i && hit(r, o))).length,
+          };
+        });
+
+        expect(seen.bets, `step ${step} has bets to check`).toBeGreaterThan(0);
+        expect(seen.onPot, `step ${step}: a chip on the pot`).toBe(0);
+        expect(seen.onBoard, `step ${step}: a chip on the board`).toBe(0);
+        expect(seen.onSeat, `step ${step}: a chip on a seat`).toBe(0);
+        expect(seen.onBet, `step ${step}: two chips on each other`).toBe(0);
+      }
+    });
+  }
+
+  /* The dealer button and the bot badge share a seat on a practice table, and
+     on a portrait seat both of them are hanging off a corner. Measured against
+     rendered text rather than element boxes: a seat's stack row is full width
+     and mostly empty, so overlapping its box means nothing. */
+  test('never lands the dealer button on anything at 390', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await stubApi(page);
+    await page.goto('/m/mock?mode=six-max&step=1');
+    await expect(page.locator('.seat').first()).toBeVisible();
+
+    const seen = await page.evaluate(() => {
+      const hit = (a: DOMRect, b: DOMRect) => !(
+        a.right < b.left + 1 || a.left > b.right - 1
+        || a.bottom < b.top + 1 || a.top > b.bottom - 1);
+      const ink = (root: Element) => {
+        const out: DOMRect[] = [];
+        const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+          if (!n.nodeValue!.trim()) continue;
+          if ((n.parentElement as Element).closest('.btn-marker')) continue;
+          const range = document.createRange();
+          range.selectNodeContents(n);
+          for (const r of range.getClientRects()) if (r.width && r.height) out.push(r);
+        }
+        return out;
+      };
+      const clashes: string[] = [];
+      let buttons = 0;
+      for (const seat of document.querySelectorAll('.seat')) {
+        const mark = seat.querySelector('.btn-marker:not([data-off])');
+        if (!mark) continue;
+        buttons += 1;
+        const box = mark.getBoundingClientRect();
+        if (ink(seat).some((r) => hit(box, r))) {
+          clashes.push(seat.querySelector('.seat-name')!.textContent!);
+        }
+      }
+      return { buttons, clashes, bots: document.querySelectorAll('.seat-bot').length };
+    });
+
+    expect(seen.buttons, 'somebody is on the button').toBe(1);
+    expect(seen.bots, 'and the table has bots on it, as a practice table does')
+      .toBeGreaterThan(0);
+    expect(seen.clashes, 'seats where the button landed on something').toEqual([]);
+  });
 });

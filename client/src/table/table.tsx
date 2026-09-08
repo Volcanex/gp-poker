@@ -195,6 +195,7 @@ export function Table({ view, onAct, sending, bare, ended, chat }: TableProps) {
                 className="pos"
                 key={s.i}
                 data-half={slot.half}
+                data-side={slot.side}
                 data-k={k}
                 style={{
                   '--x': `${slot.x}%`,
@@ -226,7 +227,12 @@ export function Table({ view, onAct, sending, bare, ended, chat }: TableProps) {
                   origin={mode === 'ring' ? { x: slot.ox, y: slot.oy } : undefined}
                   best={show.best}
                   handLabel={show.names.get(s.i) ?? null}
-                  snap={flights.length > 0}
+                  /* The one stack that animates is the winner's, counting up
+                     as the pot lands. Everywhere else the number snaps: a
+                     stack that rolls every time a blind is posted spends the
+                     deal painting two values at once, which is what a live
+                     table was caught doing two and a half seconds in. */
+                  snap={!(settled && award > 0)}
                 />
               </div>
             );

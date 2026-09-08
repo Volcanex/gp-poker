@@ -417,7 +417,10 @@ const SIX: Player[] = [
   { uid: 'u-you', name: 'RustyAlligator', rating: 1518 },
   { uid: 'u-ninecut', name: 'IcyPencil', rating: 1477 },
   { uid: 'u-pellmell', name: 'DeepShelf', rating: 1500, bot: true },
-  { uid: 'u-quarrel', name: 'VividMoonlight', rating: 1560 },
+  /* The button sits here in both scripted hands, and on a practice table the
+     player holding it is a bot as often as not: the two marks have to share
+     a seat without landing on each other. */
+  { uid: 'u-quarrel', name: 'VividMoonlight', rating: 1560, bot: true },
 ];
 const ME = 2;
 const SIX_HOLE: Card[] = ['Ah', 'Kd'];

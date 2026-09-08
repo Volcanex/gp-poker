@@ -22,6 +22,7 @@ export function seatOrder<T extends { i: number }>(seats: T[], you: number | nul
 export interface Slot {
   x: number; // percent across the ring's inner box, where the seat's centre goes
   y: number;
+  side: 'left' | 'right' | 'centre'; // which way the seat faces the middle
   yTight: number; // the same seat where the felt is too narrow to clear the board sideways
   ox: number; // px offset the seat's cards are dealt from: the middle of the table
   oy: number;
@@ -53,6 +54,11 @@ export function slotAt(k: number, n: number): Slot {
   return {
     x: 50 + 50 * sx,
     y: 50 + 50 * sy,
+    /* A seat at the middle of the top or the bottom has no side, and its bet
+       hangs under it. A seat down one side hangs its bet over its own outer
+       half, away from the board: at the narrower ring the board and two seats
+       fill the whole felt, so there is nowhere between them for a chip. */
+    side: Math.abs(sx) < 1e-6 ? 'centre' : sx < 0 ? 'left' : 'right',
     yTight: 50 + 50 * tight,
     ox: -DEAL_PX * sx,
     oy: -DEAL_PX * sy,

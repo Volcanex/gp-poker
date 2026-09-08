@@ -55,6 +55,20 @@ describe('seat slots', () => {
     expect(slotAt(1, 2).y).toBe(0);
   });
 
+  /* Which way a seat faces the middle, so its bet can hang over its own outer
+     half. The board and two seats fill the whole felt at the narrower ring, so
+     a chip centred on a side seat reaches back onto the board. */
+  it('says which side of the ring a seat is on', () => {
+    expect(slotAt(0, 6).side).toBe('centre');
+    expect(slotAt(3, 6).side).toBe('centre');
+    expect([1, 2].map((k) => slotAt(k, 6).side)).toEqual(['left', 'left']);
+    expect([4, 5].map((k) => slotAt(k, 6).side)).toEqual(['right', 'right']);
+  });
+
+  it('gives a two seat table no sides at all, because it is not a ring', () => {
+    expect([slotAt(0, 2).side, slotAt(1, 2).side]).toEqual(['centre', 'centre']);
+  });
+
   it('deals a seat its cards from the middle of the table', () => {
     const bottom = slotAt(0, 6);
     expect(bottom.ox).toBe(0);

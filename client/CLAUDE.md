@@ -463,13 +463,26 @@ pure, so the rotation is unit tested rather than eyeballed:
   seat takes and is unit tested; the CSS under the container query is mostly
   undoing the ellipse's absolute positioning. Row 1 is empty at three and four
   seats, and an empty grid row is nought pixels, so four rows draw every table.
-- **On that felt the bet sits on its seat's own inner edge**, facing the board,
-  rather than flying toward the middle: every seat is nearly touching the pot at
-  that width, and a chip aimed at it landed on the label.
-- **Two things hang off the seat rather than sitting in it there**: the dealer
-  button on the top right corner and the avatar on the top left. Out of the flow
+- **A bet hangs off its own seat on every ring**, above it or below it
+  depending on which half of the felt the seat is in, and over its own outer
+  half if the seat is down one side. It used to ride a second ellipse inset
+  between the seats and the pot, which read beautifully and only worked while
+  the seats were narrow: widening them so a name would fit left a band a few
+  pixels across, and the chips ended up on the seats' own cards, on the board
+  and on the pot figure. Anchored to a seat a chip cannot reach any of them, and
+  the flight to the pot still carries it, because that is one element with one
+  layout id rather than a position. The ring's chips are 10 px, not 18: a ring
+  seat has 68 px between its inner edge and the board and the full size stack is
+  wider than that on its own. `slotAt` returns the side and it is unit tested;
+  `e2e/ergonomics.spec.ts` checks at three widths and four points in a hand that
+  no chip touches the pot, the board, a seat or another chip.
+- **Two things hang off the seat rather than sitting in it there**: the avatar
+  on the top left and the dealer button on the bottom right. Out of the flow
   they cost no width, which is what buys the name back, and they still cannot
-  shift anything by arriving.
+  shift anything by arriving. The button is on the bottom because the top right
+  is where the name line ends: a bot badge and a dealer button were landing on
+  each other there, which happens on any practice table, where the player on the
+  button is a bot as often as not.
 - **Dealing.** `dealOrder` is round robin from the seat left of the button, one
   card each then the second, which is the order the engine deals in; the seat
   passes it to `PlayingCard` as the stagger index. In ring mode each card also
@@ -886,6 +899,11 @@ being poker-specific, build it in g-system, not here.
   host is `display: inline-block`, which is why the pot's counter is given
   `display: block; width: 100%`: a counter that resizes itself is a counter that
   shifts everything beside it.
+- **One stack animates, and it is the winner's.** Everywhere else the number
+  snaps. A stack that rolls every time a blind is posted spends the deal
+  painting two values at once, which is what a live table was caught doing two
+  and a half seconds in, and the wireframe only ever asked for the count up as
+  the pot lands.
 - **A chip flight's removal timer must outlive the view that started it.** It
   used to be returned from the effect that armed it, so the next state cancelled
   it, and a state that moved no chips returned early and never armed another:
