@@ -22,41 +22,44 @@ Schema in `server/db/schema.sql` is applied idempotently at start.
 The server build is an esbuild bundle (`server/build.mjs`) because the
 workspace packages ship TypeScript source only; `server/tsconfig.json` is
 type-check only. Matches left `playing` by a dead process are aborted at
-boot, unrated. `deploy.sh` then polls `/health` for 20s and exits 1 with the
-journal tail if it never reports `ok`, so a build that boots broken is loud.
+boot, unrated. `scripts/deploy.sh` then polls `/health` for 20s and exits 1
+with the journal tail if it never reports `ok`, so a build that boots broken
+is loud.
 
 `/health` follows gcore's contract: always 200 while the process answers,
 with `db`, `bots`, `ladder`, `disk` and `backup` under `checks`
 (`server/src/health.ts`). Its top-level `ok` is the and of all five, which is
-what the deploy gate and brain's L5 probe both read — a stale backup fails a
+what the deploy gate and brain's L5 probe both read. A stale backup fails a
 deploy, deliberately.
 
-Backups: `opentable-backup.timer` runs `scripts/backup.sh` daily at 04:30
-UTC, keeping the last 14 gzipped `pg_dump`s in
+Backups: `ops/opentable-backup.timer` runs `scripts/backup.sh` daily at
+04:30 UTC, keeping the last 14 gzipped `pg_dump`s in
 `/home/gabriel/backups/opentable/`. `scripts/restore.sh <dump> <database>`
 puts one back, and refuses the live database without `--force`. The unit
 files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
 `scripts/CLAUDE.md` for what each script is careful about.
 
 ## Shape (npm workspaces, TypeScript end to end, Node 22)
-- `packages/protocol` — wire types v1 and the per-viewer `TableView`. The
-  contract between server and client; bump `PROTOCOL_VERSION` on change.
-- `packages/engine` — pure NLHE engine, 2..9 seats, side pots, deterministic
-  deck from a seed. `types.ts` is its public contract. Hand strength via
-  `phe`; `pokersolver` is only a test-time reference evaluator.
-- `packages/rating` — Glicko-2 (tau 0.75, per-match update, RD widened on
+- `packages/protocol`: the wire types and the per-viewer `TableView`. The
+  contract between server and client; bump `PROTOCOL_VERSION` on change, and
+  read the current number off that constant rather than out of a doc.
+- `packages/engine`: pure NLHE engine, 2..9 seats, side pots, deterministic
+  deck from a seed. `packages/engine/src/types.ts` is its public contract.
+  Hand strength via `phe`; `pokersolver` is only a test-time reference
+  evaluator.
+- `packages/rating`: Glicko-2 (tau 0.75, per-match update, RD widened on
   inactivity, provisional while RD > 110) and the matchmaking pairing
   function (pure, ticked by the server).
-- `packages/preflop` — cached baseline HU charts by stack depth and the
+- `packages/preflop`: cached baseline HU charts by stack depth and the
   EV-lost scorer. Preflop only, no solver at runtime.
-- `packages/equity` — postflop analysis: hand naming, exact or sampled
-  equity, outs, range notation. Isomorphic, runs in the client's worker.
-- `packages/identity` — generated CamelCase names (guests, bots) and
+- `packages/equity`: postflop analysis (hand naming, exact or sampled
+  equity, outs, range notation). Isomorphic, runs in the client's worker.
+- `packages/identity`: generated CamelCase names (guests, bots) and
   deterministic geometric avatars from a user id. Pure, no dependencies.
-- `server` — Fastify REST + `ws` WebSocket + `postgres` driver. Owns
+- `server`: Fastify REST + `ws` WebSocket + `postgres` driver. Owns
   sessions, matchmaking queue, match orchestration, clocks, persistence,
   serving `client/dist`.
-- `client` — React 19 + Vite + motion + number-flow. g-system vendored at
+- `client`: React 19 + Vite + motion + number-flow. g-system vendored at
   `client/public/g/` (never hand-edited; re-vendor from the g-system repo).
 
 ## Decisions
@@ -144,6 +147,22 @@ files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
   `@opentable/identity`'s `generateName` (`guest` boolean column, not a name
   prefix). Claiming sets a name and password on the same row so rating
   carries over.
+
+## Docs
+Every directory with non-obvious behaviour has its own `CLAUDE.md`. This file is
+the entry point; the detail lives down the tree.
+
+- `client/CLAUDE.md`, and under it `client/src/net/`, `client/src/table/`,
+  `client/src/analysis/`, `client/src/replay/`, `client/src/routes/` (with
+  `client/src/routes/learn/`), `client/src/tools/`, `client/src/puzzles/`,
+  `client/src/chat/`, `client/src/ui/`, `client/src/sound/` and `client/e2e/`
+- `server/CLAUDE.md`, and under it `server/src/`, `server/src/match/`,
+  `server/src/ws/`, `server/src/bots/` and `server/test/`
+- one per workspace package: `packages/engine/`, `packages/equity/`,
+  `packages/identity/`, `packages/preflop/`, `packages/rating/`
+- `ops/CLAUDE.md` for the systemd units, `scripts/CLAUDE.md` for the ops scripts
+
+`AGENTS.md` beside any of them is a symlink to it.
 
 ## Gotchas
 - g-system tokens: `--surface-1/-2`, `--bg`, `--text-primary/-secondary`,

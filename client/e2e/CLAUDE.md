@@ -1,0 +1,88 @@
+# e2e
+
+The Playwright suite. `npm run e2e -w client`, config in
+`../playwright.config.ts`, baselines in `__screenshots__/` and updated with
+`npm run e2e:update -w client`. `table.ts` is the shared kit.
+
+The webServer builds the client and serves the bundle with `vite preview`. The
+mock routes need no server and `stubApi` in `table.ts` fakes the endpoints the
+pages around them ask for, so a run is identical whether or not a dev server
+happens to be up.
+
+## What the suite drives
+
+`../src/dev/mock.ts` is the scripted live table, dev only. Both scripts end on a
+showdown and hold it: the heads-up one on a hand you lose, the six-max one on the
+hand that takes the table. `?practice=1` stamps `format.practice` over either
+script, which is how the analysis strip is driven without a server, and
+`?watch=1` drops the seat.
+
+The mock deals in the names people actually get (two CamelCase words, up to
+sixteen characters), because a mock dealing seven-letter lowercase names hid a
+truncation defect no test could see.
+
+## The stub
+
+`stubApi` serves the leaderboard, the feed, the site counters, the live tables,
+the bot roster and both kinds of shared link as well as your own account, so the
+baselines show those pages populated rather than showing eight pictures of an
+offline state. Its timestamps are offsets from now, sitting in the middle of
+their bucket, because the feed prints "2h ago" and a pinned date would read
+differently every day.
+
+The two link-landing pages, an invite and a home game lobby, are stubbed **from
+the visitor's side** rather than the host's, because that is the side a link is
+for: somebody else's invite to accept, and a lobby with three of its six chairs
+filled and none of them yours.
+
+The one thing no route can stub is the websocket, so the home page's baseline
+says the connection dropped, which is true.
+
+**Playwright runs the last matching route handler**, so a catch-all has to be
+registered first and the fixtures after it. Registered the other way round the
+catch-all swallows everything: this stub served 404 to every call for its whole
+life, which is why the accessibility run never saw a logged-in top bar, and why
+the contrast defect living in it went unreported by a suite that checks contrast.
+
+The replay's fixtures are a real recorded hand and its match, captured from the
+server into `fixtures/`. That page is a re-derivation: the engine replays the
+actions and the fairness panel rehashes the seed, so a mock cannot stand in for
+it.
+
+## The specs
+
+| Spec | Guards |
+| --- | --- |
+| `footprint.spec.ts` | the boxes and zero layout shift, playing and watching, that the dock is one height in all three states, and that the strips tile the grid |
+| `ergonomics.spec.ts` | phone target sizes, the primary action in the bottom quarter, the sizing model and clamping, a pre-action firing, and the ring at 768, 1280 and 1920 |
+| `showdown.spec.ts` | your cards face up through a lost showdown and after the end, the winning five, the award chip clear of the pot label |
+| `access.spec.ts` | axe-core per state with zero serious or critical, a keyboard-only decision, tab reachability, and typing in the field not triggering the shortcuts |
+| `practice.spec.ts` | the strip is on a practice table and off a rated one, that it reads, and that a practice table keeps one footprint with zero layout shift |
+| `chat.spec.ts` | opening, sending and closing the panel leave the header, felt and dock in identical boxes, at both widths |
+| `reduced-motion.spec.ts` | the same information with the motion emulated off |
+| `settings.spec.ts` | a choice surviving a reload, the pre-paint stamp, every accent's contrast in both themes, the four colour deck, and the menu itself |
+| `replay.spec.ts` | a recorded hand scrubbed back and forth leaves nothing behind and nothing outside the felt, and still verifies |
+| `screenshots.spec.ts` | 132 baselines: eleven states at 360, 390, 430, 768, 1366 and 1920, dark and light |
+
+## Reading a baseline diff
+
+**Read the diff before you accept one.** The suite runs with reduced motion so a
+card mid-deal cannot decide a baseline, and masks the four things that cannot be
+pinned to a pixel: the pot figure mid-count, the depleting turn bar, the seconds
+beside it and the hand-end countdown.
+
+**It also waits for every image to decode.** Avatars are inline SVG data URIs
+that never touch the network, which makes it easy to assume they are there, but
+the decode is still asynchronous: a shot taken between layout and paint differs
+from one taken after by a few hundred pixels, and the whole suite began flaking
+the day the stub started serving a logged-in top bar.
+
+The suite runs two workers, not one per core: eight states at 1920 in two themes
+is a lot of full-page rendering, and four browsers doing it at once on this box
+time out on each other rather than on anything real.
+
+## What it does not cover
+
+The replay page draws a hand fetched from the API and the suite deliberately runs
+without one. And the mock has no uncontested pot, so that rule is pinned in the
+unit tests on `readShowdown` (`../src/test/sizing.test.ts`) instead.

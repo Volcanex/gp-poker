@@ -7,30 +7,30 @@ for what the next agent needs to call.
 
 ## Files
 
-- `engine.ts` — the Web Audio layer: decodes each sound's base64 once,
-  caches the `AudioBuffer`, plays through a `GainNode` at the master
+- `engine.ts`: the Web Audio layer. It decodes each sound's base64 once,
+  caches the `AudioBuffer`, and plays through a `GainNode` at the master
   volume. `unlock()` resumes the `AudioContext` on the first user gesture.
   `play()` is a no-op until unlocked, while disabled, or when
   `AudioContext` doesn't exist (e.g. under jsdom in tests).
-- `events.ts` — the `SoundEvent` union and a `soundEvents` array of the
+- `events.ts`: the `SoundEvent` union and a `soundEvents` array of the
   same values, used by tests and pack authors to check coverage.
-- `sound-types.ts` — `SoundAsset`/`SoundModule` (alias), the shape every
+- `sound-types.ts`: `SoundAsset`/`SoundModule` (alias), the shape every
   vendored sound file exports. This is soundcn's own data shape, kept
   compatible on purpose so a freshly vendored file only needs its import
   path adjusted, nothing else.
-- `packs/<id>/index.ts` — one pack: `{ id, name, description, sounds }`
+- `packs/<id>/index.ts`: one pack, `{ id, name, description, sounds }`
   where `sounds` is `Record<SoundEvent, SoundModule | null>`. `null` means
   the pack deliberately stays silent for that event.
-- `index.ts` — the public API, `sound` (default export): `play`,
+- `index.ts`: the public API. `sound` (default export) carries `play`,
   `setEnabled`, `setVolume`, `setPack`, `unlock`, `packs` (static
   metadata, no audio loaded), `state`. Persists `{enabled, volume, pack}`
   to `localStorage` under `ot.sound`. Defaults: disabled, volume 0.6,
   pack `felt`. Packs are loaded with a dynamic `import()` keyed by id and
   cached, so switching packs only ever fetches each one once and Vite
   code-splits every pack into its own chunk (confirmed with a throwaway
-  build: `felt-*.js`, `arcade-*.js`, `glass-*.js` each build separately
+  build: felt, arcade and glass each build separately
   from the entry).
-- `react.ts` — `useSoundSettings()`, a thin `useSyncExternalStore` wrapper
+- `react.ts`: `useSoundSettings()`, a thin `useSyncExternalStore` wrapper
   over `sound` for the settings menu.
 
 ## Adding a pack
@@ -55,13 +55,13 @@ for what the next agent needs to call.
 ## Verifying provenance
 
 soundcn's per-module `license`/`author` fields are **not trustworthy on
-their own** — sounds pulled from the World of Warcraft collection (e.g.
+their own**. Sounds pulled from the World of Warcraft collection (e.g.
 `bell-toll-alliance`, `i-quest-complete`, `ui-blizzard-store-confirm-purchase`,
 the `voiceover-pack-*` family) carry an embedded `license: "CC0", author:
-"Kenney"` that contradicts soundcn's own `registry.json`, which correctly
-lists them as `© Blizzard Entertainment, Inc. — All Rights Reserved` under
+"Kenney"` that contradicts soundcn's own registry.json, which correctly
+lists them as `© Blizzard Entertainment, Inc.`, all rights reserved, under
 a `warcraft` category tag. Before vendoring any sound, cross-check the
-module against `registry.json`'s `items[].author` and
+module against soundcn's registry.json `items[].author` and
 `items[].meta.license`, not just the module's own fields, and reject
 anything tagged `warcraft` or named after a forbidden pattern (`bell-toll`,
 `blizzard`, `voiceover-pack`, `quest`, `alliance`, `horde`, `night-elf`).
@@ -70,9 +70,9 @@ The test suite re-checks this on every vendored file.
 ## Provenance table
 
 All 37 vendored sounds verified Kenney/CC0 against both the module header
-and soundcn's `registry.json`, with zero matches against the forbidden
+and soundcn's registry.json, with zero matches against the forbidden
 Warcraft/Blizzard patterns. "Source pack" is the actual Kenney itch.io
-pack the file matched by name in soundcn's `assets/` mirror; five sounds
+pack the file matched by name in soundcn's assets mirror; five sounds
 (marked `Kenney (unmirrored)`) aren't present in that mirror by filename
 but are independently verified via soundcn's registry metadata (author,
 licence, category all clean).
@@ -120,7 +120,7 @@ licence, category all clean).
 ### `chat` reuses each pack's own click
 
 Table chat needed a cue and no new sound was vendored for it. soundcn's
-`registry.json` is what the provenance rule above is checked against, and it
+registry.json is what the provenance rule above is checked against, and it
 was not reachable from this workstream, so rather than vendor a file on the
 strength of its own header (exactly the thing the Warcraft sounds got wrong)
 every pack maps `chat` to the quiet cue it already uses for `click`. Replace
@@ -141,10 +141,10 @@ All well under the 250 KB per-pack budget.
 Two things the table/settings agent needs to wire up; nothing in this
 directory calls them itself:
 
-1. **Unlock on first gesture** — call `sound.unlock()` from the first
+1. **Unlock on first gesture**: call `sound.unlock()` from the first
    `pointerdown` or `keydown` listener at the app root. Browsers block
    audio until a user gesture; calling it more than once is harmless.
-2. **Play at table events** — call `sound.play(event)` at: a hand
+2. **Play at table events**: call `sound.play(event)` on a hand
    dealing (`'deal'`), each seat's own action landing (`'cardPlace'`,
    `'bet'`, `'call'`, `'check'`, `'fold'`), chips sweeping to the winner
    (`'chipsCollect'`), it becoming the local player's turn (`'yourTurn'`),
@@ -152,7 +152,7 @@ directory calls them itself:
    (`'handWon'`/`'handLost'`), and a match ending
    (`'matchWon'`/`'matchLost'`). Use `'click'` for generic UI taps if
    wanted.
-3. **Settings section** — bind a toggle, a volume slider, and a pack
+3. **Settings section**: bind a toggle, a volume slider, and a pack
    picker to `useSoundSettings()` (`enabled`, `volume`, `pack`, `packs`,
    `setEnabled`, `setVolume`, `setPack`). Add a "Preview" button next to
    the pack picker that calls `play('yourTurn')` (after `unlock()`, since

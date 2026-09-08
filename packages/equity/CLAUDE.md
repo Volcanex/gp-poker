@@ -6,20 +6,20 @@ and in the client's web worker. Nothing here knows about a match, a socket or
 a database.
 
 ## Shape
-- `src/name.ts` — `handName(5..7 cards)`, e.g. "Two pair, aces and nines".
+- `src/name.ts`: `handName(5..7 cards)`, e.g. "Two pair, aces and nines".
   The category comes from `phe`, the evaluator the engine settles pots with,
   so a name can never disagree with who won; the wording is derived from the
   best five cards.
-- `src/equity.ts` — `equity(hero, board, villains, opts)`. A villain is a
+- `src/equity.ts`: `equity(hero, board, villains, opts)`. A villain is a
   `Range`, `'random'`, or the two cards a seat actually held. The third is what
   a replay has once a hand ends, and it is one combination rather than
   hundreds, so a multiway board that would have been sampled enumerates
   exactly.
-- `src/outs.ts` — `outs(hero, [3 or 4 board cards])`.
-- `src/range.ts` — the 169 classes, notation in and out, `HAND_GRID`,
+- `src/outs.ts`: `outs(hero, [3 or 4 board cards])`.
+- `src/range.ts`: the 169 classes, notation in and out, `HAND_GRID`,
   `combosOf`, `rangeFromTop`.
-- `src/presets.ts` — the preflop baseline charts as ready-made ranges.
-- `src/ranking.ts` — the equity ranking, read in a browser-safe way.
+- `src/presets.ts`: the preflop baseline charts as ready-made ranges.
+- `src/ranking.ts`: the equity ranking, read in a browser-safe way.
 
 ## Importing it without the evaluator
 The root export pulls in `phe`. Three subpaths do not, and exist so a page can
@@ -59,12 +59,12 @@ and the flush outs are the cards of the drawing suit. A double gutshot is
 reported as an open-ended straight draw, since both leave eight cards.
 
 ## The preflop data files
-`ranking.ts` re-exports `@opentable/preflop`'s own ranking and percentile
+`src/ranking.ts` re-exports `@opentable/preflop`'s own ranking and percentile
 functions rather than re-deriving them: preflop reads its two JSON files with
 static imports now, so it is pure and isomorphic and safe to import here, in
-a web worker. `ranking.ts` keeps only `charts()` local, a plain read of the
+a web worker. `src/ranking.ts` keeps only `charts()` local, a plain read of the
 raw chart JSON with the `notes` key stripped, because preflop's public API
-only offers single-entry lookups (`chartFor(bucket, spot)`) and `presets.ts`
-needs to enumerate every entry. `ranking.test.ts` still asserts the ranking
+only offers single-entry lookups (`chartFor(bucket, spot)`) and `src/presets.ts`
+needs to enumerate every entry. `src/ranking.test.ts` still asserts the ranking
 functions agree with preflop's own, now mostly a regression pin against a
 future edit turning the re-export back into a local copy.

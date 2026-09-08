@@ -5,7 +5,7 @@ Pure, isomorphic package: generated CamelCase names (`RedTiger`,
 both the server (guest and bot naming) and the client (rendering avatars
 from a user id). No dependencies, no node imports.
 
-- `src/words.ts` — the adjective/thing/verb lists. Every word is
+- `src/words.ts`: the adjective/thing/verb lists. Every word is
   capitalised, letters only, 3-9 characters, and unique across all three
   lists; `test/words.test.ts` enforces this.
 - `generateName(rng, words)` takes the rng as an argument rather than

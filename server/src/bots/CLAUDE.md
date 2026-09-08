@@ -83,7 +83,7 @@ nothing at launch. The human queues still never seat a bot-only table.
   already running is left to finish rather than torn out mid-rating.
 - **Nothing new is needed to keep the bots free for people**: a ladder match
   registers an ordinary room, so `availableBots` and `availableBotsAtLevel`
-  already see its seats as busy. `ladder.test.ts` asserts it rather than
+  already see its seats as busy. `../../test/ladder.test.ts` asserts it rather than
   assuming it.
 - **Pairing** is a round robin by fewest ladder matches (the anchor), then the
   least-played half of everyone else sorted nearest in rating. Recent tables

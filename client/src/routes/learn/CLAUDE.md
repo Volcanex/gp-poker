@@ -42,7 +42,7 @@ grid always agrees with what the accuracy scorer would call correct.
 
 ## Diagrams reuse the app's own components
 
-Cards are `BoardText` from `src/ui/board-text.tsx`, the same component the
+Cards are `BoardText` from `../../ui/board-text.tsx`, the same component the
 match tables and hand lists use, so a card on a lesson page is the card the
 table deals. Tables are g's `.table`. The seat chips and the range grid are the
-only bespoke pieces, and their styles are in `learn.css`, never `app.css`.
+only bespoke pieces, and their styles are in `learn.css`, never `../../app.css`.
