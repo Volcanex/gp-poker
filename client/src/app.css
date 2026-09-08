@@ -23,6 +23,15 @@
    once the root carries a conditional declaration. Nothing about it is
    semantic and nothing on that page reads the property. */
 :root { --top-h: 48px; --strip-h: 34px; }
+/* The three colours an action has, everywhere an action is shown: a seat's
+   action square, the band's buttons and its size segments. Bet, raise and
+   all in are yellow; check and call green; fold red. One place, so the felt
+   and the band cannot drift. */
+:root, [data-theme] {
+  --act-bet: var(--warn); --act-bet-text: var(--warn-text);
+  --act-call: var(--ok); --act-call-text: var(--ok-text);
+  --act-fold: var(--danger-fill); --act-fold-text: var(--danger-text);
+}
 
 /* .stat is the shipped stat tile, but g.css does not carry its rules (they
    live in the g-system docs app). Copied verbatim until g-system ships them. */
