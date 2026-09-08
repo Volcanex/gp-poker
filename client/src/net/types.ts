@@ -260,6 +260,7 @@ export interface LiveMatch {
   mode: Mode;
   rated: boolean;
   practice: boolean;
+  homeGame?: boolean;
   hand: number; // the hand being dealt now, 1-based
   // rating and spectators are optional because a server that predates
   // watching sends neither, and a missing number is hidden rather than

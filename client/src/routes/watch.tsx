@@ -86,7 +86,7 @@ function LiveRow({ match }: { match: LiveMatch }) {
       <Link className="row-link" to={`/m/${match.id}`} aria-label={`Watch match ${match.id}`} />
       <span className="tagset">
         <span className="badge badge-plain">{MODE_NAME[match.mode]}</span>
-        <StakeBadge rated={match.rated} practice={match.practice} />
+        <StakeBadge rated={match.rated} practice={match.practice} homeGame={match.homeGame === true} />
       </span>
       <span className="feed-players">
         {match.players.map((p, i) => (

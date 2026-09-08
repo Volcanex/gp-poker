@@ -388,6 +388,7 @@ export function registerRoutes(app: FastifyInstance): void {
       mode: m.format.mode,
       rated: m.rated,
       practice: isPractice(m.format),
+      homeGame: m.format.homeGame === true,
       // handsPlayed counts completed hands, so the hand being dealt is the
       // next one along.
       hand: m.handsPlayed + 1,
