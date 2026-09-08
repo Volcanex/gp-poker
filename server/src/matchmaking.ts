@@ -71,6 +71,12 @@ export async function enqueue(userId: string, mode: Mode = 'heads-up', rated = t
   sendSearching(entry, countIn(mode, rated));
 }
 
+// How many people are searching right now, for the home page's stats strip.
+// Bots are never enqueued, so every entry is a human.
+export function queueSize(): number {
+  return queue.size;
+}
+
 export function dequeue(userId: string): void {
   if (queue.delete(userId)) {
     hub.send(userId, { t: 'q', s: 'left' });

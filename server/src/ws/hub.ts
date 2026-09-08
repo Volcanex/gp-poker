@@ -38,6 +38,13 @@ class Hub {
     return this.byUser.has(userId) || this.virtual.has(userId);
   }
 
+  // Distinct people with at least one socket open, for the "N online" figure
+  // on the home page. Virtual connections are bots and are deliberately not
+  // counted: a bot is not somebody who is here.
+  countHumans(): number {
+    return this.byUser.size;
+  }
+
   send(userId: string, msg: ServerMsg): void {
     const handler = this.virtual.get(userId);
     if (handler) {

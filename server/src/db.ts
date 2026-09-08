@@ -678,3 +678,50 @@ export async function insertAuditLog(entry: {
     values (${entry.kind}, ${entry.userId ?? null}, ${entry.matchId ?? null}, ${sql.json(jsonb(entry.detail ?? {}))}, ${entry.ip ?? null})
   `;
 }
+
+// ---- feed ----
+
+// The home feed and the watch list. Both read `matches` directly rather than
+// the live rooms, so the two figures on screen come from one source and
+// cannot disagree with each other. A match left 'playing' by a dead process
+// is aborted at boot (abortStalePlayingMatches), which is what keeps the
+// live query honest.
+
+export async function getRecentMatches(limit = 20): Promise<MatchRow[]> {
+  return sql<MatchRow[]>`
+    select * from matches
+    where status = 'finished'
+    order by finished_at desc
+    limit ${limit}
+  `;
+}
+
+export async function getLiveMatches(limit = 50): Promise<MatchRow[]> {
+  return sql<MatchRow[]>`
+    select * from matches
+    where status = 'playing'
+    order by created_at desc
+    limit ${limit}
+  `;
+}
+
+export interface SiteStats {
+  matchesToday: number;
+  handsTotal: number;
+  playersRegistered: number;
+  playersGuest: number;
+}
+
+// One round trip for the whole strip: four counts that are always shown
+// together and never read apart.
+export async function getSiteStats(): Promise<SiteStats> {
+  const [row] = await sql<SiteStats[]>`
+    select
+      (select count(*) from matches
+        where status = 'finished' and finished_at >= date_trunc('day', now()))::int as matches_today,
+      (select count(*) from hands where completed_at is not null)::int as hands_total,
+      (select count(*) from users where bot = false and guest = false)::int as players_registered,
+      (select count(*) from users where bot = false and guest = true)::int as players_guest
+  `;
+  return row;
+}

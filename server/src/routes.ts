@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { blindsAt, type Mode } from '@opentable/protocol';
+import { blindsAt, type MatchFormat, type Mode } from '@opentable/protocol';
 
 function modeParam(raw: unknown): Mode {
   return MODES.includes(raw as Mode) ? (raw as Mode) : 'heads-up';
@@ -17,8 +17,14 @@ import {
   getMatchById,
   getHandsForMatch,
   getHandById,
+  getRecentMatches,
+  getLiveMatches,
+  getSiteStats,
   deleteSession,
+  type MatchRow,
 } from './db.js';
+import { hub } from './ws/hub.js';
+import { queueSize } from './matchmaking.js';
 import { claimGuest, login, requireUser, setSessionCookie, clearSessionCookie, createSessionForUser, SESSION_COOKIE } from './auth.js';
 import { roundRatings, toModeRating, toUserSummary } from './userView.js';
 
@@ -212,4 +218,95 @@ export function registerRoutes(app: FastifyInstance): void {
       completedAt: hand.completedAt,
     };
   });
+
+  // Latest finished matches, newest first. Aborted matches are left out: they
+  // changed nobody's rating and there is nothing to read in them.
+  app.get<{ Querystring: { limit?: string } }>('/api/recent', async (request) => {
+    const limit = clampLimit(request.query.limit, 20, 50);
+    const rows = await getRecentMatches(limit);
+    return rows.map(toFeedMatch);
+  });
+
+  // The home page's stats strip. Cached because it is polled every ten
+  // seconds by every open tab and none of these numbers is worth a round trip
+  // per viewer.
+  app.get('/api/stats', async () => {
+    const now = Date.now();
+    if (statsCache && now - statsCache.at < STATS_TTL_MS) return statsCache.body;
+    const counts = await getSiteStats();
+    const live = await getLiveMatches();
+    const body = {
+      online: hub.countHumans(),
+      inQueue: queueSize(),
+      playing: live.filter(hasHuman).length,
+      matchesToday: counts.matchesToday,
+      handsTotal: counts.handsTotal,
+      playersTotal: { registered: counts.playersRegistered, guest: counts.playersGuest },
+    };
+    statsCache = { at: now, body };
+    return body;
+  });
+
+  // Matches in progress with a person at the table. Bot-only tables never
+  // happen (matchmaking will not seat one), but the filter says so anyway.
+  app.get('/api/live', async () => {
+    const rows = await getLiveMatches();
+    return rows.filter(hasHuman).map((m) => ({
+      id: m.id,
+      mode: m.format.mode,
+      rated: m.rated,
+      practice: isPractice(m.format),
+      // handsPlayed counts completed hands, so the hand being dealt is the
+      // next one along.
+      hand: m.handsPlayed + 1,
+      players: m.seats.map((s) => ({ name: s.name, bot: s.bot === true })),
+      startedAt: m.createdAt,
+    }));
+  });
+}
+
+const STATS_TTL_MS = 5_000;
+let statsCache: { at: number; body: unknown } | null = null;
+
+function clampLimit(raw: string | undefined, fallback: number, max: number): number {
+  const n = Number.parseInt(raw ?? '', 10);
+  if (!Number.isFinite(n) || n < 1) return fallback;
+  return Math.min(n, max);
+}
+
+// Practice matches are never rated and are marked on their format. The field
+// is read off a widened type rather than MatchFormat itself so this keeps
+// working whether or not the format carries it yet.
+function isPractice(format: MatchFormat): boolean {
+  return (format as MatchFormat & { practice?: boolean }).practice === true;
+}
+
+function hasHuman(m: MatchRow): boolean {
+  return m.seats.some((s) => s.bot !== true);
+}
+
+// Finishing order, not seat order: a feed row reads "winner beat loser", and
+// seat 0 is nobody's idea of first. Seats with no place (a match stored
+// before places existed) keep their seat order at the end.
+function toFeedMatch(m: MatchRow) {
+  const players = m.seats.map((s) => {
+    const change = m.ratings?.[s.userId];
+    return {
+      name: s.name,
+      bot: s.bot === true,
+      place: m.places?.[s.userId] ?? null,
+      ratingBefore: change ? Math.round(change.before) : null,
+      ratingAfter: change ? Math.round(change.after) : null,
+    };
+  });
+  players.sort((a, b) => (a.place ?? Infinity) - (b.place ?? Infinity));
+  return {
+    id: m.id,
+    mode: m.format.mode,
+    rated: m.rated,
+    practice: isPractice(m.format),
+    handsPlayed: m.handsPlayed,
+    finishedAt: m.finishedAt,
+    players,
+  };
 }
