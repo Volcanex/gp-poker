@@ -364,13 +364,20 @@ const EXPLORER = JSON.parse(
   readFileSync(fileURLToPath(new URL('./fixtures/explorer.json', import.meta.url)), 'utf8'),
 );
 
-/* An explicit theme, stored the way g stores it: g-ui reads its own key at load
-   and writes the attribute itself, so setting the attribute alone is undone a
-   moment later. "system" is not a thing a baseline can pin. */
+/* An explicit theme, stored the way the app stores it: ot.prefs is what the
+   pre-paint script in index.html reads before first render and what the
+   settings menu's mount effect reapplies straight after, so stamping g-theme
+   or the attribute directly is undone a moment later by that effect reading
+   ot.prefs back to its default. "system" is not a thing a baseline can pin. */
 export async function setTheme(page: Page, theme: 'dark' | 'light') {
   await page.addInitScript((t) => {
-    localStorage.setItem('g-theme', t as string);
-    document.documentElement.setAttribute('data-theme', t as string);
+    let prefs: Record<string, unknown> = {};
+    try {
+      prefs = JSON.parse(localStorage.getItem('ot.prefs') ?? '{}') ?? {};
+    } catch {
+      prefs = {};
+    }
+    localStorage.setItem('ot.prefs', JSON.stringify({ ...prefs, theme: t }));
   }, theme);
 }
 
