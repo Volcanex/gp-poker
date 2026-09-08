@@ -7,6 +7,7 @@ import { Leaderboard } from './routes/leaderboard.tsx';
 import { Profile } from './routes/profile.tsx';
 import { Watch } from './routes/watch.tsx';
 import { learnRoutes } from './routes/learn/index.tsx';
+import { toolsRoutes } from './tools/index.tsx';
 import { AccountMenu } from './ui/auth.tsx';
 import { SiteFooter } from './ui/site-footer.tsx';
 
@@ -74,6 +75,9 @@ export function App() {
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/watch" element={<Watch />} />
           {learnRoutes}
+          {toolsRoutes.map((r) => (
+            <Route key={r.path} path={r.path} element={r.element} />
+          ))}
           <Route path="/m/:id" element={<Match />} />
           <Route
             path="/m/:id/h/:n"
