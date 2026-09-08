@@ -81,6 +81,10 @@
 .tk-head .spacer { flex: 1; }
 .tk-when { color: var(--text-secondary); white-space: nowrap; }
 .tk-path { font-family: var(--font-mono); font-size: 12px; }
+/* A ticket's title carries the element count under it, and g's row is one
+   line high: at 40px the two-line cell filled the row edge to edge and two
+   rows of titles ran into each other as one block of four lines. */
+.tk-rows { --row-h: 56px; }
 .tk-title-cell { display: flex; flex-direction: column; gap: 2px; }
 .tk-title-cell a { color: var(--text-primary); text-decoration: none; }
 .tk-title-cell a:hover { text-decoration: underline; }
