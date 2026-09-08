@@ -680,6 +680,22 @@ export async function getRatingHistoryForUser(userId: string): Promise<RatingHis
 
 // ---- audit log ----
 
+// Table chat, written as it is said. Nothing reads it back yet: the room
+// replays from memory, and this row exists so somebody reported for what they
+// said at a table can be looked up later.
+export async function insertChatMessage(entry: {
+  matchId: string;
+  userId: string;
+  seat: number | null;
+  text: string;
+  at: Date;
+}): Promise<void> {
+  await sql`
+    insert into chat (match_id, user_id, seat, text, at)
+    values (${entry.matchId}, ${entry.userId}, ${entry.seat}, ${entry.text}, ${entry.at})
+  `;
+}
+
 export async function insertAuditLog(entry: {
   kind: string;
   userId?: string | null;

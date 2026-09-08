@@ -1,6 +1,14 @@
-import type { ClientMsg, MatchResult } from '@opentable/protocol';
+import type { ChatFrom, ClientMsg, MatchResult, ServerMsg } from '@opentable/protocol';
+import { CHAT_HISTORY } from '@opentable/protocol';
 import { hub } from '../ws/hub.js';
-import { finishMatch as persistFinishMatch, getRatingsForUsers, type MatchRow } from '../db.js';
+import { ChatLimiter, chatRejectionText, cleanChatText } from '../chat.js';
+import {
+  finishMatch as persistFinishMatch,
+  getRatingsForUsers,
+  getUserById,
+  insertChatMessage,
+  type MatchRow,
+} from '../db.js';
 import { trackSpectator, unregisterRoom, untrackSpectator } from './rooms.js';
 import { EngineHandRunner } from './handRunner.js';
 import { computeMatchRatings } from './rating.js';
@@ -20,6 +28,8 @@ const TIMEOUT_STREAK_LIMIT = 3;
 // Full Glicko-2 precision, no volatility (that never goes on the wire).
 // `matches.ratings` is persisted with this, full precision, the `end`
 // message sends `roundRatings()` of it instead.
+type ChatLine = Extract<ServerMsg, { t: 'chat' }>;
+
 function toMatchResultRatings(outcome: MatchOutcome): MatchResult['ratings'] {
   const ratings: MatchResult['ratings'] = {};
   for (const [uid, r] of Object.entries(outcome.ratings)) {
@@ -49,6 +59,14 @@ export class MatchRoom {
   private clockTimer: ReturnType<typeof setTimeout> | null = null;
   private clock: RoomClock | null = null;
   private lastResult: MatchResult | null = null;
+  // Chat, two channels and one allowance. The players' channel goes to
+  // everybody; the rail's goes only to the rail, so a table cannot be coached
+  // from it. They are capped separately rather than as one list of a hundred:
+  // a busy rail would otherwise evict the conversation a reconnecting player
+  // came back for.
+  private chatLimiter = new ChatLimiter();
+  private playerChat: ChatLine[] = [];
+  private railChat: ChatLine[] = [];
 
   private hand: HandRunner | null = null;
 
@@ -103,6 +121,7 @@ export class MatchRoom {
       trackSpectator(userId, this);
     }
     this.sendViewTo(userId);
+    this.replayChatTo(userId);
     if (this.match.status === 'finished' && this.lastResult) {
       hub.send(userId, { t: 'end', m: this.id, r: this.lastResult });
     }
@@ -137,6 +156,72 @@ export class MatchRoom {
   broadcast(): void {
     if (!this.hand) return;
     for (const uid of this.subscribers) this.sendViewTo(uid);
+  }
+
+  /* ------------------------------------------------------------------ chat */
+
+  /* What somebody arriving is owed. A player is owed the table's conversation;
+     a spectator is owed that and the rail's, merged back into the order it was
+     said in, because two lists side by side read as two conversations. */
+  private replayChatTo(userId: string): void {
+    const lines = this.spectators.has(userId)
+      ? [...this.playerChat, ...this.railChat].sort((a, b) => a.at - b.at)
+      : this.playerChat;
+    for (const line of lines) hub.send(userId, line);
+  }
+
+  /* One message. The allowance is spent here, synchronously, before anything
+     is awaited: two messages arriving in the same tick would otherwise both
+     pass a check made after a database round trip, and the gap that stops a
+     flood would not exist. The name lookup follows, and only an accepted
+     message is ever sent on or stored. */
+  handleChat(userId: string, msg: Extract<ClientMsg, { t: 'chat' }>): void {
+    if (!this.subscribers.has(userId)) {
+      hub.send(userId, { t: 'err', c: 'no_match', msg: 'join the table before chatting' });
+      return;
+    }
+    const clean = cleanChatText(msg.text);
+    if (!clean.ok) {
+      hub.send(userId, { t: 'err', c: 'chat', msg: chatRejectionText(clean.reason!) });
+      return;
+    }
+    const now = Date.now();
+    const limited = this.chatLimiter.check(userId, now);
+    if (limited) {
+      hub.send(userId, {
+        t: 'err',
+        c: 'chat',
+        msg: chatRejectionText(limited, this.chatLimiter.waitFor(userId, now)),
+      });
+      return;
+    }
+    this.chatLimiter.record(userId, now);
+    void this.deliverChat(userId, clean.text, now).catch((err) => {
+      console.error(`match ${this.id} chat failed:`, err);
+    });
+  }
+
+  private async deliverChat(userId: string, text: string, at: number): Promise<void> {
+    const user = await getUserById(userId);
+    if (!user) return;
+    // A bot has nothing to say. Nothing in `src/bots/` sends one, and if
+    // something ever did, a table should not repeat it as though it did.
+    if (user.bot) return;
+
+    const seatIndex = this.playerIds.indexOf(userId);
+    const seat = seatIndex === -1 ? null : seatIndex;
+    const from: ChatFrom = { id: user.id, name: user.name, bot: false, seat };
+    const line: ChatLine = { t: 'chat', m: this.id, from, text, at };
+
+    if (seat === null) {
+      this.railChat = [...this.railChat, line].slice(-CHAT_HISTORY);
+      for (const uid of this.spectators) hub.send(uid, line);
+    } else {
+      this.playerChat = [...this.playerChat, line].slice(-CHAT_HISTORY);
+      for (const uid of this.subscribers) hub.send(uid, line);
+    }
+
+    await insertChatMessage({ matchId: this.id, userId, seat, text, at: new Date(at) });
   }
 
   handleAct(userId: string, msg: Extract<ClientMsg, { t: 'act' }>): void {

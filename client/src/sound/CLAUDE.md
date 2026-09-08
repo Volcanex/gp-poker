@@ -92,8 +92,8 @@ licence, category all clean).
 | drop-001 | handLost | felt | Kenney Interface Sounds | CC0 |
 | drop-004 | matchLost | felt | Kenney Interface Sounds | CC0 |
 | jingles-hit-01 | matchWon | felt | Kenney Music Jingles (Hit) | CC0 |
-| click-soft | click | felt | Kenney (unmirrored) | CC0 |
-| click-8bit | deal, cardPlace, check, handLost, matchLost, click | arcade | Kenney (unmirrored) | CC0 |
+| click-soft | chat, click | felt | Kenney (unmirrored) | CC0 |
+| click-8bit | deal, cardPlace, check, handLost, matchLost, chat, click | arcade | Kenney (unmirrored) | CC0 |
 | select-001 | bet | arcade | Kenney Interface Sounds | CC0 |
 | select-002 | call | arcade | Kenney Interface Sounds | CC0 |
 | select-003 | fold | arcade | Kenney Interface Sounds | CC0 |
@@ -112,10 +112,19 @@ licence, category all clean).
 | impact-glass-light-001 | check | glass | Kenney Impact Sounds | CC0 |
 | impact-glass-light-002 | chipsCollect | glass | Kenney Impact Sounds | CC0 |
 | impact-glass-light-003 | handLost | glass | Kenney Impact Sounds | CC0 |
-| impact-glass-light-004 | click | glass | Kenney Impact Sounds | CC0 |
+| impact-glass-light-004 | chat, click | glass | Kenney Impact Sounds | CC0 |
 | jingles-pizzi-00 | handWon | glass | Kenney Music Jingles (Pizzicato) | CC0 |
 | impact-bell-heavy-000 | matchWon | glass | Kenney Impact Sounds | CC0 |
 | jingles-steel-05 | matchLost | glass | Kenney Music Jingles (Steel) | CC0 |
+
+### `chat` reuses each pack's own click
+
+Table chat needed a cue and no new sound was vendored for it. soundcn's
+`registry.json` is what the provenance rule above is checked against, and it
+was not reachable from this workstream, so rather than vendor a file on the
+strength of its own header (exactly the thing the Warcraft sounds got wrong)
+every pack maps `chat` to the quiet cue it already uses for `click`. Replace
+these three the moment a verified CC0 notification sound can be vendored.
 
 ## Pack sizes (base64 payload, excluding `index.ts`)
 

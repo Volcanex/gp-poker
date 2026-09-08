@@ -18,6 +18,8 @@ import { readShowdown } from './best-five.ts';
 import { useTableSounds } from './sounds.ts';
 import { useGInit } from '../ui/bits.tsx';
 import { LiveStats } from '../analysis/live-stats.tsx';
+import { ChatPanel, ChatToggle } from '../chat/chat.tsx';
+import type { ChatController } from '../chat/use-chat.ts';
 
 export interface TableProps {
   view: TableView;
@@ -28,6 +30,9 @@ export interface TableProps {
   bare?: boolean;
   /* The match is over: the felt stays on screen behind the result panel. */
   ended?: boolean;
+  /* Table chat, when this table has one. The toggle goes in the header and the
+     panel beside or over the felt, never in a row of its own: see chat.css. */
+  chat?: ChatController;
 }
 
 interface Flight { id: number; seat: number; amount: number }
@@ -41,7 +46,7 @@ const REVEAL_MS = 0;
 const HIGHLIGHT_MS = 400;
 const SETTLE_MS = 700;
 
-export function Table({ view, onAct, sending, bare, ended }: TableProps) {
+export function Table({ view, onAct, sending, bare, ended, chat }: TableProps) {
   const reduced = useReducedMotion();
   const headRef = useRef<HTMLDivElement>(null);
   useGInit(headRef);
@@ -170,6 +175,7 @@ export function Table({ view, onAct, sending, bare, ended }: TableProps) {
             </span>
           )}
         </span>
+        {chat && <ChatToggle chat={chat} />}
        </div>
       </div>
       )}
@@ -294,6 +300,8 @@ export function Table({ view, onAct, sending, bare, ended }: TableProps) {
           {hole && <LiveStats hole={hole} board={view.board} opponents={opponents} />}
         </div>
       )}
+
+      {chat && !bare && !ended && <ChatPanel chat={chat} />}
 
       {!bare && !ended && (
         <>

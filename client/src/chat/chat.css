@@ -1,0 +1,159 @@
+/* Table chat. The one rule this file exists to keep: the panel is never a row
+   of `.match`'s grid. Where the felt leaves a gutter beside it, the panel
+   shares the felt's own row and sits in that gutter; anywhere narrower it is a
+   sheet fixed over the felt, above the dock. Either way the header, the felt
+   and the dock keep the boxes they had before it opened, which is what
+   e2e/chat.spec.ts measures. */
+
+.chat-panel {
+  --chat-w: 264px;
+  position: fixed;
+  left: auto;
+  right: 0;
+  bottom: calc(var(--dock-h) + env(safe-area-inset-bottom));
+  z-index: 3;
+  width: min(100%, 420px);
+  max-height: 60dvh;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius) var(--radius) 0 0;
+  box-shadow: var(--shadow-overlay);
+}
+
+/* The column, and the only two widths it needs: a heads-up felt is 680px and
+   a six-max ring is 960px, so each needs its own gutter before a 264px panel
+   fits beside it. Below its own threshold a table keeps the sheet, which is
+   the honest answer to "there is no room here" rather than a column laid over
+   a seat. */
+/* A sheet on a screen that is not a phone is still a sheet, but it sits off
+   the corner rather than flush into it: a square edge cut by the window reads
+   as something that failed to fit. */
+@container (min-width: 700px) {
+  .chat-panel {
+    right: var(--sp-4);
+    bottom: calc(var(--dock-h) + var(--sp-3));
+    border-radius: var(--radius);
+  }
+}
+
+@container (min-width: 1240px) {
+  .match:has(.felt[data-mode="stack"]) > .chat-panel {
+    position: static;
+    /* Row 3 AND column 1: the felt's own cell, shared with it. Naming the row
+       alone puts the panel in an implicit second column, and the whole table
+       narrows to make room for it. */
+    grid-row: 3;
+    grid-column: 1;
+    justify-self: end;
+    align-self: stretch;
+    width: var(--chat-w);
+    max-height: none;
+    margin: var(--sp-3) var(--sp-4);
+    border-radius: var(--radius);
+    box-shadow: none;
+  }
+}
+
+@container (min-width: 1520px) {
+  .match:has(.felt[data-mode="ring"]) > .chat-panel {
+    position: static;
+    /* Row 3 AND column 1: the felt's own cell, shared with it. Naming the row
+       alone puts the panel in an implicit second column, and the whole table
+       narrows to make room for it. */
+    grid-row: 3;
+    grid-column: 1;
+    justify-self: end;
+    align-self: stretch;
+    width: var(--chat-w);
+    max-height: none;
+    margin: var(--sp-3) var(--sp-4);
+    border-radius: var(--radius);
+    box-shadow: none;
+  }
+}
+
+.chat-head {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+  flex: none;
+}
+.chat-title { font-size: var(--font-size-ui); font-weight: 500; color: var(--text-primary); }
+
+.chat-note { margin: 0; font-size: 12px; line-height: 1.45; }
+
+/* The only thing on this screen that scrolls. A short conversation sits on the
+   floor of the box, next to the field it was typed in, rather than stranded at
+   the top of it. The auto margin does that without `justify-content: flex-end`,
+   which cuts the top off a list once it overflows. */
+.chat-lines {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: var(--sp-3);
+  padding-right: 2px;
+}
+.chat-lines::before { content: ''; margin-top: auto; }
+.chat-empty { padding: var(--sp-4) 0; }
+
+.chat-line {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  grid-template-areas: "av meta" ". text";
+  column-gap: var(--sp-2);
+  row-gap: 2px;
+  align-items: center;
+}
+.chat-line .avatar { grid-area: av; }
+.chat-meta { grid-area: meta; display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.chat-text {
+  grid-area: text;
+  font-size: 13px; line-height: 1.45; color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+.chat-name {
+  font-size: 12px; font-weight: 500; color: var(--text-primary); text-decoration: none;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.chat-name:hover { text-decoration: underline; }
+.chat-at { font-size: 11px; color: var(--text-muted); flex: none; margin-left: auto; }
+
+/* A line from the rail is quieter than one from a seat, and says so: two
+   conversations in one list have to be told apart at a glance. */
+.chat-line[data-rail] .chat-text { color: var(--text-secondary); }
+.chat-rail {
+  font-size: 10px; color: var(--text-muted);
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-full);
+  padding: 0 6px; flex: none;
+}
+.chat-line[data-mine] .chat-name { color: var(--text-hot); }
+
+.chat-quick { display: flex; flex-wrap: wrap; gap: 5px; flex: none; }
+.chat-quick .btn { flex: 1 1 auto; }
+
+.chat-send { display: flex; gap: var(--sp-2); flex: none; }
+.chat-send .input { flex: 1; min-width: 0; }
+/* The label swaps between "Send" and a countdown, so the box is held open for
+   the longer of the two rather than resizing under the pointer. */
+.chat-send-btn { flex: none; min-width: 84px; }
+
+.chat-err { margin: 0; font-size: 12px; color: var(--danger-text); flex: none; }
+
+/* The toggle in the hand header. The count sits after the word so a number
+   arriving cannot move anything that was already on the row, and its slot is
+   held open whether or not there is one. */
+.chat-toggle { gap: 6px; }
+.chat-toggle .chat-unread {
+  min-width: 16px; height: 16px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 10px; line-height: 1;
+  border-radius: var(--radius-full);
+}
+.chat-toggle .chat-unread:not([aria-hidden="true"]) {
+  background: var(--accent-fill); color: var(--accent-fg);
+  padding: 0 4px;
+}

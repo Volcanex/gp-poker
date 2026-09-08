@@ -38,6 +38,7 @@ export const glass: {
     handLost: impactGlassLight003Sound,
     matchWon: impactBellHeavy000Sound,
     matchLost: jinglesSteel05Sound,
+    chat: impactGlassLight004Sound,
     click: impactGlassLight004Sound,
   },
 };

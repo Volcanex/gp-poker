@@ -12,7 +12,8 @@ import { playerList } from '../table/dock.tsx';
 import { MODE_NAME } from '../ui/mode-tabs.tsx';
 import { StakeBadge } from './feed.tsx';
 import { useTitle } from '../ui/title.ts';
-import { mockScript } from '../dev/mock.ts';
+import { mockChat, mockScript } from '../dev/mock.ts';
+import { useMatchChat, useMockChat } from '../chat/use-chat.ts';
 
 export function Match() {
   const { id = '' } = useParams();
@@ -70,6 +71,9 @@ function LiveMatch({ id }: { id: string }) {
      and the server is the one that knows which you are. */
   const watching = view != null && view.you == null;
   useTitle(watching ? `Watching ${playerList(view)}` : `Match ${id}`);
+  /* Chat belongs to the subscription, not to the felt: the room replays it on
+     join and keeps sending it while this page holds the match open. */
+  const chat = useMatchChat(id, watching);
 
   /* The match row decides which of the two pages this is. A finished match
      never opens a socket subscription; a playing one never waits on REST. */
@@ -169,7 +173,7 @@ function LiveMatch({ id }: { id: string }) {
 
   return (
     <>
-      <Table view={view} onAct={onAct} sending={sending} ended={ended != null} />
+      <Table view={view} onAct={onAct} sending={sending} ended={ended != null} chat={chat} />
       {ended ? (
         <>
           <ResultPanel
@@ -202,6 +206,8 @@ function MockMatch(
   const [enteredAt, setEnteredAt] = useState(() => Date.now());
   const nav = useNavigate();
   useTitle('Mock table');
+  const [chatSeed] = useState(() => mockChat(Date.now()));
+  const chat = useMockChat(chatSeed, 'u-you', watch);
 
   useEffect(() => {
     if (step != null) return;
@@ -267,7 +273,7 @@ function MockMatch(
 
   return (
     <>
-      <Table view={view} onAct={advance} sending={false} ended={ended != null} />
+      <Table view={view} onAct={advance} sending={false} ended={ended != null} chat={chat} />
       {ended ? (
         <>
           <ResultPanel

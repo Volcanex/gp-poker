@@ -40,6 +40,15 @@ export function routeClientMessage(userId: string, msg: ClientMsg): void {
       room.handleAct(userId, msg);
       return;
     }
+    case 'chat': {
+      const room = getRoom(msg.m);
+      if (!room) {
+        hub.send(userId, { t: 'err', c: 'no_match', msg: 'no such match' });
+        return;
+      }
+      room.handleChat(userId, msg);
+      return;
+    }
     default:
       hub.send(userId, { t: 'err', c: 'bad_msg', msg: 'unknown message type' });
   }

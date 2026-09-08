@@ -42,6 +42,35 @@
 .whoami { display: flex; align-items: baseline; gap: 6px; font-size: var(--font-size-ui); white-space: nowrap; flex: none; }
 .top nav a { white-space: nowrap; }
 .whoami .r { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+/* "You are playing", in the top bar on every page except the table it points
+   at, where it would be a link to the page being read. A link, because going
+   there is the only useful thing to do with it. The bar does not wrap and it
+   clips, so the pill gives up its two widest parts before anything else on the
+   row does: the name first, then the long form of the words. */
+.playing-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 24px; padding: 0 9px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 12px; color: var(--text-secondary); text-decoration: none;
+  white-space: nowrap; flex: none; min-width: 0;
+}
+.playing-pill:hover { border-color: var(--border-hover); color: var(--text-primary); }
+.playing-pill b { color: var(--text-primary); font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+.playing-pill .dot {
+  width: 6px; height: 6px; border-radius: var(--radius-full);
+  background: var(--go-fill); flex: none;
+}
+.playing-pill .pl-short { display: none; }
+@media (max-width: 900px) {
+  .playing-pill .pl-what { display: none; }
+  .playing-pill .pl-short { display: inline; }
+}
+@media (max-width: 700px) {
+  .playing-pill .pl-who { display: none; }
+}
+
 /* the mode the top bar's rating belongs to: a number that means two things
    without it */
 .account .btn .m { color: var(--text-secondary); margin-left: 5px; }
@@ -206,6 +235,12 @@
   --chip: 18px;
   --chip-rows: 5;
 }
+
+/* One column, said out loud. Every child names its row and none of them named
+   a column, which was fine while exactly one thing sat in each: the moment two
+   did (the chat panel shares the felt's cell) auto-placement invented a second
+   column and the whole table narrowed to make room for it. */
+.match > * { grid-column: 1; }
 
 /* A practice table adds one more fixed row between the felt and the dock, for
    the analysis strip. Fixed, like every other row here: see live-stats.css.
@@ -805,6 +840,26 @@
   font-size: 11px; color: var(--text-secondary);
 }
 
+/* The hand header has a breakpoint of its own, wider than the page's, because
+   it is the one row on the site that cannot wrap and cannot scroll: it keeps
+   its height and loses its width. It gives up, in this order, the long form of
+   its labels, Copy (there is nowhere to paste a hash on a phone) and the hash
+   itself, which is truncated to ten characters and leads nowhere. Verify stays
+   at every width, because the whole point of the seed is that anyone can check
+   it, and so does the chat toggle. 680px is where everything fits again with
+   the long labels back. */
+@media (max-width: 680px) {
+  .hand-head { padding: 0 var(--sp-3); font-size: 11px; }
+  .hand-head .bar-in { gap: var(--sp-2); }
+  .hand-head .bar-in > * { white-space: nowrap; }
+  .hand-head .copy-btn { display: none; }
+  .hand-head .seed code { display: none; }
+  .hand-head .wide { display: none; }
+  .hand-head .narrow { display: inline; }
+  .hand-head .n { min-width: 5ch; }
+  .hand-head .street { min-width: 9ch; }
+}
+
 /* ------------------------------------------------------------------- phone */
 
 @media (max-width: 560px) {
@@ -820,18 +875,6 @@
   .felt { padding: var(--sp-2) var(--sp-3); }
   .seat { gap: var(--sp-2); padding: 6px var(--sp-2); }
   .seat-stack { font-size: 16px; }
-  /* The header keeps its height and loses its width: the hash stays, Copy
-     goes (there is nowhere to paste it on a phone) and Verify stays, because
-     the whole point of the seed is that anyone can check it. */
-  .hand-head { padding: 0 var(--sp-3); font-size: 11px; }
-  .hand-head .bar-in { gap: var(--sp-2); }
-  .hand-head .bar-in > * { white-space: nowrap; }
-  .hand-head .copy-btn { display: none; }
-  .hand-head .wide { display: none; }
-  .hand-head .narrow { display: inline; }
-  .hand-head .n { min-width: 5ch; }
-  .hand-head .street { min-width: 9ch; }
-
   /* The wireframe's phone card sizes: the seat's cards are smaller than the
      board's, which is what buys the name its room back. */
   .match { --chip: 14px; }

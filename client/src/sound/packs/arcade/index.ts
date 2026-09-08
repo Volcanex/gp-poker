@@ -33,6 +33,7 @@ export const arcade: {
     handLost: click8bitSound,
     matchWon: jinglesNes02Sound,
     matchLost: click8bitSound,
+    chat: click8bitSound,
     click: click8bitSound,
   },
 };

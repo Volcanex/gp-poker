@@ -38,6 +38,7 @@ export const felt: {
     handLost: drop001Sound,
     matchWon: jinglesHit01Sound,
     matchLost: drop004Sound,
+    chat: clickSoftSound,
     click: clickSoftSound,
   },
 };

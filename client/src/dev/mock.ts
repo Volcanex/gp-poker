@@ -6,8 +6,9 @@
    branch on that id. */
 import { formatFor } from '@opentable/protocol';
 import type {
-  ActionKind, Card, LastEvent, MatchFormat, MatchResult, Mode, SeatView, TableView,
+  ActionKind, Card, ChatFrom, LastEvent, MatchFormat, MatchResult, Mode, SeatView, TableView,
 } from '@opentable/protocol';
+import { lineId, type ChatLine } from '../chat/chat.ts';
 
 const HASH1 = 'b1f3c9a7d2e480516c4a9f0b3d7e2851aa64c3f9207d5e8b1c6f4a09d3e75b2c8';
 const SEED1 = '9d4e1b7a3f02c85641d9a0e73b2c5f8e0a6d31c94b7f28e50a3d6c19f4b8e2705';
@@ -596,3 +597,18 @@ function sixMaxScript(): MockStep[] {
 export const MOCK_ME = {
   id: 'u-you', name: 'you', guest: true, bot: false, rating: 1518, rd: 84, provisional: false,
 };
+
+/* A scripted conversation for the mock table, so the panel has something in it
+   to look at and to measure a toggle against. Times are relative to when the
+   page opened, which keeps a screenshot from depending on the clock. One line
+   comes from the rail, because a spectator's line reads differently from a
+   seat's and that difference is the thing worth seeing. */
+export function mockChat(now: number): ChatLine[] {
+  const lines: [ChatFrom, string, number][] = [
+    [{ id: 'u-opp', name: 'riverrat', bot: false, seat: 0 }, 'Good luck', 240_000],
+    [{ id: 'u-you', name: 'kestrel', bot: false, seat: 1 }, 'You too', 232_000],
+    [{ id: 'u-quarrel', name: 'quarrel', bot: false, seat: null }, 'Nice spot on the turn', 90_000],
+    [{ id: 'u-opp', name: 'riverrat', bot: false, seat: 0 }, 'Nice hand', 20_000],
+  ];
+  return lines.map(([from, text, ago]) => ({ id: lineId(from, now - ago), from, text, at: now - ago }));
+}

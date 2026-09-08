@@ -6,7 +6,12 @@ declare global {
     g?: {
       init: (root?: ParentNode) => void;
       theme: (mode: 'dark' | 'light' | 'system') => void;
-      toast: (o: { title: string; desc?: string; kind?: string }) => void;
+      toast: (o: {
+        title: string;
+        desc?: string;
+        kind?: string;
+        action?: { label: string; onClick?: () => void };
+      }) => void;
     };
   }
 }

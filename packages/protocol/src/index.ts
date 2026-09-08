@@ -1,9 +1,11 @@
-/* Wire protocol v2. JSON over WebSocket, short keys, every message carries t.
+/* Wire protocol v3. JSON over WebSocket, short keys, every message carries t.
    The server is authoritative: clients send intent only. Any change to the
    shapes below is a protocol change: bump PROTOCOL_VERSION and keep the
-   server accepting the previous one for a deploy cycle. */
+   server accepting the previous one for a deploy cycle. v3 is additive: the
+   `chat` message in both directions and nothing else, so a v2 client that
+   never sends one is served unchanged. */
 
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 export type Card = string; // 'As', 'Td', '2c' (rank + suit, lowercase suit)
 
@@ -162,7 +164,29 @@ export type ClientMsg =
   | { t: 'join'; m: string } // subscribe to a match as player or spectator
   | { t: 'leave'; m: string }
   | { t: 'act'; m: string; h: number; n: number; a: ActionKind; v?: number } // n = action seq the client is acting at
+  // Table chat. Anyone subscribed to the match may send one; where it lands is
+  // the server's decision, not the sender's (see ChatFrom).
+  | { t: 'chat'; m: string; text: string }
   | { t: 'ping' };
+
+/* Who said something at a table. `seat` is null for a spectator, which is also
+   what says which channel the message belongs to: a spectator's line is only
+   ever sent to other spectators, the way it works on Lichess, so a table
+   cannot be coached from the rail. */
+export interface ChatFrom {
+  id: string;
+  name: string;
+  bot: boolean;
+  seat: number | null;
+}
+
+/* The limits, here rather than on either side of the wire, because the client
+   counts the same cooldown down that the server enforces and two copies of
+   these numbers drift until the countdown starts lying. */
+export const CHAT_MAX_LENGTH = 200;
+export const CHAT_MIN_GAP_MS = 2_000; // one message per this long
+export const CHAT_MAX_PER_MATCH = 20; // per user, for the life of the match
+export const CHAT_HISTORY = 100; // kept in memory per channel, replayed on join
 
 /* Server -> client */
 export type ServerMsg =
@@ -173,7 +197,8 @@ export type ServerMsg =
   // Who is sitting in a home game lobby, pushed to everyone seated in it so
   // the lobby page updates without polling for it.
   | { t: 'lobby'; g: string; seats: LobbySeat[]; status: HomeGameStatus }
-  | { t: 'err'; c: 'illegal' | 'stale' | 'not_your_turn' | 'no_match' | 'bad_msg' | 'version' | 'bots_busy'; msg: string }
+  | { t: 'chat'; m: string; from: ChatFrom; text: string; at: number } // at = epoch ms
+  | { t: 'err'; c: 'illegal' | 'stale' | 'not_your_turn' | 'no_match' | 'bad_msg' | 'version' | 'bots_busy' | 'chat'; msg: string }
   | { t: 'pong' };
 
 /* One mode's Glicko-2 standing. Ratings are per mode, the way a chess site

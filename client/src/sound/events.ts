@@ -12,6 +12,7 @@ export type SoundEvent =
   | 'handLost'
   | 'matchWon'
   | 'matchLost'
+  | 'chat'
   | 'click';
 
 export const soundEvents: readonly SoundEvent[] = [
@@ -28,5 +29,6 @@ export const soundEvents: readonly SoundEvent[] = [
   'handLost',
   'matchWon',
   'matchLost',
+  'chat',
   'click',
 ];

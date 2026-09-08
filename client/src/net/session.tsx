@@ -77,11 +77,23 @@ function writeLiveMatch(id: string | null) {
   }
 }
 
+/* Who else is at the match this browser is seated at, as one readable string.
+   Derived rather than stored: the seats are on every `state` and on the match
+   row, so there is nothing here that could go stale against them. */
+export function opponentNames(names: string[]): string | null {
+  if (names.length === 0) return null;
+  if (names.length === 1) return names[0];
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
 interface Session {
   me: Me | null;
   setMe: (u: UserSummary) => void;
   refreshMe: () => Promise<void>;
   liveMatch: string | null;
+  /* The other seats at `liveMatch`, for the pill in the top bar. Null whenever
+     `liveMatch` is. */
+  liveOpponents: string | null;
   ready: boolean;
   offline: boolean;
   conn: ConnState;
@@ -98,6 +110,7 @@ const Ctx = createContext<Session | null>(null);
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [me, setMeState] = useState<Me | null>(null);
   const [liveMatch, setLiveMatch] = useState<string | null>(null);
+  const [liveOpponents, setLiveOpponents] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [offline, setOffline] = useState(false);
   const [conn, setConn] = useState<ConnState>('idle');
@@ -137,23 +150,28 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => socket.onState(setConn), []);
 
   /* A remembered match is only offered once the server confirms it is still
-     playing. */
+     playing. It waits for `me` because the pill names the other seats, and
+     which seat is not yours is a question only an id answers. */
   useEffect(() => {
     const id = readLiveMatch();
-    if (!id) return;
+    if (!id || !me) return;
     let live = true;
     api
       .match(id)
       .then((m) => {
         if (!live) return;
-        if (m.status === 'playing') setLiveMatch(id);
-        else writeLiveMatch(null);
+        if (m.status !== 'playing') {
+          writeLiveMatch(null);
+          return;
+        }
+        setLiveMatch(id);
+        setLiveOpponents(opponentNames(m.seats.filter((s) => s.userId !== me.id).map((s) => s.name)));
       })
       .catch(() => writeLiveMatch(null));
     return () => {
       live = false;
     };
-  }, []);
+  }, [me]);
 
   useEffect(
     () =>
@@ -162,9 +180,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         else if (m.t === 'state' && m.s.you != null) {
           writeLiveMatch(m.s.m);
           setLiveMatch(m.s.m);
+          setLiveOpponents(opponentNames(m.s.seats.filter((s) => s.i !== m.s.you).map((s) => s.name)));
         } else if (m.t === 'end') {
           writeLiveMatch(null);
           setLiveMatch(null);
+          setLiveOpponents(null);
           /* The match just moved the rating, and the top bar is showing the
              value from before it. */
           void refreshMe();
@@ -231,8 +251,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ me, setMe, refreshMe, liveMatch, ready, offline, conn, queue, send, startQueue, startPractice, cancelQueue, clearFound }),
-    [me, setMe, refreshMe, liveMatch, ready, offline, conn, queue, send, startQueue, startPractice, cancelQueue, clearFound],
+    () => ({ me, setMe, refreshMe, liveMatch, liveOpponents, ready, offline, conn, queue, send, startQueue, startPractice, cancelQueue, clearFound }),
+    [me, setMe, refreshMe, liveMatch, liveOpponents, ready, offline, conn, queue, send, startQueue, startPractice, cancelQueue, clearFound],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

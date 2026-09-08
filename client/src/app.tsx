@@ -14,6 +14,7 @@ import { toolsRoutes } from './tools/index.tsx';
 import { AccountMenu } from './ui/auth.tsx';
 import { SettingsMenu } from './ui/settings.tsx';
 import { SiteFooter } from './ui/site-footer.tsx';
+import { MatchFoundAlert, PlayingPill } from './ui/presence.tsx';
 import { sound } from './sound/index.ts';
 
 /* The replay is the only page that runs the engine, and the engine carries a
@@ -35,6 +36,7 @@ function TopBar() {
         <NavLink to="/leaderboard">Leaderboard</NavLink>
       </nav>
       <span className="spacer" />
+      <PlayingPill />
       <AccountMenu />
       <SettingsMenu />
     </header>
@@ -63,6 +65,7 @@ export function App() {
     <BrowserRouter>
       <SessionProvider>
         <TopBar />
+        <MatchFoundAlert />
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
