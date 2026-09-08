@@ -38,6 +38,10 @@ describe('live stats helpers', () => {
       muted: false,
     });
 
+    const backdoor = outsLine({ cards: ['Ks'], count: 9, draws: ['backdoor flush draw'], drawCards: [] });
+    expect(backdoor?.label).toBe('Improves on 9 cards');
+    expect(backdoor?.muted).toBe(true);
+    expect(backdoor?.draws).toBe('backdoor flush draw');
     const flush = outsLine({ cards: [], count: 15, draws: ['flush draw'], drawCards: ['Kh'] });
     expect(flush?.label).toBe('1 out');
 

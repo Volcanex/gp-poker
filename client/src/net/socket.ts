@@ -25,6 +25,12 @@ export class Socket {
   private attempt = 0;
   private wanted = false;
   private queue: ClientMsg[] = [];
+  /* True once the server's hello has arrived. The server attaches its message
+     listener only after the upgrade and its session lookups, so anything sent
+     the instant the socket opens can land on nobody and vanish. Every send
+     waits for `hi`, which is the one message that proves the other end is
+     listening. */
+  private ready = false;
 
   state: ConnState = 'idle';
 
@@ -40,13 +46,14 @@ export class Socket {
     clearInterval(this.pingTimer);
     this.ws?.close();
     this.ws = null;
+    this.ready = false;
     this.setState('idle');
   }
 
   /* Sends are buffered while the socket is down; the server refuses anything
      stale on arrival, so a replayed act is rejected rather than misapplied. */
   send(msg: ClientMsg) {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(msg));
+    if (this.ready && this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(msg));
     else if (this.wanted) this.queue.push(msg);
   }
 
@@ -82,12 +89,8 @@ export class Socket {
 
     ws.onopen = () => {
       this.attempt = 0;
-      this.setState('open');
       clearInterval(this.pingTimer);
       this.pingTimer = setInterval(() => this.send({ t: 'ping' }), PING_MS) as unknown as number;
-      const pending = this.queue;
-      this.queue = [];
-      pending.forEach((m) => this.send(m));
     };
 
     ws.onmessage = (ev) => {
@@ -98,11 +101,19 @@ export class Socket {
         return;
       }
       if (!msg || typeof msg.t !== 'string') return;
+      if (msg.t === 'hi' && !this.ready && this.ws === ws) {
+        this.ready = true;
+        this.setState('open');
+        const pending = this.queue;
+        this.queue = [];
+        pending.forEach((m) => this.send(m));
+      }
       this.msgListeners.forEach((fn) => fn(msg));
     };
 
     ws.onclose = () => {
       clearInterval(this.pingTimer);
+      this.ready = false;
       if (this.ws === ws) this.ws = null;
       this.retry();
     };

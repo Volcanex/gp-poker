@@ -45,7 +45,9 @@ export interface OutsLine {
    numbers differ. */
 export function outsLine(result: OutsRead | null): OutsLine | null {
   if (!result) return null;
-  if (result.draws.length > 0) {
+  /* A backdoor draw names itself but completes on no single card, so it has
+     no outs number to headline; it falls through to the muted reading. */
+  if (result.draws.length > 0 && result.drawCards.length > 0) {
     const n = result.drawCards.length;
     return {
       label: `${n} ${n === 1 ? 'out' : 'outs'}`,
@@ -58,7 +60,7 @@ export function outsLine(result: OutsRead | null): OutsLine | null {
   return {
     label: n === 0 ? 'Nothing improves it' : `Improves on ${n} ${n === 1 ? 'card' : 'cards'}`,
     cards: [],
-    draws: '',
+    draws: result.draws.join(', '),
     muted: true,
   };
 }
