@@ -255,17 +255,25 @@ test('the games room keeps its text and its pips readable', async ({ page }) => 
   await page.goto('/');
 
   const pairs = await page.evaluate(() => {
+    /* Two probes: one on the page, one inside a `.felt`, because the felt
+       re-maps the panel and the secondary text and a probe on the body would
+       report the walnut's pairing on the baize's ground. */
     const probe = document.createElement('span');
     document.body.append(probe);
-    const read = (bg: string, fg: string) => {
-      probe.style.background = bg;
-      probe.style.color = fg;
-      const s = getComputedStyle(probe);
+    const island = document.createElement('div');
+    island.className = 'felt';
+    const feltProbe = document.createElement('span');
+    island.append(feltProbe);
+    document.body.append(island);
+    const read = (bg: string, fg: string, el = probe) => {
+      el.style.background = bg;
+      el.style.color = fg;
+      const s = getComputedStyle(el);
       return [s.backgroundColor, s.color] as [string, string];
     };
-    const grounds: [string, string][] = [
-      ['surface-1', 'var(--surface-1)'], ['surface-2', 'var(--surface-2)'],
-      ['felt', 'var(--felt)'], ['felt panel', 'var(--felt-panel)'],
+    const grounds: [string, string, HTMLElement][] = [
+      ['surface-1', 'var(--surface-1)', probe], ['surface-2', 'var(--surface-2)', probe],
+      ['felt', 'var(--felt)', feltProbe], ['felt panel', 'var(--surface-2)', feltProbe],
     ];
     const texts: [string, string][] = [
       ['text-primary', 'var(--text-primary)'], ['text-secondary', 'var(--text-secondary)'],
@@ -273,8 +281,8 @@ test('the games room keeps its text and its pips readable', async ({ page }) => 
       ['danger-text', 'var(--danger-text)'], ['info-text', 'var(--info-text)'],
     ];
     const out: { what: string; pair: [string, string]; floor: number }[] = [];
-    for (const [g, gv] of grounds) {
-      for (const [t, tv] of texts) out.push({ what: `${t} on ${g}`, pair: read(gv, tv), floor: 4.5 });
+    for (const [g, gv, el] of grounds) {
+      for (const [t, tv] of texts) out.push({ what: `${t} on ${g}`, pair: read(gv, tv, el), floor: 4.5 });
     }
     out.push({ what: 'accent-fg on accent-fill', pair: read('var(--accent-fill)', 'var(--accent-fg)'), floor: 4.5 });
     out.push({ what: 'accent-fg on accent-fill-hover', pair: read('var(--accent-fill-hover)', 'var(--accent-fg)'), floor: 4.5 });
@@ -284,6 +292,7 @@ test('the games room keeps its text and its pips readable', async ({ page }) => 
       out.push({ what: `${pip} on card-face`, pair: read('var(--card-face)', `var(--${pip})`), floor: 5 });
     }
     probe.remove();
+    island.remove();
     return out;
   });
 

@@ -73,11 +73,17 @@
   --accent-fg: var(--slate-1);
   --accent-edge: #ba882e;
 
-  /* The baize, and the panel a seat sits on. Two tokens, read by the felt
-     rule at the foot of the file and by nothing else. Secondary text clears
-     4.7 on the panel, every status text 4.7 or better. */
+  /* The baize, the well a seat sits in, and the secondary text the felt
+     wears. Three tokens, read by the felt rule at the foot of the file and by
+     nothing else. The well is darker than the cloth and the felt's secondary
+     is lighter than the walnut's, because the ended table dims the whole felt
+     to 0.7 and a seat's line has to keep 4.5 through that: on a near-black
+     ground the dim costs nothing, on a green one it costs a whole step. As
+     shipped, secondary on the well is 8.7, on the acting seat 7.2, and 5.2
+     with the felt dimmed. */
   --felt: #174229;
-  --felt-panel: #234932;
+  --felt-panel: #0f3620;
+  --felt-text-secondary: #d7d0c3;
 
   /* Meaning colours. Bet is brass, call the quiet green, fold the deep red;
      g's own pairs for the filled buttons carry white. */
@@ -122,11 +128,13 @@
   --chart-6: #54b66e;
 }
 
-/* The playing area takes the baize, and a panel on it takes the felt panel.
-   A token mapping on the felt rather than a rule in any table file: the
-   hairlines and fills are alpha tints and composite over the green as they
-   do over the walnut, so the panel is the one opaque alias that has to move. */
+/* The playing area takes the baize, a panel on it takes the well, and the
+   quiet text takes the felt's own. A token mapping on the felt rather than a
+   rule in any table file: the hairlines and fills are alpha tints and
+   composite over the green as they do over the walnut, so these are the only
+   opaque aliases that have to move. */
 [data-theme="room"] .felt {
   background: var(--felt);
   --surface-2: var(--felt-panel);
+  --text-secondary: var(--felt-text-secondary);
 }
