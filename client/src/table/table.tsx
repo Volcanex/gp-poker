@@ -37,6 +37,9 @@ export interface TableProps {
   chat?: ChatController;
   /* The felt rework, on the mock only until it is the felt: see look.ts. */
   look?: Look;
+  /* A practice table's hand-over state offers the next hand early; the band
+     renders the button and this is what it calls. */
+  onNext?: () => void;
 }
 
 const BOARD_SLOTS = 5;
@@ -57,7 +60,7 @@ const AWARD_MS = 220;
 const AWARD_SHUT = { '--wipe': '100%' };
 const AWARD_OPEN = { '--wipe': '0%' };
 
-export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: TableProps) {
+export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', onNext }: TableProps) {
   const reduced = useReducedMotion();
   const headRef = useRef<HTMLDivElement>(null);
   useGInit(headRef);
@@ -280,6 +283,7 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
               sending={sending}
               best={show.best}
               stack={heroStack}
+              onNext={onNext}
             />
           ) : (
             <>
