@@ -71,12 +71,14 @@ wholesale change goes through `apply()`, which bumps the wave, and `paint()` and
 the notation field never call it.
 
 A run of wave changes settles into one entrance rather than sixty, because a
-dragged slider is otherwise a wave per step. The cells are animated imperatively
-through `useAnimate` on plain buttons rather than being 169 `motion.button`
-elements, which is what keeps the roving tab index, the paint gesture and the
-shade exactly as React renders them; only opacity and a transform are ever
-touched, so nothing on either page moves while a grid enters. `useReducedMotion`
-skips the whole thing.
+dragged slider is otherwise a wave per step. The mechanism is
+`useGridEntrance` in `../ui/grid-entrance.ts`, shared with the preflop puzzle's
+chart, which draws its own grid and has no ramp at all. It animates the plain
+buttons imperatively rather than making them 169 `motion.button` elements,
+which is what keeps the roving tab index, the paint gesture and the shade
+exactly as React renders them; only opacity and a transform are ever touched,
+so nothing on either page moves while a grid enters. Reduced motion skips the
+whole thing.
 
 `../test/tools.test.ts` covers the pure parts, including the ramp mapping and
 the centre-out ordering.

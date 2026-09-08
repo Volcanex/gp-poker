@@ -16,18 +16,8 @@ import {
   type Spot,
 } from '../tools/odds.tsx';
 import { readCards } from '../tools/cards.tsx';
-import {
-  CELL_ENTER,
-  centreDelay,
-  DIVERGE_CAP,
-  GRID_SIZE,
-  HEAT_CAP,
-  rampFill,
-  rampHue,
-  rangeHeat,
-  RANGE_FLOOR,
-  WAVE_SPAN,
-} from '../tools/ramp.ts';
+import { DIVERGE_CAP, HEAT_CAP, rampFill, rampHue, rangeHeat, RANGE_FLOOR } from '../tools/ramp.ts';
+import { CELL_ENTER, centreDelay, GRID_SIZE, WAVE_SPAN } from '../ui/grid-entrance.ts';
 
 const spot = (pot: number, bet: number): Spot => ({ hero: ['Ah', 'Kd'], board: ['2c', '7s', '9h'], pot, bet, opponents: 1 });
 

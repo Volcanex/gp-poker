@@ -3,7 +3,13 @@
 The furniture that is not the table: `auth.tsx` (claim, log in, account menu),
 `settings.tsx` with its pure half `prefs.ts`, `presence.tsx`, `avatar.tsx`,
 `rating-graph.tsx`, `board-text.tsx`, `mode-tabs.tsx`, `share-link.tsx`,
-`site-footer.tsx`, `bits.tsx`, `format.ts` and `title.ts`.
+`site-footer.tsx`, `bits.tsx`, `format.ts`, `grid-entrance.ts` and `title.ts`.
+
+`grid-entrance.ts` is here rather than beside either grid that uses it because
+there are two of them and they have nothing else in common: the tools pages'
+`hand-grid.tsx` and the preflop puzzle's own chart. It animates cells the
+caller already renders, reading `data-r` and `data-c` off them, so a grid gains
+an entrance without changing its markup, its focus handling or its shading.
 
 ## g-ui and React
 
