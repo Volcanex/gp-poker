@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import type { ActionKind, TableView } from '@opentable/protocol';
-import { HAND_HOLD_MS } from '@opentable/protocol';
+import { holdFor } from '@opentable/protocol';
 import { isTextEntry, useGInit } from '../ui/bits.tsx';
 import { clamp, presetsFor } from './sizing.ts';
 import {
@@ -186,7 +186,7 @@ export function watchingText(view: TableView): string {
 /* ----------------------------------------------------------------- hand over */
 
 function HandOver({ view }: { view: TableView }) {
-  const hold = Math.min(HAND_HOLD_MS, view.format.clockMs);
+  const hold = holdFor(view.format);
   const left = useCountdown(`${view.m}:${view.h}`, hold);
   const last = isLastHand(view);
   const awards = view.result?.awards ?? [];
