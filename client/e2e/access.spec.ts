@@ -14,6 +14,8 @@ const STATES = [
   { name: 'the result', url: '/m/mock?step=18' },
   { name: 'six-max', url: '/m/mock?mode=six-max&step=0' },
   { name: 'home', url: '/' },
+  { name: 'an invite', url: '/c/ch-open' },
+  { name: 'a lobby', url: '/g/hg-open' },
 ];
 
 for (const state of STATES) {

@@ -31,6 +31,9 @@ const STATES: Shot[] = [
   /* The list of tables to watch: the one page whose whole content is the live
      endpoint, so it is worth a picture now that the endpoint has fixtures. */
   { name: 'watch', url: '/watch' },
+  /* The two pages a shared link opens on, from the side that receives it. */
+  { name: 'invite', url: '/c/ch-open' },
+  { name: 'lobby', url: '/g/hg-open' },
   /* The two settings that change the felt: a four colour deck and an accent
      that is not g's own. Chips are in every state above; this is the one that
      pins their colours against a different accent. */

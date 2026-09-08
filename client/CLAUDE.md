@@ -252,11 +252,16 @@ mock routes need no server and `stubApi` in `e2e/table.ts` fakes the endpoints
 the pages around them ask for, so a run is identical whether or not a dev server
 happens to be up.
 
-`stubApi` serves the leaderboard, the feed, the site counters, the live tables
-and the bot roster as well as your own account, so the baselines show those
+`stubApi` serves the leaderboard, the feed, the site counters, the live tables,
+the bot roster and both kinds of shared link as well as your own account, so the baselines show those
 pages populated rather than showing eight pictures of an offline state. Its
 timestamps are offsets from now, sitting in the middle of their bucket, because
 the feed prints "2h ago" and a pinned date would read differently every day.
+The two link-landing pages, an invite and a home game lobby, are stubbed from
+the visitor's side rather than the host's, because that is the side a link is
+for: somebody else's invite to accept, and a lobby with three of its six chairs
+filled and none of them yours.
+
 The one thing no route can stub is the websocket, so the home page's baseline
 says the connection dropped, which is true.
 
@@ -281,7 +286,7 @@ for it.
 | `reduced-motion` | the same information with the motion emulated off |
 | `settings` | a choice surviving a reload, the pre-paint stamp, every accent's contrast in both themes, the four colour deck, and the menu itself |
 | `replay` | a recorded hand scrubbed back and forth leaves nothing behind and nothing outside the felt, and still verifies |
-| `screenshots` | 108 baselines: nine states at 360, 390, 430, 768, 1366 and 1920, dark and light |
+| `screenshots` | 132 baselines: eleven states at 360, 390, 430, 768, 1366 and 1920, dark and light |
 
 Baselines live in `e2e/__screenshots__/` and are updated with
 `npm run e2e:update -w client`. **Read the diff before you accept one.** The

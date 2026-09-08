@@ -142,6 +142,48 @@ const BOTS = BOT_NAMES.map((name, i) => {
   };
 });
 
+/* The two link-landing pages: what somebody sees when a friend sends them a
+   table. Both are shown from the visitor's side rather than the host's, because
+   that is the side a link is for: an invite from riverrat that kestrel can take,
+   and a lobby with three of its six chairs filled and none of them kestrel's. */
+const summary = (id: string, name: string, rating: number, rd: number) => ({
+  id, name, guest: false, bot: false, rating, rd, provisional: false,
+  ratings: {
+    'heads-up': { rating, rd, provisional: false, peak: rating, peakAt: null, matches: 90, wins: 50, losses: 39, draws: 1 },
+    'six-max': { rating: rating - 30, rd: rd + 6, provisional: false, peak: rating, peakAt: null, matches: 24, wins: 6, losses: 18, draws: 0 },
+  },
+});
+
+const RIVERRAT = summary('u-riverrat', 'riverrat', 1642, 61);
+
+const CHALLENGE = {
+  id: 'ch-open',
+  mode: 'heads-up',
+  rated: true,
+  status: 'open',
+  creator: RIVERRAT,
+  matchId: null,
+  createdAt: ago(6 * MINUTE),
+  expiresAt: new Date(Date.now() + 20 * HOUR).toISOString(),
+};
+
+const HOME_GAME = {
+  id: 'hg-open',
+  host: RIVERRAT,
+  seats: [
+    { uid: 'u-riverrat', name: 'riverrat', rating: 1612, host: true },
+    { uid: 'u-quarrel', name: 'quarrel', rating: 1530, host: false },
+    { uid: 'u-dredger', name: 'dredger', rating: 1447, host: false },
+  ],
+  players: 6,
+  rated: true,
+  botLevel: 4,
+  status: 'open',
+  matchId: null,
+  createdAt: ago(9 * MINUTE),
+  expiresAt: new Date(Date.now() + 20 * HOUR).toISOString(),
+};
+
 export async function stubApi(page: Page) {
   await page.route('**/api/**', (route) =>
     route.fulfill({ status: 404, json: { error: 'not found' } }));
@@ -150,6 +192,8 @@ export async function stubApi(page: Page) {
   await page.route('**/api/stats', (route) => route.fulfill({ json: STATS }));
   await page.route('**/api/live', (route) => route.fulfill({ json: LIVE }));
   await page.route('**/api/bots', (route) => route.fulfill({ json: BOTS }));
+  await page.route('**/api/challenges/*', (route) => route.fulfill({ json: CHALLENGE }));
+  await page.route('**/api/home-games/*', (route) => route.fulfill({ json: HOME_GAME }));
   await page.route('**/api/me', (route) => route.fulfill({ json: ME }));
 }
 
