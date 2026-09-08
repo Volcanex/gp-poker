@@ -929,14 +929,15 @@
   }
   /* One row of fixed cells, left-aligned inside, so a street or a figure
      changing length moves nothing after it. The street and the blinds lose
-     their labels: "Turn" and "1/2, level 1" say what they are. */
-  .stats dd { margin-right: var(--sp-3); text-align: left; flex: none; }
+     their labels: "Turn" and "1/2, level 1" say what they are. The amount to
+     call goes altogether: the band's decision line already says it, and with
+     it the row was 374 px on a 360 px phone and lost its first letter. */
+  .stats dd { margin-right: var(--sp-2); text-align: left; flex: none; }
   .stats dd:nth-of-type(1) { width: 7ch; }
-  .stats dd:nth-of-type(2) { width: 9ch; }
-  .stats dd:nth-of-type(3) { width: 12ch; }
-  .stats dd:last-of-type { width: 4ch; margin-right: 0; }
+  .stats dd:nth-of-type(2) { width: 8ch; }
+  .stats dd:nth-of-type(3) { width: 12ch; margin-right: 0; }
   .stats dt:nth-of-type(2), .stats dt:nth-of-type(3) { display: none; }
-  .stats .stats-next { display: none; }
+  .stats .stats-next, .stats dt:last-of-type, .stats dd:last-of-type { display: none; }
 }
 
 /* ------------------------------------------------------------------- dock */
