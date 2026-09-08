@@ -85,7 +85,10 @@
 /* ------------------------------------------------------------------- home */
 
 .hero { display: flex; flex-direction: column; gap: var(--sp-4); align-items: flex-start; }
-.hero .lede { font-size: 15px; line-height: 1.55; color: var(--text-secondary); max-width: 46ch; }
+.hero .lede { font-size: 15px; line-height: 24px; color: var(--text-secondary); max-width: 46ch; }
+/* A whole-pixel line height, not a ratio: at 1.55 three lines came to 69.75 px
+   and the card under them landed on a fraction, which Safari draws as a top
+   border smeared over two device rows, visibly thicker than the sides. */
 .hero .lede b { color: var(--text-primary); font-weight: 500; }
 .searching { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
 .searching .el { font-variant-numeric: tabular-nums; font-size: var(--font-size-ui); }

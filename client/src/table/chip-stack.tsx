@@ -1,4 +1,6 @@
+import type { CSSProperties } from 'react';
 import { DENOMINATIONS, denominate } from './chips.ts';
+import { useLook } from './look.ts';
 
 const MAX_VISIBLE = 10;
 
@@ -22,6 +24,38 @@ export interface ChipStackProps {
 export function ChipStack({ amount, columns }: ChipStackProps) {
   const counts = new Map(denominate(amount).map((c) => [c.value, c.count]));
   const slots = DENOMINATIONS.slice(0, columns ?? DENOMINATIONS.length);
+  const look = useLook();
+
+  /* v2: the same columns and the same reserved slots, drawn as chips. Each is
+     the sprite's three-quarter chip, and a column stacks them by the height
+     of the rim, so five ones is visibly a column of five. The colours are set
+     on the stack in look-v2.css and read through the <use>. */
+  if (look === 'v2') {
+    return (
+      <span className="chips" aria-hidden="true">
+        {slots.map((value) => {
+          const count = counts.get(value) ?? 0;
+          const visible = Math.min(count, MAX_VISIBLE);
+          return (
+            <span className="chip-col" key={value}>
+              {Array.from({ length: visible }, (_, i) => (
+                <svg
+                  className="chip"
+                  key={i}
+                  data-d={value}
+                  viewBox="0 0 100 72"
+                  style={{ '--i': i } as CSSProperties}
+                >
+                  <use href="#chip" />
+                </svg>
+              ))}
+              {count > MAX_VISIBLE && <span className="chip-more num">{count}</span>}
+            </span>
+          );
+        })}
+      </span>
+    );
+  }
 
   return (
     <span className="chips" aria-hidden="true">

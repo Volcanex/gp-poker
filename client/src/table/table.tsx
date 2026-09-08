@@ -21,6 +21,8 @@ import { LiveStats } from '../analysis/live-stats.tsx';
 import { ChatPanel, ChatToggle } from '../chat/chat.tsx';
 import type { ChatController } from '../chat/use-chat.ts';
 import { LookContext, type Look } from './look.ts';
+import { DeckSprite } from './deck-sprite.tsx';
+import './look-v2.css';
 
 export interface TableProps {
   view: TableView;
@@ -134,9 +136,17 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
 
   const potShown = phase >= 2 ? 0 : view.pot;
   const settled = phase >= 2;
+  /* v2: the pot's chips leave for the winner's seat. The pot's stack and the
+     flight share one layout id, so the stack that was in the middle is the
+     one that lands on the seat, then fades. A split pot flies to its first
+     winner; the award line under the board still names them all. */
+  const awardTo = look === 'v2' && settled && !reduced && !bare && show.awards.length > 0
+    ? show.awards[0]
+    : null;
 
   return (
     <LookContext.Provider value={look}>
+    {look === 'v2' && <DeckSprite />}
     <div
       className="match"
       data-look={look === 'v2' ? 'v2' : undefined}
@@ -212,10 +222,24 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
                 } as CSSProperties}
               >
                 <div className="seat-bet">
+                  <AnimatePresence>
+                    {awardTo && awardTo.seat === s.i && (
+                      <motion.span
+                        key={`award-${view.h}`}
+                        layoutId="pot-chips"
+                        className="bet-chip award-flight num"
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ layout: { duration: 0.42, ease: [0.2, 0, 0, 1] }, opacity: { duration: 0.2 } }}
+                      >
+                        <ChipStack amount={awardTo.amount} />
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
                   {s.bet > 0 && (
                     <motion.span layoutId={`bet-${s.i}`} className="bet-chip num">
                       <ChipStack amount={s.bet} />
-                      {s.bet}
+                      <span className="bet-figure">{s.bet}</span>
                     </motion.span>
                   )}
                 </div>
@@ -246,7 +270,17 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
           <div className="middle">
             <div className="pot">
               <span className="k">Pot</span>
-              <ChipStack amount={potShown} />
+              {look === 'v2' ? (
+                <span className="pot-chips">
+                  {potShown > 0 && (
+                    <motion.span layoutId="pot-chips" className="chips-in">
+                      <ChipStack amount={potShown} />
+                    </motion.span>
+                  )}
+                </span>
+              ) : (
+                <ChipStack amount={potShown} />
+              )}
               <span className="v">
                 <NumberFlow value={potShown} respectMotionPreference />
               </span>
@@ -264,7 +298,7 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
                       transition={{ duration: 0.24, ease: [0.2, 0, 0, 1] }}
                     >
                       <ChipStack amount={f.amount} />
-                      {f.amount}
+                      <span className="bet-figure">{f.amount}</span>
                     </motion.span>
                   ))}
                 </AnimatePresence>

@@ -1,0 +1,172 @@
+/* The felt rework, on .match[data-look="v2"] only. Cards and chips are SVG
+   drawn from deck-sprite.tsx; everything below is the material and the
+   motion. Nothing in here changes a box the footprint test measures: the
+   card keeps --card-w and its 1.4 ratio, the chip keeps --chip and its
+   reserved rows. */
+
+/* ------------------------------------------------------------ materials */
+
+/* Paper and ink. Dark, the face is the palette's brightest grey and the ink
+   its darkest, which is a white card on a dark felt, the way every table
+   since cards were paper has read; light, the face is the panel colour and
+   the ink the text colour. Red pips take the solid red, not the red text
+   tint, because the text tint is tuned for a dark ground and this ground is
+   paper. The four colour deck borrows the chart blue and green the same way. */
+:root, [data-theme] {
+  --card-face: var(--text-primary);
+  --card-ink: var(--surface-1);
+  --card-edge: var(--border);
+  --card-back: var(--surface-2);
+  --card-back-line: var(--border-subtle);
+  --card-red: var(--danger-fill);
+  --card-blue: var(--chart-1);
+  --card-green: var(--chart-6);
+  --pip-s: var(--card-ink);
+  --pip-h: var(--card-red);
+  --pip-d: var(--card-red);
+  --pip-c: var(--card-ink);
+}
+[data-theme="light"] {
+  --card-face: var(--surface-2);
+  --card-ink: var(--text-primary);
+}
+@media (prefers-color-scheme: light) {
+  [data-theme="system"] {
+    --card-face: var(--surface-2);
+    --card-ink: var(--text-primary);
+  }
+}
+:root[data-deck="four"] {
+  --pip-d: var(--card-blue);
+  --pip-c: var(--card-green);
+}
+
+/* ---------------------------------------------------------------- cards */
+
+.match[data-look="v2"] .seat-cards,
+.match[data-look="v2"] .board,
+.match[data-look="v2"] .hero-cards { perspective: 700px; }
+
+.match[data-look="v2"] .pc {
+  border: none; background: none; box-shadow: none;
+  transform-style: preserve-3d;
+  overflow: visible;
+}
+.match[data-look="v2"] .pc[data-empty] {
+  border: 1px dashed var(--border-subtle);
+}
+.match[data-look="v2"] .pc-face,
+.match[data-look="v2"] .pc-back {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  display: block; overflow: visible;
+  backface-visibility: hidden;
+  border-radius: 8%;
+}
+.match[data-look="v2"] .pc-back { transform: rotateY(180deg); }
+/* A card dealt face down shows its back at rest, so the back is the front. */
+.match[data-look="v2"] .pc[data-back] .pc-back { transform: none; }
+
+.match[data-look="v2"] .pc-face .pc-paper { fill: var(--card-face); stroke: var(--card-edge); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.match[data-look="v2"] .pc-back .pc-paper { fill: var(--card-back); stroke: var(--card-edge); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.match[data-look="v2"] .pc-hatch { fill: url(#back-hatch); stroke: var(--card-back-line); stroke-width: 1; vector-effect: non-scaling-stroke; }
+
+.match[data-look="v2"] .pc-rank {
+  font-family: var(--font-ui);
+  font-size: 46px; font-weight: 600; letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  fill: currentColor;
+}
+.match[data-look="v2"] .pc-rank[data-ten] { font-size: 40px; letter-spacing: -0.05em; }
+.match[data-look="v2"] .pc use { fill: currentColor; }
+.match[data-look="v2"] .pc[data-suit="s"] { color: var(--pip-s); }
+.match[data-look="v2"] .pc[data-suit="h"] { color: var(--pip-h); }
+.match[data-look="v2"] .pc[data-suit="d"] { color: var(--pip-d); }
+.match[data-look="v2"] .pc[data-suit="c"] { color: var(--pip-c); }
+
+.match[data-look="v2"] .pc[data-dim] { opacity: 0.4; }
+.match[data-look="v2"] .pc[data-best] { box-shadow: none; }
+.match[data-look="v2"] .pc[data-best] .pc-face .pc-paper { stroke: var(--accent-fill); stroke-width: 2.5; }
+
+/* ---------------------------------------------------------------- chips */
+
+/* Bigger than the flat discs were: a chip seen from the side needs the room
+   to show its rim, and the pot and the bets are the only chips on the felt
+   now. The ring and the phone scale down with the rest of their seats. */
+.match[data-look="v2"] { --chip: 24px; }
+.match[data-look="v2"] .felt[data-mode="ring"] .seat-bet { --chip: 14px; }
+@media (max-width: 560px) {
+  .match[data-look="v2"] { --chip: 20px; }
+}
+@container (max-width: 740px) {
+  .match[data-look="v2"] .felt[data-mode="ring"] .seat-bet { --chip: 12px; }
+}
+
+/* A chip is 0.72 of its width tall and its rim is 0.14, so a column of n is
+   0.72 + (n - 1) * 0.14 widths high. The reserved rows are the same five as
+   before; the column is shorter than the flat one was, because a rim is
+   thinner than the three pixels the discs overlapped by. */
+.match[data-look="v2"] .chips { gap: 2px; }
+.match[data-look="v2"] .chip-col {
+  height: calc(var(--chip) * (0.72 + (var(--chip-rows) - 1) * 0.14));
+}
+.match[data-look="v2"] .chip {
+  position: absolute; left: 0;
+  width: var(--chip); height: calc(var(--chip) * 0.72);
+  bottom: calc(var(--i, 0) * var(--chip) * 0.14);
+  border: none; border-radius: 0; background: none; box-shadow: none;
+  display: block; overflow: visible;
+  --_rim: color-mix(in oklab, var(--_body) 68%, black);
+  --_edge: color-mix(in oklab, var(--_body) 55%, black);
+  --_mark: var(--card-face);
+}
+/* Casino colours through the tokens: white, red, green, black, purple. */
+.match[data-look="v2"] .chip[data-d="1"] { --_body: var(--card-face); --_mark: var(--card-ink); --_rim: color-mix(in oklab, var(--card-face) 78%, black); }
+.match[data-look="v2"] .chip[data-d="5"] { --_body: var(--danger-fill); }
+.match[data-look="v2"] .chip[data-d="25"] { --_body: var(--chart-6); }
+.match[data-look="v2"] .chip[data-d="100"] { --_body: var(--card-ink); --_rim: color-mix(in oklab, var(--card-ink) 70%, white); --_edge: var(--border-hover); }
+.match[data-look="v2"] .chip[data-d="500"] { --_body: var(--chart-2); }
+.match[data-look="v2"] .chip-more { bottom: calc(var(--chip) * 0.72 + 3px); }
+
+/* The stack beside a player's own number goes. A stack is a figure; chips
+   are only drawn where they move, which is the bet and the pot. */
+.match[data-look="v2"] .stack-chips { display: none; }
+
+/* The figure beside a bet sits in a small plate so it reads against any
+   chip colour, and never against the chips themselves. */
+.match[data-look="v2"] .bet-chip {
+  gap: 5px; align-items: flex-end;
+}
+.match[data-look="v2"] .bet-chip > .num,
+.match[data-look="v2"] .bet-figure {
+  font-size: 12px; line-height: 16px; padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2); border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+}
+
+/* The pot's chips have a slot of their own with a fixed height, so the
+   stack leaving for the winner does not move the board under it. */
+.match[data-look="v2"] .pot-chips {
+  position: relative; display: flex; justify-content: center; align-items: flex-end;
+  height: calc(var(--chip) * (0.72 + (var(--chip-rows) - 1) * 0.14) + 2px);
+  width: 100%;
+}
+.match[data-look="v2"] .pot-chips > * { position: absolute; bottom: 0; }
+/* The winnings, on their way to the seat. */
+.match[data-look="v2"] .award-flight { display: inline-flex; }
+
+/* The winnings land in the winner's bet slot while that seat's last bet may
+   still be drawn there (a showdown collects nothing until the hand is
+   settled), so the flight is out of the flow: in it, it pushed the bet chip
+   sideways, and the observer counted the push. On the ring the slot's
+   children are already absolute. */
+.match[data-look="v2"] .felt[data-mode="stack"] .seat-bet { position: relative; }
+.match[data-look="v2"] .felt[data-mode="stack"] .award-flight {
+  position: absolute; left: 50%; bottom: 0; translate: -50% 0;
+}
+@container (max-width: 740px) {
+  .match[data-look="v2"] .felt[data-mode="ring"] .seat-bet { position: relative; }
+  .match[data-look="v2"] .felt[data-mode="ring"] .seat-bet > .award-flight {
+    position: absolute; left: 50%; bottom: 0; translate: -50% 0;
+  }
+}
