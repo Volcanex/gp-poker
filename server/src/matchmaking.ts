@@ -1,12 +1,12 @@
 import { randomBytes } from 'node:crypto';
 import { groupQueue, pairQueue, widenRd, window as ratingWindow, type QueueEntry } from '@opentable/rating';
-import { formatFor, type MatchFormat, type Mode } from '@opentable/protocol';
+import { botLevelInfo, formatFor, type MatchFormat, type Mode } from '@opentable/protocol';
 import { hub } from './ws/hub.js';
 import { getRating, getRatingsForUsers, getUserById, insertMatch, insertMatchPlayers, type MatchSeat } from './db.js';
 import { isUniqueViolation } from './pgError.js';
 import { MatchRoom } from './match/room.js';
 import { registerRoom } from './match/rooms.js';
-import { availableBots } from './bots/index.js';
+import { availableBots, availableBotsAtLevel } from './bots/index.js';
 
 export type { QueueEntry };
 
@@ -75,6 +75,39 @@ export async function enqueue(userId: string, mode: Mode = 'heads-up', rated = t
 // Bots are never enqueued, so every entry is a human.
 export function queueSize(): number {
   return queue.size;
+}
+
+/* Practice: no queue, no wait, no rating. The seats around the player are
+   filled from the roster at the level they asked for and outwards from it,
+   and the match is created on the spot, so the searching screen resolves in
+   the time one round trip takes rather than on the bot-fill timer the rated
+   queues run on.
+
+   `practice: true` rides on the format like every other format field, so it
+   is persisted with the match and read back by anything that renders one. It
+   is additive: a format stored before practice existed simply has no key. */
+export async function enqueuePractice(userId: string, mode: Mode, level: number): Promise<void> {
+  if (queue.has(userId)) dequeue(userId);
+  const user = await getUserById(userId);
+  if (!user) return;
+
+  const base = resolveFormat(mode, false);
+  const format: MatchFormat = { ...base, rated: false, practice: true };
+  const bots = await availableBotsAtLevel(level, format.players - 1);
+  if (bots.length < format.players - 1) {
+    const info = botLevelInfo(level);
+    hub.send(userId, {
+      t: 'err',
+      c: 'bots_busy',
+      msg: `every bot near ${info.name.toLowerCase()} is in a match. Try again in a moment.`,
+    });
+    return;
+  }
+
+  await createMatchForPlayers(
+    shuffled([userId, ...bots.map((b) => b.id)]),
+    format
+  );
 }
 
 export function dequeue(userId: string): void {

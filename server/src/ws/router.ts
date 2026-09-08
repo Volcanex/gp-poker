@@ -1,15 +1,20 @@
 import type { ClientMsg } from '@opentable/protocol';
 import { hub } from './hub.js';
-import { enqueue, dequeue } from '../matchmaking.js';
-import { getRoom, roomForPlayer } from '../match/rooms.js';
+import { enqueue, enqueuePractice, dequeue } from '../matchmaking.js';
+import { getRoom, roomForPlayer, roomsForSpectator } from '../match/rooms.js';
 
 // Dispatches everything the hub hands it except `ping`, which the hub
 // answers itself before this is ever called.
 export function routeClientMessage(userId: string, msg: ClientMsg): void {
   switch (msg.t) {
-    case 'queue':
-      void enqueue(userId, msg.mode ?? 'heads-up', msg.rated ?? true);
+    case 'queue': {
+      const mode = msg.mode ?? 'heads-up';
+      // A practice request never joins the human queue: it either gets a table
+      // of bots straight away or an error saying they are all busy.
+      if (msg.bots) void enqueuePractice(userId, mode, msg.bots.level);
+      else void enqueue(userId, mode, msg.rated ?? true);
       return;
+    }
     case 'dequeue':
       dequeue(userId);
       return;
@@ -47,4 +52,8 @@ export function routeConnect(userId: string): void {
 export function routeDisconnect(userId: string): void {
   dequeue(userId);
   roomForPlayer(userId)?.handleDisconnect(userId);
+  // A player keeps their subscription through the grace window; a spectator
+  // has nothing to come back to, so every table they were watching drops
+  // them. Without this the subscriber set only ever grows.
+  for (const room of roomsForSpectator(userId)) room.leave(userId);
 }
