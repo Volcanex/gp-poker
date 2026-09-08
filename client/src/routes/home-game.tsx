@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { botLevelInfo, formatFor } from '@opentable/protocol';
+import { botLevelInfo } from '@opentable/protocol';
 import { api, ApiError } from '../net/api.ts';
 import { avatarSeed, avatarVersion } from '../net/adapt.ts';
 import type { HomeGame } from '../net/types.ts';
@@ -11,6 +11,7 @@ import { Flag, FlagSlot } from '../ui/flag.tsx';
 import { ShareLink } from '../ui/share-link.tsx';
 import { int } from '../ui/format.ts';
 import { useTitle } from '../ui/title.ts';
+import { modeBlurb } from './home.tsx';
 import { expiryLine, lobbyLayout, startBlurb } from './home-game-seats.ts';
 import './home.css';
 
@@ -281,10 +282,10 @@ export function HomeGame() {
 }
 
 /* The promise on the page is built from the format the table will actually be
-   dealt on, so it cannot drift from the match it opens. */
+   dealt on, so it cannot drift from the match it opens. A home game is the
+   long six-max table, which is what `matchFormat` gives it on the server. */
 function sixMaxBlurb(): string {
-  const f = formatFor('six-max', true);
-  return `Last player standing. ${f.players} seats, ${f.stack} units each, blinds climb every ${f.levelHands} hands.`;
+  return modeBlurb('six-max', 'long');
 }
 
 /* The same card in every state, so the page does not jump as the lobby loads

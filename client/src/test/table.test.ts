@@ -140,7 +140,32 @@ describe('hand header', () => {
   });
 
   it('says the blinds plainly when they never move', () => {
+    // A replay builds a format with the one level the hand was dealt at, and
+    // nothing to say about a schedule that hand was never part of.
+    const flat = { ...HEADS_UP_FORMAT, levels: [{ sb: 1, bb: 2 }], levelSeconds: 0 };
+    expect(blindText(flat, { sb: 1, bb: 2 }, 7)).toBe('Blinds 1/2');
+  });
+
+  it('names no level on a schedule the player is not climbing', () => {
+    // Long heads-up has a ladder, but its hand basis is the whole 25 hand
+    // match and its clock basis is a half hour backstop, so a player never
+    // meets a level: the header says what the blinds are and stops.
     expect(blindText(HEADS_UP_FORMAT, { sb: 1, bb: 2 }, 7)).toBe('Blinds 1/2');
+    // Even once the backstop has fired, which is a fact rather than a place
+    // in a schedule anybody was following.
+    expect(blindText(HEADS_UP_FORMAT, { sb: 5, bb: 10 }, 7, 1)).toBe('Blinds 5/10');
+  });
+
+  it('names the level on a short table, where the clock is the schedule', () => {
+    // No hand basis at all, so the level comes off the view rather than off a
+    // hand count, and there are no hands to count down to the next one.
+    expect(blindText(formatFor('six-max', true, 'short'), { sb: 8, bb: 16 }, 12, 4)).toBe(
+      'Level 5, blinds 8/16'
+    );
+    const short = formatFor('heads-up', true, 'short');
+    expect(blindText(short, { sb: 200, bb: 400 }, 9, short.levels.length - 1)).toBe(
+      `Level ${short.levels.length}, blinds 200/400, top level`
+    );
   });
 
   it('counts down to the next level when they climb', () => {

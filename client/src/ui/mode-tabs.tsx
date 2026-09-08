@@ -2,7 +2,9 @@ import { useRef } from 'react';
 import type { Mode } from '@opentable/protocol';
 import { useGInit } from './bits.tsx';
 
-export const MODES: Mode[] = ['heads-up', 'six-max'];
+/* Six handed first, everywhere a pair of modes is offered: it is the main
+   game now, and a tab strip that opens on the sideshow says otherwise. */
+export const MODES: Mode[] = ['six-max', 'heads-up'];
 export const MODE_NAME: Record<Mode, string> = { 'heads-up': 'Heads-up', 'six-max': 'Six-max' };
 
 export interface ModeTabsProps {

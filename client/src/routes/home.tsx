@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BOT_LEVELS, botLevelInfo, formatFor } from '@opentable/protocol';
-import type { Mode } from '@opentable/protocol';
+import { BOT_LEVELS, SPEEDS, SPEED_NAME, botLevelInfo, ceilingFor, formatFor, speedOf } from '@opentable/protocol';
+import type { MatchFormat, Mode, Speed } from '@opentable/protocol';
 import { api, ApiError } from '../net/api.ts';
 import { levelAverageRating, modeRating, avatarVersion } from '../net/adapt.ts';
 import type { ArenaListing, BotRow, CreatedChallenge, LeaderboardRow, Me } from '../net/types.ts';
@@ -20,12 +20,31 @@ import { ShareLink } from '../ui/share-link.tsx';
 /* The line under each mode's name is built from that mode's format, so the
    promise on the card cannot drift from the match it starts. Exported because
    a challenge link promises the same match on a different page. */
-export function modeBlurb(mode: Mode): string {
-  const f = formatFor(mode, true);
-  if (mode === 'six-max') {
-    return `Last player standing. ${f.players} seats, ${f.stack} units each, blinds climb every ${f.levelHands} hands.`;
+export function modeBlurb(mode: Mode, speed: Speed = 'long'): string {
+  const f = formatFor(mode, true, speed);
+  const shape =
+    mode === 'six-max'
+      ? `Last player standing. ${f.players} seats, ${f.stack} units each.`
+      : `Best of ${f.hands} hands. ${f.stack} units each.`;
+  return `${shape} ${scheduleLine(f)}`;
+}
+
+/* How the blinds move, and how long the table can therefore last. Both read
+   off the format rather than written down twice: the schedules are designed
+   against these ceilings and the arithmetic for each one is in the protocol
+   beside it. */
+function scheduleLine(f: MatchFormat): string {
+  const cap = capText(f);
+  if (speedOf(f) === 'short') return `Blinds climb every ${f.levelSeconds} seconds, so it is over ${cap}.`;
+  if (f.levels.length > 1 && f.levelHands > 0 && f.mode === 'six-max') {
+    return `Blinds climb every ${f.levelHands} hands, ${cap}.`;
   }
-  return `Best of ${f.hands} hands. ${f.stack} units each, blinds fixed at ${f.sb} and ${f.bb}.`;
+  return `Blinds start at ${f.sb} and ${f.bb} and stay there, ${cap}.`;
+}
+
+function capText(f: MatchFormat): string {
+  const minutes = Math.round(ceilingFor(speedOf(f)) / 60_000);
+  return minutes >= 60 ? `up to ${minutes / 60} hours` : `inside ${minutes} minutes`;
 }
 
 export function Home() {
@@ -36,13 +55,25 @@ export function Home() {
   useTitle(null);
   const now = useNow(searching, 250);
 
-  /* The last choice reopens the picker where it was left: that mode's stake,
-     and a quiet mark on the card that was played. */
+  /* The last choice reopens the picker where it was left: that mode's stake
+     and speed, and a quiet mark on the card that was played. Both are held
+     per mode, because somebody who plays long six-max and short heads-up
+     should find each card the way they left it. */
   const [last] = useState(() => readPlayChoice());
   const [rated, setRated] = useState<Record<Mode, boolean>>(() => ({
     'heads-up': last?.mode === 'heads-up' ? last.rated : true,
     'six-max': last?.mode === 'six-max' ? last.rated : true,
   }));
+  const [speed, setSpeed] = useState<Record<Mode, Speed>>(() => ({
+    'heads-up': last?.mode === 'heads-up' ? last.speed : 'long',
+    'six-max': last?.mode === 'six-max' ? last.speed : 'long',
+  }));
+
+  /* Rated play opens after one finished casual or practice match. The server
+     refuses it either way; the control says so rather than letting somebody
+     press a button that answers no. A page that has not heard from the server
+     yet assumes it is open, so the control does not flicker shut on load. */
+  const rankedLocked = me != null && me.rankedUnlocked === false;
 
   /* The found state is a one-shot ticket to the table. Clearing it once it
      has been used is what lets somebody come back to this page mid-match
@@ -59,16 +90,18 @@ export function Home() {
     if (hash) document.querySelector(hash)?.scrollIntoView({ block: 'start' });
   }, [hash]);
 
-  const seats = formatFor(queue.mode, queue.rated).players;
-  const searchingFor = queue.practice ? 'Dealing you in against the bots' : `Searching for a ${MODE_NAME[queue.mode].toLowerCase()} table`;
+  const seats = formatFor(queue.mode, queue.rated, queue.speed).players;
+  const searchingFor = queue.practice
+    ? 'Dealing you in against the bots'
+    : `Searching for a ${SPEED_NAME[queue.speed].toLowerCase()} ${MODE_NAME[queue.mode].toLowerCase()} table`;
 
   return (
     <main className="page stack">
       <section className="hero">
         <h1 className="h1">Ranked hold'em</h1>
         <p className="lede">
-          Heads-up or six handed, <b>no money anywhere</b>. Chips are table units that reset every
-          match. The only thing you keep is your rating.
+          Six handed or heads-up, short or long, <b>no money anywhere</b>. Chips are table units
+          that reset every match. The only thing you keep is your rating.
         </p>
 
         {offline && ready && (
@@ -88,36 +121,20 @@ export function Home() {
         {!searching ? (
           <div className="modes">
             {MODES.map((mode) => (
-              <div className="card mode" key={mode} data-last={last?.mode === mode ? '' : undefined}>
-                <div className="mode-head">
-                  <span className="t">{MODE_NAME[mode]}</span>
-                  {last?.mode === mode && <span className="muted">Last played</span>}
-                </div>
-                <span className="muted">{modeBlurb(mode)}</span>
-                {me && <YourRating mode={mode} me={me} />}
-                <div className="stakes">
-                  {[true, false].map((r) => (
-                    <label className="choice" key={String(r)}>
-                      <input
-                        type="radio"
-                        className="radio"
-                        name={`stake-${mode}`}
-                        checked={rated[mode] === r}
-                        onChange={() => setRated((prev) => ({ ...prev, [mode]: r }))}
-                      />
-                      {r ? 'Rated' : 'Casual'}
-                    </label>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  disabled={!ready || offline}
-                  onClick={() => startQueue(mode, rated[mode])}
-                >
-                  Play
-                </button>
-              </div>
+              <ModeCard
+                key={mode}
+                mode={mode}
+                main={mode === 'six-max'}
+                me={me}
+                lastPlayed={last?.mode === mode}
+                rated={rated[mode]}
+                speed={speed[mode]}
+                rankedLocked={rankedLocked}
+                disabled={!ready || offline}
+                onRated={(r) => setRated((prev) => ({ ...prev, [mode]: r }))}
+                onSpeed={(sp) => setSpeed((prev) => ({ ...prev, [mode]: sp }))}
+                onPlay={() => startQueue(mode, rated[mode] && !rankedLocked, speed[mode])}
+              />
             ))}
             <PracticeCard onPlay={startPractice} disabled={!ready || offline} error={queue.error} />
             <ArenaCard />
@@ -132,6 +149,7 @@ export function Home() {
               <span className="badge badge-plain">
                 {queue.practice ? 'Practice' : queue.rated ? 'Rated' : 'Casual'}
               </span>
+              <span className="badge badge-plain">{SPEED_NAME[queue.speed]}</span>
               {queue.mode === 'six-max' && queue.seated != null && (
                 <span className="badge badge-plain num">{queue.seated} of {seats} seated</span>
               )}
@@ -145,6 +163,10 @@ export function Home() {
                 Cancel search
               </button>
             </div>
+            {/* Why the last table did not happen, when there was one. It sits
+                on the searching card because that is where the answer is: the
+                search carried on without you having to restart it. */}
+            {queue.error && <span className="muted">{queue.error}</span>}
           </div>
         )}
 
@@ -170,7 +192,7 @@ export function Home() {
         <div className="card">
           <span className="k">2</span>
           <span className="t">Chips reset every match</span>
-          <span className="muted">Everyone starts on 200 units. Six-max blinds climb until one player has the lot.</span>
+          <span className="muted">Everyone starts on 200 units. The blinds climb until one player has the lot.</span>
         </div>
         <div className="card">
           <span className="k">3</span>
@@ -191,6 +213,96 @@ export function Home() {
   );
 }
 
+/* One mode, with the two choices that make it a game: how fast and whether it
+   counts. Six handed is the main one and says so by being first and by
+   carrying the larger heading and the larger button; heads-up is the same
+   card without the emphasis.
+
+   Speed is a radio pair rather than anything new, the same control the stake
+   already uses, because g ships that and a segmented control is a thing this
+   design language does not have. Two radio groups reading the same way is
+   also the point: they are two settings of the same kind. */
+function ModeCard({
+  mode,
+  main,
+  me,
+  lastPlayed,
+  rated,
+  speed,
+  rankedLocked,
+  disabled,
+  onRated,
+  onSpeed,
+  onPlay,
+}: {
+  mode: Mode;
+  main: boolean;
+  me: Me | null;
+  lastPlayed: boolean;
+  rated: boolean;
+  speed: Speed;
+  rankedLocked: boolean;
+  disabled: boolean;
+  onRated: (rated: boolean) => void;
+  onSpeed: (speed: Speed) => void;
+  onPlay: () => void;
+}) {
+  return (
+    <div className="card mode" data-main={main ? '' : undefined} data-last={lastPlayed ? '' : undefined}>
+      <div className="mode-head">
+        <span className="t">{MODE_NAME[mode]}</span>
+        {main && <span className="badge badge-plain">Main game</span>}
+        {lastPlayed && <span className="muted">Last played</span>}
+      </div>
+      <span className="muted">{modeBlurb(mode, speed)}</span>
+      {me && <YourRating mode={mode} me={me} />}
+
+      <div className="stakes">
+        {SPEEDS.map((sp) => (
+          <label className="choice" key={sp}>
+            <input
+              type="radio"
+              className="radio"
+              name={`speed-${mode}`}
+              checked={speed === sp}
+              onChange={() => onSpeed(sp)}
+            />
+            {SPEED_NAME[sp]}
+          </label>
+        ))}
+      </div>
+
+      <div className="stakes">
+        {[true, false].map((r) => (
+          <label className="choice" key={String(r)} data-locked={r && rankedLocked ? '' : undefined}>
+            <input
+              type="radio"
+              className="radio"
+              name={`stake-${mode}`}
+              checked={(rated && !rankedLocked) === r}
+              disabled={r && rankedLocked}
+              onChange={() => onRated(r)}
+            />
+            {r ? 'Rated' : 'Casual'}
+          </label>
+        ))}
+      </div>
+      {rankedLocked && (
+        <span className="muted">Play one casual game first. Rated opens as soon as it finishes.</span>
+      )}
+
+      <button
+        type="button"
+        className={main ? 'btn btn-primary btn-lg' : 'btn btn-primary'}
+        disabled={disabled}
+        onClick={onPlay}
+      >
+        Play {MODE_NAME[mode].toLowerCase()}
+      </button>
+    </div>
+  );
+}
+
 /* The third way to play: a table of bots at a level you pick, never rated.
    The card spans the picker's row because it is one card, not a mode of its
    own, and the level list reads better wide than squeezed into a column.
@@ -207,7 +319,7 @@ function PracticeCard({
   disabled: boolean;
   error?: string;
 }) {
-  const [mode, setMode] = useState<Mode>('heads-up');
+  const [mode, setMode] = useState<Mode>('six-max');
   const [level, setLevel] = useState(2);
   const [bots, setBots] = useState<BotRow[]>([]);
 
@@ -225,7 +337,7 @@ function PracticeCard({
   }, []);
 
   return (
-    <div className="card mode" style={{ gridColumn: '1 / -1' }}>
+    <div className="card mode">
       <div className="mode-head">
         <span className="t">Practice against bots</span>
       </div>
@@ -303,7 +415,7 @@ function ArenaCard() {
   const featured = listing?.featured ?? null;
 
   return (
-    <div className="card mode" style={{ gridColumn: '1 / -1' }}>
+    <div className="card mode">
       <div className="mode-head">
         <span className="t">Hourly arena</span>
         {featured?.status === 'running' && <span className="badge badge-ok">Running</span>}
@@ -434,7 +546,7 @@ function FriendCard({ disabled }: { disabled: boolean }) {
   };
 
   return (
-    <div className="card mode" style={{ gridColumn: '1 / -1' }}>
+    <div className="card mode">
       <div className="mode-head">
         <span className="t">Play a friend</span>
       </div>

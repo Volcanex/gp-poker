@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { botLevelInfo, type Mode } from '@opentable/protocol';
+import { BADGES, botLevelInfo, type Mode } from '@opentable/protocol';
 import { api, ApiError } from '../net/api.ts';
 import type { Insights, PositionKey, Profile as ProfileData, ProfileArena } from '../net/types.ts';
 import { useSession } from '../net/session.tsx';
@@ -9,8 +9,9 @@ import { PageResting } from '../ui/enter.tsx';
 import { RatingGraph } from '../ui/rating-graph.tsx';
 import { fmtDate, fmtPct, fmtShortDate, int, signed } from '../ui/format.ts';
 import {
-  avatarSeed, avatarVersion, mainMode, matchPlacing, matchPractice, matchRated, modePeakAt,
-  modeRating, modeStanding, modeWinRate, profileAccuracy, ratingHistoryFor,
+  avatarSeed, avatarVersion, levelOf, mainMode, matchPlacing, matchPractice, matchRated, modePeakAt,
+  modeRating, modeStanding, modeWinRate, profileAccuracy, profileBadges, ratingHistoryFor,
+  totalMatches,
 } from '../net/adapt.ts';
 import { MODES, MODE_NAME, ModeTabs } from '../ui/mode-tabs.tsx';
 import { ordinal } from '../table/labels.ts';
@@ -96,6 +97,16 @@ export function Profile() {
               you had just replaced. */}
           {flag && <Flag code={flag} size={24} />}
           <h1 className="h1">{data.summary.name}</h1>
+          {/* Level is how much poker has been played on this account and
+              nothing else. It sits beside the name because that is what it
+              describes; the rating, which is the skill claim, is the number
+              in the card below. Somebody who has finished nothing has no
+              level rather than a level nought. */}
+          {!data.summary.bot && levelOf(data.summary) > 0 && (
+            <span className="badge badge-plain" title={`${totalMatches(data.summary)} matches finished`}>
+              Level {levelOf(data.summary)}
+            </span>
+          )}
           {data.summary.bot && data.summary.botLevel != null && (
             <span className="badge badge-plain">Bot, level {data.summary.botLevel}</span>
           )}
@@ -126,6 +137,8 @@ export function Profile() {
       </header>
 
       <RatingSection profile={data} />
+
+      <Badges profile={data} />
 
       {/* One standing per mode: a six-max result never moves a heads-up
           rating, so a single number here would be two things at once. The
@@ -474,6 +487,39 @@ function HeroRating({ profile, mode }: { profile: ProfileData; mode: Mode }) {
         </div>
       )}
     </div>
+  );
+}
+
+/* What this player has done, as the six things worth marking. Derived from
+   counters already on this page rather than awarded into a table, so there is
+   nothing to write when one is earned and nothing that can be out of date.
+   They unlock nothing: a badge here is a record, not a key.
+
+   A player with none of them gets no section at all rather than a row of
+   greyed-out promises, and a bot gets none either, since none of this is
+   about a bot. The unearned ones are drawn beside the earned ones, dimmed,
+   so the set reads as a set and there is something to play toward. */
+function Badges({ profile }: { profile: ProfileData }) {
+  if (profile.summary.bot) return null;
+  const earned = new Set(profileBadges(profile));
+  if (earned.size === 0) return null;
+
+  return (
+    <section className="stack" style={{ gap: 'var(--sp-3)' }}>
+      <span className="h2">Badges</span>
+      <div className="card badge-set">
+        {BADGES.map((b) => (
+          <span
+            className="badge badge-plain profile-badge"
+            key={b.id}
+            data-earned={earned.has(b.id) ? '' : undefined}
+            title={b.description}
+          >
+            {b.name}
+          </span>
+        ))}
+      </div>
+    </section>
   );
 }
 

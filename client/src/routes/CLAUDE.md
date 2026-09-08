@@ -5,7 +5,7 @@ are `../tools/` and the puzzles are `../puzzles/`.
 
 | Path | Page |
 | --- | --- |
-| `/` | queue, how it works, top ten (`home.tsx`) |
+| `/` | the picker, how it works, top ten (`home.tsx`) |
 | `/arena` | the arena running now, or the next one, its board, and the last three that finished |
 | `/arena/:id` | one arena, readable for good once it is over |
 | `/leaderboard` | top 100 (`leaderboard.tsx`) |
@@ -28,6 +28,33 @@ product name, so it is spelled in one place.
 
 `feed.tsx` is not a page. It is the live counts and the finished-match row, kept
 here because the home page and the watch page both draw it and neither owns it.
+
+## The picker
+
+The home page opens on two mode cards and three other ways to play. **Six
+handed is first, carries the "Main game" badge, a larger name and a larger
+button, and is the only card with `data-main`**; heads-up is the same card
+without the emphasis. Both run the full width of the grid, in that order,
+because the order is the hierarchy.
+
+Each card carries two radio pairs of the same shape: short or long, and rated
+or casual. Radios rather than anything new, because g ships `.choice` with
+`.radio` and does not ship a segmented control, and because the two settings
+are the same kind of thing and should read the same way. Both are remembered
+per mode from `readPlayChoice()`, so somebody who plays long six handed and
+short heads-up finds each card where they left it.
+
+`modeBlurb(mode, speed)` is built from `formatFor(mode, rated, speed)`, so the
+line under the name cannot promise a table the button will not deal: it follows
+the speed radio as it moves, and the ceiling in it is `ceilingFor` rather than
+a number typed twice.
+
+**Rated is disabled until one casual or practice match has finished.** The
+server refuses it either way (`server/src/CLAUDE.md`); the control says so
+rather than letting somebody press a button that answers no. It reads
+`me.rankedUnlocked`, and a page that has not heard from the server yet assumes
+open, so the control does not flicker shut on load. `/api/me` is refetched on
+every `end`, so it flips the moment the first game finishes.
 
 ## Watching
 
@@ -111,6 +138,18 @@ modes at once. Insights keeps its own switch. The card holds its box across both
 states: the number sits in a slot four digits wide and one line tall, so an
 unrated mode, a three digit rating and a four digit one all leave the page under
 it still.
+
+**Level sits beside the name and the badges sit under the rating card.** Level
+is how many matches have been finished and nothing else, which is why it is
+beside the name rather than in the card holding the rating: one is how much
+poker has been played and the other is the skill claim, and a page that put
+them together would blur them. Both are derived at read time from counters
+already on the payload (`levelOf`, `profileBadges` in `../net/adapt.ts`), so
+nothing is written when either is earned. Somebody who has finished nothing
+gets neither section rather than a level nought and a row of grey promises; a
+bot gets neither either. Unearned badges are drawn dimmed beside the earned
+ones, because a row of six with two lit is information and two alone are
+decoration.
 
 **Every class in `profile.css` is prefixed** (`rating-hero`, not `hero`). The
 app's stylesheets are one global sheet with no modules, and the short names were
