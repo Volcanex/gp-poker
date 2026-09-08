@@ -12,6 +12,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTitle } from '../ui/title.ts';
+import { PageResting } from '../ui/enter.tsx';
 import { Preflop } from './preflop-page.tsx';
 import { Showdown } from './showdown-page.tsx';
 import { accuracyOf, emptyPuzzles, readPuzzles, type Puzzles, type PuzzleType } from './store.ts';
@@ -29,7 +30,7 @@ export const puzzlesRoutes: { path: string; element: React.ReactNode }[] = [
   {
     path: '/puzzles/hand',
     element: (
-      <Suspense fallback={<main className="page"><span className="muted">Loading the puzzle</span></main>}>
+      <Suspense fallback={<PageResting label="Loading the puzzle" />}>
         <RealHand />
       </Suspense>
     ),

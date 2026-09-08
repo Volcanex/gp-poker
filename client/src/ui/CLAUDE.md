@@ -11,6 +11,59 @@ there are two of them and they have nothing else in common: the tools pages'
 caller already renders, reading `data-r` and `data-c` off them, so a grid gains
 an entrance without changing its markup, its focus handling or its shading.
 
+## The page entrance
+
+`enter.tsx` is the whole of it, and it is one system for the whole app: no page
+arranges its own entrance and a new page gets one by existing.
+
+`PageEnter` is mounted once, in `../app.tsx`, and writes `data-enter` on the
+root element when the route takes the entrance. The rules are in `../app.css`
+and animate **the direct children of the routed `<main class="page">`**: each
+block slides in from the leading edge with a fade, 200 ms (`--dur-slow`) on
+g's `--ease-out`, staggered 50 ms and capped at the sixth block, so the longest
+page has opened inside 450 ms.
+
+The contract, in the order it matters:
+
+- **A block is a direct child of `.page`.** That is the whole selector. Nothing
+  is tagged, no page imports anything, and a page that adds a section gets it
+  in the entrance for free.
+- **Transform and opacity only, and `backwards` rather than `forwards`.** A
+  block occupies its final space before it animates, so an entrance cannot move
+  the page under itself, and the moment it finishes the element is back on its
+  own styles with no transform left behind to make a containing block out of.
+  `../../e2e/enter.spec.ts` measures the layout shift across an entrance and
+  requires zero.
+- **A block waiting on the network says so** with `data-enter-ready="no"`,
+  which holds it at rest, and flips to `"yes"` when its content lands, which
+  enters it with no stagger. A skeleton never slides in, because motion about
+  a placeholder is motion about nothing. Five blocks carry it: the top ten and
+  the recent matches on home, both lists on watch, and the board on the
+  leaderboard.
+- **A page that is still fetching shows `PageResting`**, the shape it is about
+  to fill, rather than a spinner. The profile and the lazy puzzle use it, and
+  the arena has the same frame inline because its heading is already on screen.
+- **`useLayoutEffect`, not `useEffect`.** The attribute lands after React has
+  put the page in the document and before the browser paints it, so the first
+  frame anybody sees is the first frame of the entrance.
+
+**Nothing under `/m` enters.** The table, the match summary and the replay hold
+one footprint through a whole hand and `../../e2e/footprint.spec.ts` measures
+it, so they keep the motion they have and take none of this. `pageEnters` is
+the one place that is decided and `../test/enter.test.ts` pins it. The same
+exclusion covers everything with its own motion: toasts, menus, the settings
+popover, the presence pill and the match-found alert are none of them page
+blocks.
+
+**Reduced motion turns it off completely**, at rest on the first frame, rather
+than shortening it.
+
+**Promotion candidate.** This is g-system's shipped `.enter` recipe with the
+rise turned into a slide and the beat widened. `.enter` exposes no way to ask
+for either, so the variant lives on one selector in `../app.css` and nowhere
+else. **Promotion: yes**, as an `.enter` variant with the distance, the axis
+and the duration in custom properties. Delete the local copy when it ships.
+
 ## g-ui and React
 
 g-ui.js wires its behaviour layer at load; React mounts later. `useGInit` in

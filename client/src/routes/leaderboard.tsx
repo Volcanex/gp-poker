@@ -59,7 +59,7 @@ export function Leaderboard() {
           </div>
         </div>
       ) : (
-        <div className="card lb-card">
+        <div className="card lb-card" data-enter-ready={list ? 'yes' : 'no'}>
           <div className="table-wrap">
             <table className="table" aria-label={`Top rated ${MODE_NAME[mode].toLowerCase()} players`}>
               <thead>

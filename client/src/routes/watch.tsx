@@ -55,7 +55,7 @@ export function Watch() {
         </p>
       </div>
 
-      <div className="card feed-card">
+      <div className="card feed-card" data-enter-ready={list ? 'yes' : 'no'}>
         {empty ? (
           <div className="empty">
             <span className="e-title">
@@ -141,7 +141,7 @@ function RecentlyFinished() {
   const empty = failed || (list !== null && list.length === 0);
 
   return (
-    <section className="stack" style={{ gap: 'var(--sp-3)' }}>
+    <section className="stack" style={{ gap: 'var(--sp-3)' }} data-enter-ready={list ? 'yes' : 'no'}>
       <div className="feed-head">
         <span className="h2">Recently finished</span>
         <span className="muted">Every match has a permanent page</span>

@@ -194,7 +194,7 @@ export function RecentMatches({ limit = HOME_ROWS }: { limit?: number }) {
   const empty = failed || (list !== null && list.length === 0);
 
   return (
-    <section className="stack" id="recent" style={{ gap: 'var(--sp-3)' }}>
+    <section className="stack" id="recent" style={{ gap: 'var(--sp-3)' }} data-enter-ready={list ? 'yes' : 'no'}>
       <div className="feed-head">
         <span className="h2">Recent matches</span>
         <span className="muted">Every match has a permanent page</span>

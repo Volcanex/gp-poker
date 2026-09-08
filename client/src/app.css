@@ -82,6 +82,58 @@
 .h2 { font-size: var(--font-size-ui); font-weight: 500; }
 .muted { color: var(--text-secondary); font-size: 12px; }
 
+/* -------------------------------------------------------- page entrance */
+
+/* One entrance for every page. The blocks a page is made of, which are the
+   direct children of its `<main class="page">`, slide in from the leading edge
+   in order, once, when the page arrives. No page arranges this: `data-enter`
+   on the root element is written by `src/ui/enter.tsx` and says the route takes
+   the entrance, and nothing under `/m` does.
+
+   **Transform and opacity only, and never a fill forwards.** A block occupies
+   its final space before it animates, so an entrance cannot move the page under
+   itself, and once the animation has run the element is back on its own styles
+   with no transform left to make a containing block out of. `e2e/enter.spec.ts`
+   holds both by measuring layout shift across the entrance.
+
+   This is g-system's shipped `.enter` recipe with the rise turned into a slide
+   and the beat widened, which is what was asked for and which `.enter` exposes
+   no way to ask for. It belongs in g-system as a variant of `.enter` with those
+   two things in custom properties. Until it is there it lives on this one
+   selector and nowhere else, and no page has a copy of it. */
+:root[data-enter] .page > * {
+  animation: page-enter var(--dur-slow) var(--ease-out) backwards;
+}
+:root[data-enter] .page > *:nth-child(1) { animation-delay: 0ms; }
+:root[data-enter] .page > *:nth-child(2) { animation-delay: 50ms; }
+:root[data-enter] .page > *:nth-child(3) { animation-delay: 100ms; }
+:root[data-enter] .page > *:nth-child(4) { animation-delay: 150ms; }
+:root[data-enter] .page > *:nth-child(5) { animation-delay: 200ms; }
+/* Six blocks in, the page has opened. Everything after enters on that beat
+   rather than trailing off down a scroll nobody has reached yet. */
+:root[data-enter] .page > *:nth-child(n + 6) { animation-delay: 250ms; }
+
+@keyframes page-enter {
+  from { opacity: 0; transform: translate3d(-14px, 0, 0); }
+  to { opacity: 1; transform: none; }
+}
+
+/* A block waiting on the network sits at rest and enters when its content
+   does, so a skeleton never slides in and the reader is not shown movement
+   that means nothing. A page says which blocks those are with one attribute,
+   and the entrance is prompt when the answer lands rather than replaying the
+   stagger the rest of the page has long finished. */
+:root[data-enter] .page > [data-enter-ready="no"] { animation: none; }
+:root[data-enter] .page > [data-enter-ready="yes"] { animation-delay: 0ms; }
+
+/* The resting frame a page shows while it fetches, from src/ui/enter.tsx. */
+.resting-head { gap: var(--sp-3); }
+.resting-card { display: flex; flex-direction: column; gap: var(--sp-3); }
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-enter] .page > * { animation: none; }
+}
+
 /* ------------------------------------------------------------------- home */
 
 .hero { display: flex; flex-direction: column; gap: var(--sp-4); align-items: flex-start; }
