@@ -4,8 +4,11 @@ import { useLook } from './look.ts';
 
 const SUIT_GLYPH: Record<string, string> = { s: '♠', h: '♥', d: '♦', c: '♣' };
 const SUIT_NAME: Record<string, string> = { s: 'spades', h: 'hearts', d: 'diamonds', c: 'clubs' };
-/* Where a card sits once it has landed. */
-const REST = { opacity: 1, x: 0, y: 0, scale: 1, rotateY: 0 };
+/* Where a card sits once it has landed. No opacity anywhere in a card's
+   motion: a deal is a card arriving, not appearing, and an inline opacity
+   left behind by the animation would sit over the dim the showdown puts on
+   the cards that did not count. */
+const REST = { x: 0, y: 0, scale: 1, rotateY: 0 };
 
 const RANK_NAME: Record<string, string> = {
   A: 'ace', K: 'king', Q: 'queen', J: 'jack', T: 'ten',
@@ -53,13 +56,13 @@ export function PlayingCard({ card, index = 0, dim, still, best, flip, origin }:
     ? { initial: false as const, animate: REST }
     : flip
       ? {
-          initial: { rotateY: 90, opacity: 0.4 },
-          animate: { rotateY: 0, opacity: 1 },
+          initial: { rotateY: 90 },
+          animate: { rotateY: 0 },
           transition: { duration: 0.18, ease: [0.2, 0, 0, 1] as const, delay: index * 0.06 },
         }
       : {
-          initial: { opacity: 0, x: from.x, y: from.y, scale: 0.96 },
-          animate: { opacity: 1, x: 0, y: 0, scale: 1 },
+          initial: { x: from.x, y: from.y, scale: 0.96 },
+          animate: { x: 0, y: 0, scale: 1 },
           transition: { duration: 0.22, ease: [0.2, 0, 0, 1] as const, delay: index * 0.05 },
         };
 
@@ -96,7 +99,7 @@ export function PlayingCard({ card, index = 0, dim, still, best, flip, origin }:
 
    A card turned over at a showdown mounts back-first and rotates to its face,
    so the flip is one object turning where it lies. Everything animates by
-   transform and opacity only. */
+   transform only. */
 function CardV2({
   card, index, dim, still, best, flip, origin, hidden, reduced,
 }: Required<Pick<PlayingCardProps, 'card' | 'index'>> & Omit<PlayingCardProps, 'card' | 'index'> & {
@@ -118,8 +121,8 @@ function CardV2({
           transition: { duration: 0.32, ease: [0.3, 0, 0.1, 1] as const, delay: index * 0.07 },
         }
       : {
-          initial: { opacity: 0, x: from.x, y: from.y, scale: 0.94 },
-          animate: { opacity: 1, x: 0, y: 0, scale: 1 },
+          initial: { x: from.x, y: from.y, scale: 0.94 },
+          animate: { x: 0, y: 0, scale: 1 },
           transition: { duration: 0.24, ease: [0.2, 0, 0, 1] as const, delay: index * 0.05 },
         };
 

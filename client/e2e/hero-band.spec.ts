@@ -73,17 +73,15 @@ for (const { name: where, size } of SIZES) {
 /* The band is your seat, drawn large, at every width: the wide felt drew the
    same cards, name, stack, last action and clock a hundred pixels above the
    band that was drawing them again. The felt must therefore stop drawing the
-   seat, and must keep the bet that hangs off it, because that is where a chip
-   flies from. */
+   bottom row at all. */
 for (const { name: where, size } of SIZES) {
-  test(`the felt gives up your seat to the band and keeps your bet on ${where}`, async ({ page }) => {
+  test(`the felt gives up your seat to the band on ${where}`, async ({ page }) => {
     await page.setViewportSize(size);
     await stubApi(page);
     await page.goto('/m/mock?v2=1&step=9');
     await waitForBand(page, 'turn');
 
     await expect(page.locator('.pos[data-k="0"] .seat')).toBeHidden();
-    await expect(page.locator('.pos[data-k="0"] .seat-bet')).toBeVisible();
     await expect(page.locator('.hb-cards .pcard')).toHaveCount(2);
 
     /* And the clock the seat carried is the band's: the bar under the decision

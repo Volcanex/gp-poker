@@ -22,7 +22,7 @@ test('your cards stay face up through a showdown you lose', async ({ page }) => 
      while the decision is still yours: if it is still the same element after
      the showdown, your cards were never redrawn, let alone turned over or
      taken away. */
-  await page.locator('.hand-head', { hasText: 'Hand 25 of 25' }).waitFor({ timeout: 60_000 });
+  await page.locator('.stats', { hasText: '25 of 25' }).waitFor({ timeout: 60_000 });
   await waitForDock(page, 'turn');
   await page.locator(`${HERO} .pcard`).first().evaluate((el) => {
     (el as HTMLElement).dataset.pinned = '1';
@@ -68,12 +68,10 @@ test('a six-max showdown reads the same way', async ({ page }) => {
   await expect(page.locator('.award-zone .award-chip')).toBeVisible();
 });
 
-test('the pot lands below the figure, never over its label', async ({ page }) => {
+test('the award line sits below the pot figure', async ({ page }) => {
   await stubApi(page);
   await page.goto('/m/mock?step=13');
   const chip = await page.locator('.award-zone .award-chip').boundingBox();
-  const label = await page.locator('.pot .k').boundingBox();
   const figure = await page.locator('.pot .v').boundingBox();
-  expect(chip!.y).toBeGreaterThan(label!.y + label!.height);
   expect(chip!.y).toBeGreaterThan(figure!.y + figure!.height);
 });

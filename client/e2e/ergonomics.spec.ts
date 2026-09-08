@@ -126,11 +126,12 @@ test.describe('pre-actions', () => {
   });
 });
 
-/* The ring, at the widths it is actually drawn at. Two promises: a generated
-   name fits, and nothing on the felt sits on anything else. Both were broken
-   at once on a live six-max table and neither was measured, because the mock
-   used short lowercase names and the suite only ever saw those. */
-test.describe('the ring', () => {
+/* The two columns, at the widths they are actually drawn at. Two promises: a
+   generated name fits, and nothing on the felt sits on anything else. Both
+   were broken at once on a live six-max table and neither was measured,
+   because the mock used short lowercase names and the suite only ever saw
+   those. */
+test.describe('the columns', () => {
   for (const width of [768, 1280, 1920]) {
     test(`shows a whole name and keeps its seats off the board at ${width}`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
@@ -143,36 +144,35 @@ test.describe('the ring', () => {
           a.right < b.left + 1 || a.left > b.right - 1
           || a.bottom < b.top + 1 || a.top > b.bottom - 1);
         const rect = (sel: string) => document.querySelector(sel)!.getBoundingClientRect();
-        const seats = [...document.querySelectorAll('.seat')].map((s) => s.getBoundingClientRect());
-        const names = [...document.querySelectorAll('.seat-name')] as HTMLElement[];
+        /* The felt's copy of your own seat is in the markup and not drawn:
+           the band is that seat. */
+        const drawn = [...document.querySelectorAll('.seat')].filter((e) => e.getClientRects().length > 0);
+        const seats = drawn.map((s) => s.getBoundingClientRect());
+        const names = drawn.map((s) => s.querySelector('.seat-name') as HTMLElement);
         return {
           longest: Math.max(...names.map((n) => n.textContent!.length)),
           cut: names.filter((n) => n.scrollWidth > n.clientWidth).map((n) => n.textContent),
           onBoard: seats.filter((r) => hit(r, rect('.board'))).length,
-          onPot: seats.filter((r) => hit(r, rect('.pot'))).length,
+          onStats: seats.filter((r) => hit(r, rect('.stats'))).length,
           /* Every badge stays on the name's own line rather than wrapping
              under it, which is what a name that grew used to cause. */
-          lines: [...document.querySelectorAll('.seat-line')]
-            .map((l) => Math.round(l.getBoundingClientRect().height)),
+          lines: drawn.map((s) => Math.round(s.querySelector('.seat-line')!.getBoundingClientRect().height)),
         };
       });
 
       expect(seen.longest, 'the mock deals in names the length people get').toBeGreaterThanOrEqual(15);
       expect(seen.cut, 'names truncated at this width').toEqual([]);
       expect(seen.onBoard, 'seats sitting on the board').toBe(0);
-      expect(seen.onPot, 'seats sitting on the pot').toBe(0);
+      expect(seen.onStats, 'seats sitting on the stats box').toBe(0);
       expect(new Set(seen.lines).size, 'a name line that wrapped').toBe(1);
     });
   }
 
-  /* Where a bet chip may sit: beside its own seat, and nowhere near the pot
-     figure, the board, another seat or another bet. The ellipse between the
-     seats and the middle that these used to ride ran out of room the moment
-     the seats grew wide enough to hold a name, and the chips ended up on the
-     pot. Four steps of the script, because how many seats have bet in front of
-     them is the thing that changes. */
+  /* Nothing on the felt touches anything else, and the action square is a
+     square the seat's height, at four steps of the script: how many seats
+     have a word in front of them is the thing that changes. */
   for (const width of [768, 1280, 1920]) {
-    test(`keeps every bet chip clear of everything at ${width}`, async ({ page }) => {
+    test(`keeps every seat clear of everything at ${width}`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await stubApi(page);
 
@@ -186,23 +186,28 @@ test.describe('the ring', () => {
             a.right < b.left + 1 || a.left > b.right - 1
             || a.bottom < b.top + 1 || a.top > b.bottom - 1);
           const box = (sel: string) => document.querySelector(sel)!.getBoundingClientRect();
-          const bets = [...document.querySelectorAll('.seat-bet .bet-chip')]
+          const seats = [...document.querySelectorAll('.seat')]
+            .filter((e) => e.getClientRects().length > 0)
             .map((e) => e.getBoundingClientRect());
-          const seats = [...document.querySelectorAll('.seat')].map((e) => e.getBoundingClientRect());
+          const squares = [...document.querySelectorAll('.seat-act')]
+            .filter((e) => e.getClientRects().length > 0)
+            .map((e) => e.getBoundingClientRect());
           return {
-            bets: bets.length,
-            onPot: bets.filter((r) => hit(r, box('.pot'))).length,
-            onBoard: bets.filter((r) => hit(r, box('.board'))).length,
-            onSeat: bets.filter((r) => seats.some((s) => hit(r, s))).length,
-            onBet: bets.filter((r, i) => bets.some((o, j) => j !== i && hit(r, o))).length,
+            seats: seats.length,
+            worded: document.querySelectorAll('.seat-act:not([data-empty])').length,
+            onBoard: seats.filter((r) => hit(r, box('.board'))).length,
+            onStats: seats.filter((r) => hit(r, box('.stats'))).length,
+            onSeat: seats.filter((r, i) => seats.some((o, j) => j !== i && hit(r, o))).length,
+            oblong: squares.filter((r) => Math.abs(r.width - r.height) > 1).length,
           };
         });
 
-        expect(seen.bets, `step ${step} has bets to check`).toBeGreaterThan(0);
-        expect(seen.onPot, `step ${step}: a chip on the pot`).toBe(0);
-        expect(seen.onBoard, `step ${step}: a chip on the board`).toBe(0);
-        expect(seen.onSeat, `step ${step}: a chip on a seat`).toBe(0);
-        expect(seen.onBet, `step ${step}: two chips on each other`).toBe(0);
+        expect(seen.seats, `step ${step} has seats to check`).toBeGreaterThan(0);
+        expect(seen.worded, `step ${step} has a word in a square`).toBeGreaterThan(0);
+        expect(seen.onBoard, `step ${step}: a seat on the board`).toBe(0);
+        expect(seen.onStats, `step ${step}: a seat on the stats box`).toBe(0);
+        expect(seen.onSeat, `step ${step}: two seats on each other`).toBe(0);
+        expect(seen.oblong, `step ${step}: a square that is not one`).toBe(0);
       }
     });
   }

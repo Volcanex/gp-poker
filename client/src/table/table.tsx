@@ -1,7 +1,6 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import NumberFlow from '@number-flow/react';
 import { Link } from 'react-router-dom';
 import type { ActionKind, Card, SeatView, TableView } from '@opentable/protocol';
 import { Seat } from './seat.tsx';
@@ -11,10 +10,9 @@ import { Dock, KeyLegend, playerList } from './dock.tsx';
 import { HeroBand } from './hero-band.tsx';
 import { StakeBadge } from '../routes/feed.tsx';
 import { MODE_NAME } from '../ui/mode-tabs.tsx';
-import {
-  blindText, blindTextShort, cardsOf, handText, handTextShort, shortHash, streetText,
-} from './labels.ts';
-import { dealOrder, layoutMode, portraitSlot, seatOrder, slotAt } from './layout.ts';
+import { blindsRow, cardsOf, handText, streetText } from './labels.ts';
+import { dealFrom, dealOrder, layoutMode, placeOf, seatOrder } from './layout.ts';
+import { amountToCall } from './preactions.ts';
 import { readShowdown } from './best-five.ts';
 import { useTableSounds } from './sounds.ts';
 import { useGInit } from '../ui/bits.tsx';
@@ -28,9 +26,6 @@ import './look-v2.css';
 export interface TableProps {
   view: TableView;
   onAct: (a: ActionKind, v?: number) => void;
-  // Practice's hold: deal the next hand, or finish the match, instead of
-  // waiting the table out. Present only when `view.hold === 'you'`.
-  onNext?: () => void;
   sending: boolean;
   /* The replay supplies its own hand header and its own controls, so it asks
      for the felt on its own. */
@@ -42,29 +37,9 @@ export interface TableProps {
   chat?: ChatController;
   /* The felt rework, on the mock only until it is the felt: see look.ts. */
   look?: Look;
-  /* A practice table holds a finished hand until this viewer deals on. */
+  /* A practice table's hand-over state offers the next hand early; the band
+     renders the button and this is what it calls. */
   onNext?: () => void;
-}
-
-interface Flight { id: number; seat: number; amount: number }
-
-/* Where a stack of chips stands, in the felt's own coordinates: the middle of
-   its bottom edge, plus the chip size in force there. A ring bet draws 14px
-   chips and the middle draws 24px, so a flight scales as it travels and lands
-   the size of the stack it is joining. */
-interface Anchor { x: number; y: number; chip: number }
-
-/* One stack in the air. v2 moves chips instead of dissolving them: an opaque
-   element in a layer over the felt, from the measured place it left to the
-   measured place it is going, moved on a transform. No opacity is touched at
-   any point, and the two stacks are never on screen pretending to be one. */
-interface Move {
-  id: number;
-  amount: number;
-  from: Anchor;
-  to: Anchor;
-  delay: number; // seconds
-  seat: number | null; // the seat an award is paid to, null on the way in
 }
 
 const BOARD_SLOTS = 5;
@@ -76,22 +51,14 @@ const REVEAL_MS = 0;
 const HIGHLIGHT_MS = 400;
 const SETTLE_MS = 700;
 
-/* How a chip travels on v2. One stack a seat, in the order a dealer collects
-   them, on the house ease-out. Long enough to follow across the felt and short
-   enough that the next street is not waiting on it. */
-const FLIGHT_MS = 380;
-const STAGGER_MS = 40;
 const EASE_OUT = [0.2, 0, 0, 1] as const;
 
 /* The award line is written in rather than faded in: a mask that opens from
-   its leading edge, over in a fifth of a second so it does not compete with
-   the chips travelling beside it. The shape lives in look-v2.css and only the
-   fraction still covered is animated. */
+   its leading edge, over in a fifth of a second. The shape lives in
+   look-v2.css and only the fraction still covered is animated. */
 const AWARD_MS = 220;
 const AWARD_SHUT = { '--wipe': '100%' };
 const AWARD_OPEN = { '--wipe': '0%' };
-
-const NOBODY: ReadonlySet<number> = new Set();
 
 export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', onNext }: TableProps) {
   const reduced = useReducedMotion();
@@ -100,128 +67,13 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
   useTableSounds(bare ? null : view);
 
   /* The bottom slot is yours when you are seated; watching, seat 0 takes it.
-     Two seats stack into the felt they have always had, three or more sit on
-     an ellipse, and both come out of the same markup. */
+     Everyone else goes round the table from your left: up the left column,
+     across the board and down the right one. */
   const order = seatOrder(view.seats, view.you);
   const mode = layoutMode(order.length);
   const button = view.seats.find((s) => s.button)?.i ?? 0;
   const deal = dealOrder(view.seats, button);
   const dealt = Math.max(1, deal.size);
-
-  /* Chips fly to the pot when the street's bets are collected: the seat's chip
-     unmounts and one with the same layoutId mounts over the pot, so the move is
-     a single continuous element rather than two fades.
-
-     **A flight's removal must outlive the view that started it.** The timer
-     used to be returned from this effect, so the next state to arrive cancelled
-     it; if that state moved no chips the effect returned early and never armed
-     another, and the flight stayed on the table for good. Stepping a replay
-     backwards did it every time, two chips a scrub, until a hundred of them
-     were piled up sharing a handful of layout ids and motion was flinging them
-     below the felt. The timers live in a ref now and are cleared on unmount and
-     nowhere else. */
-  const [flights, setFlights] = useState<Flight[]>([]);
-  const prev = useRef<TableView | null>(null);
-  const flightId = useRef(0);
-  const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
-
-  /* v2's flights, and the two things that wait for one to land: the middle's
-     stack, held at what it held before the bets were collected, and the seats
-     whose winnings have arrived. Positions are read off the DOM because the
-     felt has three geometries (the heads-up stack, the ring, the phone's
-     portrait grid) and only the browser knows which is in force. */
-  const [moves, setMoves] = useState<Move[]>([]);
-  const [potHeld, setPotHeld] = useState<number | null>(null);
-  const [paid, setPaid] = useState<ReadonlySet<number>>(NOBODY);
-  const feltRef = useRef<HTMLDivElement>(null);
-  const chipAt = useRef(new Map<number, Anchor>());
-  const prevV2 = useRef<TableView | null>(null);
-  const awardDone = useRef<string | null>(null);
-  const flying = look === 'v2' && !bare && !reduced;
-
-  useEffect(() => () => {
-    timers.current.forEach(clearTimeout);
-    timers.current.clear();
-  }, []);
-
-  useEffect(() => {
-    const before = prev.current;
-    prev.current = view;
-    /* A replay steps in both directions. Chips that fly to the pot when you
-       step forward would have to fly back out of it when you step back, and a
-       recorded hand is read, not watched: it has no flights at all. */
-    if (!before || reduced || bare || look === 'v2') return;
-    if (before.h !== view.h) {
-      setFlights([]);
-      return;
-    }
-    const moved = before.seats.filter(
-      (s) => s.bet > 0 && (view.seats.find((t) => t.i === s.i)?.bet ?? 0) === 0,
-    );
-    if (moved.length === 0) return;
-    const batch = moved.map((s) => ({ id: (flightId.current += 1), seat: s.i, amount: s.bet }));
-    const ids = new Set(batch.map((b) => b.id));
-    setFlights((f) => [...f, ...batch]);
-    const timer = setTimeout(() => {
-      timers.current.delete(timer);
-      setFlights((f) => f.filter((x) => !ids.has(x.id)));
-    }, 480);
-    timers.current.add(timer);
-  }, [view, reduced, bare, look]);
-
-  /* v2: the bets travel to the middle. Measured before the recorder below
-     refreshes, so `chipAt` still holds the felt as it was drawn a moment ago,
-     which is the only place the chips that have just been collected exist. */
-  useLayoutEffect(() => {
-    const before = prevV2.current;
-    prevV2.current = view;
-    const root = feltRef.current;
-    if (!flying || !root || !before) return;
-    if (before.h !== view.h) {
-      setMoves([]);
-      setPotHeld(null);
-      setPaid(NOBODY);
-      return;
-    }
-    const moved = before.seats.filter(
-      (s) => s.bet > 0 && (view.seats.find((t) => t.i === s.i)?.bet ?? 0) === 0,
-    );
-    if (moved.length === 0) return;
-    const slot = root.querySelector('.pot-chips');
-    if (!slot) return;
-    const base = root.getBoundingClientRect();
-    const to = anchorOf(slot, base);
-    /* In the order a dealer collects: from the seat left of the button round
-       to it, one stack every 40ms, so four bets read as four stacks. */
-    const n = Math.max(1, before.seats.length);
-    const round = (i: number) => (i - button - 1 + n * 2) % n;
-    const batch = [...moved]
-      .sort((a, b) => round(a.i) - round(b.i))
-      .map((s) => ({ amount: s.bet, from: chipAt.current.get(s.i) }))
-      .filter((m): m is { amount: number; from: Anchor } => m.from != null)
-      .map((m, k): Move => ({
-        id: (flightId.current += 1),
-        amount: m.amount,
-        from: m.from,
-        to,
-        delay: (k * STAGGER_MS) / 1000,
-        seat: null,
-      }));
-    if (batch.length === 0) return;
-    setMoves((m) => [...m, ...batch]);
-    setPotHeld(collectedOf(before));
-    batch.forEach((f, k) => {
-      const last = k === batch.length - 1;
-      const t = setTimeout(() => {
-        timers.current.delete(t);
-        /* The flight is taken off the felt in the same tick the middle's stack
-           grows by what it carried, at the same place: a swap, not a fade. */
-        setMoves((m) => m.filter((x) => x.id !== f.id));
-        setPotHeld((held) => (last || held == null ? null : held + f.amount));
-      }, f.delay * 1000 + FLIGHT_MS);
-      timers.current.add(t);
-    });
-  }, [view, flying, button]);
 
   const board = Array.from({ length: BOARD_SLOTS }, (_, i) => view.board[i] ?? null);
   /* Practice tables carry the analysis strip. It is a row of the same grid as
@@ -241,9 +93,7 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
 
   /* v2 swaps the dock for the hero band at every width: your own cards drawn
      large in one corner and the controls under the thumb in the other, with
-     the key legend between them on a screen wide enough to hold one. The
-     phone layout is the base and the desktop one is it scaled up, which is
-     why this is one component rather than two. */
+     the key legend between them on a screen wide enough to hold one. */
   const band = look === 'v2' && !bare && !ended;
 
   const result = view.street === 'done' ? view.result : null;
@@ -251,96 +101,21 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
 
   const show = useShowdown(view, result, phase);
 
-  const potShown = phase >= 2 ? 0 : view.pot;
+  /* The pot is paid at the last step of the sequence: its stack ticks to
+     nothing and the winner's ticks up by the same chips. Until then every
+     figure on the felt holds what it held before the result arrived, because
+     the result message carries the paid stacks 700 ms before the chips move. */
   const settled = phase >= 2;
-  /* The figure is the protocol's pot, the total including the bets still in
-     front of players. v2 draws those bets as chips at their seats, so the
-     middle's stack is the total less what is still on the line, and a bet's
-     stack landing is what makes it grow. Held at its old value while the
-     chips are in the air. */
-  const potChips = look === 'v2' ? (phase >= 2 ? 0 : potHeld ?? collectedOf(view)) : potShown;
+  const potShown = settled ? 0 : view.pot;
 
-  /* v2: the middle leaves for the winner, one opaque stack a seat, and the
-     chips stay in front of them until the next hand deals. A split pot flies
-     to every winner in turn; the award line under the board names them all.
-
-     The key is the hand rather than the awards, because the view arrives with
-     a fresh board array on every message and the showdown memo behind it
-     rebuilds; without the guard the same pot would fly on every tick. */
-  const awardAt = flying && settled && show.awards.length > 0 ? `${view.m}:${view.h}` : null;
-  useLayoutEffect(() => {
-    const root = feltRef.current;
-    if (awardAt == null || !root || awardDone.current === awardAt) return;
-    const slot = root.querySelector('.pot-chips');
-    if (!slot) return;
-    awardDone.current = awardAt;
-    const base = root.getBoundingClientRect();
-    const from = anchorOf(slot, base);
-    const batch: Move[] = [];
-    const straight: number[] = [];
-    show.awards.forEach((a, k) => {
-      const to = chipAt.current.get(a.seat);
-      /* A seat that has never had a chip drawn in front of it has nowhere to
-         fly to. It is paid where it stands instead. */
-      if (!to) {
-        straight.push(a.seat);
-        return;
-      }
-      batch.push({
-        id: (flightId.current += 1),
-        amount: a.amount,
-        from,
-        to,
-        delay: (k * STAGGER_MS) / 1000,
-        seat: a.seat,
-      });
-    });
-    if (straight.length > 0) setPaid((p) => new Set([...p, ...straight]));
-    if (batch.length === 0) return;
-    setMoves((m) => [...m, ...batch]);
-    for (const f of batch) {
-      const t = setTimeout(() => {
-        timers.current.delete(t);
-        setPaid((p) => new Set([...p, f.seat as number]));
-      }, f.delay * 1000 + FLIGHT_MS);
-      timers.current.add(t);
-    }
-  }, [awardAt, show.awards]);
-
-  /* Where every seat's chips are standing, refreshed on each commit and kept
-     when they leave, so a flight starts from the last place they stood. It is
-     declared after both flights above on purpose: those read the felt as it
-     was drawn before this update, which is where the chips that have just
-     moved still are. */
-  useLayoutEffect(() => {
-    const root = feltRef.current;
-    if (!flying || !root) return;
-    const base = root.getBoundingClientRect();
-    for (const pos of root.querySelectorAll('.pos')) {
-      const chips = pos.querySelector('.bet-chip .chips');
-      const i = Number(pos.getAttribute('data-seat'));
-      if (chips && Number.isFinite(i)) chipAt.current.set(i, anchorOf(chips, base));
-    }
-  });
-
-  /* The winner's number waits for the chips: it ticks up when the stack lands.
-     Without flights (v1, a replay, reduced motion) settling is the moment. */
-  const landed = (i: number) => (flying ? paid.has(i) : settled);
-
-  /* v1 keeps the award line it has, dropping in from the pot as it fades. v2
-     has no fade anywhere on the felt, so the line is masked in instead. */
-  const v2Award = look === 'v2';
-
-  /* Your own stack, held at what it was until the pot has actually landed.
-     The felt does this per seat below (`landed(i) || award === 0`) and the
-     band is your seat now, so its figure ticks on the same beat: one reading
-     of when a hand is paid, taken here and handed down, rather than the band
-     reading the view, which carries the paid number 700ms before the chips
-     arrive. */
+  /* Your own stack, held the same way and handed to the band, so there is one
+     reading of when a hand is paid rather than two that drift. */
   const myAward = view.you == null ? 0 : show.awarded.get(view.you) ?? 0;
-  const heroStack = mySeat == null || landed(view.you as number) || myAward === 0
+  const heroStack = mySeat == null || settled || myAward === 0
     ? mySeat?.stack ?? 0
     : mySeat.stack - myAward;
+
+  const matchUrl = `${window.location.origin}/m/${view.m}`;
 
   return (
     <LookContext.Provider value={look}>
@@ -348,9 +123,6 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
     <div
       className="match"
       data-look={look === 'v2' ? 'v2' : undefined}
-      /* The felt's shape, said here as well as on the felt itself: the band is
-         the felt's sibling and sits on the felt's column, so it has to be able
-         to read `--felt-w`, which is declared per mode. */
       data-mode={mode}
       /* The felt stops drawing your own seat only when the band is actually
          on screen and it is actually yours: a spectator's bottom seat belongs
@@ -365,26 +137,19 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
       {!bare && (
       <div className="hand-head" ref={headRef}>
        <div className="bar-in">
-        <span className="n wide">{handText(view.h, view.format.hands)}</span>
-        <span className="n narrow">{handTextShort(view.h, view.format.hands)}</span>
-        <span className="dot">·</span>
-        <span className="street">{streetText(view.street)}</span>
-        <span className="dot">·</span>
-        <span className="num wide">{blindText(view.format, view.blinds, view.h, view.level)}</span>
-        <span className="num narrow">{blindTextShort(view.blinds)}</span>
         <span className="spacer" style={{ flex: 1 }} />
-        {/* Both controls are always here. Verify used to appear beside Copy the
-            moment the seed was published, which moved the header at the end of
-            every hand. */}
-        <span className="seed">
-          <code title={view.seedHash}>{shortHash(view.seedHash)}</code>
+        {/* Only the actions live here; the hand, the street and the blinds are
+            in the stats box under the board. Every control is always rendered:
+            Verify used to appear when the seed was published, which moved the
+            header at the end of every hand. */}
+        <span className="head-acts">
           <button
             type="button"
             className="btn btn-tertiary btn-sm copy-btn"
-            data-copy={view.seedHash}
-            aria-label="Copy the seed hash"
+            data-copy={matchUrl}
+            aria-label="Copy a link to this match"
           >
-            <span className="copy-label">Copy</span>
+            <span className="copy-label">Copy link</span>
           </button>
           {view.seed ? (
             <Link className="btn btn-tertiary btn-sm" to={`/m/${view.m}/h/${view.h}`}>
@@ -402,158 +167,102 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
       )}
 
       <div className="felt" data-mode={mode} data-seats={order.length}>
-        <div className="felt-in" ref={feltRef}>
+        <div className="felt-in">
           {order.map((s, k) => {
-            const slot = slotAt(k, order.length);
-            /* Two geometries, one set of elements: the ellipse reads --x and
-               --y, the phone's portrait grid reads --gr, --gc and --gs, and
-               which one applies is a container query. */
-            const cell = portraitSlot(k, order.length);
+            const place = placeOf(k, order.length);
             const award = show.awarded.get(s.i) ?? 0;
-            const seat = landed(s.i) || award === 0 ? s : { ...s, stack: s.stack - award };
+            const seat = settled || award === 0 ? s : { ...s, stack: s.stack - award };
             return (
               <div
                 className="pos"
                 key={s.i}
                 data-seat={s.i}
-                data-half={slot.half}
-                data-side={slot.side}
                 data-k={k}
+                data-col={place?.col}
                 style={{
-                  '--x': `${slot.x}%`,
-                  '--y': `${slot.y}%`,
-                  '--yt': `${slot.yTight}%`,
-                  '--gr': cell.row,
-                  '--gc': cell.col,
-                  '--gs': cell.span,
+                  '--r': place ? `s${place.row}` : 'hero',
+                  '--c': place ? place.col[0] : 'l',
                 } as CSSProperties}
               >
-                <div className="seat-bet">
-                  {s.bet > 0 && (
-                    <motion.span
-                      layoutId={look === 'v2' ? undefined : `bet-${s.i}`}
-                      className="bet-chip num"
-                    >
-                      <ChipStack amount={s.bet} />
-                      <span className="bet-figure">{s.bet}</span>
-                    </motion.span>
-                  )}
-                </div>
                 <Seat
                   seat={seat}
                   you={s.i === view.you}
                   clock={view.clock}
                   format={view.format}
                   reveal={cardsOf(result?.shown, s.i)}
-                  n={view.n}
                   handNo={view.h}
                   dealAt={deal.get(s.i) ?? 0}
                   seatCount={dealt}
-                  origin={mode === 'ring' ? { x: slot.ox, y: slot.oy } : undefined}
+                  origin={dealFrom(place)}
                   best={show.best}
-                  handLabel={show.names.get(s.i) ?? null}
-                  /* The one stack that animates is the winner's, counting up
-                     as the pot lands. Everywhere else the number snaps: a
-                     stack that rolls every time a blind is posted spends the
-                     deal painting two values at once, which is what a live
-                     table was caught doing two and a half seconds in. */
-                  snap={!(landed(s.i) && award > 0)}
                 />
               </div>
             );
           })}
 
           <div className="middle">
-            <div className="pot">
-              <span className="k">Pot</span>
-              {look === 'v2' ? (
-                <span className="pot-chips">
-                  {potChips > 0 && <ChipStack amount={potChips} />}
-                </span>
-              ) : (
-                <ChipStack amount={potShown} />
-              )}
-              <span className="v">
-                <NumberFlow value={potShown} respectMotionPreference />
-              </span>
-              {view.pots.length > 1 && (
-                <span className="pot-side">{view.pots.map((p) => p.amount).join(' + ')}</span>
-              )}
-              {look !== 'v2' && (
-              <span className="flights" aria-hidden="true">
-                <AnimatePresence>
-                  {flights.map((f) => (
-                    <motion.span
-                      key={f.id}
-                      layoutId={`bet-${f.seat}`}
-                      className="bet-chip num"
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      transition={{ duration: 0.24, ease: [0.2, 0, 0, 1] }}
-                    >
-                      <ChipStack amount={f.amount} />
-                      <span className="bet-figure">{f.amount}</span>
-                    </motion.span>
-                  ))}
-                </AnimatePresence>
-              </span>
-              )}
-            </div>
-
+            {/* The board is split round the pot: the flop on the left, the
+                turn and the river on the right, and between them the pot's
+                chips with its figure under them. No label: a stack of chips
+                in the middle of a table is the pot. */}
             <div className="board">
-              {board.map((c, i) => (
-                <PlayingCard
-                  key={`${view.h}-b${i}`}
-                  card={c}
-                  index={Math.max(0, i - 2)}
-                  best={c != null && show.best.size > 0 && show.best.has(c)}
-                  dim={c != null && show.best.size > 0 && !show.best.has(c)}
-                />
-              ))}
+              <span className="board-flop">
+                {board.slice(0, 3).map((c, i) => (
+                  <PlayingCard
+                    key={`${view.h}-b${i}`}
+                    card={c}
+                    index={0}
+                    best={c != null && show.best.size > 0 && show.best.has(c)}
+                    dim={c != null && show.best.size > 0 && !show.best.has(c)}
+                  />
+                ))}
+              </span>
+              <div className="pot">
+                <span className="pot-chips">
+                  <ChipStack amount={potShown} />
+                </span>
+                {/* Keyed on the value: a figure that changes in place is a
+                    text node the layout-shift observer sees move when its
+                    box is centred, and a fresh node is new content. */}
+                <span className="v num" key={potShown}>{potShown}</span>
+                {view.pots.length > 1 && (
+                  <span className="pot-side num">{view.pots.map((p) => p.amount).join(' + ')}</span>
+                )}
+              </div>
+              <span className="board-turn">
+                {board.slice(3).map((c, i) => (
+                  <PlayingCard
+                    key={`${view.h}-b${i + 3}`}
+                    card={c}
+                    index={0}
+                    best={c != null && show.best.size > 0 && show.best.has(c)}
+                    dim={c != null && show.best.size > 0 && !show.best.has(c)}
+                  />
+                ))}
+              </span>
             </div>
 
-            {/* The pot's chips land here, below the figure and clear of the
-                label they used to cover. The zone holds its height in every
-                street so nothing on the felt moves when a hand is awarded. */}
+            {/* The award line. The zone holds its height in every street so
+                nothing on the felt moves when a hand is paid. */}
             <div className="award-zone">
               <AnimatePresence>
                 {settled && show.awards.map((a) => (
                   <motion.span
                     key={`${a.seat}-${a.amount}`}
                     className="badge num award-chip"
-                    initial={reduced ? false : v2Award ? AWARD_SHUT : { y: -54, opacity: 0, scale: 0.9 }}
-                    animate={v2Award ? AWARD_OPEN : { y: 0, opacity: 1, scale: 1 }}
-                    exit={v2Award ? AWARD_SHUT : { opacity: 0 }}
-                    transition={{ duration: v2Award ? AWARD_MS / 1000 : 0.34, ease: EASE_OUT }}
+                    initial={reduced ? false : AWARD_SHUT}
+                    animate={AWARD_OPEN}
+                    exit={AWARD_SHUT}
+                    transition={{ duration: AWARD_MS / 1000, ease: EASE_OUT }}
                   >
                     {a.amount} to {view.seats.find((s) => s.i === a.seat)?.name ?? `seat ${a.seat}`}
                   </motion.span>
                 ))}
               </AnimatePresence>
             </div>
-          </div>
 
-          {/* The chips in the air. Absolutely positioned over the felt and out
-              of the flow, so nothing on it can be moved by a flight. */}
-          {look === 'v2' && (
-            <div className="chip-flights" aria-hidden="true">
-              {moves.map((f) => (
-                <motion.span
-                  key={f.id}
-                  className="chip-flight"
-                  style={{ left: f.from.x, top: f.from.y, '--chip': `${f.from.chip}px` } as CSSProperties}
-                  initial={{ x: 0, y: 0, scale: 1 }}
-                  animate={{
-                    x: f.to.x - f.from.x,
-                    y: f.to.y - f.from.y,
-                    scale: f.to.chip / f.from.chip,
-                  }}
-                  transition={{ duration: FLIGHT_MS / 1000, ease: EASE_OUT, delay: f.delay }}
-                >
-                  <ChipStack amount={f.amount} />
-                </motion.span>
-              ))}
-            </div>
-          )}
+            <StatsBox view={view} />
+          </div>
         </div>
       </div>
 
@@ -591,25 +300,33 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
   );
 }
 
-/* The middle of a stack's bottom edge, in the felt's own coordinates, with the
-   chip size in force where it stands. Both ends of a flight are measured this
-   way, so a stack leaves and lands standing on the same line the stacks it
-   came from and joined stand on. */
-function anchorOf(el: Element, base: DOMRect): Anchor {
-  const r = el.getBoundingClientRect();
-  const chip = Number.parseFloat(getComputedStyle(el).getPropertyValue('--chip'));
-  return {
-    x: r.left + r.width / 2 - base.left,
-    y: r.bottom - base.top,
-    chip: Number.isFinite(chip) && chip > 0 ? chip : 24,
-  };
-}
-
-/* What is actually in the middle. The protocol's pot is the total including
-   the bets still in front of players; v2 draws those at their seats, so the
-   middle's own stack is the total less what is still on the line. */
-function collectedOf(view: TableView): number {
-  return Math.max(0, view.pot - view.seats.reduce((a, s) => a + s.bet, 0));
+/* The facts about the hand, in one box under the board where the eye already
+   is: labels left, values right, one type size, every value in a reserved
+   width. A format without levels has no next level to count to, and whether
+   it has one is settled before the first card, so the row count is fixed for
+   the length of the match. */
+function StatsBox({ view }: { view: TableView }) {
+  const blinds = blindsRow(view.format, view.blinds, view.h);
+  const rows: [string, string, string?][] = [
+    ['Hand', handText(view.h, view.format.hands).replace(/^Hand /, '')],
+    ['Street', streetText(view.street)],
+    ['Blinds', blinds.blinds],
+  ];
+  if (blinds.next != null) rows.push(['Next level', blinds.next, 'stats-next']);
+  rows.push(['To call', String(amountToCall(view))]);
+  return (
+    <dl className="stats" aria-label="Hand">
+      {rows.map(([k, v, cls]) => (
+        /* The value is keyed on itself, so a change is a new node rather than
+           a text node moving inside its right-aligned box, which the
+           layout-shift observer counts. */
+        <Fragment key={k}>
+          <dt className={cls}>{k}</dt>
+          <dd className={cls ? `num ${cls}` : 'num'} key={v}>{v}</dd>
+        </Fragment>
+      ))}
+    </dl>
+  );
 }
 
 /* Your own two cards, or nothing. A seat with no cards is out of the hand and

@@ -8,6 +8,14 @@ it: `seat.tsx`, `playing-card.tsx`, `turn-clock.tsx`, `chip-stack.tsx` and
 `results.ts` are pure and unit tested from `../test/`. `sounds.ts` is the
 table's side of `../sound/`.
 
+**One thing moves at a time on the felt.** What moves: the deal, a showdown
+flip, the winning five's outline, chips ticking between stacks, and the award
+line's wipe. Nothing else. No figure rolls, nothing fades, no colour
+transitions, nothing flies. The owner's complaint that this rebuild answers
+was "overlapping animations" and "the eyes don't know where to look", and
+every animation that is not on that list is one more thing asking to be
+looked at.
+
 ## One footprint, three states
 
 The table screen is a column of six grid rows, every one of them placed
@@ -42,27 +50,30 @@ identical boxes in every state, and asserts the browser's own layout-shift
 observer sums to exactly zero. It does today. Anything that reintroduces a
 shift is a regression, and the usual cause is a box sized to a string:
 
-- Text that changes must sit in a reserved slot. `.hand-head .n` and `.street`,
-  `.seat-last`, `.stack-v` and `.pot` all carry a `min-width` or a `width` for
-  that reason, and the phone gives `.seat-last` a fixed one because a phone seat
-  has no spare width to lend a long label.
-- Centred text that changes length moves. `.dock-status` is full width with
-  `text-align: center` rather than a box that shrinks to its string.
+- Text that changes must sit in a reserved slot. The pot's figure has the
+  pot's fixed width, `.stack-v` a `4ch` minimum, the action square is a
+  square, and every stats row's value is a grid cell.
+- **A text node that changes inside a centred or right-aligned box moves**,
+  as far as the layout-shift observer is concerned: the box holds still and
+  the ink does not. Every figure on the felt that changes in place is keyed on
+  its value (`key={potShown}`, `key={seat.stack}`, the stats values), so a
+  new number is a new node, which the observer treats as content arriving
+  rather than moving. The seconds in the action square are the exception
+  because `turn-clock.tsx` is not this directory's to key: they are
+  left-aligned in a `4ch` box instead.
 - A marker that comes and goes moves everything after it. The button `D` is
   always rendered and hidden with `visibility`, and the flag beside a name is
   the same bargain in a different shape: `FlagSlot` (`../ui/flag.tsx`) draws
   either the picture or an empty box of exactly its size, so a seat with a
   country and a seat without measure the same. The hairline is drawn inside the
   box for that reason.
-- **A reserved slot has to be paid for somewhere.** The name line had nothing
-  spare when it gained one, and a truncated name is worse than a moved badge,
-  so two things left it: the avatar leaves the ring's name line below a 900 px
-  felt (which the phone ring already did with it), and the dealer button leaves
-  the stack table's name line below 560 px. Both go to a seat corner, out of
-  the flow, where they cost no width and still cannot shift anything by
-  arriving. Widening the ring seat instead was tried and does not work: a wider
-  seat reaches further in, and at that width the two upper seats meet the pot.
-  `../../e2e/ergonomics.spec.ts` is what holds the names whole.
+- **A reserved slot has to be paid for somewhere.** Half a phone is 179 px
+  and a name is what a seat is read by, so on a phone the line gives
+  everything else up: the avatar goes, the empty flag slot goes (a seat's flag
+  cannot change mid-match, so hiding the empty box moves nothing), the bot
+  badge drops to the stack line (drawn twice, CSS keeps one) and the button
+  goes to the seat's corner, out of the flow. `../../e2e/ergonomics.spec.ts`
+  is what holds the names whole at 768 and up.
 - **`data-state` lives on `.dock-in`, the element that fades, not on `.dock`
   around it.** The dock's own attribute changes the moment the view does, while
   the outgoing content is still on screen finishing its 120 ms exit: with the
@@ -157,7 +168,7 @@ the felt's copy has left the phone media query for `look-v2.css`. The clock came
 with the rest of the seat and is now the decision line's: `TurnBar` under the
 words and `TurnSeconds` at their end. The avatar and the rating did **not** come
 with it: the avatar is decorative and aria-hidden, and the rating is on the
-profile the name links to, which is the same trade the ring seat already makes.
+profile the name links to, which is the same trade the felt's seats make.
 
 **Your stack is `table.tsx`'s reading, not the band's.** `HeroBand` takes it as
 a prop because at hand end it is held at what it was until the pot has actually
@@ -165,12 +176,13 @@ moved, which is the same hold the felt puts on every seat's figure: a result
 message arrives 700 ms before the chips get there, and a band reading the view
 straight printed the number you won while the pot was still in the middle. Two
 readings of when a hand is paid is two readings that drift, so there is one, in
-the place the felt already reads it. It counts nothing up: the figure takes a
-reserved `4ch` and changes in one step. **The chips beside it are the thing that
-moves**: a `ChipStack` of the big three denominations stands after the figure,
-in `.hb-chips` at 18 px, and it ticks one chip per column per 60 ms when the
-stack changes, the way every stack on the felt does. Every denomination keeps
-its slot, so the last action after the chips does not move.
+the place the felt already reads it. Nothing counts up: every figure on the
+felt snaps, and the band's takes a reserved `4ch` and changes in one step.
+**The chips beside it are the thing that moves**: a `ChipStack` of the big
+three denominations stands after the figure, in `.hb-chips` at 18 px, and it
+ticks one chip per column per 60 ms when the stack changes, the way every stack
+on the felt does. Every denomination keeps its slot, so the last action after
+the chips does not move.
 
 **One left edge for the corner.** The cards, the name line, the stack, the
 chips and the last action all start on the felt's left edge. The figures used
@@ -226,8 +238,8 @@ through turn, waiting, hand over and the next turn at 390 and 1280, in both
 shapes of felt, and asserts the header, the felt, the board, the pot and the
 band have byte identical boxes and that the layout-shift observer sums to
 exactly zero. The felt's own footprint list cannot be used, because the
-band **is** your seat: `.match[data-band]` hides `.pos[data-k="0"] .seat` at
-every width and keeps its `.seat-bet`, which is what a chip flies from.
+band **is** your seat: `.match[data-band]` drops the felt's bottom row
+(`.pos[data-k="0"]`) at every width, and drops the grid track it would take.
 `data-band` is stamped by `table.tsx` only when the band is on screen **and**
 the viewer has a seat, because a spectator's bottom seat belongs to a player
 and hiding it would leave a hole.
@@ -254,13 +266,17 @@ short for the felt shortens the felt, which is the only `1fr` in the column and
 scrolls its own overflow. Without the cap the column simply grew, because
 `#root` is a `min-height`: measured on a 1366 by 768 laptop, a practice table
 was a 903 px document in a 768 px window and the controls were under the fold.
-The felt pays for the rest out of `look-v2.css`: the hero's seat leaves a whole
-row in stack mode, and the felt's padding, its row gaps, the middle's padding
-and the chip slots all come in one step. **The ring gives its share out of the
-felt's padding rather than out of the ellipse**, and it never squashes: it is a
-percentage geometry, so a `flex: none` keeps it whole and the felt scrolls
-instead. The decision line's 28 px came out of the felt too, and at 1366 by 768
-both shapes still fit without a page scrollbar (the spec pins it).
+The felt pays for the rest: the band drops the felt's bottom row and its track,
+and `look-v2.css` takes the felt's padding in one step. The grid never
+squashes: every track is fixed, so a window too short for it scrolls the felt.
+The decision line's 28 px came out of the felt too, and at 1366 by 768 both
+shapes still fit without a page scrollbar (the spec pins it).
+
+| At 1366 by 768, practice table | Before | After |
+| --- | --- | --- |
+| Document height, heads-up | 903 | 768 |
+| Felt | 521 | 410 |
+| Band | 260 | 236 |
 
 **The mock's caption stands above the band, and the mock places it.** It printed
 over the hero's cards, which are the one thing on this screen you have to be
@@ -351,7 +367,7 @@ step is in the felt, never in the layout:
 | --- | --- |
 | 0 ms | shown cards flip in place, 180 ms each, staggered 60 ms. The flip is a remount keyed on face up, which is what keeps it where the card already lies instead of dealing it again |
 | 400 ms | the winning five are outlined and the rest of the board dims to 35%, hand names appear beside every seat that showed |
-| 700 ms | the pot counts to zero, a chip lands in the award zone and the winner's stack counts up |
+| 700 ms | the pot's chips tick out and the winner's tick in, both figures snap, and the award line is wiped in under the board |
 
 `readShowdown` in `best-five.ts` picks the five. The engine already knows them,
 but it knows them through `phe`, whose lookup table is why the replay route is
@@ -362,8 +378,11 @@ because there is no winning five to point at when only one hand was ever live.
 The mock has no uncontested pot, so that rule is pinned in the unit tests on
 `readShowdown` (`../test/sizing.test.ts`) rather than in the e2e suite.
 
-The award chip lands in `.award-zone`, a reserved row under the board. The old
-flight targeted the pot badge and landed on top of the pot label.
+The award line is wiped in across `.award-zone`, a reserved row between the
+board and the stats box. It is masked from its leading edge over 220 ms
+(`--wipe` on `.award-chip` in `app.css` is how much is still covered) and it
+is paint, not layout, so the zone's height holds the felt still. Reduced
+motion draws it in place.
 
 ## When the match ends
 
@@ -399,11 +418,16 @@ denomination has always been, and the row is the same size at 0 as at 1200. A
 centred group whose membership changes moves every member, which is how the pot
 counting down to zero was moving the board underneath it.
 
-Three places use it: the bet on the line to the pot (the stack is inside the
-element that flies, so the chips travel rather than a badge standing in for
-them), the pot, and a mini stack of the big three denominations beside a
-player's own number. The mini stack is off on a phone and off on a ring, where
-forty two pixels is a name.
+Two places use it, and that is the whole model of money on this felt: the pot's
+stack in the middle of the board, and a small stack of every denomination
+beside each player's own figure. **A stack ticks: chips leave and arrive one
+per column per tick (60 ms, `TICK_MS`), nothing flies.** A bet is the seat's
+stack ticking down and the pot's ticking up on the same clock, driven from
+`seat.stack` and `view.pot`, which already includes the street's bets, so
+collecting a street moves nothing. At the pay step the pot ticks to nothing and
+the winner's stack ticks up. The figures beside the stacks snap, and never
+roll while chips tick. The mini stack is off on a phone, where its width is a
+name's.
 
 ## The v2 felt (cards and chips as SVG)
 
@@ -412,8 +436,9 @@ forty two pixels is a name.
 passes it); the mock defaults to v1 so the footprint and screenshot suites keep
 measuring the felt they were written for, and takes `?v2=1`. The replay is bare
 and stays v1. Once the suites move to v2, v1 and the context go.
-`look-v2.css` holds every v2 rule and `felt-v2.spec.ts` holds it to the same
-zero layout shift as v1.
+`look-v2.css` holds every v2 rule (materials, the SVG cards, the chip symbol)
+and `felt-v2.spec.ts` checks what is drawn; the geometry is v1's too and lives
+in `../app.css`.
 
 - **One sprite, four pips.** `deck-sprite.tsx` is rendered once per table and
   holds the four suit paths, the back's hatch pattern and the chip symbol. A
@@ -430,142 +455,115 @@ zero layout shift as v1.
 - **A card is two faces on one element** with `preserve-3d`; a showdown card
   mounts at `rotateY(180)` and turns to its face. A face down card shows its
   back at rest, so `[data-back] .pc-back` is not rotated.
-- **Chips are drawn only where they move**: the bet and the pot. The mini
-  stack beside a player's own number is hidden. The chip symbol is a low
+- **Chips tick, they do not fly.** See Chips above. The chip symbol is a low
   three-quarter view whose rim is 0.14 of its width; a column steps by that,
   so `.chip-col` is `0.72 + (rows - 1) * 0.14` widths tall and the reserved
   slots per denomination are unchanged. Colours are set per denomination on
   the stack and read through the `<use>` as `--_body`, `--_rim`, `--_mark`.
-- **Chips travel, they do not dissolve.** A flight is one opaque stack in
-  `.chip-flights`, a layer over `.felt-in` and out of its flow, placed by the
-  middle of its bottom edge and moved on a transform: 380ms on the house
-  ease-out, one stack a seat, 40ms apart, in the order a dealer collects them,
-  from the seat left of the button round to it. Nothing in it has an opacity at
-  either end. It replaced a `layoutId` shared between the seat's chip and the
-  pot's, which crossfaded two elements while it interpolated the box between
-  them and read as a dissolve, and as a blur with several seats in.
-- **Both ends are measured off the DOM**, because the felt has three geometries
-  (the heads-up stack, the ring, the phone's portrait grid) and only the browser
-  knows which is in force. `chipAt` in `table.tsx` remembers where each seat's
-  chips last stood: by the time a bet has been collected React has taken that
-  element off the felt, so the two layout effects that start a flight are
-  declared **before** the one that refreshes the cache, and read the felt as it
-  was drawn a moment ago. A flight scales between the chip sizes at its two
-  ends, which is how a 14px ring bet lands as part of a 24px pot.
-- **The middle's stack is the money collected, not the pot.** The protocol's
-  pot is the total *including* the bets still in front of players, and v2 draws
-  those at their seats, so `.pot-chips` holds the pot less what is still on the
-  line and a bet's stack landing is what makes it grow. It is held at its old
-  value while the chips are in the air. The figure beside it is the protocol's
-  total and so does not move when a street is collected: collecting adds no
-  money. The stack carries no margin and stands on the slot's floor, because
-  that floor is the point a flight is measured to; v1's 2px lift stood it short
-  of where a flight landed.
-- **The award lands and stays.** At settle the middle leaves for each winner in
-  turn, and a winner's number ticks up when their stack arrives rather than
-  when the result does (`paid` in `table.tsx`). The chips sit in front of them
-  until the next hand deals; there is nothing to fade them out for. On a ring
-  they land over the award line under the board, which is where a bottom seat's
-  bet slot hangs. That line is masked in from its leading edge over 220ms
-  rather than faded and dropped in from the pot: `--wipe` in `look-v2.css` is
-  how much of the pill is still covered, and it is paint, so the zone's
-  reserved height still holds the felt still and a split pot's two lines stay
-  side by side in the flow. v1 keeps the drop and the fade it has. Reduced
-  motion draws no flights at all: chips are at the
-  destination and the numbers land with them. v1 keeps the shared-layout
-  flights it had.
+  A chip that has just arrived is set down from three pixels up in the time
+  one tick takes; a chip leaving simply is not there any more.
 - **The reserved columns leave gaps** between present denominations (a pot of
   28 is a green chip, two empty slots, a white one). Packing them would move
-  chips when a denomination appears; it could be done with a fixed-width
-  container and a layout animation, which the observer would not count, but
-  it has not been. The consequence, measured at 1280: a bet of 52 draws a green
-  chip and a white one with an empty red slot between them, and the ink inside
-  the five-column box sits 10px right of the lane's centre line, where a bet
-  using every denomination sits 16px left of it. The bet's figure has no
-  reserved width either, so the chips beside it slide about 4px when the amount
-  gains or loses a digit.
+  chips when a denomination appears, so they are not packed, and a stack of
+  small change stands to the right of its slot's centre.
+- **No card has an opacity.** The deal is a card arriving from the middle of
+  the table on a transform, and a showdown flip is a rotation; neither fades.
+  The inline opacity the old deal left on every card sat over the dim the
+  showdown puts on the board cards that did not count, which is why the dim
+  had not been seen working.
 
-## Two to six seats
+## The geometry
 
-One component draws every table. `layout.ts` is the whole geometry and it is
-pure, so the rotation is unit tested rather than eyeballed:
+One component draws every table, and one geometry. `layout.ts` is pure and
+unit tested:
 
 - **Rotation.** `seatOrder` puts the viewer at the bottom and the rest in seat
-  order after them, so the player on your left, the next to act, is the next one
-  round to the left. Watching (a spectator, or a replay) seat 0 takes the
+  order after them. Watching (a spectator, or a replay) seat 0 takes the
   bottom, so the same match reads the same way round every time it is opened.
   Only a real `view.you` gets an action bar.
-- **Two shapes, one markup.** `layoutMode` is `stack` for two seats and `ring`
-  for three to six. Stack is the three-row felt heads-up has always had; ring
-  places seats on an ellipse. The difference is entirely CSS on
-  `.felt[data-mode]`: a seat, a bet and a chip flight are the same elements
-  either way, which is why the heads-up layout survives untouched.
-- **Nothing overlaps, by construction.** In ring mode each seat owns a layer
-  inset by half a seat box, so a seat at the far edge of the ellipse still sits
-  inside the felt. The bet gets the same layer inset further by a whole seat
-  box: the same ellipse shrunk by exactly the room a seat takes up, which is why
-  a chip always lands between its seat and the pot and never under either. Both
-  read the same `--x` and `--y`.
-- **The felt sizes itself with container queries**, not media queries: the
-  replay draws this table in a narrow column beside its action list, so the
-  question is how wide the felt is, not how wide the window is. `.match` is the
-  container.
-- **Below 640px the ring gives up and the felt goes portrait.** Six seats across
-  a 366 px felt leave 120 px each, which is not a seat: the ellipse was
-  truncating every name and the avatar had been dropped to buy room. So the felt
-  becomes four rows instead, the way a phone poker client has always done it.
-  The players furthest round the table go along the top, your two neighbours
-  under them either side, the board across the middle, and your own seat across
-  the bottom at the size every other table draws it, because your two cards are
-  the ones you have to read. `portraitSlot` says which cell each seat takes and
-  is unit tested; the CSS under the container query is mostly undoing the
-  ellipse's absolute positioning. Row 1 is empty at three and four seats, and an
-  empty grid row is nought pixels, so four rows draw every table.
-- **A bet hangs off its own seat on every ring**, above it or below it depending
-  on which half of the felt the seat is in, and over its own outer half if the
-  seat is down one side. It used to ride a second ellipse inset between the seats
-  and the pot, which read beautifully and only worked while the seats were
-  narrow: widening them so a name would fit left a band a few pixels across, and
-  the chips ended up on the seats' own cards, on the board and on the pot figure.
-  Anchored to a seat a chip cannot reach any of them, and the flight to the pot
-  still carries it, because that is one element with one layout id rather than a
-  position. The ring's chips are 10 px, not 18: a ring seat has 68 px between its
-  inner edge and the board and the full size stack is wider than that on its own.
-  `slotAt` returns the side and it is unit tested; `../../e2e/ergonomics.spec.ts`
-  checks at three widths and four points in a hand that no chip touches the pot,
-  the board, a seat or another chip.
-- **Two things hang off the seat rather than sitting in it there**: the avatar on
-  the top left and the dealer button on the bottom right. Out of the flow they
-  cost no width, which is what buys the name back, and they still cannot shift
-  anything by arriving. The button is on the bottom because the top right is
-  where the name line ends: a bot badge and a dealer button were landing on each
-  other there, which happens on any practice table, where the player on the
-  button is a bot as often as not.
+- **Two columns and a split board.** Opponents sit in two columns either side
+  of the board, going round the table from your left: k=1 is the bottom of the
+  left column, the column is climbed, then the right column is descended back
+  towards you. `columnSizes` puts the odd one on the left (heads-up: one
+  opponent, top left; six-max: three and two) and a column is packed to its
+  top, level with the board. `placeOf(k, n)` is the whole rule and returns
+  `null` for k=0, because the band is your seat. Each seat is placed by two
+  custom idents from it (`--r` is `s1`, `s2` or `s3`; `--c` is `l` or `r`)
+  against named grid lines in `../app.css`, so the two arrangements below only
+  redefine the tracks.
+- **Every track is fixed.** Three seat rows of `--seat-h` whether or not there
+  is a seat in them, and a middle that is the board (the flop, the pot in a
+  `--pot-w` box, the turn and river), the 24 px award line and the `--box-h`
+  stats box, each a fixed height. So the felt's footprint is settled before
+  the first card, and a heads-up felt is the same height as a six-max one.
+- **The bottom row is v1's and a spectator's.** `.pos[data-k="0"]` spans the
+  columns under everything, drawn at the seat's usual size; `.match[data-band]`
+  drops it and its track, because there the band is that seat.
+- **Two arrangements, one markup.** Wide, the middle sits between the columns
+  and the top seats are level with the board. Below a 1060 px container the
+  middle cannot fit between two seats that hold a name, so it goes across the
+  top and the columns start under it. Below 560 the seat shrinks to what half
+  a phone can hold (above, "A reserved slot has to be paid for somewhere").
+  Container queries rather than media queries, because the replay draws this
+  felt in a column of its own.
+- **The columns hug the middle.** A seat is `min(100%, --seat-w)` and the left
+  column's seats are packed to their column's right edge, the right column's
+  to their left, so the table gathers round the board rather than spreading to
+  the felt's edges. `--felt-w` is 1120, declared on `.match` so the band and
+  the header share the column; the header's actions end on the felt's right
+  edge.
 - **Dealing.** `dealOrder` is round robin from the seat left of the button, one
   card each then the second, which is the order the engine deals in; the seat
-  passes it to `playing-card.tsx` as the stagger index. In ring mode each card
-  also starts from the middle of the table, so cards fan outwards.
+  passes it to `playing-card.tsx` as the stagger index. `dealFrom` says where
+  a seat's cards start: a left seat's come in from its right, a right seat's
+  from its left, yours from above.
+
+`layoutMode` survives only because `../chat/chat.css` keys the chat panel's
+placement on `.felt[data-mode]`; the felt itself no longer has two shapes.
+
+### The seat
+
+One card, one row, one edge. Left to right: the avatar, the two cards (backs,
+or faces at a showdown), the identity block with the name and its badges
+right-aligned (flag slot, name, button marker, bot badge) and the stack figure
+under the name with its small chip stack beside it, then the **action square**
+on the seat's right edge.
+
+The square is `--seat-h` on a side and always rendered, empty as a quiet
+outline, so a word arriving in it moves nothing. It shows what the player just
+did, as a verb line and an amount line (`actionWords` in `labels.ts`: "Bets"
+50, "Calls" 50, "Raises to" 150, "Checks", "Folds", "All in" 320), in one of
+the three action colours declared at the top of `../app.css` (`--act-bet` for
+bet, raise and all in; `--act-call` for check and call; `--act-fold`), the
+`-text` variant on an 18% tint of the colour. The label is `seat.last` as the
+view carries it: it persists for the street, the view clears it when the next
+street deals, and a fold keeps it to the end of the hand. While the seat is
+acting the square holds `TurnSeconds` instead and `TurnBar` runs along its
+bottom edge; both come from `turn-clock.tsx` unchanged, the bar is re-placed
+in CSS. Folded seats dim as they always have. A showdown hand name is not on
+the seat: the band's result line says it.
 
 `SeatView.out` seats render dimmed to 45% with their place ("4th") where the
 stack would be, and `SeatView.bot` gets a small mark beside the name.
 
-**A ring seat is everything fighting for one width**: cards, an avatar, a name
-with up to three badges, a stack, a hand name and a clock. **Generated names are
-two CamelCase words and run to sixteen characters**, so the name wins and the
-rest give way. The rating goes (it is a click away on the profile the name leads
-to), the word "units" goes (every number on this felt is in units, and "all in"
-still shows), the name's row spans the clock's column and the seconds move down
-beside the last action, and on the narrowest ring the avatar leaves the flow for
-the seat's corner.
+### The stats box
 
-The seat is 300 px wide above a 900 px felt and 268 below it, and **both numbers
-are measured, not chosen**: they are the widest a seat can be before the two
-lower seats reach in far enough to sit on the board, which the taller ring at
-the narrower step then buys back. The ellipse gives up entirely below 740, for
-the same reason: below that a seat that clears the pot is too narrow to hold a
-name. `../../e2e/ergonomics.spec.ts` checks at 768, 1280 and 1920 that no name
-is truncated, that no seat touches the board or the pot, and that no badge has
-wrapped off the name's line.
+`StatsBox` in `table.tsx`: a `dl` under the board, labels left in
+`--text-secondary`, values right, tabular, one type size, every value a grid
+cell. Hand ("9 of 25"), Street, Blinds ("1/2, level 1"), Next level (only on
+a format with levels, which is settled before the first card), To call. On a
+phone the same box is one row of pairs and the next-level pair is hidden.
+The practice table's live stats stay in `.practice-strip` under the felt: the
+hand name, the outs with their cards and the equity's provenance are more than
+a box this size can hold, and a box that dropped them would be a worse strip.
+
+### The hand header
+
+Only actions: Copy link (the match URL, `${origin}/m/${view.m}`, through g's
+`data-copy`), Verify (to the hand page, where the seed hash lives) and Chat.
+The hand, the street and the blinds are in the stats box; the seed hash left
+the header because it means nothing to a player, and the header keeps its
+reserved height.
 
 ## Sound
 
@@ -604,9 +602,8 @@ being poker-specific, build it in g-system, not here.
   that colour means here. **Promotion: no, this is poker.**
 - **`turn-clock.tsx`**: a countdown driven by a server deadline rather than a
   local duration, so a reconnecting client lands on the right remaining time. It
-  draws the depleting bar along the acting seat's top edge and the seconds
-  beside its last action. It replaced a 20 px ring at the far corner of the
-  seat, which the audit found people missed. **Promotion: yes.** g ships
+  draws the depleting bar and the seconds; on the felt both live in the acting
+  seat's action square, and on the band along its top edge. **Promotion: yes.** g ships
   `.g-progress` and `.g-meter` but nothing that counts down.
 - **`seat.tsx`** and **`dock.tsx`**: poker furniture. The dock's "bounded number
   with presets, a typed field and a slider, all clamped to one range, in a box
@@ -621,26 +618,15 @@ being poker-specific, build it in g-system, not here.
 
 ## Gotchas
 
-- **A NumberFlow's digits live in a shadow root as a reel**, so reading one as
-  text reads `0123456789`. Assert against something in plain markup instead. Its
-  host is `display: inline-block`, which is why the pot's counter is given
-  `display: block; width: 100%`: a counter that resizes itself is a counter that
-  shifts everything beside it.
-- **One stack animates, and it is the winner's.** Everywhere else the number
-  snaps. A stack that rolls every time a blind is posted spends the deal painting
-  two values at once, which is what a live table was caught doing two and a half
-  seconds in, and the wireframe only ever asked for the count up as the pot
-  lands.
-- The stack is `useGrouping: false`. A grouped `1,200` is five characters in a
-  four character slot, and it moved the word beside it.
-- **A chip flight's removal timer must outlive the view that started it.** It
-  used to be returned from the effect that armed it, so the next state cancelled
-  it, and a state that moved no chips returned early and never armed another:
-  the flight stayed on the table for good. Stepping a replay backwards leaked
-  two a scrub until motion had a hundred of them sharing a handful of layout ids
-  and was throwing the pile below the felt. The timers live in a ref and are
-  cleared on unmount and nowhere else. A replay makes no flights at all now: it
-  steps in both directions, and a chip cannot fly backwards out of a pot.
+- **No figure on the felt rolls.** NumberFlow is gone from the seat and the
+  pot: a stack that rolled every time a blind was posted spent the deal
+  painting two values at once, and a figure rolling while chips tick is two
+  things moving. Figures are plain text, keyed on their value (see "One
+  footprint"), and printed without grouping: `1,200` is five characters in a
+  four character slot.
+- **Chips do not fly, so nothing can be left in the air.** The flight layer
+  and its timers went with the flights; a replay stepping backwards, which
+  used to leak a flight a scrub, now simply ticks its stacks the other way.
 - **Generated names are CamelCase** (RedTiger, StealthyCyclone), so a plain
   ellipsis cuts a word in half. `shortName` in `labels.ts` drops whole words
   instead and the seat keeps the full name in its title. Its limit is 16, not
@@ -655,11 +641,18 @@ being poker-specific, build it in g-system, not here.
 - The engine's hand descriptions come from `phe` in Title Case ("One Pair"). They
   are lowercased at the display site to match the house voice, which is also why
   `readShowdown` lowercases the name it takes off an award.
-- **`.seat-last` is always rendered**, empty or not. It is a grid column of its
-  own, so a label that comes and goes would otherwise shift the clock beside it.
-- The felt's inner box is `.felt-in`, not `.ring`: `.ring` is the timer's svg.
-- The felt caps its column at 680 px heads-up and 960 px on a ring, and centres
-  it, except in `bare` mode (the replay), which fills the card it sits in.
-- A six-max match carries no hand count (`format.hands` is null) and the header
-  says "Hand 12" without "of". `blindText` in `labels.ts` adds the level and the
-  countdown to the next one whenever `format.levels` holds more than one.
+- **The action square is always rendered**, empty or not, and its two lines
+  are full-width boxes with a reserved height: a centred box sized to its
+  word moved when the word did, and an empty amount line collapsed to nothing
+  and moved the word above it.
+- The felt's inner box is `.felt-in`; `--felt-w` caps it at 1120 px and
+  centres it, except in `bare` mode (the replay), which fills the card it sits
+  in.
+- A six-max match carries no hand count (`format.hands` is null) and the stats
+  box says "12" without "of". `blindsRow` in `labels.ts` adds the level and a
+  next-level row whenever `format.levels` holds more than one; `blindText` is
+  the same fact as one line, for the summary.
+- **A stack of chips sized to `--chip` is drawn at three sizes**: 20 px in the
+  pot (18 on v1), 14 on a phone, 10 beside a player's figure. The felt's own
+  `--chip` is set in the phone container query, on `.felt` rather than
+  `.match`, because a container query cannot style the container itself.

@@ -394,10 +394,10 @@ export function masks(page: Page): Locator[] {
    because a felt that keeps its box can still shuffle its contents. */
 export const FOOTPRINT = ['.hand-head', '.felt', '.board', '.pot', '.seat:has(.seat-you)', '.dock'];
 
-/* The same regions for somebody with no seat of their own: the bottom slot is
+/* The same regions for somebody with no seat of their own: the bottom row is
    seat 0's when nobody is sitting in it for you. */
 export const WATCHING_FOOTPRINT = [
-  '.hand-head', '.felt', '.board', '.pot', '.pos[data-half="bottom"] .seat', '.dock',
+  '.hand-head', '.felt', '.board', '.pot', '.pos[data-k="0"] .seat', '.dock',
 ];
 
 export interface Box { x: number; y: number; width: number; height: number }
