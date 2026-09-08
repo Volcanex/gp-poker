@@ -26,6 +26,7 @@ import {
 import { hub } from './ws/hub.js';
 import { queueSize } from './matchmaking.js';
 import { claimGuest, login, requireUser, setSessionCookie, clearSessionCookie, createSessionForUser, SESSION_COOKIE } from './auth.js';
+import { rosterSummary } from './bots/index.js';
 import { roundRatings, toModeRating, toUserSummary } from './userView.js';
 
 function err(reply: { code: (n: number) => { send: (b: unknown) => unknown } }, status: number, message: string) {
@@ -101,6 +102,13 @@ export function registerRoutes(app: FastifyInstance): void {
       matches: r.matches,
       peak: Math.round(r.peakRating),
     }));
+  });
+
+  /* The bot roster, for the practice picker: who plays at which level, what
+     that level means, and how each one is actually doing in each mode. Bots
+     stay off the leaderboard; this is the one place they are listed. */
+  app.get('/api/bots', async () => {
+    return rosterSummary();
   });
 
   app.get<{ Params: { name: string } }>('/api/users/:name', async (request, reply) => {
@@ -275,10 +283,10 @@ function clampLimit(raw: string | undefined, fallback: number, max: number): num
 }
 
 // Practice matches are never rated and are marked on their format. The field
-// is read off a widened type rather than MatchFormat itself so this keeps
-// working whether or not the format carries it yet.
+// is optional on MatchFormat, so a match stored before practice existed reads
+// as false rather than undefined.
 function isPractice(format: MatchFormat): boolean {
-  return (format as MatchFormat & { practice?: boolean }).practice === true;
+  return format.practice === true;
 }
 
 function hasHuman(m: MatchRow): boolean {
