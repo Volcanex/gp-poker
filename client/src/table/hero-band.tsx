@@ -1,19 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
-import { useReducedMotion } from 'motion/react';
+import type { CSSProperties, ReactNode } from 'react';
 import type { ActionKind, Card, LegalActions, TableView } from '@opentable/protocol';
+import { holdFor } from '@opentable/protocol';
 import { PlayingCard } from './playing-card.tsx';
+import { ChipStack } from './chip-stack.tsx';
 import { TurnBar, TurnSeconds } from './turn-clock.tsx';
 import {
-  HandResult, KeyLegend, PreActionPills, StopWatching, useDockLogic, useTurnKeys,
-  waitingText, watchingText,
+  KeyLegend, PRESET_KEYS, PreActionPills, StopWatching, useCountdown, useDockLogic, useTurnKeys,
+  waitingText,
 } from './dock.tsx';
+import type { DockState } from './dock.tsx';
+import { isLastHand } from './preactions.ts';
 import type { PreAction } from './preactions.ts';
-import { clamp, presetsFor, raiseAction, raiseLabel, raiseShape } from './sizing.ts';
+import {
+  clamp, dupKeys, presetsFor, presetsWide, raiseAction, raiseLabel, raiseShape,
+} from './sizing.ts';
 import type { Preset } from './sizing.ts';
 import { playClick } from './sounds.ts';
 import { actionText, shortName } from './labels.ts';
-import { useFading, useMedia } from '../ui/bits.tsx';
+import { isTextEntry, useFading, useMedia } from '../ui/bits.tsx';
 import { FlagSlot } from '../ui/flag.tsx';
 import './hero-band.css';
 
@@ -30,60 +35,52 @@ export interface HeroBandProps {
      the felt's own reading of when a hand is paid, and the band is a seat on
      that felt: two readings of it would drift. */
   stack: number;
+  /* A practice table holds a finished hand until this viewer deals on: when
+     `view.hold` is `'you'` the decision line's end is a button rather than a
+     countdown, and this is what it calls. */
+  onNext?: () => void;
 }
 
-/* The action band, in place of the dock, at every width. Two columns: your own
-   two cards drawn at the size you would hold them, with your name and your
-   stack under them, and a column of controls beside them. Which side each
-   takes is a setting, because a phone is held in one hand and the thumb only
-   reaches one edge.
+/* The hold is the server's to declare; the field lands with the protocol
+   change and is read here through a local widening until then. */
+type HeldView = TableView & { hold?: 'you' };
 
-   **The band is your seat now, at every width**, so it carries what the seat
-   carried: the turn clock's bar along its top edge and the seconds in a slot
-   of their own beside the last action.
+/* The action band, in place of the dock, at every width. A decision line
+   along the top edge, and under it two columns: your own two cards drawn at
+   the size you would hold them, with your name, your stack and your chips
+   under them, and a column of controls beside them. Which side each takes is
+   a setting, because a phone is held in one hand and the thumb only reaches
+   one edge.
 
    The dock's rule holds here and is the reason nothing in this file measures
    itself: one box, one height, four states rendered into it. Every control is
    rendered in every state it belongs to and disabled rather than dropped, and
    every string that changes sits in a slot with a size of its own. */
 
-/* Above this the raise control is a row of sizes under a mouse; below it, a
+/* Above this the raise control is a grid of sizes under a mouse; below it, a
    sweep under a thumb. The same number the stylesheet's phone block uses. */
 const WIDE = '(min-width: 561px)';
 
-export function HeroBand({ view, onAct, sending, best, stack }: HeroBandProps) {
+export function HeroBand({ view, onAct, sending, best, stack, onNext }: HeroBandProps) {
   const { state, pre, setPre, canPre } = useDockLogic(view, onAct, sending);
   const mine = view.you == null ? null : view.seats.find((s) => s.i === view.you) ?? null;
   const legal = view.legal;
   const wide = useMedia(WIDE);
-  /* Your own clock, read the way the seat read it. Out of the flow on the
-     band's top border, so it cannot move anything by starting. */
-  const clock = view.clock && view.clock.seat === view.you ? view.clock : null;
 
   return (
     <div className="hero-band" data-state={state} data-seated={mine ? '' : undefined}>
+      <DecisionLine view={view} state={state} onNext={onNext} />
+
       {/* The band's ground runs the width of the page and its content sits on
           the felt's column, so the cards start on the felt's left edge and the
           controls end on its right one. */}
       <div className="hb-in">
-        {clock && (
-          <TurnBar deadline={clock.deadline} totalMs={view.format.clockMs} paused={clock.paused} />
-        )}
-
-        {mine && (
-          <HeroCards
-            view={view}
-            best={best}
-            clock={clock}
-            totalMs={view.format.clockMs}
-            stack={stack}
-          />
-        )}
+        {mine && <HeroCards view={view} best={best} stack={stack} />}
 
         {/* One quiet line under the controls, gone on a phone where there is
             no keyboard to legend. It says the same thing in every state, so it
             is rendered outside the column that changes. */}
-        <KeyLegend className="hb-keys" watching={view.you == null} />
+        <KeyLegend className="hb-keys" watching={view.you == null} sizes={10} />
 
         <div className="hb-col">
           {state === 'turn' && legal ? (
@@ -91,9 +88,9 @@ export function HeroBand({ view, onAct, sending, best, stack }: HeroBandProps) {
           ) : state === 'over' ? (
             <OverColumn view={view} />
           ) : state === 'watch' ? (
-            <WatchColumn view={view} />
+            <WatchColumn />
           ) : (
-            <WaitColumn view={view} pre={pre} onPre={setPre} canPre={canPre} />
+            <WaitColumn pre={pre} onPre={setPre} canPre={canPre} />
           )}
         </div>
       </div>
@@ -101,24 +98,152 @@ export function HeroBand({ view, onAct, sending, best, stack }: HeroBandProps) {
   );
 }
 
+/* ---------------------------------------------------------- decision line */
+
+/* The one line of words on the band, and the only status the band has: what
+   you have to decide, or who is being waited for, or who won, with the clock
+   or the countdown at its right end and the clock's bar as its floor. It is
+   the band's top edge because that is where the eye lands coming down off
+   the felt, and it is one line because the band used to say the same thing
+   in three places (a pot note, a status line, a result with a badge) and a
+   player looking for the decision had to read all of them to find it.
+
+   Every state prints into the same two slots: the words snap, the row is one
+   height, and the bar under it is drawn empty when nobody's clock is running
+   so the floor is there in every state. */
+function DecisionLine({
+  view, state, onNext,
+}: {
+  view: TableView;
+  state: DockState;
+  onNext?: () => void;
+}) {
+  const clock = view.clock;
+  const yours = clock != null && clock.seat === view.you;
+  const mine = view.you == null ? null : view.seats.find((s) => s.i === view.you) ?? null;
+  /* A practice table holds the hand for you: the end slot is the way on
+     rather than a countdown. */
+  const held = state === 'over' && (view as HeldView).hold === 'you' && onNext != null;
+
+  let text: string;
+  let end: ReactNode = null;
+  if (held) {
+    text = resultText(view);
+    end = <DealNext onNext={onNext} />;
+  } else if (state === 'over') {
+    text = resultText(view);
+    end = <HandCountdown view={view} />;
+  } else {
+    text = state === 'turn' && view.legal
+      ? decisionText(view.legal, mine?.stack ?? 0)
+      : state === 'watch'
+        ? `Watching, ${actingText(view)}`
+        : mine?.out ? waitingText(view) : actingText(view, true);
+    if (clock) {
+      end = <TurnSeconds deadline={clock.deadline} totalMs={view.format.clockMs} paused={clock.paused} />;
+    }
+  }
+
+  return (
+    <div
+      className="hb-line"
+      data-whose={clock ? (yours ? 'you' : 'them') : undefined}
+      data-held={held ? '' : undefined}
+    >
+      <span className="hb-line-text">{text}</span>
+      <span className="hb-line-end num">{end}</span>
+      {clock ? (
+        <TurnBar deadline={clock.deadline} totalMs={view.format.clockMs} paused={clock.paused} />
+      ) : (
+        <span className="turn-bar" aria-hidden="true" />
+      )}
+    </div>
+  );
+}
+
+/* What the words say on your turn: the price, or that there is none. An all
+   in to call is named, because the number alone does not say it is your whole
+   stack. */
+export function decisionText(legal: LegalActions, stack: number): string {
+  const { canRaise, isBet, checkOrCall } = raiseShape(legal);
+  if (legal.call > 0) return legal.call >= stack ? 'All in to call' : `${legal.call} to call`;
+  if (checkOrCall === 'x') return canRaise ? (isBet ? 'Check or bet' : 'Check or raise') : 'Check';
+  return canRaise ? (isBet ? 'Bet' : 'Raise') : 'Your turn';
+}
+
+/* Who is being waited for, by name, the way a dealer says it. Capitalised at
+   the start of the line and not after "Watching," where it continues one. */
+function actingText(view: TableView, lead = false): string {
+  const acting = view.seats.find((s) => s.acting);
+  if (acting && acting.i !== view.you) return `${acting.name} to act`;
+  return lead ? 'Waiting for the next card' : 'waiting for the next card';
+}
+
+/* Who won what, as one sentence. Split pots join with "and". */
+export function resultText(view: TableView): string {
+  const awards = view.result?.awards ?? [];
+  if (awards.length === 0) return 'The hand is over';
+  const name = (seat: number) => view.seats.find((s) => s.i === seat)?.name ?? `Seat ${seat}`;
+  return awards
+    .map((a) => `${a.seat === view.you ? 'You win' : `${name(a.seat)} wins`} ${a.amount}`
+      + (a.hand ? ` with ${a.hand.toLowerCase()}` : ''))
+    .join(' and ');
+}
+
+/* The hold counted down at the end of the line. Its own component so the
+   interval only runs while a hand is over. */
+function HandCountdown({ view }: { view: TableView }) {
+  const left = useCountdown(`${view.m}:${view.h}`, holdFor(view.format));
+  return (
+    <span role="timer">{isLastHand(view) ? 'Result in' : 'Next hand in'} {left}</span>
+  );
+}
+
+/* The way on from a held hand. It stands in the countdown's reserved slot,
+   out of the flow and anchored to its right end, because "Deal the next hand"
+   is wider than the slot and a slot that grew would move the line's words.
+   Enter and N press it, the way Enter sends a size, and neither fires while
+   somebody is typing in the chat. */
+function DealNext({ onNext }: { onNext: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || isTextEntry(e.target)) return;
+      const k = e.key.toLowerCase();
+      if (k !== 'enter' && k !== 'n') return;
+      e.preventDefault();
+      onNext();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onNext]);
+  return (
+    <button
+      type="button"
+      className="btn btn-primary hb-line-next"
+      title="Enter or N"
+      onClick={() => { playClick(); onNext(); }}
+    >
+      Deal the next hand
+    </button>
+  );
+}
+
 /* ------------------------------------------------------------------ cards */
 
 /* Your hand, at the size the sketch asked for: two cards overlapped and fanned
    in the corner, big enough to read without looking for them, with your name,
-   your stack, your last action and your clock on one edge under them. The felt
-   does not draw your seat on v2 at any width (see hero-band.css) because this
-   is that seat, drawn once and drawn large.
+   your stack, your chips and your last action on one edge under them. The
+   felt does not draw your seat on v2 at any width (see hero-band.css) because
+   this is that seat, drawn once and drawn large.
 
    The deal runs on the first render of a hand and not again: `still` is a
    state rather than a ref, so the flag flips after the deal has already been
    handed to motion, and the cards are keyed on the hand so a new one deals. */
 function HeroCards({
-  view, best, clock, totalMs, stack,
+  view, best, stack,
 }: {
   view: TableView;
   best?: ReadonlySet<Card>;
-  clock: TableView['clock'];
-  totalMs: number;
   stack: number;
 }) {
   const mine = view.seats.find((s) => s.i === view.you);
@@ -163,16 +288,15 @@ function HeroCards({
         </span>
         <span className="hb-nums">
           <span className="hb-stack num">{stack}</span>
+          {/* The big three denominations beside the figure, the way the felt's
+              seats carry them: they say deep or short at a glance, and they
+              tick when the figure changes, which is what says a bet has left
+              or a pot has landed. Every column keeps its slot, so the label
+              after them does not move. */}
+          <span className="hb-chips"><ChipStack amount={stack} columns={3} /></span>
           {/* A reserved slot: the label is empty most of the hand and a box
               that sizes to it would move the stack every time it filled. */}
           <span className="hb-last">{label}</span>
-          {/* And another, for the same reason: the seconds arrive once a hand
-              and a box that grows to hold them moves the label beside it. */}
-          <span className="hb-clock">
-            {clock && (
-              <TurnSeconds deadline={clock.deadline} totalMs={totalMs} paused={clock.paused} />
-            )}
-          </span>
         </span>
       </div>
     </div>
@@ -190,19 +314,20 @@ function TurnColumn({
   onAct: (a: ActionKind, v?: number) => void;
   wide: boolean;
 }) {
-  const { canRaise, checkOrCall } = raiseShape(legal);
+  const { canRaise, isBet, checkOrCall } = raiseShape(legal);
   const { call, min, max } = legal;
   /* Two ways to choose a size and only ever one of them on screen: the phone
-     sweeps, and a screen with a mouse presses one of the six. `custom` is the
+     sweeps, and a screen with a mouse presses one of the ten. `custom` is the
      wide band's typed way in, and it stands in the sizes' own box. */
   const [sizing, setSizing] = useState(false);
   const [custom, setCustom] = useState(false);
   const [value, setValue] = useState(min);
   const myBet = view.seats.find((s) => s.i === view.you)?.bet ?? 0;
   const presets = useMemo(
-    () => (canRaise ? presetsFor(legal, view.pot, myBet, view.street) : []),
-    [canRaise, legal, view.pot, myBet, view.street],
+    () => (canRaise ? (wide ? presetsWide : presetsFor)(legal, view.pot, myBet, view.street) : []),
+    [canRaise, wide, legal, view.pot, myBet, view.street],
   );
+  const dups = useMemo(() => dupKeys(presets), [presets]);
 
   /* A fresh decision resets the size to the minimum and closes whichever way
      in was open: carrying the last one into a new spot is how people put a
@@ -223,18 +348,24 @@ function TurnColumn({
 
   /* The same keys the dock answers to, doing the same things. `r` reaches for
      where the size is chosen, which is the sweep on a phone and the custom
-     field on a wide band. A number key addresses the preset it is written
-     beside: on a phone that writes it into the sweep, and on a wide band it
-     does what pressing that segment does, which is send it. */
+     field on a wide band, and it is what the Raise button does too. A number
+     key addresses the preset it is written beside: on a phone that writes it
+     into the sweep, and on a wide band it does what pressing that segment
+     does, which is send it, unless the segment is a duplicate and disabled. */
   const openSizer = useCallback(() => {
     if (wide) setCustom(true);
     else setSizing(true);
   }, [wide]);
-  const takePreset = useCallback((v: number) => {
-    if (wide) { playClick(); send(v); return; }
-    setValue(v);
+  const takePreset = useCallback((p: Preset) => {
+    if (wide) {
+      if (dups.has(p.key)) return;
+      playClick();
+      send(p.value);
+      return;
+    }
+    setValue(p.value);
     setSizing(true);
-  }, [wide, send]);
+  }, [wide, dups, send]);
   useTurnKeys({ legal, presets, sending, onAct, onRaiseKey: openSizer, onPresetKey: takePreset });
 
   if (!wide && sizing && canRaise) {
@@ -253,86 +384,80 @@ function TurnColumn({
 
   return (
     <div className="hb-turn" data-wide={wide ? '' : undefined}>
-      {/* Left aligned, not centred: the numbers change every action and a
-          centred line moves its own first character when they do. */}
-      <div className="hb-note num">
-        Pot {view.pot}
-        {call > 0 ? ` · to call ${call}` : ' · nothing to call'}
-      </div>
-
-      {wide ? (
-        custom && canRaise ? (
-          <CustomSize
-            legal={legal}
-            sending={sending}
-            onSend={send}
-            onClose={() => setCustom(false)}
-          />
-        ) : (
-          <SizeRow
-            presets={presets}
-            sending={sending}
-            onSend={(v) => { playClick(); send(v); }}
-            onCustom={() => { playClick(); setCustom(true); }}
-          />
-        )
+      {wide && custom && canRaise ? (
+        <CustomSize
+          legal={legal}
+          sending={sending}
+          onSend={send}
+          onClose={() => setCustom(false)}
+        />
       ) : (
-        /* The phone's one raise control: a button that opens the sweep. Both
-            buttons are here in every spot and the emphasis moves between them,
-            the way the dock moves it. */
-        <button
-          type="button"
-          className={canRaise ? 'btn btn-primary num hb-act' : 'btn btn-secondary num hb-act'}
-          data-primary={canRaise ? '' : undefined}
-          disabled={sending || !canRaise}
-          onClick={() => { playClick(); openSizer(); }}
-        >
-          {canRaise ? raiseLabel(legal, min) : 'Raise'}
-        </button>
+        <SizeGrid
+          presets={presets}
+          dups={dups}
+          sending={sending}
+          onSend={(v) => { playClick(); send(v); }}
+        />
       )}
 
-      {/* Facing an all in there is nothing to raise to, so calling is the
-          decision and it takes the primary slot. On a wide band it takes it
-          either way: six sizes are six choices and none of them is the one the
-          eye should land on first. */}
-      <button
-        type="button"
-        className={!wide && canRaise ? 'btn btn-secondary num hb-act' : 'btn btn-primary num hb-act'}
-        data-primary={!wide && canRaise ? undefined : ''}
-        disabled={sending || checkOrCall == null}
-        onClick={() => { if (checkOrCall) { playClick(); onAct(checkOrCall); } }}
-      >
-        {checkOrCall === 'c' ? `Call ${call}` : 'Check'}
-      </button>
-
-      <FoldBar
-        disabled={sending || !legal.actions.includes('f')}
-        onFold={() => onAct('f')}
-      />
+      {/* Three actions, three colours, one row under a mouse and one column
+          under a thumb: fold, check or call, and raise, which opens the way to
+          a size (the sweep on a phone, the typed field on a wide band). Each
+          is here in every spot and disabled where it is not legal, so the row
+          never changes shape. */}
+      <div className="hb-acts">
+        <button
+          type="button"
+          className="btn hb-act hb-act-fold"
+          disabled={sending || !legal.actions.includes('f')}
+          onClick={() => { playClick(); onAct('f'); }}
+        >
+          Fold
+        </button>
+        <button
+          type="button"
+          className="btn hb-act hb-act-call num"
+          disabled={sending || checkOrCall == null}
+          onClick={() => { if (checkOrCall) { playClick(); onAct(checkOrCall); } }}
+        >
+          {checkOrCall === 'c' ? `Call ${call}` : 'Check'}
+        </button>
+        <button
+          type="button"
+          className="btn hb-act hb-act-bet"
+          disabled={sending || !canRaise}
+          aria-pressed={wide ? custom : undefined}
+          title={wide ? 'A size of your own, key R' : undefined}
+          onClick={() => { playClick(); if (wide) setCustom((c) => !c); else openSizer(); }}
+        >
+          {isBet ? 'Bet' : 'Raise'}
+        </button>
+      </div>
     </div>
   );
 }
 
-/* ------------------------------------------------------------- size row */
+/* -------------------------------------------------------------- size grid */
 
-/* The wide band's raise control: the six presets as six equal segments, each
-   printing its name over the number it will send, and a narrower seventh for
-   a size that is none of them. One press sends, which is what a mouse and the
-   number keys both do here, so there is no size to carry from one press to the
-   next and nothing to confirm.
+/* The wide band's raise control: ten presets in two rows of five, each
+   printing its name over the number it will send, and one press sends. The
+   phone's sweep needs a confirm because a thumb lands anywhere; a segment is
+   one named size and the press is the choice.
 
-   The six are `presetsFor`, in its order, because the number keys address them
-   by position and a preset that moves is a preset nobody learns. When raising
-   is not on the table the group is empty and keeps its box: the row is a fixed
-   height in the column above it, and six dead segments say less than nothing
-   where there is nothing to say. */
-function SizeRow({
-  presets, sending, onSend, onCustom,
+   The ten are `presetsWide`, in its order, because the number keys address
+   them by position and a preset that moves is a preset nobody learns. A
+   segment that would send a number another one already sends is disabled
+   rather than dropped, so the keys stay put. When raising is not on the table
+   the grid is empty and keeps its box: the rows above the actions are a fixed
+   height, and ten dead segments say less than nothing where there is nothing
+   to say. On a phone the box is hidden and the sweep is the control. */
+function SizeGrid({
+  presets, dups, sending, onSend,
 }: {
   presets: Preset[];
+  dups: ReadonlySet<string>;
   sending: boolean;
   onSend: (v: number) => void;
-  onCustom: () => void;
 }) {
   return (
     <div className="hb-sizes" role="group" aria-label="Raise sizes">
@@ -341,34 +466,22 @@ function SizeRow({
           key={p.key}
           type="button"
           className="hb-size"
-          disabled={sending}
-          title={`${p.label}, key ${i + 1}`}
+          disabled={sending || dups.has(p.key)}
+          title={`${p.label}, key ${PRESET_KEYS[i]}`}
           onClick={() => onSend(p.value)}
         >
           <span className="s-n">{p.label}</span>
           <span className="s-v num">{p.value}</span>
         </button>
       ))}
-      {presets.length > 0 && (
-        <button
-          type="button"
-          className="hb-size hb-size-custom"
-          disabled={sending}
-          title="A size of your own, key R"
-          onClick={onCustom}
-        >
-          <span className="s-n">Custom</span>
-          <span className="s-v num" aria-hidden="true" />
-        </button>
-      )}
     </div>
   );
 }
 
-/* A size of your own, in the segments' own box. The field is the source of
-   truth exactly as the dock's is: a number outside the legal range is clamped
-   into the field and not sent, so the next press sends a number somebody
-   chose. Enter sends, Escape puts the six sizes back. */
+/* A size of your own, in the grid's own box. The field is the source of truth
+   exactly as the dock's is: a number outside the legal range is clamped into
+   the field and not sent, so the next press sends a number somebody chose.
+   Enter sends, Escape puts the ten sizes back. */
 function CustomSize({
   legal, sending, onSend, onClose,
 }: {
@@ -425,7 +538,7 @@ function CustomSize({
       </label>
       <button
         type="button"
-        className="btn btn-secondary num hb-custom-send"
+        className="btn hb-act-bet num hb-custom-send"
         disabled={sending}
         onClick={submit}
       >
@@ -435,114 +548,6 @@ function CustomSize({
         Back
       </button>
     </div>
-  );
-}
-
-/* --------------------------------------------------------------- fold bar */
-
-/* Fold is the one action on this band you cannot take by accident. It is a
-   slide, not a tap: drag the handle seven tenths of the way across and the
-   hand goes; let go before that and it springs back. A tap nudges it and
-   springs back, which is how the gesture teaches itself.
-
-   Pointer events with capture, not touch events: capture is what keeps the
-   drag alive when the finger leaves the track, and it is the same code path
-   for a mouse in a desktop browser emulating a phone. */
-const FOLD_THRESHOLD = 0.7;
-const FOLD_NUDGE = 12;
-
-function FoldBar({ disabled, onFold }: { disabled: boolean; onFold: () => void }) {
-  const reduced = useReducedMotion();
-  const trackRef = useRef<HTMLButtonElement>(null);
-  const handleRef = useRef<HTMLSpanElement>(null);
-  /* Progress, not pixels: the handle is placed as a fraction of the room it
-     has, so the same number means the same thing at any width and nothing has
-     to be recomputed when the band is redrawn. */
-  const [p, setP] = useState(0);
-  const [dragging, setDragging] = useState(false);
-  const drag = useRef<{ from: number; moved: number } | null>(null);
-  const nudge = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /* Measured when a drag starts and held, so the handle is moved with a
-     transform rather than an offset: an offset is a layout change, and this
-     control is 48 px from the felt. */
-  const travel = useRef(0);
-
-  useEffect(() => () => { if (nudge.current) clearTimeout(nudge.current); }, []);
-
-  /* How far the handle can travel: the track less the handle and its inset. */
-  const span = useCallback(() => {
-    const track = trackRef.current;
-    const handle = handleRef.current;
-    if (!track || !handle) return 0;
-    return Math.max(1, track.clientWidth - handle.offsetWidth - 8);
-  }, []);
-
-  const onDown = (e: ReactPointerEvent<HTMLButtonElement>) => {
-    if (disabled) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    travel.current = span();
-    drag.current = { from: e.clientX, moved: 0 };
-    setDragging(true);
-  };
-
-  const onMove = (e: ReactPointerEvent<HTMLButtonElement>) => {
-    const d = drag.current;
-    if (!d) return;
-    const moved = e.clientX - d.from;
-    d.moved = Math.max(d.moved, Math.abs(moved));
-    setP(clamp(moved / Math.max(1, travel.current), 0, 1));
-  };
-
-  const onUp = (e: ReactPointerEvent<HTMLButtonElement>) => {
-    const d = drag.current;
-    if (!d) return;
-    drag.current = null;
-    setDragging(false);
-    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    }
-    if (p >= FOLD_THRESHOLD) {
-      setP(0);
-      onFold();
-      return;
-    }
-    /* Nothing moved, so this was a tap: shove the handle far enough to be seen
-       and let it come back, rather than doing nothing and reading as broken. */
-    if (d.moved < 4) {
-      setP(FOLD_NUDGE / Math.max(1, travel.current));
-      nudge.current = setTimeout(() => setP(0), reduced ? 0 : 160);
-      return;
-    }
-    setP(0);
-  };
-
-  return (
-    <button
-      ref={trackRef}
-      type="button"
-      className="hb-fold"
-      disabled={disabled}
-      aria-label="Fold"
-      data-dragging={dragging ? '' : undefined}
-      data-armed={p >= FOLD_THRESHOLD ? '' : undefined}
-      onPointerDown={onDown}
-      onPointerMove={onMove}
-      onPointerUp={onUp}
-      onPointerCancel={onUp}
-      /* A pointer press is a slide, so its click does nothing. A keyboard
-         press has no pointer behind it (detail 0) and folds outright, which
-         is the only way this control is reachable without a thumb. */
-      onClick={(e) => { if (e.detail === 0 && !disabled) onFold(); }}
-      style={{ '--dx': `${(p * travel.current).toFixed(2)}px` } as CSSProperties}
-    >
-      <span className="hb-fold-hatch" aria-hidden="true" />
-      <span className="hb-fold-word">Fold</span>
-      <span className="hb-fold-handle" ref={handleRef} aria-hidden="true">
-        <svg viewBox="0 0 16 16" width="16" height="16" fill="none" aria-hidden="true">
-          <path d="M6 3.5 10.5 8 6 12.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </span>
-    </button>
   );
 }
 
@@ -623,8 +628,7 @@ function Sizer({
 
       <button
         type="button"
-        className="btn btn-primary num hb-confirm"
-        data-primary
+        className="btn hb-act-bet num hb-confirm"
         disabled={sending}
         onClick={onSend}
       >
@@ -680,49 +684,48 @@ function Sizer({
 
 /* ------------------------------------------------------------------- wait */
 
+/* The turn column's shape with the pre-action pills where the actions were,
+   so the column reads the same while you wait as it does when it is on you.
+   Who is being waited for is on the decision line. */
 function WaitColumn({
-  view, pre, onPre, canPre,
+  pre, onPre, canPre,
 }: {
-  view: TableView;
   pre: PreAction | null;
   onPre: (p: PreAction | null) => void;
   canPre: boolean;
 }) {
   return (
-    <div className="hb-wait">
-      <PreActionPills pre={pre} onPre={onPre} canPre={canPre} className="hb-pre" size="" />
-      <div className="hb-status">{waitingText(view)}</div>
+    <div className="hb-turn">
+      <div className="hb-sizes" aria-hidden="true" />
+      <PreActionPills pre={pre} onPre={onPre} canPre={canPre} className="hb-acts hb-pre" size="" />
     </div>
   );
 }
 
 /* ------------------------------------------------------------------- over */
 
+/* The result is on the decision line. The three actions are held open as
+   outlines in their own boxes, so the control a thumb is resting on when the
+   hand ends is still where it was when the next one deals. */
 function OverColumn({ view }: { view: TableView }) {
+  if (view.you == null) return <WatchColumn />;
   return (
-    <div className="hb-over">
-      <HandResult view={view} />
-      {view.you == null ? (
-        <StopWatching />
-      ) : (
-        /* The three choices held open as outlines, so the column is the same
-           height while the hand settles and the eye keeps its place. */
-        <div className="hb-ghosts" aria-hidden="true">
-          <span className="btn btn-primary ghost" data-primary>Raise</span>
-          <span className="btn btn-secondary ghost">Check</span>
-          <span className="btn btn-tertiary ghost">Fold</span>
-        </div>
-      )}
+    <div className="hb-turn">
+      <div className="hb-sizes" aria-hidden="true" />
+      <div className="hb-acts hb-ghosts" aria-hidden="true">
+        <span className="btn hb-act hb-act-fold ghost">Fold</span>
+        <span className="btn hb-act hb-act-call ghost">Check</span>
+        <span className="btn hb-act hb-act-bet ghost">Raise</span>
+      </div>
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ watch */
 
-function WatchColumn({ view }: { view: TableView }) {
+function WatchColumn() {
   return (
     <div className="hb-watch">
-      <div className="hb-status">{watchingText(view)}</div>
       <StopWatching />
     </div>
   );

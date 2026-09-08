@@ -39,6 +39,8 @@ export interface TableProps {
   chat?: ChatController;
   /* The felt rework, on the mock only until it is the felt: see look.ts. */
   look?: Look;
+  /* A practice table holds a finished hand until this viewer deals on. */
+  onNext?: () => void;
 }
 
 interface Flight { id: number; seat: number; amount: number }
@@ -88,7 +90,7 @@ const AWARD_OPEN = { '--wipe': '0%' };
 
 const NOBODY: ReadonlySet<number> = new Set();
 
-export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: TableProps) {
+export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', onNext }: TableProps) {
   const reduced = useReducedMotion();
   const headRef = useRef<HTMLDivElement>(null);
   useGInit(headRef);
@@ -569,6 +571,7 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1' }: 
               sending={sending}
               best={show.best}
               stack={heroStack}
+              onNext={onNext}
             />
           ) : (
             <>

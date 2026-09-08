@@ -97,40 +97,65 @@ them. Two copies of that number drift and the countdown starts lying.
 
 ## The hero band
 
-v2 replaces the dock with `hero-band.tsx` at every width: your own two cards
-drawn large in one bottom corner, the controls in a column under the thumb in
-the other, and on a screen wide enough, the key legend between them. **The
-phone layout is the shape and the desktop one is it scaled up**, which is why
-this is one component and one stylesheet rather than two; `hero-band.css` is
-written wide first and the phone overrides it at the foot of the file. v1 never
-sees any of it, and the rules are scoped to `.hero-band` and
-`.match[data-band]` so it cannot.
+v2 replaces the dock with `hero-band.tsx` at every width: a decision line along
+the top edge, and under it your own two cards drawn large in one bottom corner,
+the controls in a column under the thumb in the other, and on a screen wide
+enough, the key legend under the controls. **The phone layout is the shape and
+the desktop one is it scaled up**, which is why this is one component and one
+stylesheet rather than two; `hero-band.css` is written wide first and the phone
+overrides it at the foot of the file. v1 never sees any of it, and the rules are
+scoped to `.hero-band` and `.match[data-band]` so it cannot.
 
 | | Phone | Wide |
 | --- | --- | --- |
-| Band height (`--band-h`) | 236 px | 236 px |
+| Band height (`--band-h`) | 264 px | 264 px |
+| Decision line (`--hb-line-h`) | 28 px | 28 px |
 | Card | 104 px | 104 px |
 | Hand column | the fan's own width | the fan's own width |
 | Action column | 176 px | the rest of the felt's column |
-| Raise control | the sweep sizer | six sizes and Custom |
+| Actions | three rows: raise, call, fold | one row: fold, call, raise |
+| Raise control | the sweep sizer | ten sizes in two rows, and a typed size |
 | Key legend | none, there is no keyboard | one line under the controls |
 
 **The band's ground is the page's and its content is the felt's.** The ground
 runs the full width, because a band that stopped where the felt does would be a
-floating panel; `.hb-in` inside it is capped at `--felt-w` and centred, so the
-cards start on the felt's left edge and the controls end on its right one.
-`--felt-w` is declared on `.match` (as well as on `.felt`) for exactly this, and
-`table.tsx` stamps `data-mode` on both. Before, the felt sat in a 680 px column
-while the band spanned 1366: the hand was at x 16 and the controls ended at
-1350, with the legend adrift in the middle.
+floating panel; `.hb-line` and `.hb-in` inside it are capped at `--felt-w` and
+centred, so the cards start on the felt's left edge and the controls end on its
+right one. `--felt-w` is declared on `.match` (as well as on `.felt`) for exactly
+this, and `table.tsx` stamps `data-mode` on both.
+
+**One line says the decision.** `DecisionLine` is the band's top row: one
+sentence, the clock or the countdown at its right end, and the clock's bar as
+its floor. On your turn it says the price ("34 to call", "Check or bet", "All
+in to call") with your seconds; waiting, who is being waited for ("riverrat to
+act") with their seconds and their bar drawn in the placeholder grey rather
+than the accent, so the bar reads as information rather than as a call to
+action; at hand end, who won what ("You win 132 with flush, king high") with
+"Next hand in 3" or "Result in 3" off `isLastHand`; watching, "Watching,
+riverrat to act". **It is the only status the band prints.** The band used to
+say what was happening in three places, a pot note over the sizes, a status
+line under the pills and a result line with a countdown badge, and a player
+looking for the decision had to read all of them; the owner's word for it was
+confusing. The words snap, the row is one height, the end slot is a fixed 96 px
+(a slot that grew for "Next hand in 4" moved its own left edge, and the
+footprint audit caught it), and the bar is drawn empty when no clock is running
+so the floor is there in every state. `resultText` and `decisionText` are
+exported from `hero-band.tsx`; the dock's `HandResult` stays for v1.
+
+**A held hand offers the deal in the countdown's slot.** A practice table
+holds a finished hand until the viewer deals on: `view.hold === 'you'` with an
+`onNext` prop (passed through `Table`) puts a primary "Deal the next hand"
+button at the line's end, Enter or N press it, and the countdown is not drawn.
+The button is wider than the 96 px slot, so it is anchored to the slot's right
+end out of the flow and the words are padded clear of it: a slot that grew
+would move the line. The mock's `?hold=1` marks every hand-over step held.
 
 **The band is your seat at every width, not only on a phone.** The felt drew
 your cards, name, button marker, stack, last action, avatar, rating and clock,
 and the band drew most of them again a hundred pixels below; the rule that hid
 the felt's copy has left the phone media query for `look-v2.css`. The clock came
-with the rest of the seat: `TurnBar` is out of the flow on the band's top
-border, the width of the felt's column, and `TurnSeconds` has a reserved 34 px
-slot at the end of the figures line. The avatar and the rating did **not** come
+with the rest of the seat and is now the decision line's: `TurnBar` under the
+words and `TurnSeconds` at their end. The avatar and the rating did **not** come
 with it: the avatar is decorative and aria-hidden, and the rating is on the
 profile the name links to, which is the same trade the ring seat already makes.
 
@@ -140,32 +165,56 @@ moved, which is the same hold the felt puts on every seat's figure: a result
 message arrives 700 ms before the chips get there, and a band reading the view
 straight printed the number you won while the pot was still in the middle. Two
 readings of when a hand is paid is two readings that drift, so there is one, in
-the place the felt already reads it. It counts nothing up: the felt's winner
-rolls with `NumberFlow` inside a reserved `.stack-v`, and the band's figure has
-the last action sitting directly after it, so it takes a reserved `4ch` and
-changes in one step instead.
+the place the felt already reads it. It counts nothing up: the figure takes a
+reserved `4ch` and changes in one step. **The chips beside it are the thing that
+moves**: a `ChipStack` of the big three denominations stands after the figure,
+in `.hb-chips` at 18 px, and it ticks one chip per column per 60 ms when the
+stack changes, the way every stack on the felt does. Every denomination keeps
+its slot, so the last action after the chips does not move.
 
-**One left edge for the corner.** The cards, the name line, the stack and the
-last action all start on the felt's left edge. The figures used to be set in by
-the flag's reserved box so they lined up with the name's first letter, which put
-three edges in a corner that needs one; the flag now stands on the shared edge
-and the name reads as indented behind it.
+**One left edge for the corner.** The cards, the name line, the stack, the
+chips and the last action all start on the felt's left edge. The figures used
+to be set in by the flag's reserved box so they lined up with the name's first
+letter, which put three edges in a corner that needs one; the flag now stands
+on the shared edge and the name reads as indented behind it.
 
-**Six sizes, not a sweep, under a mouse.** The wide band's raise control is
-`presetsFor`'s six as six equal segments plus a narrower Custom, and one press
-sends. The number keys do what pressing their segment does, so on a wide band
-`1` to `6` **send** rather than writing into a field; `r` opens Custom, which is
-a g input in the segments' own box with Enter to send and Escape to close, and
+**Three actions, three colours, and each is disabled where it is not legal,
+never dropped.** Fold, check or call, and raise are `.btn`s in `.hb-acts`, one
+row under a mouse and a column under a thumb (the phone reorders them with
+`order` so raise is at the top and fold on the bottom edge). Each takes its
+colour from the action tokens `../app.css` declares (`--act-fold`,
+`--act-call`, `--act-bet` and their `-text` pairs), mixed thin for the ground
+with the text token for the words, so the three read as three at a glance
+without three solid blocks at the foot of the screen. The Raise button opens
+the way to a size, which is the sweep on a phone and the typed field on a wide
+band; it does not send, because a raise needs a number and the sizes are where
+the number comes from. Fold was a slide; the owner cut it, and a slide's
+pointer capture, handle, hatched track and threshold went with it.
+
+**Ten sizes, not a sweep, under a mouse.** The wide band's raise control is
+`presetsWide`'s ten as two rows of five with a gap off the spacing scale
+between them, each printing its name over the number it will send, and one
+press sends. Postflop they are Min, 25%, 33%, 50%, 60%, 75%, 100%, 125%, 150%
+and All in of the pot after the call; preflop, Min, 2× to 6× the bet, Pot and
+All in. Six was too few: every postflop size was about the pot and nobody could
+bet sixty percent of it. The number keys do what pressing their segment does,
+so on a wide band `1` to `9` and `0` **send**; `r` opens the typed size, which
+is a g input in the grid's own box with Enter to send and Escape to close, and
 it clamps into the field like the dock's rather than sending a number nobody
-chose. The phone keeps the sweep, which is why `useMedia` in `../ui/bits.tsx`
-exists: the two controls cannot both be rendered and hidden with CSS, because
-they would both answer the same keyboard.
+chose. **A segment that says a number another one already says is disabled
+rather than dropped** (`dupKeys` in `sizing.ts`: the ends own their numbers, so
+a size that clamps to the stack is the all in segment's and one that clamps to
+the minimum is Min's), because the keys address the segments by position and a
+preset that moves is a preset nobody learns; its key does nothing either. When
+raising is not on the table the grid is empty and keeps its box. The phone
+keeps the sweep and `presetsFor`'s six, which is why `useMedia` in
+`../ui/bits.tsx` exists: the two controls cannot both be rendered and hidden
+with CSS, because they would both answer the same keyboard.
 
 g-system ships no segmented control, so `.hb-sizes` is composed from `.btn`'s
-own fill, border and radius with the inner edges collapsed. **It is a g-system
-candidate and belongs there**, not here.
+own tokens. **It is a g-system candidate and belongs there**, not here.
 
-**A spectator's band is 148 px, not 236.** The height a band is is the height
+**A spectator's band is 176 px, not 264.** The height a band is is the height
 two giant cards and a thumb's column need, and a spectator has neither; the felt
 still draws the bottom seat, because it belongs to a player. Whether you are
 watching is settled before the first card, the way a practice strip is, so this
@@ -181,22 +230,23 @@ band **is** your seat: `.match[data-band]` hides `.pos[data-k="0"] .seat` at
 every width and keeps its `.seat-bet`, which is what a chip flies from.
 `data-band` is stamped by `table.tsx` only when the band is on screen **and**
 the viewer has a seat, because a spectator's bottom seat belongs to a player
-and hiding it would leave a hole. A wide felt used to keep its seat on the
-argument that there was room for both; there was, and the result was every fact
-about you drawn twice on one screen.
+and hiding it would leave a hole.
 
-The only shift this band has ever had was the last-action slot. It is empty for
-most of a hand, an empty box has no baseline of its own, and the phone's row was
-aligned on one, so the label jumped four pixels the moment a word arrived in it.
-The row is aligned to its bottom edge instead.
+The controls column is one grid in every state (`.hb-turn`: slack, sizes,
+actions, as named areas), so the waiting pills and the hand-over ghosts stand
+in the actions' own boxes and the control a thumb is resting on when the hand
+ends is where it was when the next one deals. The only shift this band has had
+inside that box was the last-action slot: it is empty for most of a hand, an
+empty box has no baseline of its own, and the phone's row was aligned on one,
+so the label jumped four pixels the moment a word arrived in it. The row is
+aligned to its bottom edge instead.
 
 **The legend leaves the table's grid on v2.** `KeyLegend` takes a class name and
-the band renders it into a row of its own under the controls, so row 6 is empty
-and the felt gets those pixels back. v1 keeps the row untouched. It used to
-stand in the middle column, centred in the empty space between your hand and
-your controls, which is the one place on this screen nothing should be asking to
-be read. It is `--text-secondary` rather than the placeholder grey, because the
-placeholder measures 3.68:1 on this ground and this is text a person reads.
+a `sizes` count, and the band renders it into a row of its own under the
+controls, so row 6 is empty and the felt gets those pixels back. v1 keeps the
+row untouched and its six. It is `--text-secondary` rather than the placeholder
+grey, because the placeholder measures 3.68:1 on this ground and this is text a
+person reads.
 
 **The table is one screen and never the page's scrollbar.** `.match` is capped
 at `calc(100dvh - var(--top-h))` unless it is bare or ended, so a window too
@@ -209,14 +259,8 @@ row in stack mode, and the felt's padding, its row gaps, the middle's padding
 and the chip slots all come in one step. **The ring gives its share out of the
 felt's padding rather than out of the ellipse**, and it never squashes: it is a
 percentage geometry, so a `flex: none` keeps it whole and the felt scrolls
-instead. Flattening it was tried and the cliff is sharp, at 392 px the two seats
-either side of the top one overlap and at 394 they do not.
-
-| At 1366 by 768, practice table | Before | After |
-| --- | --- | --- |
-| Document height, heads-up | 903 | 768 |
-| Felt | 521 | 410 |
-| Band | 260 | 236 |
+instead. The decision line's 28 px came out of the felt too, and at 1366 by 768
+both shapes still fit without a page scrollbar (the spec pins it).
 
 **The mock's caption stands above the band, and the mock places it.** It printed
 over the hero's cards, which are the one thing on this screen you have to be
@@ -228,36 +272,9 @@ selector running on every page in the app to place a caption on one.
 
 **The band sits on the page's gutter, not its own.** `--band-gut` is 16px wide
 and 12px on a phone, which is what the felt, the hand header and the dock this
-replaces already use. It was 12 and 8, four pixels narrower than the felt above
-it at both sizes, and the step in the edge was visible where the band's border
-meets the felt. `--band-pad` is the vertical padding only, so changing the
-gutter cannot move a row.
-
-**Three lines, one edge.** The flag's reserved box sets the name in by
-`--hb-flag` plus `--hb-flag-gap`, so `.hb-nums` is padded by the same, and the
-name, the stack figure and the last action all start on one line. A stack flush
-to the edge under a name that is not reads as a slip, and most players have no
-flag, so the empty box is the common case rather than the odd one.
-
-**The hand-over ghosts stand where the controls stood, as far as the result
-line allows.** `--act-1/2/3` and `--act-gap` are the turn column's rows, and the
-bottom ghost takes `--act-3` and the same gap, so the fold bar's box is drawn
-exactly where the fold bar was: that is the control a thumb is resting on when
-the hand ends. The two above it cannot also keep their heights. The result line
-and its countdown want 43px at 1280 and 57px on a phone, and three ghosts at the
-turn column's heights would leave 39 and 35, which clips the countdown. So
-`--ghosts-h` is fixed at 156 and 144, the two upper ghosts share what is left,
-and the middle one at least keeps its bottom edge.
-
-**Fold is a slide.** Drag the handle 70% of the way across and the hand goes;
-release earlier and it springs back; a tap nudges it 12 px and springs back, so
-the gesture teaches itself rather than needing a caption. Pointer events with
-`setPointerCapture`, because capture is what keeps a drag alive when the finger
-leaves the track, and the handle is moved with a transform rather than an
-offset: an offset is a layout change and this control is 48 px from the felt.
-A keyboard press folds outright (`e.detail === 0` is the only way to tell one
-from the click a slide leaves behind). Where folding is not legal the bar is
-disabled, never dropped.
+replaces already use. `--band-pad` is the vertical padding only, and the gap
+between the decision line and the content, so changing the gutter cannot move
+a row.
 
 **The sizer is g's slider stood on end, plus a sweep.** The rail is 4 px with
 the part below the thumb in the accent, exactly as `.g-slider` draws it lying
@@ -273,18 +290,12 @@ pixels apart say less than one.
 
 **The keys are the dock's keys**, not a second copy: `useTurnKeys` in
 `dock.tsx` owns them and takes two callbacks, one for `r` and one for the number
-keys. In the dock they focus the field and write into it; here they open the
-sweep and move it. Enter sends, and lives in the sizer because it only means
+keys, which hand over the whole preset so the band can refuse a disabled one.
+In the dock they focus the field and write into it; here they open the sizer
+and move it, or send. Enter sends, and lives in the sizer because it only means
 anything while a size is open. The clamp and all-in semantics come from
 `raiseAction` and `raiseLabel` in `sizing.ts`, which the dock's `submitRaise`
 also calls.
-
-**Waiting, the status line sits on the band's floor.** It shares the bottom
-line with the hand's last action, which is a 16px slot resting on that floor;
-the status was centred in a 28px row instead and read six pixels above it.
-`.hb-wait .hb-status` is bottom aligned on a 16px line for that reason, and the
-watching state is untouched, because there the line is the only thing in a box
-built for a hand and belongs in the middle of it.
 
 **The fan's box is the fan's real bounds**, not the pair's. A card rotated about
 its bottom left corner reaches up past the top of the pair by its width times
@@ -299,13 +310,12 @@ the tilt goes.
 `data-hand="left"` on the root by the pre-paint script in `../../index.html` as
 well as by `applyPrefs`, so a left handed player never sees the right handed
 layout flash past. The band mirrors by swapping its grid areas at both sizes,
-the fan tilts the other way, the sweep moves to the near edge and the arrow on
-the fold handle turns round. **The fan also stacks the other way round**: a
-card's rank is in its top left corner, so mirrored, the second card lands over
-the first one's rank and a left handed player could not read the card they were
-dealt first. The tilted card is lifted by its own width times
-the sine of the tilt, because a card rotated about its bottom corner drops the
-far one off the bottom of the band and onto the page.
+the fan tilts the other way and the sweep moves to the near edge. **The fan
+also stacks the other way round**: a card's rank is in its top left corner, so
+mirrored, the second card lands over the first one's rank and a left handed
+player could not read the card they were dealt first. The tilted card is lifted
+by its own width times the sine of the tilt, because a card rotated about its
+bottom corner drops the far one off the bottom of the band and onto the page.
 
 ## Sizing
 
@@ -319,16 +329,18 @@ button always prints the number it will send.
 number keys address them and a preset that moves is a preset nobody learns.
 Postflop they are min, a third, a half, two thirds, pot and all in; preflop the
 middle three become 2x, 2.5x and 3x the current bet, which is how people size a
-raise before a flop. Duplicates are no longer collapsed the way they were when a
-preset sent the action: a preset now only writes into the field.
+raise before a flop. The dock and the phone's sweep use these. `presetsWide`
+gives the wide band ten in the same shape (see above), and `dupKeys` says which
+of them repeat a number, because there a preset sends rather than writes into a
+field. Duplicates in the six are not collapsed: a preset there only writes.
 
 The slider is secondary and desktop only, and it carries no `data-output` bubble
 because the field beside it already prints the number. g still owns its fill
 (see `../ui/CLAUDE.md`).
 
-`TableView.pot` **includes the current street's bets**, which `presetsFor`
-depends on: a pot-sized raise is `myBet + call + (pot + call)`. The unit test
-pins it.
+`TableView.pot` **includes the current street's bets**, which both preset
+functions depend on: a pot-sized raise is `myBet + call + (pot + call)`. The
+unit test pins it.
 
 ## Hand end
 
@@ -569,8 +581,9 @@ thing that happened. See `../sound/CLAUDE.md`.
 | --- | --- | --- |
 | `f` | your turn | fold |
 | `c` | your turn | check, or call |
-| `r` | your turn | focus the amount field, from anywhere |
-| `1` to `6` | your turn | write that preset into the field |
+| `r` | your turn | focus the amount field, from anywhere (the band: open the typed size) |
+| `1` to `6` | your turn | write that preset into the field (the phone band: into the sweep) |
+| `1` to `9`, `0` | your turn, wide band | send that size outright |
 | Enter | the field | send the raise, or show the clamp |
 
 The legend under the dock is desktop only, and it says the same thing in every
@@ -586,9 +599,9 @@ being poker-specific, build it in g-system, not here.
 
 - **`playing-card.tsx`**: rank and suit on a surface, plus face-down and
   empty-slot states. The empty slot holds the board's width so nothing shifts as
-  streets arrive. Red suits use `--danger-text` as the palette's red; nothing
-  destructive in this app is red (Fold is `btn-tertiary`), so the meaning colour
-  is not overloaded. **Promotion: no, this is poker.**
+  streets arrive. Red suits use `--danger-text` as the palette's red; the only
+  other red on the table is the fold colour, and a hand going is the one thing
+  that colour means here. **Promotion: no, this is poker.**
 - **`turn-clock.tsx`**: a countdown driven by a server deadline rather than a
   local duration, so a reconnecting client lands on the right remaining time. It
   draws the depleting bar along the acting seat's top edge and the seconds
