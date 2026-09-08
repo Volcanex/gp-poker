@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { botLevelInfo, type Mode } from '@opentable/protocol';
 import { api, ApiError } from '../net/api.ts';
-import type { Profile as ProfileData } from '../net/types.ts';
+import type { Insights, PositionKey, Profile as ProfileData } from '../net/types.ts';
 import { useSession } from '../net/session.tsx';
 import { useTitle } from '../ui/title.ts';
 import { RatingGraph } from '../ui/rating-graph.tsx';
@@ -16,6 +16,7 @@ import { ordinal } from '../table/labels.ts';
 import { deltaTone } from '../ui/bits.tsx';
 import { ClaimCard } from '../ui/auth.tsx';
 import { Avatar } from '../ui/avatar.tsx';
+import './profile.css';
 
 export function Profile() {
   const { name = '' } = useParams();
@@ -152,6 +153,8 @@ export function Profile() {
 
       <RatingSection profile={data} />
 
+      <InsightsSection profile={data} />
+
       <section className="stack" style={{ gap: 'var(--sp-3)' }}>
         <span className="h2">Play style</span>
         {hasHands ? (
@@ -252,11 +255,7 @@ export function Profile() {
 /* The line is per mode as well: splicing a six-max result into a heads-up
    curve would draw a shape neither ladder ever had. */
 function RatingSection({ profile }: { profile: ProfileData }) {
-  const [mode, setMode] = useState<Mode>(() =>
-    modeRating(profile.summary, 'six-max').matches > modeRating(profile.summary, 'heads-up').matches
-      ? 'six-max'
-      : 'heads-up',
-  );
+  const [mode, setMode] = useState<Mode>(() => busiestMode(profile));
   const points = ratingHistoryFor(profile, mode);
 
   return (
@@ -275,6 +274,315 @@ function RatingSection({ profile }: { profile: ProfileData }) {
       )}
     </section>
   );
+}
+
+/* The mode a profile opens on: whichever of the two this player has actually
+   played, heads-up when neither. Both switches on the page start here, so a
+   profile does not open showing a rating line for one mode beside insights
+   for the other. */
+function busiestMode(profile: ProfileData): Mode {
+  const sixMax = modeRating(profile.summary, 'six-max').matches;
+  const headsUp = modeRating(profile.summary, 'heads-up').matches;
+  return sixMax > headsUp ? 'six-max' : 'heads-up';
+}
+
+const POSITION_NAME: Record<PositionKey, string> = {
+  button: 'Button',
+  'small-blind': 'Small blind',
+  'big-blind': 'Big blind',
+  utg: 'Under the gun',
+  hijack: 'Hijack',
+  cutoff: 'Cutoff',
+};
+
+const STREET_ORDER: { key: keyof NonNullable<Insights['streets']>; label: string }[] = [
+  { key: 'preflop', label: 'Preflop' },
+  { key: 'flop', label: 'Flop' },
+  { key: 'turn', label: 'Turn' },
+  { key: 'river', label: 'River' },
+  { key: 'showdown', label: 'Showdown' },
+];
+
+/* Its own request, made when the section mounts and again when the mode
+   changes: the profile payload is a page load and this is derived from every
+   hand the player has ever played, so it is not something to make everybody
+   wait for. The server caches it per player and mode. */
+function InsightsSection({ profile }: { profile: ProfileData }) {
+  const name = profile.summary.name;
+  const [mode, setMode] = useState<Mode>(() => busiestMode(profile));
+  const [data, setData] = useState<Insights | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    setData(null);
+    setError(null);
+    api
+      .insights(name, mode)
+      .then((d) => live && setData(d))
+      .catch((e: Error) => live && setError(e.message));
+    return () => {
+      live = false;
+    };
+  }, [name, mode]);
+
+  return (
+    <section className="stack" style={{ gap: 'var(--sp-3)' }}>
+      <span className="h2">Insights</span>
+      <p className="muted">
+        How this player plays, read back out of their hands in this mode rather than counted as they
+        went along.
+      </p>
+      <ModeTabs mode={mode} onPick={setMode} label="Insights mode" />
+      <InsightsBody data={data} error={error} mode={mode} />
+    </section>
+  );
+}
+
+function InsightsBody({ data, error, mode }: { data: Insights | null; error: string | null; mode: Mode }) {
+  if (error) {
+    return (
+      <div className="card">
+        <div className="empty">
+          <span className="e-title">The insights did not load</span>
+          <span className="e-desc">{error}. Reload to try again.</span>
+        </div>
+      </div>
+    );
+  }
+  if (!data) return <span className="muted">Loading</span>;
+
+  const { sample, preflop, postflop, positions, streets, results } = data;
+  if (!preflop || !postflop || !positions || !streets || !results) {
+    return (
+      <div className="card">
+        <div className="empty">
+          <span className="e-title">Insights appear after {data.minHands} hands in this mode</span>
+          <span className="e-desc">
+            {sample.hands === 0
+              ? `No ${MODE_NAME[mode].toLowerCase()} hands played yet.`
+              : `${sample.hands} of ${data.minHands} so far.`}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="ins-group">
+        <span className="muted">Preflop</span>
+        <div className="tiles">
+          <Rate k="VPIP" v={preflop.vpip} d="hands played voluntarily" empty="No hands" />
+          <Rate k="PFR" v={preflop.pfr} d="hands raised preflop" empty="No hands" />
+          <Rate k="3bet" v={preflop.threeBet} d="raises over someone else's open" empty="No opens faced" />
+          <Rate
+            k="Fold to 3bet"
+            v={preflop.foldToThreeBet}
+            d="folds when reraised preflop"
+            empty="No 3bets faced"
+          />
+        </div>
+      </div>
+
+      <div className="ins-group">
+        <span className="muted">Postflop</span>
+        <div className="tiles">
+          <Rate
+            k="Aggression"
+            v={postflop.aggressionFactor}
+            d="bets and raises per call after the flop"
+            empty="No calls yet"
+            unit="x"
+          />
+          <Rate k="C-bet" v={postflop.cbet} d="flops bet after raising preflop" empty="No chances yet" />
+          <Rate
+            k="To showdown"
+            v={postflop.wentToShowdown}
+            d="flops seen that reach a showdown"
+            empty="No flops seen"
+          />
+          <Rate
+            k="Won at showdown"
+            v={postflop.wonAtShowdown}
+            d="showdowns that finish ahead"
+            empty="No showdowns"
+          />
+          <Rate
+            k="Won without"
+            v={postflop.wonWithoutShowdown}
+            d="pots won that ended before a showdown"
+            empty="No pots won"
+          />
+        </div>
+      </div>
+
+      <div className="ins-group">
+        <span className="muted">Net big blinds a hand, by seat</span>
+        <div className="card">
+          <PositionBars positions={positions} />
+        </div>
+      </div>
+
+      <div className="ins-group">
+        <span className="muted">Where hands end</span>
+        <div className="card">
+          <StreetBar streets={streets} />
+        </div>
+      </div>
+
+      <div className="ins-group">
+        <span className="muted">Results</span>
+        <div className="card ins-results">
+          <dl className="kv">
+            <dt>Biggest pot won</dt>
+            <dd>
+              {results.biggestPot ? (
+                <Link to={`/m/${results.biggestPot.matchId}/h/${results.biggestPot.handNumber}`}>
+                  {results.biggestPot.chips} chips
+                  <span className="u">{results.biggestPot.bb} bb</span>
+                </Link>
+              ) : (
+                'None yet'
+              )}
+            </dd>
+            <dt>Longest run of wins</dt>
+            <dd>
+              {results.longestWinStreak}
+              <span className="u">{results.longestWinStreak === 1 ? 'match' : 'matches'}</span>
+            </dd>
+            <dt>Average hand</dt>
+            <dd>{results.averageHandMs == null ? 'Not timed' : fmtDuration(results.averageHandMs)}</dd>
+            <dt>Actions the clock took</dt>
+            <dd>{results.timeouts}</dd>
+          </dl>
+        </div>
+      </div>
+
+      <span className="muted">
+        Over {sample.hands} hands in {sample.matches} {sample.matches === 1 ? 'match' : 'matches'}.
+      </span>
+    </>
+  );
+}
+
+/* Bars measured from a centre line, longest one filling half the track, so
+   the seats that pay for the rest are the shape of the block rather than a
+   column of signs to read. A seat never played keeps its row and says
+   nothing, which is the honest thing for a six-max table somebody has only
+   sat at four seats of. */
+function PositionBars({ positions }: { positions: NonNullable<Insights['positions']> }) {
+  const peak = Math.max(...positions.map((p) => Math.abs(p.bbPerHand ?? 0)), 0.01);
+
+  return (
+    <div className="ins-bars">
+      {positions.map((p) => {
+        const v = p.bbPerHand;
+        const share = v === null ? 0 : (Math.abs(v) / peak) * 50;
+        const down = v !== null && v < 0;
+        return (
+          <div className="ins-bar" key={p.key} data-idle={p.hands === 0 ? '' : undefined}>
+            <span className="lab">{POSITION_NAME[p.key]}</span>
+            <span
+              className="track"
+              role="img"
+              aria-label={
+                v === null
+                  ? `${POSITION_NAME[p.key]}, not played`
+                  : `${POSITION_NAME[p.key]}, ${signedBb(v)} big blinds a hand over ${p.hands} hands`
+              }
+            >
+              <span className="zero" />
+              {v !== null && (
+                <span
+                  className="fill"
+                  data-sign={down ? 'down' : 'up'}
+                  style={{ left: `${down ? 50 - share : 50}%`, width: `${share}%` }}
+                />
+              )}
+            </span>
+            <span className="val num">
+              {v === null ? '' : signedBb(v)}
+              <span className="n">{p.hands}</span>
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function StreetBar({ streets }: { streets: NonNullable<Insights['streets']> }) {
+  const rows = STREET_ORDER.map((s) => ({ ...s, pct: streets[s.key] }));
+  return (
+    <div className="ins-street">
+      <div
+        className="track"
+        role="img"
+        aria-label={rows.map((r) => `${r.label} ${fmtPct(r.pct, 0)}`).join(', ')}
+      >
+        {rows.map((r) =>
+          r.pct > 0 ? (
+            <span
+              key={r.key}
+              className="seg"
+              data-street={r.key}
+              style={{ width: `${r.pct}%` }}
+              title={`${r.label} ${fmtPct(r.pct)}`}
+            />
+          ) : null
+        )}
+      </div>
+      <div className="ins-legend">
+        {rows.map((r) => (
+          <span className="item" key={r.key}>
+            <span className="dot" data-street={r.key} />
+            {r.label}
+            <span className="n">{fmtPct(r.pct, 0)}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* A rate with no denominator is not zero, so the tile says which chance never
+   came up rather than printing a number nobody earned. */
+function Rate({
+  k,
+  v,
+  d,
+  empty,
+  unit = '%',
+}: {
+  k: string;
+  v: number | null;
+  d: string;
+  empty: string;
+  unit?: '%' | 'x';
+}) {
+  return (
+    <div className="card stat">
+      <span className="k">{k}</span>
+      {v === null ? (
+        <span className="v" data-empty="">{empty}</span>
+      ) : (
+        <span className="v">{unit === '%' ? fmtPct(v) : v.toFixed(2)}</span>
+      )}
+      <span className="d">{d}</span>
+    </div>
+  );
+}
+
+function signedBb(n: number): string {
+  if (n === 0) return '0.00';
+  return `${n > 0 ? '+' : ''}${n.toFixed(2)}`;
+}
+
+function fmtDuration(ms: number): string {
+  const seconds = ms / 1000;
+  if (seconds < 60) return `${seconds.toFixed(1)}s`;
+  return `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`;
 }
 
 function Tile({ k, v, d }: { k: string; v: string; d: string }) {

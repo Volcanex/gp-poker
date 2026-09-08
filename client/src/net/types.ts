@@ -24,8 +24,8 @@ export interface MatchSeat {
 }
 
 export interface LeaderboardRow {
-  /* Read it through avatarSeed() in src/net/adapt.ts: a row written before the
-     server carried ids has only a name to go on. */
+  /* Read it through avatarSeed() in src/net/adapt.ts: the server sends this
+     now, but a client can outlive the server it talks to. */
   id?: string;
   name: string;
   rating: number;
@@ -94,6 +94,40 @@ export interface Profile {
     foldTo3bet: number;
   };
   lastMatches: UserMatchSummary[];
+}
+
+/* /api/users/:name/insights. Derived from the player's stored hands rather
+   than from a counter, one answer per mode. Every group is null until the
+   mode has `minHands` hands behind it, and a group that is present can still
+   carry a null field: a rate with no denominator is not zero, so the tile
+   says what is missing instead of printing one. */
+export type PositionKey = 'button' | 'small-blind' | 'big-blind' | 'utg' | 'hijack' | 'cutoff';
+
+export interface Insights {
+  mode: Mode;
+  minHands: number;
+  sample: { hands: number; matches: number };
+  preflop: {
+    vpip: number | null;
+    pfr: number | null;
+    threeBet: number | null;
+    foldToThreeBet: number | null;
+  } | null;
+  postflop: {
+    aggressionFactor: number | null;
+    cbet: number | null;
+    wentToShowdown: number | null;
+    wonAtShowdown: number | null;
+    wonWithoutShowdown: number | null;
+  } | null;
+  positions: { key: PositionKey; hands: number; bbPerHand: number | null }[] | null;
+  streets: { preflop: number; flop: number; turn: number; river: number; showdown: number } | null;
+  results: {
+    biggestPot: { chips: number; bb: number; handId: string; matchId: string; handNumber: number } | null;
+    longestWinStreak: number;
+    averageHandMs: number | null;
+    timeouts: number;
+  } | null;
 }
 
 export interface MatchHandSummary {

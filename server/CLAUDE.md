@@ -29,6 +29,10 @@ decisions; this file covers what's not obvious from the code.
   second constant that could drift from it (the leaderboard SQL's
   `rd <= 110` is the one unavoidable duplicate, since SQL can't call into
   the package — commented at the query).
+- `src/insights.ts` — the pure derivation behind `/api/users/:name/insights`.
+  No database, no clock, no Fastify: hands in, one `Insights` out, which is
+  why `src/insights.test.ts` can drive it with synthetic action logs. See
+  "Insights".
 - `src/routes.ts` — all REST endpoints. Protocol v2 changes:
   - `/api/me`, `/api/claim`, `/api/login` and `hi` all carry a `UserSummary`
     whose `ratings` is a mode-keyed map of `{rating, rd, provisional, peak,
@@ -54,6 +58,9 @@ decisions; this file covers what's not obvious from the code.
   - `/api/hands/:id` adds `liveSeats` and reports the hand's own `sb`/`bb`
     from `blindsAt` rather than the format's level-1 blinds, which is what a
     replay needs to rebuild the engine config.
+  - `/api/users/:name/insights?mode=heads-up|six-max` is how somebody plays
+    rather than how they are rated, derived from their stored hands. Same
+    mode fallback as the leaderboard. See "Insights".
 - `src/matchmaking.ts` — the in-memory queues and their tick. `matchFormat`
   exposes the same resolver the queue reads, so a match created outside the
   queue honours a test's `setFormatResolver` too.
@@ -530,6 +537,45 @@ arriving just after `end`) gets the final `state` plus a resend of the `end`
 message (`MatchRoom` keeps the last `MatchResult` around for exactly this).
 After the linger the room is dropped from the registry entirely and a
 `join` gets `err no_match`; the match itself is still in the database.
+
+## Insights
+
+`/api/users/:name/insights` is the one route on the server that derives its
+answer from the hand histories instead of reading a counter the write path
+kept. Every hand the player was dealt into is replayed through
+`@opentable/engine` (`src/insights.ts`), which is what gives each logged
+action the street it was taken on, each seat its total commitment and the
+hand its outcome. Nothing re-implements the betting rules: a change to them
+lands here for free rather than leaving a second, quietly wrong model of
+poker in the server.
+
+The stored log is in table seats and the engine speaks engine seats, so
+`liveSeats` is applied on the way in exactly as `handRunner` applies it on
+the way out. A hand the player was not dealt into (they had already busted,
+which in six-max is most of the rows a match contributes) drops out at that
+step, and so does a log that no longer replays, rather than being counted as
+a hand with nothing in it.
+
+Two rules shape the payload:
+
+- **Below `MIN_INSIGHT_HANDS` (20) every derived group is null** and only
+  `sample` is filled in. Twelve hands of poker say nothing about anybody, and
+  a number on the screen is a claim.
+- **A rate with no denominator is null, not zero.** No flops seen is not a
+  0% showdown rate; never having been the preflop raiser is not a 0% c-bet.
+  The client prints what was missing instead.
+
+The answer is memoised per (user, mode) on the id of that player's latest
+finished match in that mode: nothing in it can move until another of their
+matches ends. The cheap query is the one that produces the key, so a cache
+hit costs a single lookup and a new match invalidates without a timer. That
+is a server-side memo, not an HTTP cache: the response still carries
+`Cache-Control: no-store` like everything else under `/api` (see below).
+
+`getInsightHandsForUser` is bounded (`INSIGHT_HAND_LIMIT`, 3000 hands, newest
+first) because this runs on a request path. Three thousand hands replay in
+about half a second, which is a cache miss nobody notices and a hot loop
+nobody should write.
 
 ## No caching on /api
 An `onSend` hook in `buildApp` puts `Cache-Control: no-store` on every

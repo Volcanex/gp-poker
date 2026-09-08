@@ -1,10 +1,11 @@
 import { avatarDataUri } from '@opentable/identity';
 
 export interface AvatarProps {
-  /* The user id wherever the payload carries one. Two endpoints do not: the
-     leaderboard and a profile's match history send names only, so those seed
-     on the name and change if the name does. Swap them to the id the day the
-     server sends one. */
+  /* The user id, always: a name can be claimed and changed, and the picture
+     must not change with it. The leaderboard and a profile's match history
+     were the two payloads that carried names only; they carry ids now, and
+     both callers go through avatarSeed() in src/net/adapt.ts, which falls
+     back to the name for a client talking to a server that predates them. */
   seed: string;
   name: string;
   size?: number;

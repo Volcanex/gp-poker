@@ -1,5 +1,5 @@
 import type {
-  BotRow, Challenge, CreatedChallenge, FeedMatch, Hand, LeaderboardRow, LiveMatch, Match, Me, Profile, SiteStats,
+  BotRow, Challenge, CreatedChallenge, FeedMatch, Hand, Insights, LeaderboardRow, LiveMatch, Match, Me, Profile, SiteStats,
 } from './types.ts';
 import type { Mode, UserSummary } from '@opentable/protocol';
 
@@ -47,6 +47,11 @@ export const api = {
      leaderboard, so this is the only list of them. */
   bots: () => req<BotRow[]>('/api/bots'),
   user: (name: string) => req<Profile>(`/api/users/${encodeURIComponent(name)}`),
+  /* How a player actually plays, per mode. Its own call rather than a field
+     on the profile: it is derived from every hand they have played, so it is
+     the one payload on this page worth paying for only when it is looked at. */
+  insights: (name: string, mode: Mode) =>
+    req<Insights>(`/api/users/${encodeURIComponent(name)}/insights?mode=${encodeURIComponent(mode)}`),
   match: (id: string) => req<Match>(`/api/matches/${encodeURIComponent(id)}`),
   /* A hand's primary key is '<match id>-<number>' (server/db/schema.sql), so a
      hand is addressable from a match URL without a lookup table. */

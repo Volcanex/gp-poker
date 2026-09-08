@@ -4,8 +4,10 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import type { LoggedAction, MatchFormat, MatchResult, Mode } from '@opentable/protocol';
+import { blindsAt } from '@opentable/protocol';
 import type { HandOutcome } from '@opentable/engine';
 import type { Decision, SeatStats, Summary } from '@opentable/preflop';
+import type { InsightHand, InsightMatch } from './insights.js';
 import { config } from './config.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -821,3 +823,99 @@ export async function cancelOpenChallenge(id: string, creatorId: string): Promis
   return row ?? null;
 }
 
+// ---- insights ----
+
+/* The rows behind /api/users/:name/insights. Everything else on a profile is
+   a counter the write path already maintained; insights are derived from the
+   hands themselves, so this is the one place that pulls a player's whole
+   history out at once. Bounded, because it is a request path: a player with
+   more hands than this reads their most recent ones, which is the window
+   anyone actually means by "how am I playing".
+   Matches store their mode inside `format`, and a row written before modes
+   existed was heads-up, so the filter coalesces rather than dropping it. */
+export const INSIGHT_HAND_LIMIT = 3000;
+
+export async function getInsightHandsForUser(
+  userId: string,
+  mode: Mode,
+  limit = INSIGHT_HAND_LIMIT
+): Promise<InsightHand[]> {
+  const rows = await sql<
+    {
+      id: string;
+      matchId: string;
+      number: number;
+      seat: number;
+      seed: string;
+      button: number;
+      stacksStart: number[];
+      liveSeats: number[] | null;
+      actions: LoggedAction[];
+      format: MatchFormat;
+      startedAt: Date;
+      completedAt: Date | null;
+    }[]
+  >`
+    select
+      h.id, h.match_id, h.number, h.seed, h.button, h.stacks_start, h.live_seats,
+      h.actions, h.started_at, h.completed_at, mp.seat, m.format
+    from hands h
+    join matches m on m.id = h.match_id
+    join match_players mp on mp.match_id = h.match_id and mp.user_id = ${userId}
+    where m.status = 'finished'
+      and coalesce(m.format ->> 'mode', 'heads-up') = ${mode}
+      and h.completed_at is not null
+      and h.seed is not null
+    order by h.completed_at desc
+    limit ${limit}
+  `;
+  return rows.map((r) => {
+    const { sb, bb } = blindsAt(r.format, r.number);
+    return {
+      id: r.id,
+      matchId: r.matchId,
+      number: r.number,
+      seat: r.seat,
+      seed: r.seed,
+      button: r.button,
+      sb,
+      bb,
+      stacksStart: r.stacksStart,
+      // A heads-up hand written before the map existed had table seats and
+      // engine seats as the same thing, which is what the identity says.
+      liveSeats: r.liveSeats ?? r.stacksStart.map((_, i) => i),
+      actions: r.actions,
+      startedAt: r.startedAt,
+      completedAt: r.completedAt,
+    };
+  });
+}
+
+/* Win, loss or draw for one player in one finished match. Multiway has no
+   draws: anything but first place is a loss.
+   getMatchesForUser() decides this inline as well. Fold it onto this once
+   the routes it shares a file with have stopped moving. */
+export function matchResultForUser(match: MatchRow, userId: string): 'win' | 'loss' | 'draw' {
+  if (match.seats.length > 2) return (match.places?.[userId] ?? null) === 1 ? 'win' : 'loss';
+  if (match.winner === null) return 'draw';
+  return match.winner === userId ? 'win' : 'loss';
+}
+
+/* Finished matches in one mode, newest first. The first row is also what the
+   insights cache is keyed on: a player's numbers can only change when a new
+   match of theirs finishes. */
+export async function getInsightMatchesForUser(userId: string, mode: Mode): Promise<InsightMatch[]> {
+  const rows = await sql<MatchRow[]>`
+    select m.* from matches m
+    join match_players mp on mp.match_id = m.id
+    where mp.user_id = ${userId}
+      and m.status = 'finished'
+      and coalesce(m.format ->> 'mode', 'heads-up') = ${mode}
+    order by m.finished_at desc
+  `;
+  return rows.map((m) => ({
+    id: m.id,
+    result: matchResultForUser(m, userId),
+    finishedAt: m.finishedAt,
+  }));
+}

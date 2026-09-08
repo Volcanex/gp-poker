@@ -27,7 +27,10 @@ declaration for `phe` that the engine's own tsconfig provides.
   `socket.ts` is the single WebSocket, `session.tsx` owns the session, the
   connection state, the queue and the match to return to.
 - `src/routes/` — `home.tsx`, `leaderboard.tsx`, `profile.tsx`, `match.tsx`
-  (live table, finished summary and the mock), `replay.tsx`.
+  (live table, finished summary and the mock), `replay.tsx`. `profile.css` is
+  the insights block on a profile: the two small charts (net big blinds by
+  seat, where hands end) that g-system does not ship, drawn from the same
+  tokens as the rating graph and for the same reason g.chart is not used.
 - `src/table/` — the table. `table.tsx` renders one `TableView`; `seat.tsx`,
   `playing-card.tsx`, `turn-clock.tsx` and `dock.tsx` are its parts.
   `result-panel.tsx` is the result under a finished felt and

@@ -79,6 +79,11 @@ boot, unrated.
   has to run for a status to be true.
 - The engine only sees seats with chips; `hands.live_seats` maps engine
   seat to table seat and every stored log is in table seats.
+- Insights (`/api/users/:name/insights`, the block under a profile's rating
+  graph) are derived by replaying the player's stored hands through the
+  engine, not by keeping counters as matches run: the betting rules stay in
+  one place. Null below 20 hands in that mode, and null for any rate with no
+  denominator. Memoised per (user, mode) on their latest finished match.
 - Tests run against `TEST_DATABASE_URL` (opentable_test), never the live
   database. Restarting the service aborts live matches (unrated).
 - Server authoritative. Clients send `act` with the hand number and action

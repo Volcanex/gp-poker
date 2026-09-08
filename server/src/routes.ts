@@ -13,6 +13,8 @@ import {
   getUserHandStats,
   getUserPreflopAccuracy,
   getMatchesForUser,
+  getInsightHandsForUser,
+  getInsightMatchesForUser,
   getRatingHistoryForUser,
   getMatchById,
   getHandsForMatch,
@@ -29,6 +31,7 @@ import { getRoom } from './match/rooms.js';
 import { claimGuest, login, requireUser, setSessionCookie, clearSessionCookie, createSessionForUser, SESSION_COOKIE } from './auth.js';
 import { rosterSummary } from './bots/index.js';
 import { roundRatings, toModeRating, toUserSummary } from './userView.js';
+import { computeInsights, type Insights } from './insights.js';
 import { acceptChallenge, cancelChallenge, challengeView, createChallenge } from './challenges.js';
 
 function err(reply: { code: (n: number) => { send: (b: unknown) => unknown } }, status: number, message: string) {
@@ -166,6 +169,32 @@ export function registerRoutes(app: FastifyInstance): void {
       lastMatches,
     };
   });
+
+  /* How somebody actually plays, derived from their stored hands rather than
+     from a counter kept at write time. Cached per (user, mode) on the id of
+     their latest finished match in that mode: nothing in here can move until
+     another match of theirs ends, so the replay work happens once per match
+     rather than once per visitor. The cheap query is the one that produces
+     the key, so a cache hit costs a single lookup. */
+  app.get<{ Params: { name: string }; Querystring: { mode?: string } }>(
+    '/api/users/:name/insights',
+    async (request, reply) => {
+      const user = await getUserByNameLower(request.params.name.toLowerCase());
+      if (!user) return err(reply, 404, 'no such user');
+      const mode = modeParam(request.query.mode);
+
+      const matches = await getInsightMatchesForUser(user.id, mode);
+      const key = `${user.id}:${mode}`;
+      const at = matches[0]?.id ?? 'none';
+      const cached = insightsCache.get(key);
+      if (cached && cached.at === at) return cached.body;
+
+      const hands = await getInsightHandsForUser(user.id, mode);
+      const body = computeInsights({ mode, hands, matches });
+      rememberInsights(key, at, body);
+      return body;
+    }
+  );
 
   app.get<{ Params: { id: string } }>('/api/matches/:id', async (request, reply) => {
     const match = await getMatchById(request.params.id);
@@ -326,6 +355,23 @@ function originOf(request: FastifyRequest): string {
 
 const STATS_TTL_MS = 5_000;
 let statsCache: { at: number; body: unknown } | null = null;
+
+/* One entry per (user, mode), keyed on the match that last moved the answer.
+   Bounded by insertion order rather than by use: the entries worth keeping
+   are the ones being rebuilt, and a map that never forgets is a leak in a
+   process that runs for weeks. */
+const INSIGHTS_CACHE_MAX = 200;
+const insightsCache = new Map<string, { at: string; body: Insights }>();
+
+function rememberInsights(key: string, at: string, body: Insights): void {
+  insightsCache.delete(key);
+  insightsCache.set(key, { at, body });
+  while (insightsCache.size > INSIGHTS_CACHE_MAX) {
+    const oldest = insightsCache.keys().next().value;
+    if (oldest === undefined) break;
+    insightsCache.delete(oldest);
+  }
+}
 
 function clampLimit(raw: string | undefined, fallback: number, max: number): number {
   const n = Number.parseInt(raw ?? '', 10);

@@ -1,0 +1,116 @@
+/* The profile page's insights section: two small charts g-system does not
+   ship, drawn from the same tokens as everything else. The stat tiles above
+   them are `.tiles` and `.card.stat` from the app layer, unchanged, and the
+   mode switch is the shipped tabs; only these two shapes are new.
+   Same reasoning as the rating graph: g ships g.chart, but it renders into a
+   node it owns and re-renders by being called again, which fights React. A
+   row of bars and a stacked bar are plain boxes, so they are plain boxes. */
+
+.ins-group { display: flex; flex-direction: column; gap: var(--sp-3); }
+
+/* A tile with no denominator behind it prints a phrase, not a number, so it
+   drops out of the 22px numeral size the tile reserves for one. */
+.stat .v[data-empty] {
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--text-secondary);
+}
+
+/* ------------------------------------------------- net big blinds by seat */
+
+/* One row per position, with the bars measured from a centre line: a losing
+   seat runs left of it and a winning seat right, so which seats pay for the
+   rest is the shape of the block rather than something to read off. */
+.ins-bars { display: flex; flex-direction: column; gap: 7px; }
+
+.ins-bar {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) 76px;
+  align-items: center;
+  gap: var(--sp-3);
+  font-size: 12px;
+}
+.ins-bar .lab { color: var(--text-secondary); white-space: nowrap; }
+.ins-bar .track {
+  position: relative;
+  height: 14px;
+  border-radius: var(--radius-sm);
+  background: var(--fill-active);
+}
+.ins-bar .zero {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  left: 50%;
+  width: 1px;
+  background: var(--border);
+}
+.ins-bar .fill {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  border-radius: 2px;
+  background: var(--chart-6);
+}
+.ins-bar .fill[data-sign='down'] { background: var(--chart-5); }
+.ins-bar .val {
+  text-align: right;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.ins-bar .val .n { color: var(--text-placeholder); margin-left: 5px; }
+.ins-bar[data-idle] .lab,
+.ins-bar[data-idle] .val { color: var(--text-placeholder); }
+
+/* ------------------------------------------------------ where hands end */
+
+.ins-street { display: flex; flex-direction: column; gap: var(--sp-3); }
+.ins-street .track {
+  display: flex;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--fill-active);
+}
+.ins-street .seg { min-width: 0; }
+.ins-street .seg[data-street='preflop'] { background: var(--chart-1); }
+.ins-street .seg[data-street='flop'] { background: var(--chart-2); }
+.ins-street .seg[data-street='turn'] { background: var(--chart-3); }
+.ins-street .seg[data-street='river'] { background: var(--chart-4); }
+.ins-street .seg[data-street='showdown'] { background: var(--chart-6); }
+
+.ins-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px var(--sp-4);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.ins-legend .item { display: inline-flex; align-items: center; gap: 6px; }
+.ins-legend .dot { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.ins-legend .dot[data-street='preflop'] { background: var(--chart-1); }
+.ins-legend .dot[data-street='flop'] { background: var(--chart-2); }
+.ins-legend .dot[data-street='turn'] { background: var(--chart-3); }
+.ins-legend .dot[data-street='river'] { background: var(--chart-4); }
+.ins-legend .dot[data-street='showdown'] { background: var(--chart-6); }
+.ins-legend .n { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+
+/* ------------------------------------------------------------- the rest */
+
+.ins-results { display: flex; flex-direction: column; gap: var(--sp-3); }
+.ins-results .kv dd { font-variant-numeric: tabular-nums; }
+.ins-results .kv dd .u { color: var(--text-placeholder); margin-left: 5px; }
+
+/* A phone has no room for a fixed label column beside a bar that still has
+   to be readable, so the label goes above its own row. */
+@media (max-width: 560px) {
+  .ins-bar {
+    grid-template-columns: minmax(0, 1fr) 76px;
+    grid-template-areas: 'lab lab' 'track val';
+    row-gap: 3px;
+  }
+  .ins-bar .lab { grid-area: lab; }
+  .ins-bar .track { grid-area: track; }
+  .ins-bar .val { grid-area: val; }
+}
