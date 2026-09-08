@@ -238,7 +238,21 @@ function MockMatch(
     const seated = base.clock
       ? { ...base, clock: { ...base.clock, deadline: enteredAt + base.format.clockMs } }
       : base;
-    return watch ? { ...seated, you: null, legal: null } : seated;
+    if (!watch) return seated;
+    /* A spectator has no seat, no decision and nobody's hole cards: the server
+       sends everyone face down until a showdown, so the mock does too. Without
+       this the watching table showed the scripted player's hand while the dock
+       underneath said hole cards turn over at showdown. */
+    return {
+      ...seated,
+      you: null,
+      legal: null,
+      seats: seated.seats.map((s) => (
+        s.cards && s.cards.some((c) => !c.startsWith('?'))
+          ? { ...s, cards: s.cards.map(() => '?') }
+          : s
+      )),
+    };
   }, [base, enteredAt, watch]);
 
   const replay = useCallback(() => {
