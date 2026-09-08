@@ -1,6 +1,6 @@
 # Sound
 
-Small, framework-free sound module: a Web Audio engine, three swappable
+Small, framework-free sound module: a Web Audio engine, four swappable
 packs, and a `useSoundSettings()` hook for the settings menu. Nothing here
 is wired into the table or settings UI yet; see "Integration points" below
 for what the next agent needs to call.
@@ -27,9 +27,8 @@ for what the next agent needs to call.
   to `localStorage` under `ot.sound`. Defaults: disabled, volume 0.6,
   pack `felt`. Packs are loaded with a dynamic `import()` keyed by id and
   cached, so switching packs only ever fetches each one once and Vite
-  code-splits every pack into its own chunk (confirmed with a throwaway
-  build: felt, arcade and glass each build separately
-  from the entry).
+  code-splits every pack into its own chunk (confirmed on a build: felt,
+  arcade, glass and web each build separately from the entry).
 - `react.ts`: `useSoundSettings()`, a thin `useSyncExternalStore` wrapper
   over `sound` for the settings menu.
 
@@ -52,6 +51,10 @@ for what the next agent needs to call.
    (excluding `index.ts`) is a good enough proxy since the base64 payload
    dominates file size.
 
+A pack does not have to be vendored. `web` is generated (see below), so its
+modules and its `index.ts` are written by a script and hand-edits to them
+are lost on the next run.
+
 ## Verifying provenance
 
 soundcn's per-module `license`/`author` fields are **not trustworthy on
@@ -69,13 +72,16 @@ The test suite re-checks this on every vendored file.
 
 ## Provenance table
 
-All 37 vendored sounds verified Kenney/CC0 against both the module header
+All 37 *vendored* sounds verified Kenney/CC0 against both the module header
 and soundcn's registry.json, with zero matches against the forbidden
 Warcraft/Blizzard patterns. "Source pack" is the actual Kenney itch.io
 pack the file matched by name in soundcn's assets mirror; five sounds
 (marked `Kenney (unmirrored)`) aren't present in that mirror by filename
 but are independently verified via soundcn's registry metadata (author,
-licence, category all clean).
+licence, category all clean). The `web` pack's 15 sounds are not vendored at
+all: they are synthesised in this repo and carry `author: "Open Table"`,
+which is why the provenance test checks the author per pack rather than
+expecting Kenney everywhere.
 
 | Sound module | Used for | Pack(s) | Source pack | Licence |
 |---|---|---|---|---|
@@ -116,6 +122,48 @@ licence, category all clean).
 | jingles-pizzi-00 | handWon | glass | Kenney Music Jingles (Pizzicato) | CC0 |
 | impact-bell-heavy-000 | matchWon | glass | Kenney Impact Sounds | CC0 |
 | jingles-steel-05 | matchLost | glass | Kenney Music Jingles (Steel) | CC0 |
+| deal | deal | web | Generated, client/scripts/sound-web.mjs | CC0 |
+| card-place | cardPlace | web | Generated, client/scripts/sound-web.mjs | CC0 |
+| bet | bet | web | Generated, client/scripts/sound-web.mjs | CC0 |
+| call | call | web | Generated, client/scripts/sound-web.mjs | CC0 |
+| check | check | web | Generated, client/scripts/sound-web.mjs | CC0 |
+| fold | fold | web | Generated, client/scripts/sound-web.mjs | CC0 |
+| chips-collect | chipsCollect | web | Generated, client/scripts/sound-web.mjs | CC0 |
+| your-turn | yourTurn | web | Generated, client/scripts/sound-web.mjs | CC0 |
+| clock-warning | clockWarning | web | Generated, client/scripts/sound-web.mjs | CC0 |
+| hand-won | handWon | web | Generated, client/scripts/sound-web.mjs | CC0 |
+| hand-lost | handLost | web | Generated, client/scripts/sound-web.mjs | CC0 |
+| match-won | matchWon | web | Generated, client/scripts/sound-web.mjs | CC0 |
+| match-lost | matchLost | web | Generated, client/scripts/sound-web.mjs | CC0 |
+| chat | chat | web | Generated, client/scripts/sound-web.mjs | CC0 |
+| click | click | web | Generated, client/scripts/sound-web.mjs | CC0 |
+
+### The web pack is synthesised, not sampled
+
+`web` evokes early-2000s desktop and messenger audio, and every sound people
+remember from that era, the nudge, the door, the mail chime, the dial-up
+handshake, is a copyrighted recording. None of them may be copied, sampled or
+rebuilt note for note. So the pack contains no recording at all: fifteen
+original sounds built from oscillators and filtered noise by
+`client/scripts/sound-web.mjs`, which anyone can rerun to get the same bytes
+back. That makes the whole pack CC0 with the repo as its author, and it makes
+provenance a property of the script rather than a claim about a file's origin.
+
+The script is plain Node with no dependencies: it writes 22050 Hz mono 16-bit
+WAV bytes by hand and base64s them into the modules. Two things in it are less
+obvious than they look. Squares and triangles are summed from their harmonics
+under a 9.5 kHz guard, because a naive square at 1.2 kHz on a 22 kHz rate folds
+its top harmonics back down as grit. And the state-variable bandpass goes
+unstable above roughly a third of the sample rate, where it produces NaN and
+normalises to a silent file, so anything brighter uses the one-pole highpass
+instead and `finish()` throws rather than writing a sound nobody can hear.
+
+`src/test/sound-web.test.ts` is the listening test nobody can do by ear: it
+decodes each module's WAV header, and checks the rate, the channel count, the
+declared duration, a peak between -6 and -1 dBFS, and near-silence in the first
+and last 64 samples so nothing clicks. The turn chime is the one sound
+deliberately quieter than the rest, at -5.5 dBFS: it fires on every hand, and a
+literal 60 percent of -3 dBFS would fall under that test's floor.
 
 ### `chat` reuses each pack's own click
 
@@ -133,8 +181,11 @@ these three the moment a verified CC0 notification sound can be vendored.
 | felt | ~69 KB |
 | arcade | ~36 KB |
 | glass | ~72 KB |
+| web | ~169 KB |
 
-All well under the 250 KB per-pack budget.
+All under the 250 KB per-pack budget; `web` is the big one because uncompressed
+WAV costs about 59 KB of base64 per second of audio, and the script prints the
+running total so a regeneration cannot quietly blow past it.
 
 ## Integration points
 
