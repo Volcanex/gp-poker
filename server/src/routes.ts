@@ -44,6 +44,7 @@ import { queueSize, rankedUnlocked } from './matchmaking.js';
 import { getRoom } from './match/rooms.js';
 import { claimGuest, login, requireUser, setSessionCookie, clearSessionCookie, createSessionForUser, SESSION_COOKIE } from './auth.js';
 import { rosterSummary } from './bots/index.js';
+import { onlineCount as populationOnlineCount } from './bots/population.js';
 import { mainMode, roundRatings, toModeRating, toUserSummary } from './userView.js';
 import { computeInsights, type Insights } from './insights.js';
 import { health } from './health.js';
@@ -124,7 +125,7 @@ export function registerRoutes(app: FastifyInstance): void {
 
   app.get<{ Querystring: { mode?: string } }>('/api/leaderboard', async (request) => {
     const mode = modeParam(request.query.mode);
-    const rows = await getLeaderboard(mode, 100);
+    const rows = await getLeaderboard(mode, 100, config.populationPublic);
     return rows.map((r) => ({
       id: r.id,
       name: r.name,
@@ -389,7 +390,12 @@ export function registerRoutes(app: FastifyInstance): void {
   app.get<{ Querystring: { limit?: string; ladder?: string } }>('/api/recent', async (request) => {
     const limit = clampLimit(request.query.limit, 20, 50);
     const rows = await getRecentMatches(limit, request.query.ladder === '1');
-    return rows.map(toFeedMatch);
+    // The ladder query flag above already keeps ladder matches out unless
+    // asked for, and a match that clears that flag is never re-hidden here:
+    // `?ladder=1` is its own opt-in, independent of the population's. Every
+    // other bot-only match needs the population's own gate, off by default
+    // meaning "exactly the feed this site always had".
+    return rows.filter((m) => m.format.ladder === true || config.populationPublic || hasHuman(m)).map(toFeedMatch);
   });
 
   // The home page's stats strip. Cached because it is polled every ten
@@ -401,9 +407,9 @@ export function registerRoutes(app: FastifyInstance): void {
     const counts = await getSiteStats();
     const live = await getLiveMatches();
     const body = {
-      online: hub.countHumans(),
+      online: hub.countHumans() + (config.populationPublic ? populationOnlineCount() : 0),
       inQueue: queueSize(),
-      playing: live.filter(hasHuman).length,
+      playing: live.filter(isVisibleLive).length,
       matchesToday: counts.matchesToday,
       handsTotal: counts.handsTotal,
       playersTotal: { registered: counts.playersRegistered, guest: counts.playersGuest },
@@ -412,12 +418,14 @@ export function registerRoutes(app: FastifyInstance): void {
     return body;
   });
 
-  // Matches in progress with a person at the table. The human queues never
-  // seat a bot-only table, but the ladder does, and one of those is not
-  // something to watch: the filter is what keeps it off the list.
+  // Matches in progress worth watching. Off, this is exactly what it always
+  // was: a person has to be at the table. On, the population's own matches
+  // count too, because that is the whole point of turning it on; the ladder
+  // stays off the list either way; it exists to make numbers real, not to be
+  // watched.
   app.get('/api/live', async () => {
     const rows = await getLiveMatches();
-    return rows.filter(hasHuman).map((m) => ({
+    return rows.filter(isVisibleLive).map((m) => ({
       id: m.id,
       mode: m.format.mode,
       rated: m.rated,
@@ -758,6 +766,16 @@ function isPractice(format: MatchFormat): boolean {
 
 function hasHuman(m: MatchRow): boolean {
   return m.seats.some((s) => s.bot !== true);
+}
+
+// A match worth showing on /api/live and counting toward /api/stats'
+// `playing`: a person at the table always qualifies; a bot-only table
+// qualifies only when the population is public, and never if it is the
+// ladder (`format.ladder`), which stays backstage regardless: it exists to
+// make ratings real, not to be watched.
+function isVisibleLive(m: MatchRow): boolean {
+  if (m.format.ladder === true) return false;
+  return hasHuman(m) || config.populationPublic;
 }
 
 // Finishing order, not seat order: a feed row reads "winner beat loser", and
