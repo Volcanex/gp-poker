@@ -47,8 +47,20 @@ hand when a number needs producing.
   hands. It is enough to say the bot is not being destroyed and that it never
   sends an action Slumbot rejects, and both of those are worth knowing.
 
-## Gotcha
-`BOT_BENCH_BUDGET_MS` defaults well below the 1500ms a live table gives level
-6, because a run long enough to say anything at 1500ms takes hours. A smaller
-budget makes level 6 worse, so every number it prints is a floor. Say which
-budget a number came from whenever you quote one.
+## Gotchas
+`BOT_BENCH_BUDGET_MS` defaults well below the 1500ms a live table gives the
+solver tier, because a run long enough to say anything at 1500ms takes hours. A
+smaller budget makes a thinking tier worse, so every number it prints is a
+floor. Say which budget a number came from whenever you quote one.
+
+By default it gives **both sides the same budget**, which is the controlled
+comparison: it asks which allocation of the same processor plays better, and
+between the regular and solver tiers that is the whole question. Set
+`BOT_BENCH_PRODUCTION_BUDGETS=1` to give each tier the budget a live match
+gives it instead, which asks the different question of which one wins at a real
+table. Both are worth having and they are not the same number.
+
+The budget is spent in **processor time**, not wall clock, because this box is
+shared: a wall clock budget while three other things are running measures the
+other three things. Live play is the other way round, so the server's runner is
+not this one.

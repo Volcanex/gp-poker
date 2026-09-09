@@ -19,6 +19,7 @@
 
 import { formatFor, type BotLevel } from '@opentable/protocol';
 import { brainForLevel, mulberry32, playHand, seedFrom } from '../src/bots/simulate.js';
+import { budgetFor, thinkingTier } from '../src/bots/solver.js';
 
 const DEALS = Number(process.env.BOT_BENCH_DEALS ?? 200);
 const BUDGET_MS = Number(process.env.BOT_BENCH_BUDGET_MS ?? 250);
@@ -27,6 +28,18 @@ const STACKS = (process.env.BOT_BENCH_STACKS ?? '30,100').split(',').map(Number)
    because this box is shared and a wall clock budget under load measures the
    load. Set BOT_BENCH_WALL_CLOCK=1 to see what a busy box does to the bot. */
 const BY_CPU_TIME = process.env.BOT_BENCH_WALL_CLOCK !== '1';
+/* Give each tier the budget it actually gets in a live match rather than one
+   budget for both. Off by default, because one budget for both is the
+   controlled comparison: it asks which allocation of the same processor plays
+   better, which is the whole question between the regular and solver tiers.
+   On, it asks the different question of which one wins at a real table. */
+const PRODUCTION_BUDGETS = process.env.BOT_BENCH_PRODUCTION_BUDGETS === '1';
+
+function budgetForLevel(level: BotLevel): number {
+  if (!PRODUCTION_BUDGETS) return BUDGET_MS;
+  const tier = thinkingTier(level);
+  return tier ? budgetFor(FORMAT.clockMs, tier) : BUDGET_MS;
+}
 /* BOT_BENCH_PAIRS picks the matchups, as "7v6,6v5". The default is the ladder
    read upwards a rung at a time (solver against regular, regular against
    sharp), plus the two rungs skipped (solver against sharp) and the control
@@ -45,8 +58,8 @@ interface Result {
 async function matchup(a: BotLevel, b: BotLevel, stackBb: number, deals: number): Promise<Result> {
   const stack = stackBb * BB;
   const brains = new Map<BotLevel, ReturnType<typeof brainForLevel>>([
-    [a, brainForLevel(a, BUDGET_MS, BY_CPU_TIME)],
-    [b, brainForLevel(b, BUDGET_MS, BY_CPU_TIME)],
+    [a, brainForLevel(a, budgetForLevel(a), BY_CPU_TIME)],
+    [b, brainForLevel(b, budgetForLevel(b), BY_CPU_TIME)],
   ]);
   const rng = mulberry32(1000 * a + b + stackBb);
   const samples: number[] = [];
@@ -91,8 +104,9 @@ function percentile(values: number[], p: number): number {
 }
 
 async function main(): Promise<void> {
+  const budget = PRODUCTION_BUDGETS ? 'each tier its live budget' : `${BUDGET_MS}ms`;
   console.log(
-    `deals per matchup ${DEALS}, solver budget ${BUDGET_MS}ms of ${BY_CPU_TIME ? 'processor time' : 'wall clock'}, blinds ${SB}/${BB}`
+    `deals per matchup ${DEALS}, budget ${budget} of ${BY_CPU_TIME ? 'processor time' : 'wall clock'}, blinds ${SB}/${BB}`
   );
   console.log('matchup            stack   hands      bb/100      SE   p50ms   p95ms');
   const pairs: [BotLevel, BotLevel][] = (process.env.BOT_BENCH_PAIRS ?? '7v6,6v5,7v5,5v4')
