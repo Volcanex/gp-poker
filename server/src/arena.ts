@@ -18,6 +18,7 @@ import {
 import { availableBots } from './bots/index.js';
 import { chargeNoShow, checkFor, openReadyCheck } from './ready.js';
 import { createMatchForPlayers, matchFormat, randomMatchId, rankedUnlocked } from './matchmaking.js';
+import { rankedBanMessage, rankedBanUntil } from './walkouts.js';
 import { getRoom, roomForPlayer } from './match/rooms.js';
 import { onMatchFinished } from './match/finished.js';
 import { hub } from './ws/hub.js';
@@ -579,6 +580,12 @@ export async function joinArena(id: string, userId: string): Promise<{ ok: true 
       status: 409,
       error: 'Play one casual game first. Arenas open as soon as it finishes.',
     };
+  }
+  // And the same ban. An arena is a ranked door like any other, so somebody
+  // serving out a walkout does not get in through it.
+  const banned = await rankedBanUntil(userId);
+  if (banned !== null) {
+    return { ok: false, status: 409, error: rankedBanMessage(banned) };
   }
   await insertArenaPlayer(id, userId);
   await pushArena(id, true);

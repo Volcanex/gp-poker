@@ -13,6 +13,7 @@ import {
 } from './db.js';
 import { createMatchForPlayers, matchFormat, randomMatchId } from './matchmaking.js';
 import { roomForPlayer } from './match/rooms.js';
+import { rankedBanMessage, rankedBanUntil } from './walkouts.js';
 import { toUserSummary } from './userView.js';
 import { isUniqueViolation } from './pgError.js';
 
@@ -138,6 +139,24 @@ export async function acceptChallenge(
       status: 409,
       error: `${creator?.name ?? 'that player'} is in a match right now. The link still works once it is over.`,
     };
+  }
+
+  /* A rated link is a ranked door, so a walkout ban closes it. Both seats
+     are asked, not only the person clicking: a banned player who sent the
+     link would otherwise be dealt into a rated match by somebody else
+     accepting it. The refusal names which of the two it is about. */
+  if (row.rated) {
+    const yours = await rankedBanUntil(userId);
+    if (yours !== null) return { ok: false, status: 409, error: rankedBanMessage(yours) };
+    const theirs = await rankedBanUntil(row.creatorId);
+    if (theirs !== null) {
+      const creator = await getUserById(row.creatorId);
+      return {
+        ok: false,
+        status: 409,
+        error: `${creator?.name ?? 'That player'} left a ranked match and cannot play a rated one yet. The link still works once they can.`,
+      };
+    }
   }
 
   const claimed = await claimChallenge(id, userId);
