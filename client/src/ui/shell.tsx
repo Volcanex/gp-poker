@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import {
@@ -8,6 +8,15 @@ import { AccountMenu } from './auth.tsx';
 import { SettingsMenu } from './settings.tsx';
 import { PlayingPill } from './presence.tsx';
 import { useGInit } from './bits.tsx';
+
+/* The top bar's own middle: a match is the one page with actions that belong
+   up here rather than in the sidebar, and it needs a real DOM node to portal
+   them into, not just a boolean. Null until the bar has mounted, which is
+   the one render a reader of it has to allow for. */
+const TopActsSlot = createContext<HTMLSpanElement | null>(null);
+export function useTopActsSlot(): HTMLSpanElement | null {
+  return useContext(TopActsSlot);
+}
 
 /* The site's persistent chrome: g-system's `.g-shell`, which is a sidebar of
    sections beside the page and, under 720px, the same sidebar as an off-canvas
@@ -63,6 +72,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
   const sheet = sidebarIsSheet(pathname);
   const offCanvas = useOffCanvas(sheet);
   const [open, setOpen] = useState(false);
+  const [topActs, setTopActs] = useState<HTMLSpanElement | null>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const barRef = useRef<HTMLElement>(null);
   /* The hamburger is g's `list` icon, injected by g-ui.js from the data
@@ -115,6 +125,11 @@ export function SiteShell({ children }: { children: ReactNode }) {
         />
         <Link className="wordmark" to="/">Open Table</Link>
         <span className="spacer" />
+        {/* A match's own actions, portalled in from wherever one is open. Empty
+            everywhere else, which is why it costs the bar nothing: an empty
+            flex item between two spacers is nought pixels wide. */}
+        <span className="top-acts" ref={setTopActs} />
+        <span className="spacer" />
         <PlayingPill />
         {offCanvas && <AccountMenu />}
         {offCanvas && <SettingsMenu />}
@@ -140,7 +155,9 @@ export function SiteShell({ children }: { children: ReactNode }) {
           </div>
         </aside>
 
-        <div className="shell-main">{children}</div>
+        <div className="shell-main">
+          <TopActsSlot.Provider value={topActs}>{children}</TopActsSlot.Provider>
+        </div>
 
         <div className="g-scrim" onClick={close} />
       </div>

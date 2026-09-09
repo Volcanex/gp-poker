@@ -534,19 +534,25 @@
 
 /* The table asks how much room it has, not how wide the window is: the replay
    draws the same felt in a narrow column beside its action list. */
-/* One rule holds this whole screen together: the header, the felt and the dock
-   each keep the same box in every state, and only their contents change. The
-   old table mounted its action bar only on your turn, so the felt re-divided
-   the moment it was your decision to make. Nothing here may size to its
-   content. */
+/* One rule holds this whole screen together: the felt and the dock each keep
+   the same box in every state, and only their contents change. The old table
+   mounted its action bar only on your turn, so the felt re-divided the moment
+   it was your decision to make. Nothing here may size to its content.
+
+   The hand's own actions (Copy link, Verify, Leave game, Chat) stand in the
+   site's own top bar above 900px (`../ui/shell.tsx`), portalled there by
+   `table.tsx`; below it there is no room left for them up there and they
+   fall back to a header row of this screen's own, `.hand-head`, which is
+   why that row is optional rather than fixed like every other one here (see
+   `../table/CLAUDE.md`, "Leaving a game"). */
 .match {
   container-type: inline-size;
   flex: 1;
   display: grid;
-  /* **The table is one screen and never the page's scrollbar.** Every row in
-     this grid is a fixed height except the felt, which is the `1fr` and
-     scrolls its own overflow, so a window too short for the felt shortens the
-     felt. Without the cap the column simply grew: `#root` is `min-height`, so
+  /* **The table is one screen and never the page's scrollbar.** Every fixed
+     row in this grid holds its height and the felt, the only `1fr`, scrolls
+     its own overflow, so a window too short for the felt shortens the felt.
+     Without the cap the column simply grew: `#root` is `min-height`, so
      the page took the overflow instead and the controls at the bottom of the
      band went under the fold, which is the one thing on a poker table that
      must always be under the hand. Measured on a 1366 by 768 laptop before
@@ -554,14 +560,13 @@
 
      A finished match and the replay are documents rather than screens: the
      result panel and the hand list are meant to be scrolled to. */
-  /* Six rows, every one of them placed explicitly. Two are optional (a
-     spectator's strip and a practice table's) and an empty row is nought
-     pixels, so the four combinations are one template rather than four, and
-     neither strip can push the felt around by appearing. */
-  grid-template-rows: auto var(--head-h) minmax(0, 1fr) auto auto auto;
+  /* Six rows, every one of them placed explicitly. Three are optional (a
+     spectator's strip, a narrow header and a practice table's) and an empty
+     row is nought pixels, so the combinations are one template rather than
+     several, and none of the three can push the felt around by appearing. */
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
   min-height: 0;
   position: relative;
-  --head-h: 40px;
   --dock-h: 128px;
   --keys-h: 24px;
   --stats-h: var(--strip-h);
@@ -596,19 +601,26 @@
 .match > .dock { grid-row: 5; }
 .match > .dock-keys { grid-row: 6; }
 
+/* Below 900 (`TOP_BAR_ACTS` in `table.tsx`), the match's own actions, in a
+   row of this screen's own rather than the site's top bar. Auto height and
+   only ever rendered down here, so it is nought pixels above 900 exactly the
+   way the spectator's strip is nought pixels for a seated player. */
 .hand-head {
-  height: var(--head-h);
   display: flex; align-items: center; justify-content: center;
-  padding: 0 var(--sp-4);
+  padding: var(--sp-2) var(--sp-4);
   border-bottom: 1px solid var(--border-subtle);
   font-size: 12px; color: var(--text-secondary);
   overflow: hidden;
 }
-.hand-head .bar-in { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: nowrap; }
-.hand-head .head-acts { display: inline-flex; align-items: center; gap: 6px; }
+.hand-head .bar-in { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-3); flex-wrap: nowrap; }
+
+/* The actions themselves, the same span whichever of the two rows above it
+   is holding it. */
+.top-acts { display: inline-flex; align-items: center; }
+.head-acts { display: inline-flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
 /* Verify is rendered in every state and disabled until the seed is published.
    It used to appear at hand end, which moved the header on every hand. */
-.hand-head .head-acts [aria-disabled="true"] { opacity: 0.45; pointer-events: none; }
+.head-acts [aria-disabled="true"] { opacity: 0.45; pointer-events: none; }
 
 /* One felt, one geometry. **The board is one row of five slots across the top
    of the felt, above everything**, and the opponents sit in two columns under
@@ -1274,7 +1286,7 @@
    dimmed and still rendered: the hand that decided the match is the one thing
    you want to look at when it ends. */
 .match[data-ended] .felt { opacity: 0.7; transition: opacity var(--dur-slow) var(--ease-out); }
-.match[data-ended] { grid-template-rows: auto var(--head-h) minmax(160px, 1fr); }
+.match[data-ended] { grid-template-rows: auto auto minmax(160px, 1fr); }
 
 .result-panel {
   width: 100%; max-width: 680px; margin: var(--sp-4) auto 0;
@@ -1327,27 +1339,13 @@
   font-size: 11px; color: var(--text-secondary);
 }
 
-@media (max-width: 680px) {
-  .hand-head { padding: 0 var(--sp-3); font-size: 11px; }
-  .hand-head .bar-in { gap: var(--sp-2); }
-  .hand-head .bar-in > * { white-space: nowrap; }
-}
-
-/* Phones. The header's row may not wrap and may not scroll, and with four
-   controls in it there is no room for the copy button's label: at 360 the
-   row ran 23 px over, which pushed Chat off the edge and left the whole
-   group's position depending on how a font happened to measure, and 390 had
-   under 7 px to spare, which is inside the noise of a font swap. So the copy
-   button gives up its label and keeps its icon. It is the only control here
-   whose icon says on its own what it does, the aria-label is unchanged, and
-   it is the same bargain the seat line makes when it gives up its avatar and
-   its flag slot to keep a name whole. Above this the row has room for both.
-
-   Measured, not guessed: with the label gone 360 has 41 px of slack and 390
-   has 71. Keep it that way, and see `table/CLAUDE.md` on why this row is not
-   allowed to move. */
-@media (max-width: 400px) {
-  .hand-head .copy-btn .copy-label { display: none; }
+/* Phones. `.top`'s own row may not wrap and may not scroll, and it now holds
+   the match's four controls beside the wordmark, the playing pill, the
+   account and settings menus: there is no room down here for the copy
+   button's label. See `table/CLAUDE.md`, "Leaving a game", on why this row
+   is not allowed to move. */
+@media (max-width: 520px) {
+  .head-acts .copy-btn .copy-label { display: none; }
 }
 
 /* ------------------------------------------------------------------- phone */
@@ -1376,7 +1374,6 @@
      The slider goes: presets and the field cover every size a thumb can ask
      for, and the field opens the numeric keypad. The legend goes too. */
   .match {
-    --head-h: 36px;
     --stats-h: 60px;
     --dock-h: 150px;
     --keys-h: 0px;

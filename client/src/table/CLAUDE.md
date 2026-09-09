@@ -25,19 +25,21 @@ explicitly in `../app.css`. **Nothing in that column may size to its content.**
 | Row | What |
 | --- | --- |
 | 1 | `.watch-bar`, the spectator's strip |
-| 2 | `.hand-head`, the hand header |
+| 2 | `.hand-head`, the hand header, below 900px only (see "Leaving a game") |
 | 3 | `.felt`, the only row that takes what is left |
 | 4 | `.practice-strip`, the practice table's live stats, unless the band has taken them |
 | 5 | `.dock` |
 | 6 | `.dock-keys`, the key legend, desktop only |
 
-Rows 1 and 4 are optional and an empty grid row is nought pixels, so the four
-combinations are one template rather than four, and a strip can only take room
-from the felt. Both strips are settled before the first card: who is watching
-and whether a table is a practice table cannot change mid-hand, which is what
-makes them safe to put in this column at all. The spectator's strip used to sit
-outside the grid on the argument that a strip only some viewers see does not
-belong in it, which was true of a strip that could arrive mid-hand.
+Rows 1, 2 and 4 are optional and an empty grid row is nought pixels, so the
+combinations are one template rather than several, and a strip can only take
+room from the felt. All three are settled before the first card: who is
+watching, whether a table is a practice table and whether the viewport is
+wide enough for the site's own top bar to hold the header's actions cannot
+change mid-hand, which is what makes them safe to put in this column at all.
+The spectator's strip used to sit outside the grid on the argument that a
+strip only some viewers see does not belong in it, which was true of a strip
+that could arrive mid-hand.
 
 The rule came from the defect this rebuild started with. The old table mounted
 its action bar only when `legal` was non-null, so the felt re-divided the
@@ -83,16 +85,26 @@ shift is a regression, and the usual cause is a box sized to a string:
 
 ## Leaving a game
 
-`leave-control.tsx` is the button and the dialog behind it, drawn into the
-header's `.head-acts` beside Copy link and Verify. **The header is the only
-place on this screen it can be**: it is the row that already holds the things
-that are not the hand, and it is the one part of the table no decision is ever
+`leave-control.tsx` is the button and the dialog behind it, drawn into
+`.head-acts` beside Copy link and Verify. **`head-acts` is the only place on
+this screen it can be**: it is the group that already holds the things that
+are not the hand, and it is the one part of the table no decision is ever
 taken from. A control that ends a match must not be a fat finger from a fold.
 
+`head-acts` itself stands in one of two places, decided in `table.tsx` by
+`TOP_BAR_ACTS` (`(min-width: 900px)`), never both: above it, portalled into
+`.top-acts` in the site's own top bar (`../ui/shell.tsx`), which is where
+`Table` has no row of its own to spend on it at all; below it, in `.hand-head`,
+a row of this screen's own, because the top bar has no room left for it there
+beside the account and settings menus the route already carries in it at
+every width. One `<span className="head-acts">` is declared once in
+`table.tsx` and moved wholesale, so the two homes cannot drift into two
+different sets of controls.
+
 It is rendered for a seated player and only ever *disabled* once the match is
-over, never removed, so the header's box does not move: whether you have a
-seat is settled before the first card, which is the same argument that lets
-the watch bar be a row of the grid. A spectator gets no control at all.
+over, never removed, so neither home's box moves: whether you have a seat is
+settled before the first card, which is the same argument that lets the watch
+bar be a row of the grid. A spectator gets no control at all.
 
 A casual or practice table leaves on the press. A ranked one opens the g-system
 dialog first and says two things: what leaving does to this match (forfeit,
@@ -109,24 +121,30 @@ walkout for a seat that already has a place (`handleResign` in
 `match/room.ts`), so a dialog warning them about a punishment that will not
 land would be lying to them.
 
-**The header's row has a width budget, and the leave control spent most of
-it.** `.hand-head .bar-in` may not wrap and may not scroll, so four controls
-plus the chat toggle have to fit at 360, and they do not while the copy
-button carries its label: the row ran 23 px over, which pushed Chat off the
-edge and left the group's position depending on how a font measured, which is
-what made the 360 screenshots flake. Below 400 px the label is hidden and the
-copy button is its icon (`../app.css`), which leaves 41 px of slack at 360 and
-71 at 390. Anything else added to this row has to be paid for out of that.
+**`head-acts` has a width budget wherever it stands, and the leave control
+spends most of it.** It may not wrap and may not scroll, so four controls plus
+the chat toggle have to fit at 360 in `.hand-head`, and they do not while the
+copy button carries its label: the row ran 23 px over, which pushed Chat off
+the edge and left the group's position depending on how a font measured,
+which is what made the 360 screenshots flake. Below 520 px the label is
+hidden and the copy button is its icon (`../app.css`), which leaves 41 px of
+slack at 360 and 71 at 390. Anything else added to this group has to be paid
+for out of that, in whichever home it is currently standing in.
 
 The `<dialog>` sits inside `.head-acts` with the button that opens it. A
 closed dialog is `display: none` and an open one is in the top layer, so
 neither is part of the row: `../../e2e/leave.spec.ts` asserts the table's boxes
 and the layout-shift total are untouched by opening it.
 
-**Backdrop dismiss is g-ui's, not this file's**, and it is wired by the
-`useGInit(headRef)` in `table.tsx`, which walks `.hand-head` on mount and
-finds every `dialog.dlg` under it. Move the dialog out of that subtree and
-clicking the backdrop silently stops closing it.
+**Backdrop dismiss is g-ui's, not this file's**, and it is wired by an effect
+in `table.tsx` keyed on `headRef` actually pointing at a mounted node, walking
+`head-acts` and finding every `dialog.dlg` under it. It is not `useGInit`'s
+own once-on-mount pass: the portalled span mounts a render after `table.tsx`
+does (it is waiting on the top bar's own slot to exist), and crossing 900
+swaps the portalled span for the row's own or back, so `headRef` points at a
+fresh, unwired node more than once in this component's life, which a
+once-only effect cannot see. Move the dialog out of `head-acts` and clicking
+the backdrop silently stops closing it, in either home.
 
 What the press *does* is the route's (`../routes/CLAUDE.md`), because only the
 page holding a subscription knows how to end a match.
@@ -856,10 +874,13 @@ a box this size can hold, and a box that dropped them would be a worse strip.
 ### The hand header
 
 Only actions: Copy link (the match URL, `${origin}/m/${view.m}`, through g's
-`data-copy`), Verify (to the hand page, where the seed hash lives) and Chat.
-The hand, the street and the blinds are in the stats box; the seed hash left
-the header because it means nothing to a player, and the header keeps its
-reserved height.
+`data-copy`), Verify (to the hand page, where the seed hash lives), Leave
+game and Chat. The hand, the street and the blinds are in the stats box; the
+seed hash left the header because it means nothing to a player.
+
+Above 900px this is not a row of the table at all: see "Leaving a game" for
+where `head-acts` actually stands and why the row below it is optional
+rather than reserved.
 
 ## Sound
 

@@ -57,6 +57,18 @@ is no second copy to hide with a media query: while the sidebar is a sheet the
 two sit in the top bar, and while it is a rail they sit at its foot. That is
 the one thing the shell asks in JavaScript rather than in CSS.
 
+**The top bar has a middle, for a page that has actions worth the extra
+prominence.** `.top-acts`, a `<span>` between the wordmark and the account
+group, is the only route-agnostic thing about it: it is empty everywhere
+except where something has portalled into it. `useTopActsSlot` hands out the
+node itself (not just a boolean) through `TopActsSlot.Provider`, wrapping
+`{children}` rather than the whole shell, because the node has to exist
+before anything can portal into it and a ref does not trigger the re-render
+that tells a consumer it now can. The one user today is the match's own
+`head-acts` (`../table/CLAUDE.md`, "Leaving a game"), above 900px; narrower
+than that the table has no room left up here beside the account and settings
+menus this route already carries, and draws its own row instead.
+
 ## The page entrance
 
 `enter.tsx` is the whole of it, and it is one system for the whole app: no page

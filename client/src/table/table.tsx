@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import type { ActionKind, Card, SeatView, TableView } from '@opentable/protocol';
@@ -15,13 +16,14 @@ import { dealFrom, dealOrder, layoutMode, placeOf, seatOrder } from './layout.ts
 import { amountToCall } from './preactions.ts';
 import { readShowdown } from './best-five.ts';
 import { useTableSounds } from './sounds.ts';
-import { useGInit, useMedia } from '../ui/bits.tsx';
+import { useMedia } from '../ui/bits.tsx';
 import { LiveStats } from '../analysis/live-stats.tsx';
 import { ChatPanel, ChatToggle } from '../chat/chat.tsx';
 import { LeaveControl } from './leave-control.tsx';
 import type { ChatController } from '../chat/use-chat.ts';
 import { LookContext, type Look } from './look.ts';
 import { DeckSprite } from './deck-sprite.tsx';
+import { useTopActsSlot } from '../ui/shell.tsx';
 import './look-v2.css';
 
 export interface TableProps {
@@ -56,6 +58,15 @@ const BOARD_SLOTS = 5;
    table's readings side by side. Under it the readings keep their own row. */
 const BAND_STATS = '(min-width: 1100px)';
 
+/* Wide enough for the site's own top bar to hold the match's actions beside
+   the account and settings menus it already carries on this route at every
+   width. The account button carries whatever the signed-in name measures,
+   which is not capped the way a seat's is, so this keeps real margin above
+   the width four controls plus a short name needs rather than the width a
+   long one costs; below it the actions keep the felt's own header row
+   instead, the way they always have. */
+const TOP_BAR_ACTS = '(min-width: 900px)';
+
 /* The hand-end sequence, in the order the eye needs it: the cards turn over,
    then the five that count are outlined and the rest of the board goes quiet,
    then the chips move. Each number is the moment that step starts. */
@@ -74,9 +85,29 @@ const AWARD_OPEN = { '--wipe': '0%' };
 
 export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', onNext, onBack, onLeave }: TableProps) {
   const reduced = useReducedMotion();
-  const headRef = useRef<HTMLDivElement>(null);
-  useGInit(headRef);
+  const headRef = useRef<HTMLSpanElement>(null);
   useTableSounds(bare ? null : view);
+  /* The site's own top bar, portalled the actions into its middle: null until
+     it has mounted, which is the one render this waits out. `useGInit` fires
+     once on this component's own mount, before the slot exists, so `head-acts`
+     is not there yet for it to find; this waits for the slot instead and
+     wires the portalled span the moment it actually has one. */
+  const topActs = useTopActsSlot();
+  /* Below 900 the top bar has no room left for them (see `TOP_BAR_ACTS`), so
+     the actions stand in the felt's own header row instead, exactly as they
+     did before this had a middle to go to. */
+  const wideHead = useMedia(TOP_BAR_ACTS);
+  /* Wired on whichever render actually mounts the span, portalled or not:
+     the portal's own node arrives a render after `topActs` does, and
+     crossing 900 either way swaps one span for the other, so `headRef`
+     points at a fresh, unwired node more than once in this component's
+     life. `useGInit`'s once-on-mount guard cannot see either change. */
+  useEffect(() => {
+    const el = headRef.current;
+    if (!el || el.dataset.gDone === '1') return;
+    el.dataset.gDone = '1';
+    window.g?.init(el);
+  }, [topActs, wideHead]);
 
   /* The bottom slot is yours when you are seated; watching, seat 0 takes it.
      Everyone else goes round the table from your left: up the left column,
@@ -150,6 +181,35 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
 
   const matchUrl = `${window.location.origin}/m/${view.m}`;
 
+  const headEl = (
+    <span className="head-acts" ref={headRef}>
+      <button
+        type="button"
+        className="btn btn-tertiary btn-sm copy-btn"
+        data-copy={matchUrl}
+        aria-label="Copy a link to this match"
+      >
+        <span className="copy-label">Copy link</span>
+      </button>
+      {view.seed ? (
+        <Link className="btn btn-tertiary btn-sm" to={`/m/${view.m}/h/${view.h}`}>
+          Verify
+        </Link>
+      ) : (
+        <span className="btn btn-tertiary btn-sm" aria-disabled="true" title="Published when the hand completes">
+          Verify
+        </span>
+      )}
+      {/* Only somebody with a seat has a game to leave, and whether they have
+          one cannot change mid-match, which is what makes this safe to leave
+          out of a spectator's header rather than disable. */}
+      {onLeave && view.you != null && (
+        <LeaveControl format={view.format} ended={Boolean(ended)} out={mySeat?.out ?? false} onLeave={onLeave} />
+      )}
+      {chat && <ChatToggle chat={chat} />}
+    </span>
+  );
+
   return (
     <LookContext.Provider value={look}>
     {look === 'v2' && <DeckSprite />}
@@ -167,42 +227,20 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
     >
       {watching && <WatchBar view={view} />}
 
-      {!bare && (
-      <div className="hand-head" ref={headRef}>
-       <div className="bar-in">
-        <span className="spacer" style={{ flex: 1 }} />
-        {/* Only the actions live here; the hand, the street and the blinds are
-            in the stats box under the board. Every control is always rendered:
-            Verify used to appear when the seed was published, which moved the
-            header at the end of every hand. */}
-        <span className="head-acts">
-          <button
-            type="button"
-            className="btn btn-tertiary btn-sm copy-btn"
-            data-copy={matchUrl}
-            aria-label="Copy a link to this match"
-          >
-            <span className="copy-label">Copy link</span>
-          </button>
-          {view.seed ? (
-            <Link className="btn btn-tertiary btn-sm" to={`/m/${view.m}/h/${view.h}`}>
-              Verify
-            </Link>
-          ) : (
-            <span className="btn btn-tertiary btn-sm" aria-disabled="true" title="Published when the hand completes">
-              Verify
-            </span>
-          )}
-          {/* Only somebody with a seat has a game to leave, and whether they
-              have one cannot change mid-match, which is what makes this safe
-              to leave out of a spectator's header rather than disable. */}
-          {onLeave && view.you != null && (
-            <LeaveControl format={view.format} ended={Boolean(ended)} out={mySeat?.out ?? false} onLeave={onLeave} />
-          )}
-        </span>
-        {chat && <ChatToggle chat={chat} />}
-       </div>
-      </div>
+      {/* The match's own actions: the site's top bar above 900
+          (`TOP_BAR_ACTS`), portalled into the slot `SiteShell` renders in
+          `header.top`, or the felt's own header row below it, where the top
+          bar has no room left for them beside the account and settings menus
+          it already carries on this route. One element either way, declared
+          once so the two homes cannot drift into two different rows of
+          controls. Every control is always rendered: Verify used to appear
+          only once the seed was published, which moved the header at the
+          end of every hand. */}
+      {!bare && wideHead && topActs && createPortal(headEl, topActs)}
+      {!bare && !wideHead && (
+        <div className="hand-head">
+          <div className="bar-in">{headEl}</div>
+        </div>
       )}
 
       <div className="felt" data-mode={mode} data-seats={order.length}>

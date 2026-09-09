@@ -69,9 +69,9 @@ export function LeaveControl({ format, ended, out, onLeave }: {
    while it is open and dismissing it is the same answer as keeping playing.
 
    Backdrop dismiss is g-ui's own light-dismiss, wired by the `useGInit` on
-   the header in `table.tsx`: it walks `.hand-head` on mount and finds every
-   `dialog.dlg` under it, which is why this one is rendered there rather than
-   anywhere else that would look tidier. */
+   `table.tsx`'s own `head-acts`: it walks that span on mount and finds every
+   `dialog.dlg` under it, which is why this one is rendered there, portalled
+   into the site's top bar, rather than anywhere else that would look tidier. */
 function LeaveDialog({ ref, strikes, banUntil, onConfirm, onKeep }: {
   ref: React.RefObject<HTMLDialogElement | null>;
   strikes: number;
