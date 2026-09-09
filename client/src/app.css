@@ -1542,10 +1542,23 @@ a.btn { text-decoration: none; }
 .ready-dlg .ready-count {
   display: flex;
   align-items: baseline;
-  gap: var(--sp-2);
+  gap: var(--sp-3);
   font-size: var(--font-size-ui);
+  line-height: var(--lh-3);
   margin-top: var(--sp-2);
 }
-.ready-dlg .ready-count .num { font-size: 19px; font-weight: 500; }
-.ready-dlg .ready-clock { color: var(--text-secondary); }
+/* The tally reads as a sentence. It used to be a 19px digit with a 12px
+   label beside it, and baseline-aligning two sizes that far apart left the
+   label sinking under the number while the gap between them made the count
+   and its own words look like separate facts. */
+.ready-dlg .ready-tally { color: var(--text-secondary); }
+.ready-dlg .ready-tally .num { color: var(--text-primary); font-weight: 500; }
+/* Pushed right by the margin rather than by an empty flex item, so the row
+   has no slot in it that exists only to take up space. */
+.ready-dlg .ready-clock {
+  margin-left: auto;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
 .ready-dlg .ready-bar { margin: 2px 0 var(--sp-2); }

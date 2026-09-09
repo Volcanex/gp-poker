@@ -95,9 +95,13 @@ export function ReadyCheckDialog() {
               {readyCheck.rated ? 'ranked' : 'casual'}. Everybody has to accept before it deals.
             </span>
             <div className="ready-count">
-              <span className="num">{readyCheck.accepted}</span>
-              <span className="muted">of {readyCheck.humans} accepted</span>
-              <span style={{ flex: 1 }} />
+              {/* One sentence, not a figure with a caption beside it: the
+                  count and the words that name it are the same fact, and the
+                  number carries its weight rather than its own size. */}
+              <span className="ready-tally">
+                <span className="num">{readyCheck.accepted}</span> of{' '}
+                <span className="num">{readyCheck.humans}</span> accepted
+              </span>
               <span className="num ready-clock" aria-hidden="true">{seconds}s</span>
             </div>
             <span

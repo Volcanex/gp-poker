@@ -16,7 +16,7 @@ import { api, ApiError } from '../net/api.ts';
 import { avatarSeed, avatarVersion, mainModeOf, modeRating } from '../net/adapt.ts';
 import type { ArenaListing, CreatedChallenge, LeaderboardRow, LiveMatch, Me } from '../net/types.ts';
 import { readPlayChoice, useSession } from '../net/session.tsx';
-import { MODES, MODE_NAME, modeInline } from '../ui/mode-tabs.tsx';
+import { MODES, MODE_NAME, modeInline, modeTabLabel } from '../ui/mode-tabs.tsx';
 import { Segmented } from '../ui/segmented.tsx';
 import { elapsed, useNow } from '../ui/bits.tsx';
 import { arenaCardLine } from './arena-bits.ts';
@@ -183,7 +183,7 @@ export function Home() {
               />
               <Segmented
                 label="Table size"
-                options={MODES.map((m) => ({ value: m, label: MODE_NAME[m] }))}
+                options={MODES.map((m) => ({ value: m, label: modeTabLabel(m) }))}
                 value={mode}
                 onPick={setMode}
               />

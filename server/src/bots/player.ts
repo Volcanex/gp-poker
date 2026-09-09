@@ -1,4 +1,4 @@
-import { DEFAULT_BOT_LEVEL, type BotLevel, type ClientMsg, type MatchFormat, type ServerMsg, type TableView } from '@opentable/protocol';
+import { DEFAULT_BOT_LEVEL, speedOf, type BotLevel, type ClientMsg, type MatchFormat, type ServerMsg, type TableView } from '@opentable/protocol';
 import { decide, type BotDecision, type Rng } from './strategy.js';
 import { decideSolver, observeSolverResult, thinkingTier } from './solver.js';
 import { NEUTRAL_PERSONA, type Persona } from './persona.js';
@@ -36,12 +36,23 @@ const QUICK_MAX_MS = 400;
 // they need to: fast enough not to be dull, slow enough that a hand reads as
 // something happening rather than a wall of text. The quick range (a check,
 // a call that costs nothing) is roughly doubled rather than left alone, for
-// the same reason. Rated and casual tables against bots (the ladder, a
-// filled heads-up seat) are tuned for throughput and keep the ranges above.
+// the same reason.
 const PRACTICE_THINK_MIN_MS = 1400;
 const PRACTICE_THINK_MAX_MS = 3200;
 const PRACTICE_QUICK_MIN_MS = 200;
 const PRACTICE_QUICK_MAX_MS = 800;
+
+// A standard table is the slow game: a twenty second clock, blinds that sit
+// still, a match measured in hands rather than in minutes. A bot answering
+// it in under a second is the tell, whoever is at the table and whether they
+// are playing or spectating, so a standard seat is paced like somebody
+// actually looking at the board. The fast tables keep the ranges above:
+// there the point is that it is over quickly, and a considered pause reads
+// as lag rather than as thought.
+const STANDARD_THINK_MIN_MS = 1200;
+const STANDARD_THINK_MAX_MS = 3400;
+const STANDARD_QUICK_MIN_MS = 300;
+const STANDARD_QUICK_MAX_MS = 900;
 
 const CLOCK_FRACTION = 4; // never think for longer than a quarter of the clock
 
@@ -56,9 +67,21 @@ const READY_ACCEPT_MAX_MS = 1200;
 // Exported for the test suite: proving the ranges actually differ by format
 // does not need a live match, timers and a socket around it.
 export function thinkRange(format: MatchFormat, trivial: boolean): [number, number] {
-  const practice = format.practice === true;
-  if (trivial) return practice ? [PRACTICE_QUICK_MIN_MS, PRACTICE_QUICK_MAX_MS] : [QUICK_MIN_MS, QUICK_MAX_MS];
-  return practice ? [PRACTICE_THINK_MIN_MS, PRACTICE_THINK_MAX_MS] : [THINK_MIN_MS, THINK_MAX_MS];
+  if (format.practice === true) {
+    return trivial
+      ? [PRACTICE_QUICK_MIN_MS, PRACTICE_QUICK_MAX_MS]
+      : [PRACTICE_THINK_MIN_MS, PRACTICE_THINK_MAX_MS];
+  }
+  // The ladder is bots playing each other in the gaps with nobody watching,
+  // so it is the one standard table still tuned for throughput: pacing it
+  // for a spectator who is not there would halve the matches it gets through
+  // in a night for nothing.
+  if (format.ladder !== true && speedOf(format) === 'standard') {
+    return trivial
+      ? [STANDARD_QUICK_MIN_MS, STANDARD_QUICK_MAX_MS]
+      : [STANDARD_THINK_MIN_MS, STANDARD_THINK_MAX_MS];
+  }
+  return trivial ? [QUICK_MIN_MS, QUICK_MAX_MS] : [THINK_MIN_MS, THINK_MAX_MS];
 }
 
 export type Dispatch = (userId: string, msg: ClientMsg) => void;

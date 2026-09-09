@@ -6,7 +6,7 @@ import { api } from '../net/api.ts';
 import { levelAverageRating } from '../net/adapt.ts';
 import type { BotRow } from '../net/types.ts';
 import { readPlayChoice, useSession } from '../net/session.tsx';
-import { MODES, MODE_NAME } from '../ui/mode-tabs.tsx';
+import { MODES, MODE_NAME, modeTabLabel } from '../ui/mode-tabs.tsx';
 import { Segmented } from '../ui/segmented.tsx';
 import { useTitle } from '../ui/title.ts';
 import { modeBlurb } from './home.tsx';
@@ -67,7 +67,7 @@ export function BotsPage() {
         <div className="play-toggles">
           <Segmented
             label="Table size"
-            options={MODES.map((m) => ({ value: m, label: MODE_NAME[m] }))}
+            options={MODES.map((m) => ({ value: m, label: modeTabLabel(m) }))}
             value={mode}
             onPick={setMode}
           />

@@ -148,26 +148,47 @@ describe('bots', () => {
 
 describe('bot pacing', () => {
   const RATED = testFormat({ clockMs: 20_000 });
+  const FAST = testFormat({ clockMs: 10_000, speed: 'fast' });
   const PRACTICE = testFormat({ clockMs: 20_000, practice: true });
   const LADDER = testFormat({ clockMs: 20_000, ladder: true });
 
-  it('thinks longer on a practice table than on a rated or ladder one', () => {
+  it('thinks longer on a practice table than on a standard or fast one', () => {
     const [practiceLo, practiceHi] = thinkRange(PRACTICE, false);
-    const [ratedLo, ratedHi] = thinkRange(RATED, false);
-    const [ladderLo, ladderHi] = thinkRange(LADDER, false);
+    const [standardLo, standardHi] = thinkRange(RATED, false);
+    const [fastLo, fastHi] = thinkRange(FAST, false);
 
-    expect(practiceLo).toBeGreaterThan(ratedLo);
-    expect(practiceHi).toBeGreaterThan(ratedHi);
-    // Rated and casual tables against bots (the ladder included) keep the
-    // same ranges: only `practice` changes anything.
-    expect([ladderLo, ladderHi]).toEqual([ratedLo, ratedHi]);
+    expect(practiceLo).toBeGreaterThan(standardLo);
+    expect(practiceHi).toBeGreaterThan(fastHi);
+    expect(standardLo).toBeGreaterThan(fastLo);
+    expect(standardHi).toBeGreaterThan(fastHi);
   });
 
-  it('doubles the quick range on a practice table too', () => {
-    const [practiceLo, practiceHi] = thinkRange(PRACTICE, true);
-    const [ratedLo, ratedHi] = thinkRange(RATED, true);
+  it('paces a standard table for somebody watching it, fast or ladder for throughput', () => {
+    const [standardLo, standardHi] = thinkRange(RATED, false);
+    const [fastLo, fastHi] = thinkRange(FAST, false);
+    const [ladderLo, ladderHi] = thinkRange(LADDER, false);
 
-    expect(practiceLo).toBe(ratedLo * 2);
-    expect(practiceHi).toBe(ratedHi * 2);
+    // A ladder table is standard speed too, and is the one that keeps the
+    // throughput ranges: nobody is watching it.
+    expect([ladderLo, ladderHi]).toEqual([fastLo, fastHi]);
+    expect(standardLo).toBeGreaterThan(ladderLo);
+  });
+
+  it('slows the quick range on practice and standard tables too', () => {
+    const [practiceLo, practiceHi] = thinkRange(PRACTICE, true);
+    const [standardLo, standardHi] = thinkRange(RATED, true);
+    const [fastLo, fastHi] = thinkRange(FAST, true);
+
+    expect(practiceLo).toBe(fastLo * 2);
+    expect(practiceHi).toBe(fastHi * 2);
+    expect(standardLo).toBeGreaterThan(fastLo);
+    expect(standardHi).toBeGreaterThan(fastHi);
+  });
+
+  it('never thinks for longer than the clock allows', () => {
+    for (const format of [RATED, FAST, PRACTICE, LADDER]) {
+      const [, hi] = thinkRange(format, false);
+      expect(hi).toBeLessThan(format.clockMs);
+    }
   });
 });
