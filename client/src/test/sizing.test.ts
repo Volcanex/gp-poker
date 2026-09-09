@@ -109,7 +109,7 @@ describe('duplicate sizes', () => {
 });
 
 describe('the turn keys', () => {
-  const legal = { actions: ['f', 'c', 'r'] as const, call: 8, min: 18, max: 400 };
+  const legal: LegalActions = { actions: ['f', 'c', 'r'], call: 8, min: 18, max: 400 };
   const presets = presetsStack(legal);
   const at = (key: string, typing = false) => turnKeyAction(key, { legal, presets, typing });
 
@@ -135,7 +135,7 @@ describe('the turn keys', () => {
     expect(at('f')).toEqual({ do: 'fold' });
     expect(at('c')).toEqual({ do: 'checkOrCall', kind: 'c' });
     expect(at('f', true)).toBeNull();
-    const noRaise = { actions: ['f', 'c'] as const, call: 56, min: 0, max: 0 };
+    const noRaise: LegalActions = { actions: ['f', 'c'], call: 56, min: 0, max: 0 };
     expect(turnKeyAction(CUSTOM_KEY, { legal: noRaise, presets: [], typing: false })).toBeNull();
     expect(turnKeyAction('r', { legal: noRaise, presets: [], typing: false })).toBeNull();
   });
