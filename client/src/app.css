@@ -647,12 +647,12 @@
      round them**: the card is the thing being sized and the seat is the card
      it is held in, so the panel grows with the setting rather than the cards
      growing inside a panel that does not. */
-  --seat-card: 40px;
+  --seat-card: 46px;
   --seat-h: calc(var(--seat-card) * 1.4 + 16px);
   /* The whole of the column the felt gives a seat: the felt's width less the
      middle's and the two 16px gutters, halved. It used to stop short of that,
      which was width the name could have had. */
-  --seat-w: 412px;
+  --seat-w: 424px;
   /* The identity block: two rows and the gap between them. The avatar is cut
      to it, so the picture is exactly as tall as the name and the rack it
      stands beside. */
@@ -975,8 +975,8 @@
 .avatar[data-size="28"] { --avatar-size: 28px; }
 .avatar[data-size="56"] { --avatar-size: 56px; }
 
-:root[data-seat-cards="regular"] .felt { --seat-card: 32px; }
-:root[data-seat-cards="huge"] .felt { --seat-card: 48px; }
+:root[data-seat-cards="regular"] .felt { --seat-card: 36px; }
+:root[data-seat-cards="huge"] .felt { --seat-card: 56px; }
 
 .seat-cards { display: flex; gap: 4px; }
 .seat .pcard { --card-w: var(--seat-card); }
