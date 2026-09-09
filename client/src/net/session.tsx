@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { useLocation } from 'react-router-dom';
 import { DEFAULT_MODE, DEFAULT_SPEED } from '@opentable/protocol';
 import type { ClientMsg, Mode, ReadyFailure, Speed, ServerMsg, UserSummary } from '@opentable/protocol';
 import { api } from './api.ts';
@@ -218,6 +219,38 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       live = false;
     };
   }, [me]);
+
+  /* Leaving `/m/:id` unsubscribes from that room on purpose (see `leave` in
+     ws/router.ts): a match that finishes after you have clicked away, most
+     often a practice table nobody stayed to watch out, sends its `end`
+     nowhere, and the pill would say "playing" forever with nothing left to
+     tell it otherwise. Every page that is not the match's own is polled
+     against the server until it settles, since the moment it actually
+     finished is not one this browser was subscribed to hear about. */
+  const { pathname } = useLocation();
+  useEffect(() => {
+    if (!liveMatch || pathname === `/m/${liveMatch}`) return;
+    let live = true;
+    const check = () => {
+      api
+        .match(liveMatch)
+        .then((m) => {
+          if (!live || m.status === 'playing') return;
+          writeLiveMatch(null);
+          setLiveMatch(null);
+          setLiveOpponents(null);
+        })
+        .catch(() => {
+          /* the pill is a convenience; a failed check just tries again next tick */
+        });
+    };
+    check();
+    const id = setInterval(check, 10_000);
+    return () => {
+      live = false;
+      clearInterval(id);
+    };
+  }, [pathname, liveMatch]);
 
   useEffect(
     () =>
