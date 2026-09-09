@@ -18,6 +18,7 @@
     "@opentable/preflop": "*",
     "@opentable/protocol": "*",
     "@opentable/rating": "*",
+    "@opentable/solver": "*",
     "fastify": "^5.6.0",
     "phe": "^0.6.0",
     "postgres": "^3.4.7",

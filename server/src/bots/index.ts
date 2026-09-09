@@ -1,4 +1,11 @@
-import { botLevelInfo, type BotLevel, type ClientMsg, type Mode } from '@opentable/protocol';
+import {
+  BOT_LEVELS,
+  DEFAULT_BOT_LEVEL,
+  botLevelInfo,
+  type BotLevel,
+  type ClientMsg,
+  type Mode,
+} from '@opentable/protocol';
 import { generateName, seededRng } from '@opentable/identity';
 import { config } from '../config.js';
 import {
@@ -33,10 +40,12 @@ import { generatePopulation, levelForIndex, type PopulationBot } from './populat
    always the exception and is never rated, because its whole point is to be
    a place to lose.
 
-   Every bot plays at one of the five levels (see BOT_LEVELS in the
-   protocol). The level is a property of the account, not of the match: a
-   level 2 bot is a level 2 bot in the rated queue as well, and its rating is
-   the honest consequence of that. */
+   Every bot plays at one of the levels in BOT_LEVELS, and what it plays is
+   the tier that level maps to. The level is a property of the account, not of
+   the match: a level 2 bot is a level 2 bot in the rated queue as well, and
+   its rating is the honest consequence of that. Nearly all of them cycle
+   through the five tiers that answer instantly; `THINKING_SEATS` in
+   `population-roster.ts` is the short list of indexes that do not. */
 
 // The original fifteen-bot roster's CamelCase names, kept only as the source
 // half of the one-time rename onto the population's realistic handles
@@ -200,16 +209,17 @@ export async function availableBots(targetRating: number, limit: number, mode: M
 
 /* Free bots for a practice table, the asked-for level first and then outwards
    a level at a time (L-1, L+1, L-2, L+2). Three bots per level is not enough
-   to seat a six-max table from one level, so the spread is the normal case
-   rather than the fallback: the table is filled with the nearest opposition
-   there is, and comes back short only when the roster really is busy. */
+   to seat a six-max table from one level, and level 6 has two, so the spread
+   is the normal case rather than the fallback: the table is filled with the
+   nearest opposition there is, and comes back short only when the roster
+   really is busy. */
 export async function availableBotsAtLevel(level: number, limit: number): Promise<UserRow[]> {
   if (limit <= 0) return [];
   const free = (await getBotUsers()).filter(isFree);
   const order = [level];
-  for (let d = 1; d <= 4; d++) {
+  for (let d = 1; d < BOT_LEVELS.length; d++) {
     if (level - d >= 1) order.push(level - d);
-    if (level + d <= 5) order.push(level + d);
+    if (level + d <= BOT_LEVELS.length) order.push(level + d);
   }
 
   const picked: UserRow[] = [];
@@ -249,7 +259,7 @@ export async function rosterSummary(): Promise<BotSummary[]> {
   const ladder = await getLadderMatchCounts();
 
   const out = rows.map((u) => {
-    const level = levels.get(u.id) ?? ((u.botLevel ?? 4) as BotLevel);
+    const level = levels.get(u.id) ?? ((u.botLevel ?? DEFAULT_BOT_LEVEL) as BotLevel);
     const info = botLevelInfo(level);
     const ratings = {} as Record<Mode, { rating: number; matches: number }>;
     for (const mode of MODES) {

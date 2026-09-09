@@ -3,6 +3,7 @@
 declare module 'phe' {
   export function evaluateCards(cards: string[]): number;
   export function evaluateCardsFast(cards: string[]): number;
+  export function evaluateCardCodes(codes: number[]): number;
   export function handRank(value: number): number;
   export const rankDescription: string[];
 }

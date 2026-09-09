@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { formatFor, type MatchFormat, type Mode } from '@opentable/protocol';
+import { BOT_LEVELS, formatFor, type MatchFormat, type Mode } from '@opentable/protocol';
 import { makeApp, mintGuestSession, deleteUser, listenForWs, connectWs, testFormat } from './helpers.js';
 import { createMatchForPlayers, setFormatResolver } from '../src/matchmaking.js';
 import { getMatchById, sql, type UserRow } from '../src/db.js';
@@ -42,7 +42,9 @@ describe('practice against bots', () => {
       select bot_level, count(*)::text as n from users where bot = true group by bot_level order by bot_level
     `;
     for (const row of rows) expect(row.botLevel).not.toBeNull();
-    expect(rows.length).toBe(5);
+    // Read off the protocol rather than written down, so adding a level is a
+    // roster change and not a test failure.
+    expect(rows.length).toBe(BOT_LEVELS.length);
   });
 
   it('seats a six-max practice table immediately, unrated, with five bots', async () => {

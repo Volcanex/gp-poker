@@ -1,6 +1,16 @@
 import { evaluateCards } from 'phe';
 import { bucketFor, chartFor, handClass, percentileOf, regionsOf, spotFor, type DecisionAction } from '@opentable/preflop';
-import { DEFAULT_BOT_LEVEL, type ActionKind, type BotLevel, type Card, type LegalActions, type SeatView, type TableView } from '@opentable/protocol';
+import {
+  DEFAULT_BOT_LEVEL,
+  LEVEL_TIER,
+  type ActionKind,
+  type BotLevel,
+  type BotTier,
+  type Card,
+  type LegalActions,
+  type SeatView,
+  type TableView,
+} from '@opentable/protocol';
 import { NEUTRAL_PERSONA, type Persona } from './persona.js';
 
 export type { Persona } from './persona.js';
@@ -17,8 +27,11 @@ export type { Persona } from './persona.js';
    thumb). Postflop it is all hand strength: the fraction of the opponent
    holdings still possible on this board that the bot's hand beats.
 
-   Five levels, not five brains. Level 4 is that bot, unchanged and still the
-   default: every other level reuses the same context, the same strength
+   Seven levels, not seven brains, and only five tiers are in here: the two
+   that think (`regular` and `solver`) live in solver.ts. Nothing below
+   branches on a level number, only on the tier the protocol maps it to, so
+   renumbering the ladder does not reach into the strategy. Level 4 is that
+   bot, unchanged and still the default: every other level reuses the same context, the same strength
    number and the same action helpers, and differs only in a handful of named
    constants and which rule it reaches for. Levels 1 to 3 replace the chart
    read with a plain percentile threshold and vary how loose, how passive and
@@ -87,33 +100,33 @@ interface PreflopProfile {
 // for, which only the level that reads prices at all does.
 const CHEAP_CALL = 0.4;
 
-const PREFLOP: Record<1 | 2 | 3, PreflopProfile> = {
-  1: { play: 85, playVsRaise: 75, priceDefend: 85, raise: 2, raiseChance: 0.12, callCap: 0.6 },
-  2: { play: 60, playVsRaise: 42, priceDefend: 60, raise: 8, raiseChance: 0.7, callCap: 0.55 },
-  3: { play: 30, playVsRaise: 16, priceDefend: 60, raise: 8, raiseChance: 0.35, callCap: 0.25 },
+const PREFLOP: Record<'station' | 'loose' | 'tight', PreflopProfile> = {
+  station: { play: 85, playVsRaise: 75, priceDefend: 85, raise: 2, raiseChance: 0.12, callCap: 0.6 },
+  loose: { play: 60, playVsRaise: 42, priceDefend: 60, raise: 8, raiseChance: 0.7, callCap: 0.55 },
+  tight: { play: 30, playVsRaise: 16, priceDefend: 60, raise: 8, raiseChance: 0.35, callCap: 0.25 },
 };
 
-// Level 1: bets only a hand that is nearly always best, calls anything that
+// The station tier (level 1): bets only a hand that is nearly always best, calls anything that
 // is a pair, a draw or two overcards, and folds nothing else unless the bet
 // is more than half the pot it is being offered.
 const STATION_BET = 0.93;
 const STATION_FOLD_POT_FRACTION = 0.5;
 
-// Level 2: calls on hand strength alone rather than on the price, bets only
+// The loose tier (level 2): calls on hand strength alone rather than on the price, bets only
 // the hands it is sure of (a medium hand gets checked back, which is where
 // most of the value it never collects goes) and fires the occasional bet with
 // nothing.
 const LOOSE_CALL = 0.12;
 const LOOSE_BLUFF_CHANCE = 0.12;
 
-// Level 3: has the hand but not the nerve. These are how often it bets a
+// The tight tier (level 3): has the hand but not the nerve. These are how often it bets a
 // strong or a medium hand when checked to, and how often it raises a strong
 // one rather than just calling.
 const TIGHT_BET_STRONG = 0.9;
 const TIGHT_BET_MEDIUM = 0.4;
 const TIGHT_RAISE_STRONG = 0.35;
 
-/* Level 5. Sizing runs from SHARP_DRY of the pot on a dry board to SHARP_WET
+/* The sharp tier (level 5). Sizing runs from SHARP_DRY of the pot on a dry board to SHARP_WET
    on a wet one, since a bet on a board nobody can have hit needs to ask for
    less, and a value bet is sized up again on top of that. The river value
    threshold is thinner than level 4's STRONG, the continuation bet fires on
@@ -571,6 +584,13 @@ export function decide(
   level: BotLevel = DEFAULT_BOT_LEVEL,
   persona: Persona = NEUTRAL_PERSONA
 ): BotDecision {
+  // The thinking tiers are not in here: they need a clock and state across a
+  // hand, so they live in solver.ts and answer asynchronously. What they fall
+  // back to when the budget is gone or the spot is multiway is the sharp tier,
+  // and saying so here is what stops such a view reaching this function and
+  // playing the default tier by accident.
+  const mapped = LEVEL_TIER[level] ?? LEVEL_TIER[DEFAULT_BOT_LEVEL];
+  const tier: BotTier = mapped === 'regular' || mapped === 'solver' ? 'sharp' : mapped;
   const legal = view.legal;
   if (!legal) throw new Error('decide called on a view with no legal actions');
   const me = view.you === null ? undefined : view.seats[view.you];
@@ -611,20 +631,20 @@ export function decide(
       0,
       100
     );
-    if (level === 1 || level === 2 || level === 3) {
-      decision = preflopProfile(ctx, percentile, PREFLOP[level]);
-    } else if (level === 5 && threeBetBluff(ctx)) {
+    if (tier === 'station' || tier === 'loose' || tier === 'tight') {
+      decision = preflopProfile(ctx, percentile, PREFLOP[tier]);
+    } else if (tier === 'sharp' && threeBetBluff(ctx)) {
       decision = aggressive(ctx, 2 * ctx.currentBet);
     } else {
       decision = (inHand.length === 2 ? preflopHeadsUp(ctx, percentile) : null) ?? preflopMultiway(ctx, percentile);
     }
-  } else if (level === 1) {
+  } else if (tier === 'station') {
     decision = postflopStation(ctx);
-  } else if (level === 2) {
+  } else if (tier === 'loose') {
     decision = postflopLoose(ctx);
-  } else if (level === 3) {
+  } else if (tier === 'tight') {
     decision = postflopTightPassive(ctx);
-  } else if (level === 5) {
+  } else if (tier === 'sharp') {
     decision = postflopSharp(ctx);
   } else {
     decision = postflop(ctx);

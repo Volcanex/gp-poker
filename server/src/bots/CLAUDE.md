@@ -3,10 +3,26 @@
 The bot population, one bot's message loop, the persona layer, and the pure
 decision function.
 
+## A bot plays a tier, not a number
+
+`BotTier` and `LEVEL_TIER` live in the protocol. **Nothing in this directory
+branches on a level number**: `decide` dispatches on the tier, the
+budget table is keyed by tier, and `THINKING_SEATS` in `population-roster.ts`
+is the one place that says which roster indexes get one. That is what makes
+the coming renumbering an edit to `LEVEL_TIER` and three numbers rather than a
+search through five files for integer comparisons.
+
+Not to be confused with `ActivityTier` in `population-roster.ts`, which is how
+much a bot plays (grinder, regular, casual) and has nothing to do with how well
+it plays. The word `regular` means different things in the two, which is worth
+knowing before grepping for it.
+
 ## Shape
 - `strategy.ts` - `decide(view, rng, level, persona)`. Pure: same `TableView`
   a browser gets in, one legal action out. No socket, no room, no database,
-  so every branch is reachable from a synthetic view.
+  so every branch is reachable from a synthetic view. The five instant tiers
+  only, and it maps a thinking tier onto `sharp` so a view that reaches it
+  cannot play the default tier by accident.
 - `persona.ts` - `Persona`: a handful of multipliers (`looseness`,
   `aggression`, `bluffChance`, `callCap`) nudging a level's baseline, and the
   seven named `Archetype`s (`nit`, `station`, `maniac`, `tag`, `lag`,
@@ -19,6 +35,14 @@ decision function.
   beyond the `Date` a caller passes in.
 - `population.ts` - the live scheduler: every 30s, decides which loaded bots
   are online right now and sends the ones that are to queue.
+- `solver.ts` - the two tiers that cannot be a pure function, because they
+  need state across a hand and a clock. `decideSolver(userId, view, rng,
+  level)` returns an action, or null when this process is already thinking as
+  hard as it is willing to.
+- `simulate.ts` - bots against each other through the engine, with no
+  database, room or socket. The level ordering test and
+  `../../scripts/bench-bots.ts` both run on it, so they measure the same thing
+  the same way.
 - `player.ts` - `BotPlayer`. Holds a level and a persona, thinks on a timer
   capped against the decision clock, answers through the ordinary client
   router, and says the odd line through the same path.
@@ -39,7 +63,7 @@ seat, the ladder — keeps the ranges that existed before practice tables had
 their own pacing. Both are still capped against a quarter of `format.clockMs`
 exactly as before, so a short test clock is unaffected either way.
 
-## Five levels, not five brains
+## Seven levels, five tiers in one function
 `decide` takes a level, default 4. **Level 4 is the bot that existed before
 levels did, byte for byte**: `server/test/strategy.test.ts` pins it and must
 keep passing untouched. Every other level reuses the same `Ctx`, the same
@@ -51,6 +75,10 @@ keep passing untouched. Every other level reuses the same `Ctx`, the same
 - 5 is level 4 plus semi-bluffs, a continuation bet, board-aware sizing,
   thinner river value, an occasional 3-bet bluff, and a margin on its calls.
 
+`decide` maps a thinking tier onto `sharp` rather than falling through to its
+default branch, so a view that reaches the pure function with a tier it does
+not implement plays the nearest thing rather than silently playing `solid`.
+
 **Level 5 bluffs less than its description suggests, on purpose.** Every level
 below it calls a bet down to about a quarter of the pot in equity, so against
 the field it actually plays there is almost no folding equity to win: the
@@ -58,8 +86,142 @@ money is in value bets and in not paying off. Turning the bluff frequencies up
 makes level 5 lose to level 2. This is tuned against these opponents, not
 against a solver.
 
-The ordering is proved, not asserted by hand. `levels.test.ts` plays a seeded
-round robin through the engine and reads chips won. It is worth knowing why it
+## The two tiers that think
+
+Everything above is one number: the fraction of remaining holdings the bot's
+hand beats. `regular` and `solver` are the first that have ranges. They track
+both of them through the hand (chart reads preflop, and postflop a lean by made
+hand strength for the opponent and the exact solved strategy for itself), build
+the subgame in front of them and run CFR+ on it. `@opentable/solver` holds all
+of that; `packages/solver/CLAUDE.md` has the sizes, the budgets and what the
+solve is and is not.
+
+**`solver` solves every postflop street** on a 1500ms budget: the river
+exactly, the flop and turn against a depth limited leaf.
+
+**`regular` solves only the river**, on 400ms, and plays the sharp tier
+everywhere else. It is not a worse solver, it is a different bet about where
+the money is: that a measured read on the person in front of it beats a depth
+limited guess at two streets of play. It carries four deviations from the sharp
+tier, each driven by a statistic and each a no-op until its sample arrives, so
+a bot with no read plays exactly the sharp tier. It raises for thin value
+against a wide VPIP, fires a checked street against somebody who folds to flop
+bets more than the price, sizes value up against somebody who folds less than
+the price, and gives up a bluffcatcher against somebody who rarely bets.
+
+**A thinking tier owns the whole hand.** It asks its own fallback for the
+streets it does not solve rather than returning null and letting the caller
+choose, because a hand where somebody else made half the decisions is a hand
+where our own range is a guess. The fallback is injected, not imported: the
+solver package has no business reaching into the server for the older tiers.
+
+A few things about them belong here rather than there.
+
+**They run on the main thread, in slices, and not in a worker.** A worker was
+the plan. The server ships as one esbuild bundle (`server/build.mjs`) because
+the workspace packages are TypeScript source with no build of their own, so a
+worker entry point needs a second bundle in production and a TypeScript loader
+inside a worker thread in dev, which Node does not carry across the thread
+boundary. That is two code paths for how the bots think, and the one that only
+exists in production is the one nobody exercises. The price is a property the
+solver has to keep: nothing it does may block for longer than a single CFR
+iteration, a couple of milliseconds. `solver.ts` runs iterations for about
+eight milliseconds, hands the event loop back, and goes again until the budget
+is spent, so a websocket behind a thinking bot waits about ten milliseconds.
+
+**Two solves at a time, and a third falls back.** A bot that answers on time
+with a sharp tier decision beats a bot that answers late. The regular tier
+solves one street in four, so a table full of them costs about a quarter of
+what a table of solvers does, which is most of the reason it exists.
+
+**The ladder gets a fifth of the budget.** It plays bots against each other in
+every gap when nobody is here, one match after another, so two thinking
+accounts meeting there at the full budget would keep a core busy around the
+clock on a box that runs everything else Gabriel has. Nobody is watching a
+ladder match, so it gets 250ms and a slightly worse bot.
+
+**Neither is multiway.** The solver is heads-up. A six-max hand gets the sharp
+tier until it is heads-up postflop, at which point it is solved like any
+other.
+
+**The solver tier deviates from the solve in one place**, and without that
+deviation it loses. An equilibrium bluffs to make the opponent indifferent; every level below
+this one calls a bet down to about a quarter of the pot in equity, so those
+bluffs are pure donations. It measures how often an opponent has actually
+folded to its bets and cuts the bottom of its own betting range in proportion
+to how far short of the price that is. Seeing a fold at all needs plumbing: a
+fold ends the hand, so the bot is told when a hand finishes
+(`observeSolverResult`) and counts a bet nobody answered, unless somebody
+showed a hand.
+
+## The benchmark
+
+`../../scripts/bench-bots.ts` is where a thinking tier's claim lives, because
+"beats the tier below" is a number with an interval and not a test that passes.
+It plays the same duplicate design the ordering test uses and reports big
+blinds per hundred hands with a standard error, plus the decision latency. The
+ordering test does not include them: they think for a real fraction of a second
+per decision, which is a benchmark script and not a unit test.
+
+**The two rows involving the regular tier are not measured yet.** It was built
+on 2026-09-09 on a box already saturated by other work, which gave the
+benchmark about a quarter of one core, and a run at the bar the other rows were
+held to needs roughly ten minutes of processor per matchup. Produce them on a
+quiet box with:
+
+```
+BOT_BENCH_DEALS=120 BOT_BENCH_STACKS=100,30 BOT_BENCH_PAIRS=6v5,7v6 \
+  npx tsx server/scripts/bench-bots.ts
+```
+
+Until then the honest statement about the regular tier is that it plays legal
+poker at every stack depth, solves the river and nothing else (measured: three
+decisions in four never reach a solve), and deviates from the sharp tier only
+where a statistic says to. Whether that is worth big blinds is unmeasured.
+
+Where the solver tier stands, measured 2026-09-09 on h with a 500ms budget of
+processor time (the live budget is 1500ms of wall clock, so these are a floor).
+It was level 6 when these were taken and is level 7 now; the tier is what the
+rows are about.
+
+| matchup | stack | hands | bb/100 |
+|---|---|---|---|
+| solver vs sharp | 30bb | 480 | -9 ± 27 |
+| solver vs solid | 30bb | 480 | **+49 ± 22** |
+| sharp vs solid | 30bb | 480 | +30 ± 18 |
+| solver vs sharp | 100bb | 320 | -6 ± 92 |
+| solver vs solid | 100bb | 400 | +176 ± 76 |
+| sharp vs solid | 100bb | 400 | +205 ± 43 |
+
+**So the solver tier is the sharp tier's equal, and it beats solid by more than
+sharp does. Solver over sharp is not demonstrated.** The interval on the direct
+matchup covers zero at both stack depths, and the only hint the other way is
+the indirect one: 49 against solid where sharp manages 30, on the same deals.
+That gap is the whole reason the regular tier exists: a tier that reads the
+person rather than the tree is a different bet about where the money is.
+
+How it got there is worth more than where it got to, because the distance
+travelled is all range modelling and none of it is the solver. Against the
+sharp tier at a hundred big blinds the first working version lost 455 bb/100.
+Fixing the population blend, then the bet size read, then tracking our own
+range by the strategy we actually played, then judging a hand against the
+opponent's range rather than our own, took it to 143, then 90, then 57, then 6.
+Every one of those was a wrong range and not a wrong solve, which is the thing
+to remember before reaching for the CFR code.
+
+Latency, wall clock, on a box that was busy with other work: the solver tier is
+p50 563ms and p95 1410ms at a 500ms budget, p50 154ms and p95 205ms at 150ms.
+The regular tier is p50 0ms, because three decisions in four never reach a
+solve at all.
+
+Against Slumbot over its public API (`../../scripts/bench-slumbot.ts`), 400
+hands with the seats alternating: -20 bb/100 with a standard error of 104, and
+not one action rejected. Four hundred hands says nothing about a win rate
+against a bot that solves the whole game, and everything about whether this one
+plays legal poker outside its own test suite.
+
+The ordering of the instant tiers is proved, not asserted by hand. `levels.test.ts` plays
+a seeded round robin through the engine and reads chips won. It is worth knowing why it
 is shaped the way it is before changing its numbers:
 
 - **Short stacks (30bb, not the product's 100).** The biggest pot a hand can
@@ -86,6 +248,17 @@ from the fixed seed `opentable-population` by `population-roster.ts`'s
 and history under a bigger population. Roster index `i` plays at
 `(i % 5) + 1` (`levelForIndex`, unchanged from the original roster), so
 levels cycle rather than sitting in blocks.
+
+**Except for three seats.** `THINKING_SEATS` puts indexes 117 and 118 on the
+regular tier and 119 on the solver tier, so a ranked six-max table sometimes
+seats a bot that thinks. Three out of a hundred and twenty, because a solver
+decision is a second of processor and this box has four cores that are not
+only ours: one solver seat, two regulars. They are keyed by index rather than
+derived so that they stay rare and countable, leave every other index on the
+cycle it has always been on, and survive the population growing. They sit at
+the end of the default population, so a smaller one (a test's fifteen) has
+none at all and pays nothing for them. A level is read after every other field
+is drawn, so which seats think moves nobody's name, country or schedule.
 
 Each bot also gets, from the same rng sequence: a realistic name and a
 country (`@opentable/identity`'s `generateRealisticIdentity`, see its
@@ -130,7 +303,7 @@ call-size caps (`preflopProfile`'s `callCap`, `postflopStation`'s
 one divided rather than multiplied) are scaled by `persona.callCap`. See
 `persona.test.ts` for what actually moves.
 
-The seven archetypes are flavour on top of the five levels, not a sixth
+The seven archetypes are flavour on top of the instant tiers, not another
 dimension of skill: `ARCHETYPE_DESCRIPTIONS` is the one line each translates
 to, and `jitteredPersona` blurs each archetype's numbers by +/-15% per bot so
 two bots sharing an archetype and a level still play a little differently.

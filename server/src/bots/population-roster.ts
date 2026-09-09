@@ -59,11 +59,28 @@ export interface PopulationBot {
   createdOffsetDays: number;
 }
 
+/* The handful of seats that play a tier which thinks. Keyed by roster index
+   rather than derived, for three reasons: it keeps them rare and countable,
+   it leaves every other index on the cycle it has always been on, and it
+   survives the population growing, because index 117 is index 117 whatever
+   `POPULATION_SIZE` becomes.
+
+   Three of a hundred and twenty. Two regulars and one solver, because a
+   solver decision is a second of processor and this box has four cores that
+   are not only ours. They sit at the end of the default population so that
+   a smaller population (a test's fifteen, say) has none at all and pays
+   nothing for them.
+
+   A renumbering of the ladder is an edit to these three values and to
+   LEVEL_TIER, and to nothing else. */
+export const THINKING_SEATS: Record<number, BotLevel> = { 117: 6, 118: 6, 119: 7 };
+
 // Levels cycle down the roster rather than sitting in blocks, so the first
 // bots ever created are spread across all five instead of piling into one.
-// Unchanged from the original fifteen-bot roster.
+// Unchanged from the original fifteen-bot roster, apart from the thinking
+// seats above.
 export function levelForIndex(i: number): BotLevel {
-  return ((i % 5) + 1) as BotLevel;
+  return THINKING_SEATS[i] ?? (((i % 5) + 1) as BotLevel);
 }
 
 function pick<T>(rng: Rng, list: T[]): T {

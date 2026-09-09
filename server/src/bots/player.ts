@@ -1,5 +1,6 @@
 import { DEFAULT_BOT_LEVEL, type BotLevel, type ClientMsg, type MatchFormat, type ServerMsg, type TableView } from '@opentable/protocol';
-import { decide, type Rng } from './strategy.js';
+import { decide, type BotDecision, type Rng } from './strategy.js';
+import { decideSolver, observeSolverResult, thinkingTier } from './solver.js';
 import { NEUTRAL_PERSONA, type Persona } from './persona.js';
 import type { ChatProfile } from './population-roster.js';
 
@@ -18,7 +19,13 @@ import type { ChatProfile } from './population-roster.js';
    The ranges are chosen from the format on every decision rather than fixed
    at construction: the same BotPlayer instance plays a rated queue fill, a
    practice table and a ladder match across its lifetime, one after another,
-   and a practice table alone is paced for a person to follow. */
+   and a practice table alone is paced for a person to follow.
+
+   The thinking tiers are the ones whose decision takes real time, so every
+   decision is awaited and whatever it spent comes off the pause afterwards: a
+   bot that solved for a second and then waited its usual two would read as
+   broken. It still cannot run out of time, because the pause is capped against
+   the clock and the solve's own budget is a quarter of it. */
 
 const THINK_MIN_MS = 600;
 const THINK_MAX_MS = 1800;
@@ -123,6 +130,9 @@ export class BotPlayer {
   }
 
   private onView(view: TableView): void {
+    // A finished hand carries no legal actions and is not a decision, but it
+    // is the only place a level 6 bot can see that somebody folded to it.
+    if (view.result && thinkingTier(this.level)) observeSolverResult(this.userId, view);
     if (!view.legal || view.you === null) return;
     // A view can be rebroadcast without the action moving on (an opponent
     // disconnecting, say); key on the exact decision point so the bot does
@@ -130,13 +140,23 @@ export class BotPlayer {
     const key = `${view.m}:${view.h}:${view.n}`;
     if (this.pending.has(key)) return;
     this.pending.add(key);
+    void this.think(view, key);
+  }
 
-    const decision = decide(view, this.rng, this.level, this.persona);
+  private async think(view: TableView, key: string): Promise<void> {
+    if (!view.legal || view.you === null) return;
+    const started = Date.now();
+    const decision = await this.choose(view);
+    // The match can end while a level 6 solve is still running. `clear` empties
+    // the pending set, so a decision whose key has gone is a decision nobody is
+    // waiting for any more.
+    if (!this.pending.has(key)) return;
     const me = view.seats[view.you];
     const trivial = decision.a === 'x' || me.stack === 0 || me.stack <= view.legal.call;
     const [lo, hi] = thinkRange(view.format, trivial);
     const cap = Math.max(1, Math.floor(view.format.clockMs / CLOCK_FRACTION));
-    const delay = Math.min(cap, lo + this.rng() * (hi - lo));
+    const thought = Date.now() - started;
+    const delay = Math.max(0, Math.min(cap, lo + this.rng() * (hi - lo)) - thought);
 
     const timer = setTimeout(() => {
       this.timers.delete(timer);
@@ -151,6 +171,15 @@ export class BotPlayer {
       });
     }, delay);
     this.timers.add(timer);
+  }
+
+  private async choose(view: TableView): Promise<BotDecision> {
+    // A persona nudges the constants the instant tiers read; a thinking tier
+    // has no constants to nudge, so it gets one only for the streets it hands
+    // back.
+    if (!thinkingTier(this.level)) return decide(view, this.rng, this.level, this.persona);
+    const solved = await decideSolver(this.userId, view, this.rng, this.level);
+    return solved ?? decide(view, this.rng, this.level, this.persona);
   }
 
   clear(): void {

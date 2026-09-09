@@ -135,3 +135,25 @@ names behind a flag are the example: the codes are validated in
 `../../server/src/countries.ts` and named in `../../client/src/ui/countries.ts`,
 two generated lists a server test holds to each other, because a wire contract
 has no business carrying a table of English place names.
+
+## Bot levels and tiers
+
+**A tier is what a bot plays; a level is only where that tier currently sits on
+the ladder.** `BotTier` names the seven strategies and `LEVEL_TIER` says which
+level each one is at. Nothing anywhere may branch on the number: the server's
+strategy dispatch, the roster, the budget table and the practice picker all
+read the tier, so renumbering the ladder is an edit to `LEVEL_TIER` and not a
+search for integer comparisons.
+
+`LEVEL_TIER` is one-to-one, and has to be. Two levels sharing a tier is two
+levels playing identically, which `../../server/src/bots/levels.test.ts` would
+fail, and it would fail for the right reason.
+
+`BOT_LEVELS` is the one table the server (which plays them) and the client
+(which offers them in the practice picker) share, so a level's name,
+description and tier cannot drift between the two. Levels are appended the same
+way the roster grows: `isBotLevel` reads its bound off the table's length
+rather than a literal, and `botLevelInfo` still answers with the default for
+anything outside it, because a stored or hand typed level is a preference and
+must not break a table. Adding one is additive by the rule above, so it does
+not move `PROTOCOL_VERSION`.
