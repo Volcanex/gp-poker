@@ -61,7 +61,12 @@ export function LeaveControl({ format, ended, onLeave }: {
 /* The warning. Two facts and no more: what leaving does to this match, and
    what it does to the next one. Escape and the backdrop both close it, unlike
    the ready check's dialog, because nothing is running against the player
-   while it is open and dismissing it is the same answer as keeping playing. */
+   while it is open and dismissing it is the same answer as keeping playing.
+
+   Backdrop dismiss is g-ui's own light-dismiss, wired by the `useGInit` on
+   the header in `table.tsx`: it walks `.hand-head` on mount and finds every
+   `dialog.dlg` under it, which is why this one is rendered there rather than
+   anywhere else that would look tidier. */
 function LeaveDialog({ ref, strikes, banUntil, onConfirm, onKeep }: {
   ref: React.RefObject<HTMLDialogElement | null>;
   strikes: number;

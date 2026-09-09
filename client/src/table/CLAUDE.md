@@ -108,6 +108,11 @@ closed dialog is `display: none` and an open one is in the top layer, so
 neither is part of the row: `../../e2e/leave.spec.ts` asserts the table's boxes
 and the layout-shift total are untouched by opening it.
 
+**Backdrop dismiss is g-ui's, not this file's**, and it is wired by the
+`useGInit(headRef)` in `table.tsx`, which walks `.hand-head` on mount and
+finds every `dialog.dlg` under it. Move the dialog out of that subtree and
+clicking the backdrop silently stops closing it.
+
 What the press *does* is the route's (`../routes/CLAUDE.md`), because only the
 page holding a subscription knows how to end a match.
 
