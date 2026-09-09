@@ -50,6 +50,7 @@
 .ls-cell {
   display: flex;
   flex-direction: column;
+  gap: var(--sp-1);
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
