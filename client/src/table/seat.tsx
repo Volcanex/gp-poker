@@ -20,6 +20,11 @@ export interface SeatProps {
   origin?: { x: number; y: number }; // where this seat's cards are dealt from
   /* Showdown: the five cards that made the winning hand. */
   best?: ReadonlySet<Card>;
+  /* The small blind at this level. It is the rack's colour-up signal and
+     nothing else: chips are held between levels and re-laid at one, so this
+     changing is the one thing that redraws a stack rather than moving chips
+     around inside it. See `./chips.ts`. */
+  blind?: number;
   /* This seat took a share of the pot. The whole seat is lit for it, not just
      its cards: who won is the one thing being read at a showdown, and five
      highlighted cards spread across the felt say what the hand was rather
@@ -47,7 +52,7 @@ export interface SeatProps {
    a bet is these chips leaving and the pot's arriving. The figure snaps. */
 export function Seat({
   seat, you, clock, format, reveal, handNo,
-  dealAt = 0, seatCount = 1, origin, best, won = false,
+  dealAt = 0, seatCount = 1, origin, best, won = false, blind,
 }: SeatProps) {
   const acting = seat.acting;
   const onClock = clock && clock.seat === seat.i ? clock : null;
@@ -112,7 +117,7 @@ export function Seat({
             footprint. */}
         <span className="seat-sub">
           <span className="seat-chips">
-            <ChipStack amount={seat.out ? 0 : seat.stack} />
+            <ChipStack amount={seat.out ? 0 : seat.stack} level={blind} />
           </span>
           {!seat.connected && <span className="seat-off">Disconnected</span>}
           {seat.bot && <span className="seat-bot">Bot</span>}

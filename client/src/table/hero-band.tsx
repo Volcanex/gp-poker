@@ -351,7 +351,9 @@ function HeroCards({
               tick when the figure changes, which is what says a bet has left
               or a pot has landed. Every column keeps its slot, so the label
               after them does not move. */}
-          <span className="hb-chips"><ChipStack amount={stack} columns={3} /></span>
+          <span className="hb-chips">
+            <ChipStack amount={stack} columns={3} level={view.blinds.sb} />
+          </span>
           {/* A reserved slot: the label is empty most of the hand and a box
               that sizes to it would move the stack every time it filled. */}
           <span className="hb-last">{label}</span>
