@@ -90,7 +90,12 @@ export function apply(state: HandState, seatIdx: number, action: Action): HandSt
   } else if (action.a === 'x') {
     seat.acted = true;
   } else if (action.a === 'c') {
-    commit(seat, Math.min(next.currentBet, seat.bet + seat.stack));
+    // Logged as the price paid this action (what a caller actually put in),
+    // not the resulting bet total: the total is already on the felt as the
+    // bet everyone is matching, and "Calls 4" is the new fact.
+    const target = Math.min(next.currentBet, seat.bet + seat.stack);
+    loggedV = target - seat.bet;
+    commit(seat, target);
     seat.acted = true;
   } else if (action.a === 'b' || action.a === 'r') {
     if (action.v === undefined || action.v < leg.min || action.v > leg.max) {
@@ -99,7 +104,11 @@ export function apply(state: HandState, seatIdx: number, action: Action): HandSt
     applyAggressive(next, seatIdx, action.v);
     loggedV = action.v;
   } else if (action.a === 'a') {
+    // Logged as the resulting total, the same "to" the aggressive branch
+    // already carries for a raise: an all-in reached by outbidding the
+    // current bet IS that branch, so the two cases share one number.
     const target = seat.bet + seat.stack;
+    loggedV = target;
     if (target <= next.currentBet) {
       commit(seat, target);
       seat.acted = true;
