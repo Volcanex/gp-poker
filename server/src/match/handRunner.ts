@@ -141,6 +141,11 @@ export class EngineHandRunner implements HandRunner {
   private pendingNextHand: number | null = null;
   private nextResolve: (() => void) | null = null;
   private nextTimer: ReturnType<typeof setTimeout> | null = null;
+  /* Set once the room has finished the match. Everything this runner still
+     has in flight, a practice hold waiting on a `next` that is not coming or
+     a hand-hold sleep between hands, resumes after that and would otherwise
+     deal into a match that is already over. */
+  private stopped = false;
 
   constructor(deps: HandRunnerDeps) {
     this.matchId = deps.matchId;
@@ -197,7 +202,17 @@ export class EngineHandRunner implements HandRunner {
     return live[0];
   }
 
+  /* The room ending the match. Frees a pending practice hold rather than
+     leaving its two-minute timer running, and shuts the door on `startHand`,
+     which is the only thing here that writes. Everything else in flight is
+     in-memory bookkeeping that nobody will read again. */
+  stop(): void {
+    this.stopped = true;
+    if (this.nextResolve) this.resolveHold();
+  }
+
   async startHand(number: number): Promise<void> {
+    if (this.stopped) return;
     const live = this.stillIn();
     const seed = newSeed();
     const hash = seedHash(seed);

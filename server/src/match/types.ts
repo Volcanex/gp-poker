@@ -68,5 +68,9 @@ export interface HandRunner {
   // early (a resignation) reads it to place the people still in without
   // overwriting the order the ones already out finished in.
   currentPlaces(): Record<string, number>;
+  // The match is over. Frees anything the runner is still waiting on (a
+  // practice hold, a hand-hold sleep) so it cannot deal into a finished
+  // match, and is safe to call more than once.
+  stop(): void;
   viewFor(userId: string | null, clock: RoomClock | null, presence: SeatPresence[]): TableView | null;
 }

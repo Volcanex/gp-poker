@@ -100,6 +100,10 @@ export interface MatchFormat {
   // with `practice: true`; a test shrinks it rather than actually waiting
   // two minutes for the fallback to prove itself.
   practiceHoldTimeoutMs?: number;
+  // Overrides PRACTICE_AWAY_MS: how long a practice table waits for its human
+  // to come back before it gives the match up. Only meaningful with
+  // `practice: true`, and shrunk by a test rather than waited out.
+  practiceAwayMs?: number;
   // A home game: a private six-max table a host gathered by link, with bots
   // in whatever seats nobody took. Optional for the same reason `practice`
   // is: a format stored before home games existed simply has no key.
@@ -422,6 +426,26 @@ export const PRACTICE_HOLD_TIMEOUT_MS = 120_000;
    `practiceHoldTimeoutMs` if it set one, the shared default otherwise. */
 export function practiceHoldTimeoutFor(format: MatchFormat): number {
   return format.practiceHoldTimeoutMs ?? PRACTICE_HOLD_TIMEOUT_MS;
+}
+
+/* How long a practice table waits for its human before it gives the match up.
+
+   A practice table has no grace window: it pauses for as long as the person
+   at it is away, because the bots waiting on them do not mind and losing a
+   match to a phone that went to sleep is not a result. That is right and it
+   is why this number has to exist, because "as long as they are away" with
+   nothing after it means a closed tab leaves the match `playing` for good. It
+   holds its bots out of the roster, it counts as a live human table on the
+   dashboards, and nobody is ever coming back to it.
+
+   Ten minutes, which is far longer than a lost connection and far shorter
+   than forever. The match ends the way leaving ends one, `reason: 'left'`,
+   because that is what happened. Nothing is charged for it: a practice table
+   is never rated and there is no opponent it cost anything. */
+export const PRACTICE_AWAY_MS = 10 * 60_000;
+
+export function practiceAwayFor(format: MatchFormat): number {
+  return format.practiceAwayMs ?? PRACTICE_AWAY_MS;
 }
 
 /* Six handed is the main game. It is the one the home page opens on, the one

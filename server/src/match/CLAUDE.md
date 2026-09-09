@@ -160,6 +160,16 @@ position per user id, 1 = best.
   `MatchRoom.buildLeaveOutcome` computes it, and heads-up it reduces to
   exactly the forfeit outcome.
 
+**A match ends once.** `MatchRoom.finishing` is set the moment a finish
+starts rather than when `match.status` lands, because `finishMatch` awaits a
+database write and the `hand.stop()` inside it hands control straight back to
+a hand runner that was mid-hold: that runner then settles the hand it was
+holding and reports a natural ending over the top of the one being written.
+The away limit is what found this, and the flag guards every route into it.
+`stop()` itself is the other half: it frees a pending practice hold rather
+than leaving its two minute timer running, and shuts the door on `startHand`,
+which is the only thing in the runner that writes.
+
 `buildForfeitOutcome`, `buildLeaveOutcome` and `applyLeftPlaces` all rate
 through `MatchRoom.rate(places)`: a rating is a function of the finishing
 order, and three copies of what feeds Glicko-2 would drift the first time one
@@ -216,11 +226,19 @@ there is being kept waiting. So:
 - **A timeout streak is never spent.** No sit-out, no forfeit, at either table
   size. `MatchRoom.handleClockExpiry` still counts the streak, it just never
   acts on it. Losing a match to a phone that went to sleep is not a result.
-- **A disconnect has no grace window.** `handleDisconnect` starts no grace
-  timer, and `rearmClock` reads `practice` as a reason to pause, so a decision
-  that arrives while the human is away waits indefinitely instead of being
-  folded `graceMs` later. `handleReconnect` grants a fresh full clock the same
-  way it always did.
+- **A disconnect has no grace window, but it does have an end.**
+  `handleDisconnect` starts no grace timer, and `rearmClock` reads `practice`
+  as a reason to pause, so a decision that arrives while the human is away
+  waits instead of being folded `graceMs` later. `handleReconnect` grants a
+  fresh full clock the same way it always did. What it waits is
+  `PRACTICE_AWAY_MS`, ten minutes, after which `handleAwayExpiry` ends the
+  match as a `left`: "as long as they are away" with nothing after it meant a
+  closed tab left the match `playing` for good, holding its bots out of the
+  roster and counting as a live human table on every dashboard that reads
+  one. **A table held between hands is not exempt**, because a hold waits on
+  a `next` from the same person who is not there. The away timer goes in the
+  same map the grace timer would have, so reconnecting clears it by the route
+  that already existed.
 - **The practice hold is left alone, and that is consistent rather than an
   oversight.** `practiceHoldTimeoutFor` (120s) can still expire while the
   human is away, and the table deals the next hand. That costs them nothing:
@@ -246,6 +264,12 @@ because the reasons are:
 | heads-up | the opponent takes it, `reason: 'left'`, rated as a loss |
 | multiway | the seat is sat out **for good** and the match plays on |
 | ranked, any of the above | a walkout strike (`../walkouts.ts`) |
+
+A practice table also ends itself on the same `reason: 'left'` when its human
+has been disconnected for `PRACTICE_AWAY_MS`. Nothing is charged for it:
+practice is never rated and there is no opponent it took a game from. See
+"Practice tables never sit the human out" above for why that wait exists at
+all and why it now has an end.
 
 Practice ends outright because the table exists for the one human at it and
 there is nothing to play on for. Multiway plays on for the same reason three

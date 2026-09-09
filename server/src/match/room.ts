@@ -10,6 +10,7 @@ import {
   insertChatMessage,
   type MatchRow,
 } from '../db.js';
+import { practiceAwayFor } from '@opentable/protocol';
 import { chargeWalkout } from '../walkouts.js';
 import { trackSpectator, unregisterRoom, untrackSpectator } from './rooms.js';
 import { emitMatchFinished } from './finished.js';
@@ -86,6 +87,12 @@ export class MatchRoom {
   private railChat: ChatLine[] = [];
 
   private hand: HandRunner | null = null;
+  /* Set the moment a finish starts, not when it lands. `finishMatch` awaits
+     a database write before `match.status` says finished, and freeing the
+     hand runner's hold hands control back to it inside that window: it then
+     settles the hand it was holding and reports a second, natural ending
+     over the top of the one being written. A match ends once. */
+  private finishing = false;
 
   // The format is the only source of truth for whether this match is rated.
   // `matches.rated` is a copy of it, re-asserted on finish; nothing reads the
@@ -587,6 +594,7 @@ export class MatchRoom {
   }
 
   private settleIfDone(): void {
+    if (this.finishing) return; // already ending, by any route
     if (!this.hand?.isDone()) return;
     const outcome = this.hand.matchResult();
     if (!outcome) return;
@@ -622,13 +630,21 @@ export class MatchRoom {
       this.clock = { ...this.clock, paused: true };
     }
     this.broadcast(); // let the opponent see connected:false / paused right away
-    // A practice table has no grace window: the clock stays paused until the
-    // human comes back, however long that is. `rearmClock` reads `practice`
-    // for the same reason, so a decision that arrives while they are away
-    // waits rather than being folded.
-    if (this.practice) return;
-    const timer = setTimeout(() => this.handleGraceExpiry(userId), this.match.format.graceMs);
-    this.graceTimers.set(userId, timer);
+    /* A practice table has no grace window: the clock stays paused until the
+       human comes back, however long that is. `rearmClock` reads `practice`
+       for the same reason, so a decision that arrives while they are away
+       waits rather than being folded.
+
+       "However long that is" needed an end, though, and this is it. Waiting
+       for somebody who closed the tab is not patience, it is a match left
+       `playing` for good, five bots held out of the roster and a table the
+       dashboards count as a live human one. The timer goes in the same map
+       the grace timer would have, so reconnecting clears it by the route
+       that already exists. */
+    const away = this.practice
+      ? setTimeout(() => this.handleAwayExpiry(userId), practiceAwayFor(this.match.format))
+      : setTimeout(() => this.handleGraceExpiry(userId), this.match.format.graceMs);
+    this.graceTimers.set(userId, away);
   }
 
   handleReconnect(userId: string): void {
@@ -644,6 +660,21 @@ export class MatchRoom {
       this.armTimer(deadline, this.clock.seat);
     }
     this.broadcast();
+  }
+
+  /* Practice only: the human has been away long enough that the table is not
+     waiting any more. It ends the way they would have ended it themselves,
+     `reason: 'left'`, because that is what happened, and it costs nothing:
+     practice is never rated and there is no opponent it took a game from.
+
+     A table held between hands is not exempt. The hold is the hand runner's
+     and it waits on a `next` from the same person who is not here, so
+     exempting it would be exempting exactly the table this is for. */
+  private handleAwayExpiry(userId: string): void {
+    this.graceTimers.delete(userId);
+    if (!this.disconnected.has(userId)) return; // came back, nothing to do
+    if (!this.hand || this.match.status !== 'playing') return;
+    this.finishOnLeave(userId).catch((err) => this.abandon(err));
   }
 
   private handleGraceExpiry(userId: string): void {
@@ -671,9 +702,15 @@ export class MatchRoom {
   }
 
   async finishMatch(outcome: MatchOutcome): Promise<void> {
+    if (this.finishing) return;
+    this.finishing = true;
     this.clearClockTimer();
     for (const t of this.graceTimers.values()) clearTimeout(t);
     this.graceTimers.clear();
+    // And whatever the hand runner is still waiting on. A match can end while
+    // a practice hold is pending (nobody is coming to press the button) and
+    // that hold's own timeout would otherwise resume into a finished match.
+    this.hand?.stop();
 
     // Counters move for every finished match; the Glicko-2 state and a
     // rating_history row only for a rated one. Multiway has no draw: first

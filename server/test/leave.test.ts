@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { formatFor, walkoutBanMs, type MatchFormat, type Mode, type TableView } from '@opentable/protocol';
 import {
+  connectSession,
   connectWs,
   deleteUser,
   driveRandomPlay,
@@ -10,6 +11,8 @@ import {
   mintGuestSession,
   testFormat,
   unlockRanked,
+  type Connected,
+  type Session,
 } from './helpers.js';
 import { createMatchForPlayers, setFormatResolver } from '../src/matchmaking.js';
 import { resetReadyChecks } from '../src/ready.js';
@@ -40,6 +43,51 @@ const PRACTICE: Record<Mode, MatchFormat> = {
   'heads-up': testFormat({ hands: 6, stack: 20, clockMs: 1500, graceMs: 1500 }),
   'six-max': testFormat({ mode: 'six-max', stack: 12, clockMs: 1500, graceMs: 1500 }),
 };
+
+/* The away limit, shrunk from ten minutes to under a second. `hands: 1` so
+   one fold reaches the hold at the end of the match, and a hold timeout far
+   longer than the away window so the held table is genuinely still held when
+   the window runs out: that is the case the limit exists for, and the one
+   where a table with nobody at it used to sit `playing` for good. */
+const AWAY_MS = 700;
+const AWAY: Record<Mode, MatchFormat> = {
+  'heads-up': testFormat({
+    hands: 1,
+    stack: 20,
+    clockMs: 4000,
+    graceMs: 4000,
+    practiceAwayMs: AWAY_MS,
+    practiceHoldTimeoutMs: 30_000,
+  }),
+  'six-max': testFormat({ mode: 'six-max', stack: 12, clockMs: 4000, graceMs: 4000, practiceAwayMs: AWAY_MS }),
+};
+
+/* Deals a practice table and plays the human's seat until the table is
+   holding for their `next`, which on a one-hand match is the moment before
+   it would finish. Returns the match id with the socket still open. */
+async function practiceHeldTable(
+  app: FastifyInstance,
+  wsUrl: string,
+  session: Session
+): Promise<{ conn: Connected; matchId: string }> {
+  const conn = await connectSession(wsUrl, session);
+  await conn.messages.wait((m) => m.t === 'hi');
+  conn.ws.send(JSON.stringify({ t: 'queue', mode: 'heads-up', bots: { level: 2 } }));
+  const found = await conn.messages.wait((m) => m.t === 'q' && m.s === 'found');
+  conn.ws.send(JSON.stringify({ t: 'join', m: found.m }));
+  for (let step = 0; step < 40; step++) {
+    const msg = await conn.messages.wait(
+      (m) => m.t === 'state' && (m.s.legal !== null || m.s.hold === 'you'),
+      8000
+    );
+    const view = msg.s as TableView;
+    if (view.hold === 'you') return { conn, matchId: found.m };
+    const legal = view.legal!;
+    const action = legal.actions.includes('f') ? 'f' : legal.actions[0];
+    conn.ws.send(JSON.stringify({ t: 'act', m: view.m, h: view.h, n: view.n, a: action }));
+  }
+  throw new Error('the practice table never held for the human');
+}
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -222,6 +270,67 @@ describe('leaving a match', () => {
       setFormatResolver(formatFor);
     },
     20_000
+  );
+
+  it(
+    'gives a held practice table up once its human has been away long enough',
+    async () => {
+      setFormatResolver((mode, rated) => ({ ...AWAY[mode], rated }));
+      const session = await mintGuestSession(app);
+      createdUserIds.push(session.id);
+      const { conn, matchId } = await practiceHeldTable(app, wsUrl, session);
+      createdMatchIds.push(matchId);
+
+      /* The tab closes on a table that is holding for a `next` nobody is
+         going to send. Before this limit existed that match stayed `playing`
+         for good, with its bots held out of the roster. */
+      conn.ws.close();
+      await new Promise((r) => setTimeout(r, AWAY_MS + 900));
+
+      const row = await getMatchById(matchId);
+      expect(row!.status).toBe('finished');
+      // Ended the way they would have ended it themselves, and charged for
+      // nothing: practice is never rated and took no game off anybody.
+      expect(row!.reason).toBe('left');
+      expect(row!.rated).toBe(false);
+      expect((await walkoutState(session.id)).strikes).toBe(0);
+      setFormatResolver(formatFor);
+    },
+    20_000
+  );
+
+  it(
+    'keeps the table when the human comes back inside the window',
+    async () => {
+      setFormatResolver((mode, rated) => ({ ...AWAY[mode], rated }));
+      const session = await mintGuestSession(app);
+      createdUserIds.push(session.id);
+      const { conn, matchId } = await practiceHeldTable(app, wsUrl, session);
+      createdMatchIds.push(matchId);
+
+      conn.ws.close();
+      await new Promise((r) => setTimeout(r, Math.floor(AWAY_MS / 3)));
+      const back = await connectSession(wsUrl, session);
+      await back.messages.wait((m) => m.t === 'hi');
+
+      // Well past the moment the window would have run out, had coming back
+      // not cleared it.
+      await new Promise((r) => setTimeout(r, AWAY_MS + 900));
+      const row = await getMatchById(matchId);
+      expect(row!.status).toBe('playing');
+
+      // And the table is still theirs to finish: the hold is still up, and
+      // answering it ends the one-hand match properly rather than as a walk.
+      back.ws.send(JSON.stringify({ t: 'join', m: matchId }));
+      const held = await back.messages.wait((m) => m.t === 'state' && m.s.hold === 'you', 8000);
+      back.ws.send(JSON.stringify({ t: 'next', m: matchId, h: held.s.h }));
+      const end = await back.messages.wait((m) => m.t === 'end' && m.m === matchId, 8000);
+      expect(end.r.reason).not.toBe('left');
+
+      back.ws.close();
+      setFormatResolver(formatFor);
+    },
+    25_000
   );
 
   it('climbs the ladder and lets it decay a strike a day', async () => {
