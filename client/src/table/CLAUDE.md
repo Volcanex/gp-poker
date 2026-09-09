@@ -470,7 +470,9 @@ suites do not have to be told about: it happens when a player chooses it, not
 between two states of the same table. `../../e2e/hero-band.spec.ts` pictures
 every layout and every size on the mock at both widths, asserts the card is the
 size the setting names, and asserts the hand ends before the controls start in
-all three layouts at both widths.
+all three layouts at both widths, **and again on a practice table at 1100**,
+where the readings' own section takes a third of the band and the clamp is the
+only thing keeping the widest hand off the controls.
 
 **Handedness is a setting** (`hand` in `../ui/prefs.ts`), stamped as
 `data-hand="left"` on the root by the pre-paint script in `../../index.html` as

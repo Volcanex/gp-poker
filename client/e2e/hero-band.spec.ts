@@ -679,6 +679,35 @@ for (const { name: where, size } of SIZES) {
   }
 }
 
+/* **And it stays clear of the readings' column too.** A practice table above
+   1100 px gives the band a third section, so the hand and the controls share
+   what is left of a narrower column. 1100 is the breakpoint itself and the
+   worst case with it, and side by side at huge is the widest hand there is. */
+for (const cards of ['stacked', 'side', 'ajar'] as const) {
+  test(`the ${cards} hand fits beside a practice table's readings`, async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 800 });
+    await stubApi(page);
+    await setPrefs(page, { cards, cardSize: 'huge' });
+    await page.goto('/m/mock?practice=1&v2=1&step=5');
+    await page.locator('.hero-band[data-stats]').waitFor({ timeout: 30_000 });
+    await page.waitForTimeout(600);
+
+    const box = (await page.locator('.hb-cards').boundingBox())!;
+    const col = (await page.locator('.hb-col').boundingBox())!;
+    const stats = (await page.locator('.hb-stats').boundingBox())!;
+    expect(box.x + box.width, 'the cards end before the controls start')
+      .toBeLessThanOrEqual(col.x);
+    expect(col.x + col.width, 'and the controls end before the readings')
+      .toBeLessThanOrEqual(stats.x);
+
+    /* The six sizes are the control the third column squeezes, and a box that
+       says a four figure number is the point of them. */
+    const sizes = (await page.locator('.hb-sizes').boundingBox())!;
+    expect(sizes.width, 'the six sizes still have a row to sit in')
+      .toBeGreaterThan(240);
+  });
+}
+
 /* Two overlapping cards are the same paper, so the one in front draws a seam
    against the one behind. Side by side needs none: the gap is the layout. */
 test('the card in front is separated from the one behind it', async ({ page }) => {
