@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { BOT_LEVELS, PRACTICE_PRESETS, SPEEDS, SPEED_NAME, ceilingFor, formatFor, speedOf } from '@opentable/protocol';
+import {
+  BOT_LEVELS, PRACTICE_PRESETS, SPEEDS, SPEED_NAME, ceilingFor, formatFor, rankedBanText, speedOf,
+} from '@opentable/protocol';
 import type { MatchFormat, Mode, PracticePreset, Speed } from '@opentable/protocol';
 import { Cpu } from '@phosphor-icons/react/dist/icons/Cpu';
 import { Eye } from '@phosphor-icons/react/dist/icons/Eye';
@@ -98,7 +100,16 @@ export function Home() {
      press a button that answers no. A page that has not heard from the server
      yet assumes it is open, so the control does not flicker shut on load. */
   const rankedLocked = me != null && me.rankedUnlocked === false;
-  const willBeRated = rated && !rankedLocked;
+
+  /* And the other reason ranked can be shut: a walkout ban. It runs out on
+     its own, so the line counts down rather than sitting on a number that
+     went stale the moment it was drawn. Absent or past reads as no ban, the
+     same bargain `rankedUnlocked` makes. */
+  const banUntil = me?.rankedBanUntil ?? null;
+  const banNow = useNow(banUntil !== null, 1000);
+  const rankedBanned = banUntil !== null && banUntil > banNow;
+
+  const willBeRated = rated && !rankedLocked && !rankedBanned;
 
   /* The found state is a one-shot ticket to the table. Clearing it once it
      has been used is what lets somebody come back to this page mid-match
@@ -168,7 +179,7 @@ export function Home() {
                 ]}
                 value={willBeRated ? 'ranked' : 'casual'}
                 onPick={(v) => setRated(v === 'ranked')}
-                disabled={(v) => v === 'ranked' && rankedLocked}
+                disabled={(v) => v === 'ranked' && (rankedLocked || rankedBanned)}
               />
               <Segmented
                 label="Table size"
@@ -182,6 +193,7 @@ export function Home() {
             {rankedLocked && (
               <span className="muted">Play one casual game first. Ranked opens as soon as it finishes.</span>
             )}
+            {rankedBanned && <span className="muted">{rankedBanText(banUntil!, banNow)}</span>}
             {queue.error && <span className="badge badge-warn">{queue.error}</span>}
 
             <button

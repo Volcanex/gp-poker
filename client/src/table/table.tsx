@@ -18,6 +18,7 @@ import { useTableSounds } from './sounds.ts';
 import { useGInit, useMedia } from '../ui/bits.tsx';
 import { LiveStats } from '../analysis/live-stats.tsx';
 import { ChatPanel, ChatToggle } from '../chat/chat.tsx';
+import { LeaveControl } from './leave-control.tsx';
 import type { ChatController } from '../chat/use-chat.ts';
 import { LookContext, type Look } from './look.ts';
 import { DeckSprite } from './deck-sprite.tsx';
@@ -43,6 +44,10 @@ export interface TableProps {
   /* A sat-out seat's way back in. The band draws the prompt and the button;
      this is what they send. */
   onBack?: () => void;
+  /* Leaving the game. Given only by a page that has a match to leave, so the
+     replay and any other embedder of the felt get no control at all. What
+     pressing it means, and whether it asks first, is `leave-control.tsx`. */
+  onLeave?: () => void;
 }
 
 const BOARD_SLOTS = 5;
@@ -67,7 +72,7 @@ const AWARD_MS = 220;
 const AWARD_SHUT = { '--wipe': '100%' };
 const AWARD_OPEN = { '--wipe': '0%' };
 
-export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', onNext, onBack }: TableProps) {
+export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', onNext, onBack, onLeave }: TableProps) {
   const reduced = useReducedMotion();
   const headRef = useRef<HTMLDivElement>(null);
   useGInit(headRef);
@@ -187,6 +192,12 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
             <span className="btn btn-tertiary btn-sm" aria-disabled="true" title="Published when the hand completes">
               Verify
             </span>
+          )}
+          {/* Only somebody with a seat has a game to leave, and whether they
+              have one cannot change mid-match, which is what makes this safe
+              to leave out of a spectator's header rather than disable. */}
+          {onLeave && view.you != null && (
+            <LeaveControl format={view.format} ended={Boolean(ended)} onLeave={onLeave} />
           )}
         </span>
         {chat && <ChatToggle chat={chat} />}

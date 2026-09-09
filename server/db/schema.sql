@@ -314,3 +314,18 @@ alter table users add column if not exists country char(2);
 -- before this, which is what `handBlinds` in server/src/db.ts falls back from.
 alter table hands add column if not exists sb int;
 alter table hands add column if not exists bb int;
+
+-- Walkouts: leaving a ranked match early, either by choosing to (the table's
+-- leave control) or by having it taken (three timeouts, or a connection that
+-- never came back). Persisted rather than held in memory like the ready
+-- check's cooldown, because a penalty a deploy wipes is not a penalty.
+--
+-- `walkout_strikes` is the count as it stood at `walkout_at`, and nothing
+-- sweeps it: strikes decay at one a day and the decay is applied on read by
+-- `walkoutStrikesNow` in @opentable/protocol, so the stored pair is a
+-- statement about a moment rather than a running total needing a cron.
+-- `ranked_ban_until` is what the ladder charged for the strike that was
+-- current when it was written; null means no ban has ever been charged.
+alter table users add column if not exists walkout_strikes int not null default 0;
+alter table users add column if not exists walkout_at timestamptz;
+alter table users add column if not exists ranked_ban_until timestamptz;

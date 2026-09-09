@@ -1,4 +1,4 @@
-import { speedOf } from '@opentable/protocol';
+import { banDurationText, banRemainingText, speedOf, walkoutBanMs } from '@opentable/protocol';
 import type { ActionKind, Card, MatchFormat } from '@opentable/protocol';
 
 export function actionText(a: ActionKind, v?: number): string {
@@ -173,4 +173,36 @@ export function stakeSentence(format: { rated: boolean; practice?: boolean }): s
   return word === 'practice'
     ? 'Practice match, no rating change.'
     : 'Casual match, no rating change.';
+}
+
+/* ------------------------------------------------------- leaving a match
+
+   What the leave modal says a ranked walkout will cost. Pure and here rather
+   than in the dialog, because it is the one sentence a player reads before
+   they decide and it has to be testable without a browser.
+
+   Every number in it comes out of `walkoutBanMs` in the protocol, which is
+   the same table the server charges from, so the warning cannot promise a
+   punishment that is not the one applied. */
+
+const WALKOUT_COUNT = ['', 'first', 'second', 'third', 'fourth', 'fifth', 'sixth'];
+
+function walkoutCount(n: number): string {
+  return WALKOUT_COUNT[n] ?? ordinal(n);
+}
+
+export function leaveWarning(strikes: number, banUntil: number | null, now = Date.now()): string {
+  /* Already serving one. Rare, because a ban closes the doors into ranked,
+     but a match that started before the ban did is still a match somebody
+     can leave, and the honest thing to say is when it ends. */
+  if (banUntil !== null && banUntil > now) {
+    return `You are banned from ranked for another ${banRemainingText(banUntil, now)}. Leaving now adds a strike to that.`;
+  }
+  const next = strikes + 1;
+  const ban = walkoutBanMs(next);
+  if (ban === 0) {
+    const then = banDurationText(walkoutBanMs(next + 1));
+    return `Leaving now counts as a walkout. A second one inside a day bans you from ranked for ${then}.`;
+  }
+  return `Leaving now is your ${walkoutCount(next)} walkout inside a day. That bans you from ranked for ${banDurationText(ban)}.`;
 }

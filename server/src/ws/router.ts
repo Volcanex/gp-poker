@@ -15,6 +15,10 @@ import { unwatchArena, watchArena } from '../arena.js';
 // `back` is the sit-out's un-sit, and it is a message rather than an action
 // for the same shape of reason: a sat-out player cannot say it by acting,
 // because their decision is folded before they can reach it.
+//
+// `leave` and `resign` are two different things and the difference matters:
+// `leave` drops a subscription and is sent by a page going away, `resign`
+// ends the player's game and is sent by a button they pressed.
 export function routeClientMessage(userId: string, msg: ClientMsg): void {
   switch (msg.t) {
     case 'queue': {
@@ -48,6 +52,18 @@ export function routeClientMessage(userId: string, msg: ClientMsg): void {
     }
     case 'leave': {
       getRoom(msg.m)?.leave(userId);
+      return;
+    }
+    // Leaving the game, not the page. `leave` above is the unsubscribe every
+    // unmount sends and must never end a match; this is the table's own
+    // control, and what it costs is the room's to decide.
+    case 'resign': {
+      const room = getRoom(msg.m);
+      if (!room) {
+        hub.send(userId, { t: 'err', c: 'no_match', msg: 'No such match' });
+        return;
+      }
+      room.handleResign(userId);
       return;
     }
     case 'act': {

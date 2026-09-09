@@ -153,6 +153,27 @@ position per user id, 1 = best.
   per-player consecutive-timeout counter hit 3. It can fire mid-hand, before
   the hand runner ever reaches `isDone()`, so `MatchRoom.buildForfeitOutcome`
   computes the outcome itself rather than asking the hand runner for one.
+- **left**: somebody resigned, on a heads-up or practice table. Same ending as
+  a forfeit and a different word for it, because a clock taking a match and a
+  person handing it over read differently on the result panel and telling
+  somebody the wrong one is a small lie that makes the panel untrustworthy.
+  `MatchRoom.buildLeaveOutcome` computes it, and heads-up it reduces to
+  exactly the forfeit outcome.
+
+**A match ends once.** `MatchRoom.finishing` is set the moment a finish
+starts rather than when `match.status` lands, because `finishMatch` awaits a
+database write and the `hand.stop()` inside it hands control straight back to
+a hand runner that was mid-hold: that runner then settles the hand it was
+holding and reports a natural ending over the top of the one being written.
+The away limit is what found this, and the flag guards every route into it.
+`stop()` itself is the other half: it frees a pending practice hold rather
+than leaving its two minute timer running, and shuts the door on `startHand`,
+which is the only thing in the runner that writes.
+
+`buildForfeitOutcome`, `buildLeaveOutcome` and `applyLeftPlaces` all rate
+through `MatchRoom.rate(places)`: a rating is a function of the finishing
+order, and three copies of what feeds Glicko-2 would drift the first time one
+of them gained a field.
 
 ## Sitting out
 
@@ -205,11 +226,19 @@ there is being kept waiting. So:
 - **A timeout streak is never spent.** No sit-out, no forfeit, at either table
   size. `MatchRoom.handleClockExpiry` still counts the streak, it just never
   acts on it. Losing a match to a phone that went to sleep is not a result.
-- **A disconnect has no grace window.** `handleDisconnect` starts no grace
-  timer, and `rearmClock` reads `practice` as a reason to pause, so a decision
-  that arrives while the human is away waits indefinitely instead of being
-  folded `graceMs` later. `handleReconnect` grants a fresh full clock the same
-  way it always did.
+- **A disconnect has no grace window, but it does have an end.**
+  `handleDisconnect` starts no grace timer, and `rearmClock` reads `practice`
+  as a reason to pause, so a decision that arrives while the human is away
+  waits instead of being folded `graceMs` later. `handleReconnect` grants a
+  fresh full clock the same way it always did. What it waits is
+  `PRACTICE_AWAY_MS`, ten minutes, after which `handleAwayExpiry` ends the
+  match as a `left`: "as long as they are away" with nothing after it meant a
+  closed tab left the match `playing` for good, holding its bots out of the
+  roster and counting as a live human table on every dashboard that reads
+  one. **A table held between hands is not exempt**, because a hold waits on
+  a `next` from the same person who is not there. The away timer goes in the
+  same map the grace timer would have, so reconnecting clears it by the route
+  that already existed.
 - **The practice hold is left alone, and that is consistent rather than an
   oversight.** `practiceHoldTimeoutFor` (120s) can still expire while the
   human is away, and the table deals the next hand. That costs them nothing:
@@ -218,6 +247,61 @@ there is being kept waiting. So:
   it cannot end a match on its own, so there is nothing to pause it for. The
   only path that could ever lose a practice match to a disconnect was grace
   expiry into a forfeit, and that path is gone.
+
+## Leaving a match
+
+`resign` is the table's leave control and is **not** the same message as
+`leave`. `leave` unsubscribes and is sent by every page unmount, so giving it
+this meaning would forfeit a match on a route change or a closed tab, and
+somebody who has actually gone is already covered by the disconnect grace.
+
+What resigning does follows the table, and the three answers are different
+because the reasons are:
+
+| Table | What happens |
+| --- | --- |
+| practice | the match ends, `reason: 'left'`, no rating, no strike |
+| heads-up | the opponent takes it, `reason: 'left'`, rated as a loss |
+| multiway | the seat is sat out **for good** and the match plays on |
+| ranked, any of the above | a walkout strike (`../walkouts.ts`) |
+
+A practice table also ends itself on the same `reason: 'left'` when its human
+has been disconnected for `PRACTICE_AWAY_MS`. Nothing is charged for it:
+practice is never rated and there is no opponent it took a game from. See
+"Practice tables never sit the human out" above for why that wait exists at
+all and why it now has an end.
+
+Practice ends outright because the table exists for the one human at it and
+there is nothing to play on for. Multiway plays on for the same reason three
+timeouts sit a player out rather than forfeiting them: handing the other four
+seats a free elimination is worse than the alternative.
+
+It reuses the sat-out machinery above, and `resigned` is what makes it
+permanent. Three places read that set, and each is a rule the sit-out table
+does not cover:
+
+- **`handleAct` checks it before the un-sit.** That is the whole distinction:
+  a sat-out player is one action away from being back at the table, and
+  somebody who left is not.
+- **`handleBack` refuses it.** `back` is the door built for a player who is
+  there and cannot reach the buttons. Leaving is a decision with a rated loss
+  and a walkout strike attached, and a button on a stale tab must not take it
+  back.
+- **`rearmClock` folds the seat whether or not the tab is still open.** The
+  sit-out rule deliberately gives a *connected* sat-out seat the ordinary full
+  clock, because that seat is being asked to come back. Somebody who left is
+  not being asked anything, so their table would spend a whole `clockMs` on
+  every decision of theirs for the rest of the match.
+
+**A leaver's place is fixed the moment they leave**, last among the seats
+still in and not already gone, and `applyLeftPlaces` puts them back there when
+the match finally ends. Without it the chips have the last word: blind
+somebody off and the two seats left can still bust each other, and the match
+goes to the person who walked out of it. The seats that played on keep the
+order they actually finished in and are ranked around the fixed places rather
+than through them, so no real elimination is rewritten. Ratings are recomputed
+there, because these are not the places the hand runner rated. Both are free
+on the matches nobody left, which is nearly all of them.
 
 ## One rating period per match
 

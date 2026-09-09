@@ -81,6 +81,50 @@ shift is a regression, and the usual cause is a box sized to a string:
   grid rules keyed to the parent, that content spent those 120 ms laid out under
   the incoming state's rows. It was the last layout shift left on the screen.
 
+## Leaving a game
+
+`leave-control.tsx` is the button and the dialog behind it, drawn into the
+header's `.head-acts` beside Copy link and Verify. **The header is the only
+place on this screen it can be**: it is the row that already holds the things
+that are not the hand, and it is the one part of the table no decision is ever
+taken from. A control that ends a match must not be a fat finger from a fold.
+
+It is rendered for a seated player and only ever *disabled* once the match is
+over, never removed, so the header's box does not move: whether you have a
+seat is settled before the first card, which is the same argument that lets
+the watch bar be a row of the grid. A spectator gets no control at all.
+
+A casual or practice table leaves on the press. A ranked one opens the g-system
+dialog first and says two things: what leaving does to this match (forfeit,
+rated as a loss) and what it does to the next one, which is `leaveWarning` in
+`labels.ts` reading `walkoutBanMs` from the protocol. That is the same table
+the server charges from, so the warning cannot promise a punishment that is
+not the one applied. The dialog closes on Escape and on the backdrop, unlike
+the ready check's, because nothing is running against the player while it is
+open and dismissing it means the same as keeping playing.
+
+**The header's row has a width budget, and the leave control spent most of
+it.** `.hand-head .bar-in` may not wrap and may not scroll, so four controls
+plus the chat toggle have to fit at 360, and they do not while the copy
+button carries its label: the row ran 23 px over, which pushed Chat off the
+edge and left the group's position depending on how a font measured, which is
+what made the 360 screenshots flake. Below 400 px the label is hidden and the
+copy button is its icon (`../app.css`), which leaves 41 px of slack at 360 and
+71 at 390. Anything else added to this row has to be paid for out of that.
+
+The `<dialog>` sits inside `.head-acts` with the button that opens it. A
+closed dialog is `display: none` and an open one is in the top layer, so
+neither is part of the row: `../../e2e/leave.spec.ts` asserts the table's boxes
+and the layout-shift total are untouched by opening it.
+
+**Backdrop dismiss is g-ui's, not this file's**, and it is wired by the
+`useGInit(headRef)` in `table.tsx`, which walks `.hand-head` on mount and
+finds every `dialog.dlg` under it. Move the dialog out of that subtree and
+clicking the backdrop silently stops closing it.
+
+What the press *does* is the route's (`../routes/CLAUDE.md`), because only the
+page holding a subscription knows how to end a match.
+
 ## The dock
 
 One region, one height (128 px desktop, 150 px phone), three states rendered in
@@ -605,6 +649,13 @@ on that, so the hero's cards are not even redrawn.
 A match opened cold from its URL has no felt to keep and still renders
 `match-summary.tsx`. Both share `HandsSection`, which is what "review hands"
 scrolls to.
+
+A match somebody left says so, in the panel's reason line and in the summary's:
+`leaverOf` in `results.ts` derives who it was rather than reading a field off
+the wire. The server places a leaver last among the seats that still had chips,
+so the answer is the worst-placed row that finished with a stack, and a `who
+left` field would be a second answer to a question `places` and `finalStacks`
+between them already answer once.
 
 ## Chips
 

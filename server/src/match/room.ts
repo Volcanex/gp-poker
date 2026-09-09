@@ -10,6 +10,8 @@ import {
   insertChatMessage,
   type MatchRow,
 } from '../db.js';
+import { practiceAwayFor } from '@opentable/protocol';
+import { chargeWalkout } from '../walkouts.js';
 import { trackSpectator, unregisterRoom, untrackSpectator } from './rooms.js';
 import { emitMatchFinished } from './finished.js';
 import { EngineHandRunner } from './handRunner.js';
@@ -61,6 +63,17 @@ export class MatchRoom {
      it and its own player can answer it with `back`. Heads-up forfeits
      instead, as it always has. */
   private satOut = new Set<string>();
+  // Left on purpose. A superset of `satOut` in effect but not in kind: a
+  // sat-out player is one who stopped answering and is welcome back the
+  // moment they act, and this is one who said they were done, so nothing
+  // un-sits them and no action of theirs is accepted again.
+  private resigned = new Set<string>();
+  /* Where a multiway leaver finishes, fixed at the moment they leave: last
+     among the seats still in at the time. The chips do not care that
+     somebody has gone, so blinding them off leaves them able to outlast the
+     two seats that busted each other, which would hand the match to the
+     person who walked out of it. See `applyLeftPlaces`. */
+  private leftPlaces = new Map<string, number>();
   private clockTimer: ReturnType<typeof setTimeout> | null = null;
   private clock: RoomClock | null = null;
   private lastResult: MatchResult | null = null;
@@ -74,6 +87,12 @@ export class MatchRoom {
   private railChat: ChatLine[] = [];
 
   private hand: HandRunner | null = null;
+  /* Set the moment a finish starts, not when it lands. `finishMatch` awaits
+     a database write before `match.status` says finished, and freeing the
+     hand runner's hold hands control back to it inside that window: it then
+     settles the hand it was holding and reports a second, natural ending
+     over the top of the one being written. A match ends once. */
+  private finishing = false;
 
   // The format is the only source of truth for whether this match is rated.
   // `matches.rated` is a copy of it, re-asserted on finish; nothing reads the
@@ -253,6 +272,13 @@ export class MatchRoom {
       hub.send(userId, { t: 'err', c: 'not_your_turn', msg: 'Spectators cannot act' });
       return;
     }
+    // Checked before the un-sit below, which is the whole difference between
+    // the two states: a sat-out player is one action away from being back at
+    // the table, and somebody who left is not.
+    if (this.resigned.has(userId)) {
+      hub.send(userId, { t: 'err', c: 'not_your_turn', msg: 'You left this match' });
+      return;
+    }
     // Any attempt to act un-sits a sat-out player, including one the room
     // rejects. `back` is the way in that does not have to be timed, but a
     // player who reaches the buttons first should not be folded for it.
@@ -279,6 +305,10 @@ export class MatchRoom {
      clear. */
   handleBack(userId: string, _msg: Extract<ClientMsg, { t: 'back' }>): void {
     if (this.match.status !== 'playing') return;
+    // Somebody who left is sat out too, and this is the one door that must
+    // not open for them: leaving is a decision with a rating and a walkout
+    // strike attached, and a button on a stale tab cannot take it back.
+    if (this.resigned.has(userId)) return;
     if (!this.satOut.delete(userId)) return;
     this.timeoutStreak.set(userId, 0);
     if (this.clock && this.playerIds[this.clock.seat] === userId) this.rearmClock();
@@ -294,6 +324,172 @@ export class MatchRoom {
   handleNext(userId: string, msg: Extract<ClientMsg, { t: 'next' }>): void {
     if (!this.hand || this.match.status !== 'playing' || !this.playerIds.includes(userId)) return;
     this.hand.next(userId, msg);
+  }
+
+  /* Leaving the game, from the table's own control.
+
+     This is a different message from `leave` on purpose. `leave` is the page
+     unsubscribing and is sent on every unmount, so a route change, a reload
+     or a tab close would forfeit a match somebody is still playing if the
+     two shared a meaning. Somebody who has actually gone is covered by the
+     disconnect grace, which is the mechanism that already exists for it.
+
+     What it costs depends on the table, and the three answers are in
+     `CLAUDE.md`. In short: a practice table ends, heads-up hands the match
+     to the opponent, and a multiway table plays on without the seat. */
+  handleResign(userId: string): void {
+    if (!this.hand || this.match.status !== 'playing') {
+      hub.send(userId, { t: 'err', c: 'no_match', msg: 'This match is over' });
+      return;
+    }
+    if (!this.playerIds.includes(userId)) {
+      hub.send(userId, { t: 'err', c: 'not_your_turn', msg: 'Spectators have no seat to leave' });
+      return;
+    }
+    if (this.resigned.has(userId)) return; // said twice, costs once
+    /* Nothing to leave. Either the match is already decided and waiting on
+       its own settle, or this seat has been knocked out and is watching the
+       rest of it: both have a place already, and charging a walkout for
+       pressing the button after that would be charging somebody for losing. */
+    if (this.hand.isDone() || this.hand.currentPlaces()[userId] !== undefined) return;
+    if (!this.match.format.practice && this.playerIds.length > 2) this.pinLeavingPlace(userId);
+    this.resigned.add(userId);
+    this.chargeWalkoutIfRanked(userId);
+
+    /* A practice table exists for the one human sitting at it, so there is
+       nothing for it to play on for; heads-up has one opponent and the match
+       is theirs. Either way the match is over now. */
+    if (this.practice || this.playerIds.length === 2) {
+      this.finishOnLeave(userId).catch((err) => this.abandon(err));
+      return;
+    }
+
+    /* Multiway plays on. Forfeiting the match would hand the rest of the
+       table a free elimination, which is the same argument that makes three
+       timeouts a sit-out rather than a forfeit here, so leaving reuses that
+       machinery exactly: every decision auto check-folded the instant it
+       reaches the seat, blinds still posted, down to a bust like anyone
+       else. The one difference is that it is permanent. */
+    this.satOut.add(userId);
+    // Rearmed before the broadcast, like everywhere else: a seat that has
+    // just left may be the one to act, and the message that reports the
+    // sit-out has to carry the clock that goes with it.
+    this.rearmClock();
+    this.broadcast();
+  }
+
+  /* Where somebody who is leaving a multiway table finishes: last among the
+     seats that are still in and have not already left. Computed now rather
+     than at the end, because "still in" is a fact about this moment and the
+     table will have emptied by the time it is used.
+
+     Two people leaving the same table take different places: the second one
+     is not measured against the first, who is already out of the reckoning,
+     so leaving later finishes higher. That is the same order the chips would
+     have produced and it needs no tie to break. */
+  private pinLeavingPlace(userId: string): void {
+    const settled = this.hand?.currentPlaces() ?? {};
+    const stillIn = this.playerIds.filter(
+      (id) => settled[id] === undefined && (id === userId || !this.resigned.has(id))
+    );
+    this.leftPlaces.set(userId, stillIn.length);
+  }
+
+  /* The finishing order with the leavers put back where they belong. The
+     seats that played on keep the order they actually finished in and are
+     ranked around the fixed places rather than through them, so nothing
+     about a real elimination is rewritten: what changes is only that a
+     match somebody walked out of cannot be won by them.
+
+     Ratings are recomputed rather than carried over, because a rating is a
+     function of the places and these are not the places the hand runner
+     rated. Untouched, and free, on the matches nobody left. */
+  private async applyLeftPlaces(outcome: MatchOutcome): Promise<MatchOutcome> {
+    if (this.leftPlaces.size === 0) return outcome;
+
+    const fixed = new Map<number, string>();
+    for (const [uid, place] of this.leftPlaces) fixed.set(place, uid);
+    const rest = this.playerIds
+      .filter((id) => !this.leftPlaces.has(id))
+      .sort((a, b) => (outcome.places[a] ?? this.playerIds.length) - (outcome.places[b] ?? this.playerIds.length));
+
+    const places: Record<string, number> = {};
+    let next = 0;
+    for (let place = 1; place <= this.playerIds.length; place++) {
+      const leaver = fixed.get(place);
+      if (leaver !== undefined) {
+        places[leaver] = place;
+        continue;
+      }
+      const id = rest[next];
+      if (id === undefined) continue;
+      next += 1;
+      places[id] = place;
+    }
+    // Anything the walk could not seat (two leavers pinned to one place, if
+    // that ever became possible) keeps what it had rather than losing a place
+    // altogether.
+    for (const id of this.playerIds) if (places[id] === undefined) places[id] = outcome.places[id] ?? this.playerIds.length;
+
+    const winner = Object.entries(places).find(([, place]) => place === 1)?.[0] ?? null;
+    return { ...outcome, winner, places, ratings: await this.rate(places) };
+  }
+
+  /* One rating period for this match's mode, from a finishing order. The
+     three endings that build an outcome outside the hand runner all go
+     through here: a rating is a function of the places, and three copies of
+     what feeds it would drift the moment one of them gained a field. */
+  private async rate(places: Record<string, number>): Promise<MatchOutcome['ratings']> {
+    const standings = await getRatingsForUsers(this.playerIds, this.match.format.mode);
+    const inputs = this.playerIds.map((uid) => {
+      const r = standings.get(uid)!;
+      return { userId: uid, rating: r.rating, rd: r.rd, volatility: r.volatility, ratingAt: r.ratingAt };
+    });
+    return computeMatchRatings(inputs, places, this.rated);
+  }
+
+  /* Only a rated match has a walkout to charge. Casual and practice are the
+     rooms somebody is meant to be able to walk out of, and a bot forfeited by
+     its own clock is a bug in the bot rather than a player to ban.
+
+     Detached on purpose: the ban is a write about a person and the match is
+     ending either way, so a database that refuses it must not take the
+     result down with it. */
+  private chargeWalkoutIfRanked(userId: string): void {
+    if (!this.rated) return;
+    void chargeWalkout(userId).catch((err) => {
+      console.error(`match ${this.id} could not charge a walkout:`, err);
+    });
+  }
+
+  private async finishOnLeave(leaverId: string): Promise<void> {
+    await this.finishMatch(await this.buildLeaveOutcome(leaverId));
+  }
+
+  /* The outcome of a match ended by somebody leaving it. The people still in
+     are placed by the stacks they are holding, best first, and the leaver
+     goes last among them: anybody already eliminated finished before this
+     happened and keeps the place they earned, which is why the settled
+     places are read rather than recomputed.
+
+     Heads-up this reduces to the forfeit outcome (opponent 1, leaver 2), so
+     the two endings differ only in the `reason` they carry, which is the one
+     thing the result panel needs them to differ in. */
+  private async buildLeaveOutcome(leaverId: string): Promise<MatchOutcome> {
+    const stacks = this.hand?.currentStacks() ?? {};
+    const settled = this.hand?.currentPlaces() ?? {};
+    const stillIn = this.playerIds.filter((id) => settled[id] === undefined);
+    const others = stillIn
+      .filter((id) => id !== leaverId)
+      .sort((a, b) => (stacks[b] ?? 0) - (stacks[a] ?? 0));
+
+    const places: Record<string, number> = { ...settled };
+    others.forEach((id, i) => {
+      places[id] = i + 1;
+    });
+    if (settled[leaverId] === undefined) places[leaverId] = stillIn.length;
+
+    return { winner: others[0] ?? null, reason: 'left', stacks, places, ratings: await this.rate(places) };
   }
 
   // The decision clock. It is rearmed BEFORE the broadcast that reports the
@@ -319,7 +515,11 @@ export class MatchRoom {
     }
     const userId = this.playerIds[seat];
     const away = userId !== undefined && this.disconnected.has(userId);
-    if (userId !== undefined && this.satOut.has(userId) && away) {
+    // Somebody who left is never coming back to the buttons, so their seat
+    // folds on arrival whether or not the tab is still open. A sat-out
+    // player is the other case and is asked rather than folded.
+    const gone = userId !== undefined && (away || this.resigned.has(userId));
+    if (userId !== undefined && this.satOut.has(userId) && gone) {
       // Sat out AND away: fold (or check) immediately rather than burn a
       // clock nobody is watching. Deferred by a timer so a whole street of
       // sat-out seats unwinds as separate turns instead of recursing through
@@ -370,6 +570,11 @@ export class MatchRoom {
     if (spent && this.playerIds.length > 2) this.satOut.add(userId);
     if (spent && this.playerIds.length === 2) {
       this.broadcast();
+      // A forfeit is a walkout that was taken rather than chosen: the clock
+      // ran out three times, or a connection never came back and the grace
+      // window handed the expiry here. It costs the same, because it cost
+      // the opponent the same.
+      this.chargeWalkoutIfRanked(userId);
       const opponent = this.playerIds.find((id) => id !== userId) ?? null;
       this.forfeit(opponent).catch((err) => this.abandon(err));
       return;
@@ -389,9 +594,13 @@ export class MatchRoom {
   }
 
   private settleIfDone(): void {
+    if (this.finishing) return; // already ending, by any route
     if (!this.hand?.isDone()) return;
     const outcome = this.hand.matchResult();
-    if (outcome) this.finishMatch(outcome).catch((err) => this.abandon(err));
+    if (!outcome) return;
+    this.applyLeftPlaces(outcome)
+      .then((settled) => this.finishMatch(settled))
+      .catch((err) => this.abandon(err));
   }
 
   // Last resort for a room that cannot continue: the match row is gone, or
@@ -421,13 +630,21 @@ export class MatchRoom {
       this.clock = { ...this.clock, paused: true };
     }
     this.broadcast(); // let the opponent see connected:false / paused right away
-    // A practice table has no grace window: the clock stays paused until the
-    // human comes back, however long that is. `rearmClock` reads `practice`
-    // for the same reason, so a decision that arrives while they are away
-    // waits rather than being folded.
-    if (this.practice) return;
-    const timer = setTimeout(() => this.handleGraceExpiry(userId), this.match.format.graceMs);
-    this.graceTimers.set(userId, timer);
+    /* A practice table has no grace window: the clock stays paused until the
+       human comes back, however long that is. `rearmClock` reads `practice`
+       for the same reason, so a decision that arrives while they are away
+       waits rather than being folded.
+
+       "However long that is" needed an end, though, and this is it. Waiting
+       for somebody who closed the tab is not patience, it is a match left
+       `playing` for good, five bots held out of the roster and a table the
+       dashboards count as a live human one. The timer goes in the same map
+       the grace timer would have, so reconnecting clears it by the route
+       that already exists. */
+    const away = this.practice
+      ? setTimeout(() => this.handleAwayExpiry(userId), practiceAwayFor(this.match.format))
+      : setTimeout(() => this.handleGraceExpiry(userId), this.match.format.graceMs);
+    this.graceTimers.set(userId, away);
   }
 
   handleReconnect(userId: string): void {
@@ -443,6 +660,21 @@ export class MatchRoom {
       this.armTimer(deadline, this.clock.seat);
     }
     this.broadcast();
+  }
+
+  /* Practice only: the human has been away long enough that the table is not
+     waiting any more. It ends the way they would have ended it themselves,
+     `reason: 'left'`, because that is what happened, and it costs nothing:
+     practice is never rated and there is no opponent it took a game from.
+
+     A table held between hands is not exempt. The hold is the hand runner's
+     and it waits on a `next` from the same person who is not here, so
+     exempting it would be exempting exactly the table this is for. */
+  private handleAwayExpiry(userId: string): void {
+    this.graceTimers.delete(userId);
+    if (!this.disconnected.has(userId)) return; // came back, nothing to do
+    if (!this.hand || this.match.status !== 'playing') return;
+    this.finishOnLeave(userId).catch((err) => this.abandon(err));
   }
 
   private handleGraceExpiry(userId: string): void {
@@ -466,19 +698,19 @@ export class MatchRoom {
     const places: Record<string, number> = {};
     for (const uid of this.playerIds) places[uid] = winnerId === null ? 1 : uid === winnerId ? 1 : 2;
 
-    const standings = await getRatingsForUsers(this.playerIds, this.match.format.mode);
-    const inputs = this.playerIds.map((uid) => {
-      const r = standings.get(uid)!;
-      return { userId: uid, rating: r.rating, rd: r.rd, volatility: r.volatility, ratingAt: r.ratingAt };
-    });
-    const ratings = computeMatchRatings(inputs, places, this.rated);
-    return { winner: winnerId, reason: 'forfeit', stacks, places, ratings };
+    return { winner: winnerId, reason: 'forfeit', stacks, places, ratings: await this.rate(places) };
   }
 
   async finishMatch(outcome: MatchOutcome): Promise<void> {
+    if (this.finishing) return;
+    this.finishing = true;
     this.clearClockTimer();
     for (const t of this.graceTimers.values()) clearTimeout(t);
     this.graceTimers.clear();
+    // And whatever the hand runner is still waiting on. A match can end while
+    // a practice hold is pending (nobody is coming to press the button) and
+    // that hold's own timeout would otherwise resume into a finished match.
+    this.hand?.stop();
 
     // Counters move for every finished match; the Glicko-2 state and a
     // rating_history row only for a rated one. Multiway has no draw: first

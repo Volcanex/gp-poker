@@ -86,6 +86,26 @@ into a select option is what made the old picker read as tacky.
 **No middle dot separators.** They are banned in this UI, so the counts strip
 and the site footer separate with space and the page carries none.
 
+## Leaving a match
+
+`leave` and `resign` are two messages and the difference is load bearing.
+`match.tsx` sends `{t: 'leave'}` from the effect's cleanup, which fires on
+every unmount: a route change, a reload, a closed tab. It is an unsubscribe
+and nothing more. `{t: 'resign'}` is the table's leave control
+(`../table/CLAUDE.md`) and is the only thing that ends a match early. If the
+two shared a meaning, navigating away would forfeit a game somebody is still
+playing, and there is already a mechanism for a player who has actually gone,
+which is the disconnect grace.
+
+Whether the page stays after resigning is the server's answer read back.
+Heads-up and practice both end the match, so it stays: the result panel is
+what there is to stay for. A multiway table plays on with the seat blinded
+off, so there is nothing left to watch as a player and the page goes home.
+
+The mock has no server to resign to, so its `onLeave` is a navigation. That is
+what lets `../../e2e/leave.spec.ts` open the ranked warning with nothing
+running behind it.
+
 ## Watching
 
 `/watch` lists the live tables from `/api/live` on a five second clock, with

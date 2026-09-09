@@ -25,6 +25,14 @@ export interface Me extends UserSummary {
      knows nothing about. The picker refreshes /api/me on every match end, so
      this flips without anything pushing it. */
   rankedUnlocked?: boolean;
+  /* Ranked walkouts: how many strikes are standing (decay already applied)
+     and when the ban they earned ends, as epoch ms rather than an ISO
+     string, because it is a deadline the page counts down and not a record
+     of when something happened. Null when no ban is running. Both optional
+     for the same reason `rankedUnlocked` is: a client can outlive the server
+     it talks to, and absent reads as nothing to serve. */
+  walkoutStrikes?: number;
+  rankedBanUntil?: number | null;
 }
 
 /* An annotation made on the running site: what is wrong, where it was seen,

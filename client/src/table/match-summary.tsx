@@ -10,7 +10,7 @@ import { handAccuracy, matchHasAccuracy, seatIsBot, avatarVersion } from '../net
 import { deltaTone } from '../ui/bits.tsx';
 import { Avatar } from '../ui/avatar.tsx';
 import { ordinal, stakeName, stakeSentence } from './labels.ts';
-import { rankSeats } from './results.ts';
+import { leaverOf, rankSeats } from './results.ts';
 
 export interface MatchSummaryProps {
   match: Match;
@@ -28,16 +28,38 @@ function stakeOf(match: Match): { rated: boolean; practice?: boolean } {
   return { rated: match.rated, practice: match.format.practice };
 }
 
-/* The count is on the line beside this one, so the reason does not repeat it. */
-function reasonText(r: Match['reason'], players: number): string {
+/* The count is on the line beside this one, so the reason does not repeat it.
+
+   `left` and `forfeit` are the same ending reached two ways and they read
+   differently on purpose: one is a decision and the other is a clock, and
+   telling somebody their opponent forfeited when they pressed a button is
+   the kind of small lie that makes a result panel untrustworthy. */
+function reasonText(r: Match['reason'], players: number, leaver: LeaverText): string {
   switch (r) {
     case 'bust': return players > 2 ? 'Last player standing.' : 'A stack hit zero.';
     case 'hands': return 'The match went the full distance.';
     case 'forfeit': return 'Forfeited on the clock after three timeouts.';
     case 'draw': return 'Level stacks after the last hand.';
     case 'abort': return 'The match was abandoned before it could finish.';
+    case 'left': return leaveText(leaver);
     default: return '';
   }
+}
+
+export type LeaverText = { name: string; mine: boolean } | null;
+
+/* Who left, if anybody did, as the two facts the sentence needs. */
+export function leaverText(match: Match, meId: string | null): LeaverText {
+  const seat = leaverOf(match);
+  if (!seat) return null;
+  return { name: seat.name, mine: meId !== null && seat.userId === meId };
+}
+
+/* Shared with the panel under a table that has just ended, so the two pages
+   say the same thing about the same match. */
+export function leaveText(leaver: LeaverText): string {
+  if (!leaver) return 'Somebody left the table.';
+  return leaver.mine ? 'You left.' : `${leaver.name} left.`;
 }
 
 /* The rating moves once, after a beat, so it reads as a change rather than a
@@ -78,7 +100,7 @@ export function MatchSummary({ match, meId, onAgain, againLabel }: MatchSummaryP
       <header>
         <h1 className="h1">{verdict}</h1>
         <span className="muted">
-          {reasonText(match.reason, players)} {stakeName(stakeOf(match))} match over{' '}
+          {reasonText(match.reason, players, leaverText(match, meId))} {stakeName(stakeOf(match))} match over{' '}
           {match.handsPlayed} {match.handsPlayed === 1 ? 'hand' : 'hands'}
           {match.finishedAt ? `, finished ${fmtDate(match.finishedAt)}` : ''}.
         </span>

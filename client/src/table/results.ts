@@ -40,3 +40,18 @@ export function rankSeats(match: Match): ResultRow[] {
     rating: r.rating,
   }));
 }
+
+/* Who left, on a match whose reason is `left`. The server places the person
+   who leaves last among the seats that still had chips when they did, so the
+   answer is the worst-placed row that finished with a stack: everybody below
+   them had already been eliminated and finished before any of this. Null on
+   every other reason, and on a row too old to carry stacks.
+
+   Derived rather than recorded because the result already says it. A `who
+   left` field on the wire would be a second answer to a question `places`
+   and `finalStacks` between them have only one answer to. */
+export function leaverOf(match: Match): MatchSeat | null {
+  if (match.reason !== 'left') return null;
+  const live = rankSeats(match).filter((r) => r.stack > 0);
+  return live.length > 0 ? live[live.length - 1].seat : null;
+}

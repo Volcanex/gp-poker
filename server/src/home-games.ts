@@ -19,6 +19,7 @@ import {
 import { createMatchForPlayers, matchFormat, randomMatchId } from './matchmaking.js';
 import { availableBotsAtLevel } from './bots/index.js';
 import { roomForPlayer } from './match/rooms.js';
+import { rankedBanUntil } from './walkouts.js';
 import { toUserSummary } from './userView.js';
 import { hub } from './ws/hub.js';
 import { isUniqueViolation } from './pgError.js';
@@ -255,6 +256,24 @@ export async function startHomeGame(id: string, userId: string): Promise<HomeGam
 
   const rated = row.rated && humans.length >= 2;
   const reason = row.rated && !rated ? 'A table with one person at it plays casual: a rating needs two humans.' : null;
+
+  /* Asked here rather than at the door, because this is where the table
+     finds out whether it is rated at all: a home game that drops to casual
+     for want of a second human is not a ranked door and nobody is kept out
+     of it. A rated one is, and a seat serving a walkout ban holds the table
+     up rather than being dealt into it. */
+  if (rated) {
+    for (const seat of seats) {
+      const banned = await rankedBanUntil(seat.userId);
+      if (banned === null) continue;
+      const who = seat.userId === userId ? 'You left' : `${seat.name} left`;
+      return {
+        ok: false,
+        status: 409,
+        error: `${who} a ranked match recently, so this table cannot play rated yet. Make it casual or wait.`,
+      };
+    }
+  }
 
   const claimed = await claimHomeGame(id, userId);
   if (!claimed) return { ok: false, status: 409, error: 'This table has already started' };

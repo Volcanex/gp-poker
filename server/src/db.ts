@@ -63,6 +63,12 @@ export interface UserRow {
   draws: number;
   avatarType: string | null; // null while they have no picture
   avatarV: number; // bumped on every change, 0 while they have never had one
+  /* Ranked walkouts. The count as it stood at `walkoutAt`, not a running
+     total: strikes decay a day at a time and the decay is applied on read
+     (`walkoutStrikesNow`), so nothing sweeps these. See ../walkouts.ts. */
+  walkoutStrikes: number;
+  walkoutAt: Date | null;
+  rankedBanUntil: Date | null;
 }
 
 /* Every column of `users` except the picture itself, which is the one column
@@ -73,7 +79,8 @@ export interface UserRow {
 const USER_COLS = sql`
   id, name, name_lower, password_hash, guest, bot, bot_level, created_at,
   last_seen_at, rating, rd, volatility, rating_at, peak_rating, peak_at,
-  matches, wins, losses, draws, admin, avatar_type, avatar_v, country
+  matches, wins, losses, draws, admin, avatar_type, avatar_v, country,
+  walkout_strikes, walkout_at, ranked_ban_until
 `;
 
 /* One row per (user, mode). This is where the Glicko-2 state lives now; the
@@ -335,6 +342,30 @@ export async function claimGuestUser(
 export async function updateUserCountry(id: string, country: string | null): Promise<UserRow | null> {
   const [row] = await sql<UserRow[]>`
     update users set country = ${country} where id = ${id} returning *
+  `;
+  return row ?? null;
+}
+
+/* Record a walkout. The count and the moment it was written are set
+   together, because the pair is what the decay is computed from: writing a
+   count without its timestamp would leave a strike that never expires.
+
+   `until` is what the ladder charged, already worked out by the caller
+   (../walkouts.ts) from the decayed count, so this is a write and not a
+   policy. Returned so the caller can tell the player what it cost. */
+export async function recordWalkout(
+  id: string,
+  strikes: number,
+  at: Date,
+  until: Date | null
+): Promise<UserRow | null> {
+  const [row] = await sql<UserRow[]>`
+    update users
+       set walkout_strikes = ${strikes},
+           walkout_at = ${at},
+           ranked_ban_until = ${until}
+     where id = ${id}
+    returning ${USER_COLS}
   `;
   return row ?? null;
 }

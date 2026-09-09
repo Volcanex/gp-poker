@@ -23,6 +23,7 @@ import {
   type MatchSeat,
 } from './db.js';
 import { chargeNoShow, cooldownUntil, declineReady, openReadyCheck } from './ready.js';
+import { rankedBanMessage, rankedBanUntil } from './walkouts.js';
 import { isUniqueViolation } from './pgError.js';
 import { MatchRoom } from './match/room.js';
 import { registerRoom } from './match/rooms.js';
@@ -110,8 +111,8 @@ export async function enqueue(
   const user = await getUserById(userId);
   if (!user) return;
 
-  // Two refusals before anything is entered, both of them about this player
-  // rather than about this search, and both of them saying what happens next
+  // Three refusals before anything is entered, all of them about this player
+  // rather than about this search, and all of them saying what happens next
   // rather than only that the answer is no.
   const until = cooldownUntil(userId);
   if (until !== null) {
@@ -130,6 +131,15 @@ export async function enqueue(
       msg: 'Play one casual game first. Rated play opens as soon as it finishes.',
     });
     return;
+  }
+  // The walkout ban, and only on the rated queue: casual and practice are
+  // the rooms somebody serving one is meant to still be able to play in.
+  if (rated) {
+    const banned = await rankedBanUntil(userId);
+    if (banned !== null) {
+      hub.send(userId, { t: 'err', c: 'ranked_ban', msg: rankedBanMessage(banned) });
+      return;
+    }
   }
 
   // The queue matches on the rating for the mode being queued for, so a

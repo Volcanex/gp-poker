@@ -202,6 +202,21 @@ function LiveMatch({ id }: { id: string }) {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [comeBack]);
 
+  /* Leaving the game, which is not the same message as leaving the page: the
+     unmount above sends `leave` on every route change and must never end a
+     match, so the button sends `resign` and the server decides what that
+     costs.
+
+     Whether to stay is the server's answer read back. Heads-up and practice
+     both end the match, and the result panel is the point of staying for.
+     Multiway plays on without the seat, so there is nothing left to watch as
+     a player and the way out is out. */
+  const onLeave = useCallback(() => {
+    send({ t: 'resign', m: id });
+    const playsOn = view != null && view.seats.length > 2 && !view.format.practice;
+    if (playsOn) nav('/');
+  }, [send, id, view, nav]);
+
   /* Play again means the match just played: the same mode, rated or not.
      Somebody who was watching it has no match to play again, so the primary
      button sends them back to the tables that are still running.
@@ -253,6 +268,7 @@ function LiveMatch({ id }: { id: string }) {
         ended={ended != null}
         chat={chat}
         look="v2"
+        onLeave={onLeave}
       />
       {ended ? (
         <>
@@ -372,6 +388,11 @@ function MockMatch(
         look={v2 ? 'v2' : 'v1'}
         onNext={hold ? advance : undefined}
         onBack={sitout ? advance : undefined}
+        /* No server to resign to, so leaving the mock is leaving the page.
+           The control and its dialog are the same ones the live table draws,
+           which is what lets the e2e suite open the warning without a
+           match. */
+        onLeave={() => nav('/')}
       />
       {ended ? (
         <>

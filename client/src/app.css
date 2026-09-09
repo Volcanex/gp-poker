@@ -1187,6 +1187,23 @@
   .hand-head .bar-in > * { white-space: nowrap; }
 }
 
+/* Phones. The header's row may not wrap and may not scroll, and with four
+   controls in it there is no room for the copy button's label: at 360 the
+   row ran 23 px over, which pushed Chat off the edge and left the whole
+   group's position depending on how a font happened to measure, and 390 had
+   under 7 px to spare, which is inside the noise of a font swap. So the copy
+   button gives up its label and keeps its icon. It is the only control here
+   whose icon says on its own what it does, the aria-label is unchanged, and
+   it is the same bargain the seat line makes when it gives up its avatar and
+   its flag slot to keep a name whole. Above this the row has room for both.
+
+   Measured, not guessed: with the label gone 360 has 41 px of slack and 390
+   has 71. Keep it that way, and see `table/CLAUDE.md` on why this row is not
+   allowed to move. */
+@media (max-width: 400px) {
+  .hand-head .copy-btn .copy-label { display: none; }
+}
+
 /* ------------------------------------------------------------------- phone */
 
 @media (max-width: 560px) {

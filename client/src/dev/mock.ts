@@ -143,8 +143,16 @@ export function mockScript(
   }
   if (rated) return steps;
   /* A casual match is rated: false with the ratings map still on it, which is
-     what the server sends and what the result screen has to ignore. */
-  return steps.map((s) => (s.end ? { ...s, end: { ...s.end, rated: false } } : s));
+     what the server sends and what the result screen has to ignore. The flag
+     goes on the view's format as well as on the result, because the table
+     itself reads it while the match is still running: the watch bar's badge
+     and the leave control both ask whether this game is rated, and a mock
+     that only said so at the end could not stage either. */
+  return steps.map((s) => ({
+    ...s,
+    view: s.view ? { ...s.view, format: { ...s.view.format, rated: false } } : undefined,
+    end: s.end ? { ...s.end, rated: false } : undefined,
+  }));
 }
 
 /* ------------------------------------------------------------- heads-up */

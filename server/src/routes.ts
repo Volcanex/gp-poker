@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { type MatchFormat, type Mode } from '@opentable/protocol';
+import { walkoutStrikesNow, type MatchFormat, type Mode } from '@opentable/protocol';
 import { bucketFor, effectiveStackBb, handClass, spotFor, walkPreflop } from '@opentable/preflop';
 
 function modeParam(raw: unknown): Mode {
@@ -668,6 +668,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 function meBody(user: UserRow, ratings: Record<Mode, RatingRow>, unlocked: boolean) {
   const summary = toUserSummary(user, ratings);
   const headsUp = summary.ratings['heads-up'];
+  const banNow = Date.now();
+  const banUntil = user.rankedBanUntil?.getTime() ?? null;
   // The flat peak/peakAt/matches/wins/losses/draws are the heads-up ones,
   // same compatibility bargain as the flat rating fields on UserSummary.
   return {
@@ -682,6 +684,14 @@ function meBody(user: UserRow, ratings: Record<Mode, RatingRow>, unlocked: boole
        every `end`, so the control flips the moment the first game finishes
        without anything having to push it. */
     rankedUnlocked: unlocked,
+    /* The walkout state, read straight off the row rather than queried for:
+       the decay is arithmetic on two columns this payload already has.
+       `rankedBanUntil` is epoch ms and not an ISO string, like every other
+       deadline the client counts down (`ReadyCheck.deadline`, the queue
+       cooldown), because that is what it is for. Null while there is no ban
+       running, including one that has already expired. */
+    walkoutStrikes: walkoutStrikesNow(user.walkoutStrikes, user.walkoutAt?.getTime() ?? null, banNow),
+    rankedBanUntil: banUntil !== null && banUntil > banNow ? banUntil : null,
     peak: headsUp.peak,
     peakAt: headsUp.peakAt,
     matches: headsUp.matches,
