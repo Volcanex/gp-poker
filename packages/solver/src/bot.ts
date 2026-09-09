@@ -218,26 +218,27 @@ export class SolverBot {
       return;
     }
     if (decision.a === 'f') return;
-    if (decision.a === 'b' || decision.a === 'r' || decision.a === 'a') {
+    if (aggressive) {
       this.stats.betsFaced += 1;
       state.pendingBet = true;
     }
-    if (state.exactlyTracked) {
-      state.exactlyTracked = false;
-      const wager = decision.a === 'b' || decision.a === 'r' || decision.a === 'a' ? (decision.v ?? me.stack + me.bet) - me.bet : 0;
-      const before = Math.max(1, view.pot - Math.max(0, (view.seats.find((s) => s.i !== me.i)?.bet ?? 0) - me.bet));
-      state.lastWagerFraction = wager > 0 ? wager / before : 0;
-      return;
-    }
+
     const opponent = view.seats.find((s) => s.i !== me.i && !s.folded && s.cards !== null);
-    const wagered = decision.a === 'b' || decision.a === 'r' || decision.a === 'a' ? (decision.v ?? me.stack + me.bet) - me.bet : 0;
-    const potBefore = Math.max(1, view.pot - Math.max(0, (opponent?.bet ?? 0) - me.bet));
     const facing = (opponent?.bet ?? 0) > me.bet;
-    const kind: AggressionKind = aggressive ? (facing ? 'raise' : 'bet') : decision.a === 'c' ? 'call' : 'check';
+    const wagered = aggressive ? (decision.v ?? me.stack + me.bet) - me.bet : 0;
+    const potBefore = Math.max(1, view.pot - Math.max(0, (opponent?.bet ?? 0) - me.bet));
     const potFraction = wagered / potBefore;
     // Remembered so that when the opponent's call of it turns up on the next
     // street, how big a call it was is still known.
     state.lastWagerFraction = aggressive ? potFraction : 0;
+
+    // A decision that came from a solve has already narrowed our range by the
+    // strategy behind it, exactly. Leaning on it again would count it twice.
+    if (state.exactlyTracked) {
+      state.exactlyTracked = false;
+      return;
+    }
+    const kind: AggressionKind = aggressive ? (facing ? 'raise' : 'bet') : decision.a === 'c' ? 'call' : 'check';
     state.tracker.postflopAction(state.heroPosition, view.board.map(cardIndex), { kind, potFraction });
   }
 
