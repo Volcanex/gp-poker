@@ -10,6 +10,7 @@ import {
   insertChatMessage,
   type MatchRow,
 } from '../db.js';
+import { chargeWalkout } from '../walkouts.js';
 import { trackSpectator, unregisterRoom, untrackSpectator } from './rooms.js';
 import { emitMatchFinished } from './finished.js';
 import { EngineHandRunner } from './handRunner.js';
@@ -61,6 +62,11 @@ export class MatchRoom {
      it and its own player can answer it with `back`. Heads-up forfeits
      instead, as it always has. */
   private satOut = new Set<string>();
+  // Left on purpose. A superset of `satOut` in effect but not in kind: a
+  // sat-out player is one who stopped answering and is welcome back the
+  // moment they act, and this is one who said they were done, so nothing
+  // un-sits them and no action of theirs is accepted again.
+  private resigned = new Set<string>();
   private clockTimer: ReturnType<typeof setTimeout> | null = null;
   private clock: RoomClock | null = null;
   private lastResult: MatchResult | null = null;
@@ -253,6 +259,13 @@ export class MatchRoom {
       hub.send(userId, { t: 'err', c: 'not_your_turn', msg: 'Spectators cannot act' });
       return;
     }
+    // Checked before the un-sit below, which is the whole difference between
+    // the two states: a sat-out player is one action away from being back at
+    // the table, and somebody who left is not.
+    if (this.resigned.has(userId)) {
+      hub.send(userId, { t: 'err', c: 'not_your_turn', msg: 'You left this match' });
+      return;
+    }
     // Any attempt to act un-sits a sat-out player, including one the room
     // rejects. `back` is the way in that does not have to be timed, but a
     // player who reaches the buttons first should not be folded for it.
@@ -279,6 +292,10 @@ export class MatchRoom {
      clear. */
   handleBack(userId: string, _msg: Extract<ClientMsg, { t: 'back' }>): void {
     if (this.match.status !== 'playing') return;
+    // Somebody who left is sat out too, and this is the one door that must
+    // not open for them: leaving is a decision with a rating and a walkout
+    // strike attached, and a button on a stale tab cannot take it back.
+    if (this.resigned.has(userId)) return;
     if (!this.satOut.delete(userId)) return;
     this.timeoutStreak.set(userId, 0);
     if (this.clock && this.playerIds[this.clock.seat] === userId) this.rearmClock();
@@ -294,6 +311,102 @@ export class MatchRoom {
   handleNext(userId: string, msg: Extract<ClientMsg, { t: 'next' }>): void {
     if (!this.hand || this.match.status !== 'playing' || !this.playerIds.includes(userId)) return;
     this.hand.next(userId, msg);
+  }
+
+  /* Leaving the game, from the table's own control.
+
+     This is a different message from `leave` on purpose. `leave` is the page
+     unsubscribing and is sent on every unmount, so a route change, a reload
+     or a tab close would forfeit a match somebody is still playing if the
+     two shared a meaning. Somebody who has actually gone is covered by the
+     disconnect grace, which is the mechanism that already exists for it.
+
+     What it costs depends on the table, and the three answers are in
+     `CLAUDE.md`. In short: a practice table ends, heads-up hands the match
+     to the opponent, and a multiway table plays on without the seat. */
+  handleResign(userId: string): void {
+    if (!this.hand || this.match.status !== 'playing') {
+      hub.send(userId, { t: 'err', c: 'no_match', msg: 'This match is over' });
+      return;
+    }
+    if (!this.playerIds.includes(userId)) {
+      hub.send(userId, { t: 'err', c: 'not_your_turn', msg: 'Spectators have no seat to leave' });
+      return;
+    }
+    if (this.resigned.has(userId)) return; // said twice, costs once
+    this.resigned.add(userId);
+    this.chargeWalkoutIfRanked(userId);
+
+    /* A practice table exists for the one human sitting at it, so there is
+       nothing for it to play on for; heads-up has one opponent and the match
+       is theirs. Either way the match is over now. */
+    if (this.practice || this.playerIds.length === 2) {
+      this.finishOnLeave(userId).catch((err) => this.abandon(err));
+      return;
+    }
+
+    /* Multiway plays on. Forfeiting the match would hand the rest of the
+       table a free elimination, which is the same argument that makes three
+       timeouts a sit-out rather than a forfeit here, so leaving reuses that
+       machinery exactly: every decision auto check-folded the instant it
+       reaches the seat, blinds still posted, down to a bust like anyone
+       else. The one difference is that it is permanent. */
+    this.satOut.add(userId);
+    // Rearmed before the broadcast, like everywhere else: a seat that has
+    // just left may be the one to act, and the message that reports the
+    // sit-out has to carry the clock that goes with it.
+    this.rearmClock();
+    this.broadcast();
+  }
+
+  /* Only a rated match has a walkout to charge. Casual and practice are the
+     rooms somebody is meant to be able to walk out of, and a bot forfeited by
+     its own clock is a bug in the bot rather than a player to ban.
+
+     Detached on purpose: the ban is a write about a person and the match is
+     ending either way, so a database that refuses it must not take the
+     result down with it. */
+  private chargeWalkoutIfRanked(userId: string): void {
+    if (!this.rated) return;
+    void chargeWalkout(userId).catch((err) => {
+      console.error(`match ${this.id} could not charge a walkout:`, err);
+    });
+  }
+
+  private async finishOnLeave(leaverId: string): Promise<void> {
+    await this.finishMatch(await this.buildLeaveOutcome(leaverId));
+  }
+
+  /* The outcome of a match ended by somebody leaving it. The people still in
+     are placed by the stacks they are holding, best first, and the leaver
+     goes last among them: anybody already eliminated finished before this
+     happened and keeps the place they earned, which is why the settled
+     places are read rather than recomputed.
+
+     Heads-up this reduces to the forfeit outcome (opponent 1, leaver 2), so
+     the two endings differ only in the `reason` they carry, which is the one
+     thing the result panel needs them to differ in. */
+  private async buildLeaveOutcome(leaverId: string): Promise<MatchOutcome> {
+    const stacks = this.hand?.currentStacks() ?? {};
+    const settled = this.hand?.currentPlaces() ?? {};
+    const stillIn = this.playerIds.filter((id) => settled[id] === undefined);
+    const others = stillIn
+      .filter((id) => id !== leaverId)
+      .sort((a, b) => (stacks[b] ?? 0) - (stacks[a] ?? 0));
+
+    const places: Record<string, number> = { ...settled };
+    others.forEach((id, i) => {
+      places[id] = i + 1;
+    });
+    if (settled[leaverId] === undefined) places[leaverId] = stillIn.length;
+
+    const standings = await getRatingsForUsers(this.playerIds, this.match.format.mode);
+    const inputs = this.playerIds.map((uid) => {
+      const r = standings.get(uid)!;
+      return { userId: uid, rating: r.rating, rd: r.rd, volatility: r.volatility, ratingAt: r.ratingAt };
+    });
+    const ratings = computeMatchRatings(inputs, places, this.rated);
+    return { winner: others[0] ?? null, reason: 'left', stacks, places, ratings };
   }
 
   // The decision clock. It is rearmed BEFORE the broadcast that reports the
@@ -319,7 +432,11 @@ export class MatchRoom {
     }
     const userId = this.playerIds[seat];
     const away = userId !== undefined && this.disconnected.has(userId);
-    if (userId !== undefined && this.satOut.has(userId) && away) {
+    // Somebody who left is never coming back to the buttons, so their seat
+    // folds on arrival whether or not the tab is still open. A sat-out
+    // player is the other case and is asked rather than folded.
+    const gone = userId !== undefined && (away || this.resigned.has(userId));
+    if (userId !== undefined && this.satOut.has(userId) && gone) {
       // Sat out AND away: fold (or check) immediately rather than burn a
       // clock nobody is watching. Deferred by a timer so a whole street of
       // sat-out seats unwinds as separate turns instead of recursing through
@@ -370,6 +487,11 @@ export class MatchRoom {
     if (spent && this.playerIds.length > 2) this.satOut.add(userId);
     if (spent && this.playerIds.length === 2) {
       this.broadcast();
+      // A forfeit is a walkout that was taken rather than chosen: the clock
+      // ran out three times, or a connection never came back and the grace
+      // window handed the expiry here. It costs the same, because it cost
+      // the opponent the same.
+      this.chargeWalkoutIfRanked(userId);
       const opponent = this.playerIds.find((id) => id !== userId) ?? null;
       this.forfeit(opponent).catch((err) => this.abandon(err));
       return;

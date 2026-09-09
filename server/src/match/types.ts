@@ -63,5 +63,10 @@ export interface HandRunner {
   isDone(): boolean; // true once the whole MATCH is decided (bust or hands played out), not just the current hand
   matchResult(): MatchOutcome | null; // non-null once isDone()
   currentStacks(): Record<string, number>; // live stacks, for a forced forfeit that isn't isDone()
+  // Places settled so far: only the seats that have actually been eliminated
+  // appear, so its keys are exactly the players who are out. A match ended
+  // early (a resignation) reads it to place the people still in without
+  // overwriting the order the ones already out finished in.
+  currentPlaces(): Record<string, number>;
   viewFor(userId: string | null, clock: RoomClock | null, presence: SeatPresence[]): TableView | null;
 }
