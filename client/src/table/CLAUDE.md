@@ -4,7 +4,8 @@ The felt. `table.tsx` renders one `TableView` and everything here is a part of
 it: `seat.tsx`, `playing-card.tsx`, `turn-clock.tsx`, `chip-stack.tsx` and
 `dock.tsx` on a live table, `result-panel.tsx` under a finished one and
 `match-summary.tsx` for a match opened cold from its URL. `sizing.ts`,
-`preactions.ts`, `best-five.ts`, `chips.ts`, `labels.ts`, `layout.ts` and
+`preactions.ts`, `best-five.ts`, `chips.ts`, `labels.ts`, `layout.ts`,
+`sitout.ts` and
 `results.ts` are pure and unit tested from `../test/`. `sounds.ts` is the
 table's side of `../sound/`.
 
@@ -175,7 +176,9 @@ whether to be at the table at all.
 
 `data-sitout` is stamped on `.hero-band` beside `data-state`, which stays what
 it was, so the state the footprint suites walk is unchanged and the sit-out
-prompt is a thing they can wait for on top of it. `../routes/match.tsx` sends
+prompt is a thing they can wait for on top of it. `sitout.ts` holds the rule and the words, pure and
+on its own so `../test/table.test.ts` can test them without a felt.
+`../routes/match.tsx` sends
 `{t:'back', m}` from the button, and by itself on the two edges that mean the
 player has returned: a socket that has just reopened, and a tab that has just
 come to the front. It is deliberately **not** sent for as long as the page is

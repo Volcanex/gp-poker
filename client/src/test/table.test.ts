@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { formatFor, HEADS_UP_FORMAT, SIX_MAX_FORMAT } from '@opentable/protocol';
+import type { SeatView, TableView } from '@opentable/protocol';
 import { COLUMN_ROWS, columnSizes, dealFrom, dealOrder, layoutMode, placeOf, seatOrder } from '../table/layout.ts';
 import { blindText, handText, ordinal } from '../table/labels.ts';
 import { rankSeats } from '../table/results.ts';
+import { SITTING_OUT_TEXT, sittingOutNow } from '../table/sitout.ts';
 import type { Match } from '../net/types.ts';
 
 describe('seat rotation', () => {
@@ -217,5 +219,80 @@ describe('finishing order', () => {
       }),
     );
     expect(rows.map((r) => r.place)).toEqual([1, 1]);
+  });
+});
+
+/* Sitting out, as the band reads it off a view. The rule is small and it is
+   the whole of the decision the band makes, so it is tested here rather than
+   through a rendered felt. */
+describe('the sit-out prompt', () => {
+  const seat = (i: number, extra: Partial<SeatView> = {}): SeatView => ({
+    i,
+    uid: `u${i}`,
+    name: `seat ${i}`,
+    rating: 1500,
+    stack: 200,
+    bet: 0,
+    cards: null,
+    folded: false,
+    allin: false,
+    button: false,
+    acting: false,
+    connected: true,
+    bot: false,
+    out: false,
+    place: null,
+    last: null,
+    ...extra,
+  });
+
+  const view = (you: number | null, seats: SeatView[]): TableView => ({
+    m: 'm1',
+    h: 1,
+    n: 0,
+    street: 'pre',
+    board: [],
+    pot: 0,
+    pots: [],
+    seats,
+    you,
+    legal: null,
+    clock: null,
+    seedHash: 'hash',
+    seed: null,
+    format: SIX_MAX_FORMAT,
+    blinds: { sb: 1, bb: 2 },
+    handsPlayed: 0,
+    last: null,
+    result: null,
+  });
+
+  it('shows on your own sat-out seat, whether it is your turn or not', () => {
+    const v = view(0, [seat(0, { sittingOut: true }), seat(1)]);
+    expect(sittingOutNow(v, false)).toBe(true);
+  });
+
+  it('stays off while the hand is over, because who won is worth reading', () => {
+    const v = view(0, [seat(0, { sittingOut: true }), seat(1)]);
+    expect(sittingOutNow(v, true)).toBe(false);
+  });
+
+  it('is somebody else sitting out, not you', () => {
+    const v = view(0, [seat(0), seat(1, { sittingOut: true })]);
+    expect(sittingOutNow(v, false)).toBe(false);
+  });
+
+  it('is nothing to a spectator, who has no seat to sit out', () => {
+    const v = view(null, [seat(0, { sittingOut: true }), seat(1)]);
+    expect(sittingOutNow(v, false)).toBe(false);
+  });
+
+  it('is off on an ordinary seat, which is the wire saying nothing at all', () => {
+    const v = view(0, [seat(0), seat(1)]);
+    expect(sittingOutNow(v, false)).toBe(false);
+  });
+
+  it('says the two things it has to say, and asks in sentence case', () => {
+    expect(SITTING_OUT_TEXT).toBe('You are sitting out. Press to come back');
   });
 });

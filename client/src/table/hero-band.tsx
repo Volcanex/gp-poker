@@ -11,6 +11,7 @@ import {
 } from './dock.tsx';
 import type { DockState } from './dock.tsx';
 import { isLastHand } from './preactions.ts';
+import { SITTING_OUT_TEXT, sittingOutNow } from './sitout.ts';
 import type { PreAction } from './preactions.ts';
 import {
   clamp, dupKeys, presetsFor, presetsWide, raiseAction, raiseLabel, raiseShape,
@@ -69,12 +70,7 @@ export function HeroBand({ view, onAct, sending, best, stack, onNext, onBack }: 
   const mine = view.you == null ? null : view.seats.find((s) => s.i === view.you) ?? null;
   const legal = view.legal;
   const wide = useMedia(WIDE);
-  /* Sitting out stands in front of your turn and of waiting, because while it
-     is true neither of those is the thing you have to know. It does not stand
-     in front of the hand being over: who won is worth reading, and the prompt
-     is back on the screen the moment the next hand deals. Watching has no seat
-     to sit out. */
-  const sittingOut = mine?.sittingOut === true && (state === 'turn' || state === 'wait');
+  const sittingOut = sittingOutNow(view, state === 'over');
 
   return (
     <div
@@ -179,11 +175,6 @@ function DecisionLine({
     </div>
   );
 }
-
-/* Sitting out says two things in one line, because the second one is the only
-   thing worth doing about the first. The band says nothing else about it: the
-   button under these words is the press. */
-export const SITTING_OUT_TEXT = 'You are sitting out. Press to come back';
 
 /* What the words say on your turn: the price, or that there is none. An all
    in to call is named, because the number alone does not say it is your whole
