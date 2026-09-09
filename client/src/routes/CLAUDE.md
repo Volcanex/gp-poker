@@ -195,9 +195,12 @@ drops those on a phone and how many go through is the whole shape of a round.
 And **nobody has a place until the tournament finishes**, so the places table is
 absent while it runs rather than a column of blanks.
 
-The result panel at a tournament match reads "Back to the tournament" and goes
-to `/t/:id`, because the next match is the tournament's to give and not the
-queue's. `match.tsx` picks that off `format.tournament` beside the arena's own.
+A round dealing your table arrives as the ordinary `q found` every other path
+to a table sends, and this page **walks to it** the way the arena page does:
+the next match is the tournament's to give, so there is nothing to decide and
+no match-found toast to raise about it. The result panel at that table then
+reads "Back to the tournament" and goes to `/t/:id` for the same reason;
+`match.tsx` picks that off `format.tournament` beside the arena's own.
 
 ## The two shared links
 

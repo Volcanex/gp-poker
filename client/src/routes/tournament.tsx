@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import type { TournamentEntrant, TournamentSeat, TournamentTable } from '@opentable/protocol';
 import { api } from '../net/api.ts';
 import { avatarSeed, avatarVersion } from '../net/adapt.ts';
@@ -45,7 +45,8 @@ const POLL_MS = 10_000;
 
 export function TournamentPage() {
   const { id } = useParams();
-  const { me, conn, send } = useSession();
+  const nav = useNavigate();
+  const { me, conn, send, clearFound } = useSession();
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [missing, setMissing] = useState(false);
@@ -78,6 +79,16 @@ export function TournamentPage() {
   }, [id, conn, send]);
 
   useServerMsg((m) => {
+    /* A round dealt your table. It arrives as the ordinary `q found` every
+       other path to a table sends, and this page walks to it the way the arena
+       page does: the next match is the tournament's to give, so there is
+       nothing to decide and no toast to raise about it. */
+    if (m.t === 'q' && m.s === 'found' && m.m) {
+      const match = m.m;
+      clearFound();
+      nav(`/m/${match}`);
+      return;
+    }
     if (m.t !== 'tournament' || m.board.id !== id) return;
     setTournament((prev) =>
       prev
