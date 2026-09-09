@@ -49,6 +49,7 @@ the real path rather than a parallel one.
 | `setFormatResolver` | `../src/matchmaking.ts` | swap `formatFor` so the **real** queue path runs against a short clock and a small stack. Put `formatFor` back in `afterAll` |
 | `tick`, `ladderTick`, `arenaTick` | matchmaking, ladder, arena | run one pass directly instead of waiting on a real timer |
 | `configureArena` | `../src/arena.ts` | wider than the others because an arena has a clock: `now`, `format`, `everyMs`, `durationMs`, `botFillMs` and `lastPairingBeforeEndMs` are all injectable |
+| `configureTournaments` | `../src/tournaments/index.ts` | the same shape again, plus two of its own: `readyMs`, so a walkover is proved by a decline in milliseconds rather than by sitting out twenty seconds, and `fixtures`, so a file runs one fixture on its own stretch of calendar rather than three sharing a clock |
 
 Two more in `helpers.ts` for the two doors a queued table now has to get
 through:
@@ -175,7 +176,11 @@ The full-match files are the ones with the most to say about how they are built:
 
 The rest each cover one surface and read as their names suggest:
 `arena.test.ts` (an arena opening, pairing, scoring and closing through
-`configureArena`), `auth.test.ts`, `avatar.test.ts` (a webp and a png in and
+`configureArena`), `tournament.test.ts` (the fixture calendar and the draw
+purely, then a five-handed bracket through a bye and a walkover to a podium, a
+replayed draw announced by hand the way the arena's streak is, a thirteen-handed
+shootout funnelling three tables to a final, and the seat cap taking the newest
+bot's chair rather than a person's), `auth.test.ts`, `avatar.test.ts` (a webp and a png in and
 back out byte for byte, a gif refused on its magic number whatever its header
 says, an oversized body refused by the route's own limit, the ten second gap,
 removal bumping the version, the cache header with and without `?v=`, and the

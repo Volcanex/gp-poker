@@ -30,6 +30,7 @@ import { Flag, FlagSlot } from '../ui/flag.tsx';
 import { LESSONS } from './learn/lessons.ts';
 import { readPuzzles } from '../puzzles/store.ts';
 import { RecentMatches, StatsStrip } from './feed.tsx';
+import { TournamentsCard } from './tournament-card.tsx';
 import { ShareLink } from '../ui/share-link.tsx';
 
 /* The same line for a search that has not named one game. A promise cannot be
@@ -283,7 +284,7 @@ export function Home() {
               tournaments coming up. Each card fetches for itself. */}
           <div className="home-under">
             {/* FriendsCard */}
-            {/* TournamentsCard */}
+            <TournamentsCard />
           </div>
         </div>
       </section>

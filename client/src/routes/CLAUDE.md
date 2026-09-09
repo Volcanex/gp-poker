@@ -8,6 +8,8 @@ are `../tools/` and the puzzles are `../puzzles/`.
 | `/` | the picker, how it works, top ten (`home.tsx`) |
 | `/arena` | the arena running now, or the next one, its board, and the last three that finished |
 | `/arena/:id` | one arena, readable for good once it is over |
+| `/tournaments` | the three fixtures coming up, whatever is playing, and a page of results (`tournaments.tsx`) |
+| `/t/:id` | one tournament: the seeded field before it starts, then a bracket or the funnel (`tournament.tsx`) |
 | `/bots` | the practice setup page behind the home panel's `More`: table, speed, level and the roster at each level (`bots.tsx`) |
 | `/leaderboard` | top 100 (`leaderboard.tsx`) |
 | `/u/:name` | profile (`profile.tsx`) |
@@ -29,6 +31,9 @@ product name, so it is spelled in one place.
 
 `feed.tsx` is not a page. It is the live counts and the finished-match row, kept
 here because the home page and the watch page both draw it and neither owns it.
+`tournament-card.tsx` is the same shape of thing: the register control and the
+home page's tournaments card, kept beside the pages because the home slot and
+the listing need the same control and neither owns it.
 
 ## The picker
 
@@ -153,6 +158,47 @@ match reads "Back to the arena" and goes to `/arena/:id`, because the next match
 is the arena's to give and not the queue's (`match.tsx` picks that off
 `format.arena`).
 
+## Tournaments
+
+`/tournaments` is three cards and two lists: the fixtures coming up, whatever is
+playing, and a page of results under them. Three cards rather than a list
+because the calendar is fixed and the server keeps exactly one upcoming row per
+fixture, so there is nothing to scroll through. `tournament-bits.ts` is the pure
+half, for the reason `arena-bits.ts` is, and it imports the arena's own
+`countdown` rather than rewriting it; what it adds is days, because a
+championship four weeks out reads as "594 hr" otherwise.
+
+`/t/:id` is one page for both shapes, because the only thing that differs is the
+drawing. Before the start it is the entrant list by seed. After it, a heads-up
+fixture is a **bracket** and a six-max one is **the funnel**, and the board
+arrives twice over the way an arena's does: once from the request the page opens
+with, then pushed to everybody who said they were watching it
+(`{t:'tournament', id}`, `null` on unmount, re-sent on every reconnect because
+the server drops the subscription on disconnect). A page whose socket never
+opened polls instead, and stops once the tournament is settled.
+
+**The bracket is drawn in CSS, not measured in JavaScript.** Rounds are columns
+of equal height and every match takes an equal share of its column, so a match
+in one round sits exactly on the midpoint of the two that feed it whatever the
+gap between them is. That is what lets the connectors be two pseudo-elements and
+a rule; the arithmetic is written out above `.bracket` in `tournaments.css` and
+the Playwright pass measures the alignment rather than trusting it. The bracket
+scrolls inside its own box and the page never scrolls sideways, and on a phone
+the columns narrow and the ratings come off, because there the bracket is about
+who is in it.
+
+Three things the pages owe the states they can be in. A **bracket seat is not a
+link** while a funnel seat is: the bracket card is itself the link to the match,
+and a link inside a link is neither. A round's **advancing rule** is drawn as
+the round's own line rather than as a `.feed-head` subtitle, because the site
+drops those on a phone and how many go through is the whole shape of a round.
+And **nobody has a place until the tournament finishes**, so the places table is
+absent while it runs rather than a column of blanks.
+
+The result panel at a tournament match reads "Back to the tournament" and goes
+to `/t/:id`, because the next match is the tournament's to give and not the
+queue's. `match.tsx` picks that off `format.tournament` beside the arena's own.
+
 ## The two shared links
 
 `/c/:id` and `/g/:id` are the visitor's side of a link somebody sent. A
@@ -216,6 +262,12 @@ modes at once. Insights keeps its own switch. The card holds its box across both
 states: the number sits in a slot four digits wide and one line tall, so an
 unrated mode, a three digit rating and a four digit one all leave the page under
 it still.
+
+**The tournament record is two badges in its own heading, not in the rating
+card.** That card is one mode at a time and reserves its box at its widest so
+picking the other mode moves nothing under it; a count of tournaments won
+belongs to neither mode and would sit in a slot the card kept empty half the
+time.
 
 **Level sits beside the name and the badges sit under the rating card.** Level
 is how many matches have been finished and nothing else, which is why it is

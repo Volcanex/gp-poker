@@ -36,6 +36,7 @@ bundle time. Nothing needs copying alongside it for the bundle to find them.
 | `src/match/` | one live match: the room, the hand runner, the seam between them, and how a result becomes a rating |
 | `src/ws/` | the connection registry and the message router, including bots' virtual connections |
 | `src/bots/` | the bot population (names, personas, schedules), the scheduler that queues them, one bot's message loop and the pure decision function |
+| `src/tournaments/` | the fixture calendar, the draw and the scheduler that runs a field down to a final |
 | `test/` | the suite, the test database rule and the seams it drives |
 | `db/schema.sql` | applied idempotently at start by `applySchema()` |
 
@@ -88,6 +89,6 @@ The hand runner owns the translation and stores the map on the hand row as
 `db/schema.sql` is applied idempotently on every boot, so every column and table
 added since v1 went in additively and re-applies harmlessly: `users.bot`,
 `matches.places`, `match_players.place`, `hands.live_seats`,
-`rating_history.mode`, and the `ratings` table. `packages/protocol` is the wire
+`rating_history.mode`, the `ratings` table, and the three `tournaments` tables. `packages/protocol` is the wire
 contract and `PROTOCOL_VERSION` is bumped on change; read the current number off
 that constant.

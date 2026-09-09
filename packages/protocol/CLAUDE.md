@@ -25,6 +25,22 @@ the message: it would sit through the countdown, be dropped as a no-show and
 collect a cooldown for it. A client that cannot answer a question the server is
 about to ask is not a client that can be served unchanged.
 
+**v6 is tournaments, and it did not have to bump.** `format.tournament`, the
+`tournament` message in both directions and the shapes behind it are all new,
+and a v5 client that never sends one is served exactly as it was. The number
+moved anyway because this repo's convention is that a change to this package
+bumps it, which is cheaper than arguing about which changes are additive at the
+moment somebody is making one. Nothing reads the number to refuse a client: the
+server sends it in `hi` and that is all.
+
+What lives here for tournaments is what both sides have to agree a meaning for:
+`TournamentShape` and `TournamentStatus`, `TOURNAMENT_MIN_FIELD` (the
+registration card says how many are still needed), the shootout's table size and
+floor, and the board the live subscription pushes. What does **not** live here is
+the calendar: the names, the seat caps and the schedule are server-side data
+(`server/src/tournaments/fixtures.ts`) and travel on the payload, so the client
+never holds a second copy of a fixture's name.
+
 **Sitting out was additive inside v5.** `SeatView.sittingOut` is optional and
 absent rather than false, so an old client reads a seat it already understands.
 `ClientMsg.back` is the harder half of the pair, because a message an old

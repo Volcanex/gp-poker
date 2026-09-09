@@ -2,7 +2,7 @@
    strings, not Date objects, so every timestamp is typed as a string here. */
 import type {
   ArenaStanding, ArenaStatus, HomeGameStatus, LobbySeat, LoggedAction, MatchFormat, MatchResult, Mode,
-  UserSummary,
+  TournamentEntrant, TournamentShape, TournamentStatus, TournamentTable, UserSummary,
 } from '@opentable/protocol';
 import type { HandOutcome } from '@opentable/engine';
 import type { Decision } from '@opentable/preflop';
@@ -194,6 +194,11 @@ export interface Profile {
      server from before arenas existed, which the page renders as no section
      rather than as an empty one. */
   arenas?: ProfileArena[];
+  /* Settled tournaments this player was in, newest first, and their career
+     record. Both absent on a server from before tournaments existed, which the
+     page renders as no section rather than as an empty one. */
+  tournaments?: ProfileTournament[];
+  tournamentRecord?: { wins: number; podiums: number };
 }
 
 /* One line of the arenas block on a profile: which arena, when it ended, where
@@ -534,4 +539,65 @@ export interface ArenaSummary {
 export interface ArenaListing {
   featured: Arena | null;
   finished: ArenaSummary[];
+}
+
+/* A tournament as a card, from /api/tournaments. `blurb` and `note` come off
+   the server's fixture calendar rather than being written here, so the card,
+   the tournament page and the home slot cannot describe the same fixture
+   three different ways. `registered` is whether the viewer is in it. */
+export interface TournamentCard {
+  id: string;
+  kind: string;
+  name: string;
+  shape: TournamentShape;
+  mode: Mode;
+  seats: number;
+  startsAt: string;
+  status: TournamentStatus;
+  blurb: string;
+  note?: string;
+  entrants: number;
+  registered: boolean;
+  podium: TournamentPodiumPlace[] | null;
+  winner: string | null;
+}
+
+export interface TournamentPodiumPlace {
+  uid: string;
+  name: string;
+  place: number;
+  avatarV?: number;
+}
+
+/* One tournament, from /api/tournaments/:id. `entrantList` is the seeded field,
+   which is what the page shows before the start; `rounds` is the bracket's
+   columns or the funnel's bands, outer index round minus one. Both arrive
+   again over the socket as the tournament runs. */
+export interface Tournament extends TournamentCard {
+  round: number;
+  entrantList: TournamentEntrant[];
+  rounds: TournamentTable[][];
+  you: { seed: number | null; place: number | null; out: boolean; registered: boolean } | null;
+}
+
+/* What /api/tournaments answers: what is open, what is playing, and a page of
+   results under them. `total` is every settled fixture, for the paging. */
+export interface TournamentListing {
+  upcoming: TournamentCard[];
+  running: TournamentCard[];
+  finished: TournamentCard[];
+  total: number;
+  page: number;
+}
+
+/* One line of the tournaments block on a profile. */
+export interface ProfileTournament {
+  id: string;
+  name: string;
+  kind: string;
+  shape: TournamentShape;
+  startsAt: string;
+  status: 'finished' | 'cancelled';
+  place: number | null;
+  players: number;
 }

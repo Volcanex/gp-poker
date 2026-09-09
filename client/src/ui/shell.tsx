@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import {
-  Cards, Eye, GraduationCap, PuzzlePiece, Ranking, Trophy, Wrench,
+  Cards, Eye, GraduationCap, Medal, PuzzlePiece, Ranking, Trophy, Wrench,
 } from '@phosphor-icons/react';
 import { AccountMenu } from './auth.tsx';
 import { SettingsMenu } from './settings.tsx';
@@ -65,6 +65,7 @@ export function sidebarIsSheet(pathname: string): boolean {
 const SECTIONS = [
   { to: '/', end: true, label: 'Play', Icon: Cards },
   { to: '/arena', end: false, label: 'Arena', Icon: Trophy },
+  { to: '/tournaments', end: false, label: 'Tournaments', Icon: Medal },
   { to: '/learn', end: false, label: 'Learn', Icon: GraduationCap },
   { to: '/puzzles', end: false, label: 'Puzzles', Icon: PuzzlePiece },
   { to: '/tools', end: false, label: 'Tools', Icon: Wrench },

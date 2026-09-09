@@ -41,8 +41,7 @@ import {
   type TournamentTableRow,
 } from '../db.js';
 import { openReadyCheck } from '../ready.js';
-import { createMatchForPlayers, matchFormat, randomMatchId, rankedUnlocked } from '../matchmaking.js';
-import { rankedBanMessage, rankedBanUntil } from '../walkouts.js';
+import { createMatchForPlayers, matchFormat, randomMatchId } from '../matchmaking.js';
 import { onMatchFinished } from '../match/finished.js';
 import { hub } from '../ws/hub.js';
 import { vacateFor } from '../vacate.js';
@@ -713,21 +712,20 @@ export async function registerForTournament(id: string, userId: string): Promise
   const user = await getUserById(userId);
   if (!user) return { ok: false, status: 404, error: 'No such player' };
 
-  /* A tournament can produce a rated match, so its door asks what every other
-     rated door asks. Bots are exempt: the population decides who plays, and a
-     bot that has not cleared the gate is one whose first tournament is where
-     it clears it. */
-  if (!user.bot) {
-    if (!(await rankedUnlocked(userId))) {
-      return {
-        ok: false,
-        status: 409,
-        error: 'Play one casual game first. Tournaments open as soon as it finishes.',
-      };
-    }
-    const banned = await rankedBanUntil(userId);
-    if (banned !== null) return { ok: false, status: 409, error: rankedBanMessage(banned) };
-  }
+  /* **Registration is not a ranked door**, and deliberately, which makes this
+     the one place on the site that produces a rated match without asking the
+     two questions `enqueue` and `joinArena` ask.
+
+     Both questions are about a table that is about to be dealt, and this is
+     not one: a fixture is entered hours ahead of being played. The ranked gate
+     exists so that nobody's first ever hand moves a rating they had not
+     noticed they had, and somebody who registers for tonight's bracket has all
+     afternoon to play the casual game that opens it; refusing them the seat
+     instead would be refusing them the thing they came for. A walkout ban is
+     worse to ask about here, not better: a ban that has run out by the start
+     would have cost them the fixture, and one charged after they registered
+     would not be caught anyway. The fixture's own door is the ready check at
+     the top of each round, which every seat goes through. */
 
   if (await insertTournamentPlayer(id, userId, t.seats)) {
     await pushTournament(id);

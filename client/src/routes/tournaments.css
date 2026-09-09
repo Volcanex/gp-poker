@@ -1,0 +1,362 @@
+/* The tournament pages. Everything here is either a g-system component used as
+   it ships or a piece of page furniture the shared stylesheets do not carry:
+   the three fixture cards side by side, the bracket's columns and connectors,
+   and the funnel's bands of tables.
+
+   The bracket is the only drawing on this site, and it is drawn in CSS rather
+   than measured in JavaScript. See the block above `.bracket` for why that
+   works. */
+
+.tourney-hero .mode-head .spacer,
+.tourney-card .mode-head .spacer,
+.funnel-table .mode-head .spacer { flex: 1; }
+
+/* The three fixtures, one row where there is room and stacked where there is
+   not. Equal columns, because the calendar has no headline fixture: three
+   cards of one size read as a calendar, and one big card with two beside it
+   reads as a recommendation. */
+.tourney-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-3);
+  align-items: stretch;
+}
+
+/* `.mode` is the play panel's card and spans every column of the grid it was
+   built for. Here it is one of three, so the span is put back. */
+.tourney-grid > .mode { grid-column: auto; }
+
+@media (max-width: 900px) {
+  .tourney-grid { grid-template-columns: 1fr; }
+}
+
+/* The start time is the fact somebody opened the page for, so it reads as
+   primary rather than as a caption under the blurb. Tabular, because three
+   cards of times line up in a row. */
+.tourney-when {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Two badges in a column a third of the page wide wrap rather than clip: a
+   countdown is a phrase whose width changes as it counts. */
+.tourney-tags {
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+/* A tournament in a list row: the name over one line saying what happened to
+   it, so the row reads at any width without the two colliding. */
+.tourney-row-name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.tourney-row-name .n {
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The home page's slot: three fixtures, each two lines and a control. The list
+   grows so the button stays on the bottom edge of the card whichever state the
+   three are in. */
+.tourney-home .tourney-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  flex: 1;
+}
+
+.tourney-home .tourney-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tourney-list-name { color: var(--text-primary); }
+
+/* The time and the countdown on one row where they fit and two where they do
+   not, rather than one of them clipping. */
+.tourney-list-when,
+.tourney-list-foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.tourney-list-when > span:first-child { color: var(--text-primary); }
+
+.tourney-list-foot { justify-content: space-between; }
+
+/* ------------------------------------------------------------- the bracket
+
+   Rounds are columns and every column is the same height, because the row
+   stretches them. Inside a column every match takes an equal share of that
+   height, so match j of a round sits at (j + 0.5)/n of the way down it. A
+   round with half as many matches therefore centres each one exactly on the
+   midpoint of the two that feed it, which is what lets the connectors be two
+   pseudo-elements and a rule rather than a measured SVG that has to be redrawn
+   on every resize.
+
+   `--join` is half the gap between columns, so a stub of that width from each
+   side meets in the middle where the vertical spine runs. */
+.bracket-wrap {
+  --join: 16px;
+  --bracket-col: 208px;
+  overflow-x: auto;
+  padding-bottom: var(--sp-2);
+}
+
+.bracket-head {
+  display: flex;
+  gap: calc(var(--join) * 2);
+  margin-bottom: var(--sp-2);
+}
+
+.bracket-head > span {
+  width: var(--bracket-col);
+  flex: none;
+}
+
+.bracket {
+  display: flex;
+  gap: calc(var(--join) * 2);
+  align-items: stretch;
+}
+
+/* A uniform gap between matches does not move the connectors: with n slots in
+   a column of height H the centres sit one (slot + gap) apart wherever the gap
+   is, and the next round's slots are exactly twice that pitch, so a card still
+   lands on the midpoint of its two feeders. */
+.bracket-round {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  width: var(--bracket-col);
+  flex: none;
+}
+
+.bracket-slot {
+  flex: 1 0 auto;
+  min-height: calc(var(--h-2) + var(--sp-4));
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.bracket-slot > * { width: 100%; }
+
+/* Out of every round but the last: a stub at each match's centre, and a spine
+   in the gap joining the pair that feeds one match of the next round. The
+   upper of a pair draws the spine from its own centre down to its lower edge
+   and the lower one from its upper edge to its centre, which together is one
+   line from one centre to the other. */
+.bracket-round:not(:last-child) .bracket-slot::after {
+  content: '';
+  position: absolute;
+  right: calc(var(--join) * -1);
+  top: 50%;
+  width: var(--join);
+  height: 1px;
+  background: var(--border);
+}
+
+.bracket-round:not(:last-child) .bracket-slot::before {
+  content: '';
+  position: absolute;
+  right: calc(var(--join) * -1);
+  width: 1px;
+  background: var(--border);
+}
+
+.bracket-round:not(:last-child) .bracket-slot:nth-child(odd)::before {
+  top: 50%;
+  bottom: 0;
+}
+
+.bracket-round:not(:last-child) .bracket-slot:nth-child(even)::before {
+  top: 0;
+  bottom: 50%;
+}
+
+/* And into every round but the first, from the spine to the card. */
+.bracket-round:not(:first-child) .bracket-card::before {
+  content: '';
+  position: absolute;
+  left: calc(var(--join) * -1);
+  top: 50%;
+  width: var(--join);
+  height: 1px;
+  background: var(--border);
+}
+
+.bracket-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sp-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.bracket-card[data-live] { border-color: var(--accent-edge); }
+.bracket-card[data-mine] { box-shadow: inset 2px 0 0 var(--accent-fill); }
+.bracket-card:hover { background: var(--fill-hover); }
+
+.bracket-card .row-link {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-sm);
+}
+
+.bracket-card .row-link:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.bracket-seat {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  line-height: var(--lh-1);
+}
+
+.bracket-seat .n {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Whoever went through is the name the eye should land on, so it is the one
+   drawn in the primary ink. Nothing is dimmed to say the other lost: a name at
+   reduced opacity is a name nobody can read. */
+.bracket-seat[data-through] .n {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.bracket-seat[data-mine] .n { color: var(--text-primary); }
+
+.bracket-seed {
+  width: 2.4ch;
+  text-align: right;
+  flex: none;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: var(--lh-1);
+}
+
+.bracket-note,
+.bracket-empty {
+  font-size: 11px;
+  line-height: var(--lh-1);
+  align-self: flex-start;
+}
+
+/* -------------------------------------------------------------- the funnel */
+
+/* Narrower columns on a phone, so a swipe reveals a whole round rather than
+   a third of one. */
+@media (max-width: 560px) {
+  .bracket-wrap {
+    --join: 12px;
+    --bracket-col: 168px;
+  }
+
+  /* On a phone the bracket is about who is in it. The rating costs four
+     characters that the name needs more, and it is on the entrant list and on
+     every profile the card links to. */
+  .bracket-rating { display: none; }
+}
+
+/* The heading and the round's rule: side by side where there is room, the rule
+   under it where there is not. It never goes away, unlike a `.feed-head`
+   subtitle. */
+.funnel-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
+
+.funnel-rule {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+}
+
+@media (max-width: 560px) {
+  .funnel-rule { text-align: left; }
+}
+
+.funnel-tables {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  gap: var(--sp-3);
+  align-items: stretch;
+}
+
+/* The final table is one table and takes one table's width, so a band of six
+   does not stretch it across the page as though it were six. */
+.funnel-band[data-final] .funnel-tables {
+  grid-template-columns: minmax(232px, var(--col-content));
+}
+
+.funnel-table {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.funnel-table[data-final] { border-color: var(--accent-edge); }
+.funnel-table[data-mine] { box-shadow: inset 2px 0 0 var(--accent-fill); }
+
+.funnel-seats {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.funnel-seats li {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  line-height: var(--lh-1);
+}
+
+.funnel-seats .spacer { flex: 1; }
+
+.funnel-seats .n {
+  color: var(--text-secondary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.funnel-seats li[data-through] .n {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.funnel-seats li[data-mine] .n { color: var(--text-primary); }

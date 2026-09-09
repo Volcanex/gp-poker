@@ -2,6 +2,7 @@ import type {
   Arena, ArenaListing, BotRow, Challenge, CreatedChallenge, CreatedHomeGame, Explorer, ExplorerFacing,
   ExplorerPlayers, FeedMatch, Hand, HomeGame, Insights, LeaderboardRow, LiveMatch, Match, Me, PositionKey,
   Profile, PuzzleHand, SiteStats, StartedHomeGame, Ticket, TicketSummary, TicketTarget, TicketViewport,
+  Tournament, TournamentListing,
 } from './types.ts';
 import type { Mode, UserSummary } from '@opentable/protocol';
 
@@ -113,6 +114,16 @@ export const api = {
      tabs cannot flip each other. */
   pauseArena: (id: string, paused: boolean) =>
     post<{ ok: true }>(`/api/arenas/${encodeURIComponent(id)}/pause`, { paused }),
+  /* Tournaments. The listing stocks the calendar on the server's way past, the
+     way the arena listing does, so the first call of the day is what creates
+     the fixtures it answers with. `page` walks the results under them.
+     Registering and withdrawing both work for a guest. */
+  tournaments: (page = 0) => req<TournamentListing>(`/api/tournaments?page=${page}`),
+  tournament: (id: string) => req<Tournament>(`/api/tournaments/${encodeURIComponent(id)}`),
+  registerTournament: (id: string) =>
+    post<{ ok: true }>(`/api/tournaments/${encodeURIComponent(id)}/register`),
+  withdrawTournament: (id: string) =>
+    post<{ ok: true }>(`/api/tournaments/${encodeURIComponent(id)}/withdraw`),
   /* The admin layer. Every one of these is 403 for anybody but the admin, so
      nothing here is ever called from a page a player can reach. Creating a
      ticket is the one call with a body worth anything: the drawing is a PNG
