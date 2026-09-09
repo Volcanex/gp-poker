@@ -273,10 +273,18 @@ export function Home() {
           </div>
         )}
 
-        <div className="home-side">
-          <PuzzlesCard />
-          <LearnCard />
-          <WatchCard />
+        <div className="home-right">
+          <div className="home-side">
+            <PuzzlesCard />
+            <LearnCard />
+            <WatchCard />
+          </div>
+          {/* Under the three teasers: the people you play with, and the
+              tournaments coming up. Each card fetches for itself. */}
+          <div className="home-under">
+            {/* FriendsCard */}
+            {/* TournamentsCard */}
+          </div>
         </div>
       </section>
 
