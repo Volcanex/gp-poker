@@ -100,10 +100,11 @@ test.describe('the play panel', () => {
     // Six handed is the main game, so it is the first option offered.
     await expect(strips.nth(2).locator('.tab').first()).toHaveText('Six-max');
 
-    // One primary button, verb first, naming the game it would deal.
+    // One primary button, verb first. The switchers above it already say
+    // what it would deal, so the button names nothing itself.
     const go = panel.locator('.play-go');
     await expect(go).toHaveClass(/btn-lg/);
-    await expect(go).toHaveText(/^Play /);
+    await expect(go).toHaveText('Play');
   });
 
   test('pins the game this player has played most', async ({ page }) => {
@@ -112,7 +113,7 @@ test.describe('the play panel', () => {
     await page.goto('/');
     // The stubbed account has forty heads-up matches and no six handed ones,
     // and has chosen nothing, so the panel opens on heads-up.
-    await expect(page.locator('.play-go')).toHaveText('Play heads-up');
+    await expect(page.locator('.play-go')).toHaveText('Play');
     await expect(page.locator('.player-bar')).toContainText('Heads-up');
     await expect(page.locator('.play-toggles .tab[data-value="standard"]')).toHaveAttribute(
       'aria-selected',
@@ -128,7 +129,7 @@ test.describe('the play panel', () => {
     });
     await page.goto('/');
 
-    await expect(page.locator('.play-go')).toHaveText('Play six-max');
+    await expect(page.locator('.play-go')).toHaveText('Play');
     await expect(page.locator('.play-toggles .tab[data-value="fast"]')).toHaveAttribute('aria-selected', 'true');
     await expect(page.locator('.play-toggles .tab[data-value="casual"]')).toHaveAttribute('aria-selected', 'true');
     // The line under the switchers follows them: fast promises twenty minutes.
@@ -159,6 +160,16 @@ test.describe('the play panel', () => {
     await page.getByRole('button', { name: 'Practice against bots' }).click();
     await expect(page.locator('.way[data-open] .way-body')).toBeVisible();
     await expect(page.locator('.way-body')).toContainText('never rated');
+
+    // Three named presets and a link to the setup page, not a level select.
+    const presets = page.locator('.practice-presets button');
+    await expect(presets).toHaveCount(3);
+    await expect(presets.nth(0)).toHaveText('Easy');
+    await expect(presets.nth(1)).toHaveText('Medium');
+    await expect(presets.nth(2)).toHaveText('Hard');
+    const more = page.locator('.practice-presets a');
+    await expect(more).toHaveText('More');
+    await expect(more).toHaveAttribute('href', '/bots');
   });
 
   test('puts puzzles, learning and watching beside the panel', async ({ page }) => {
@@ -204,6 +215,61 @@ test.describe('the ranked gate', () => {
     const panel = page.locator('.play-panel');
     await expect(panel.locator('.tab[data-value="ranked"]')).toBeEnabled();
     await expect(panel).not.toContainText('Play one casual game first');
+  });
+});
+
+test.describe('the practice presets', () => {
+  test('a preset deals a table at its level, at whatever the panel is pinned to', async ({ page }) => {
+    await fakeSocket(page);
+    await stubApi(page);
+    await setTheme(page, 'dark');
+    await page.goto('/');
+    // The stubbed account is pinned to heads-up; the preset asks for no
+    // table size of its own.
+    await expect(page.locator('.player-bar')).toContainText('Heads-up');
+
+    await page.getByRole('button', { name: 'Practice against bots' }).click();
+    await page.getByRole('button', { name: 'Hard' }).click();
+
+    const messages = (await sent(page)).map((raw) => JSON.parse(raw));
+    expect(messages).toContainEqual({ t: 'queue', mode: 'heads-up', speed: 'standard', bots: { level: 5 } });
+  });
+});
+
+test.describe('the bots setup page', () => {
+  test('lists every level with its roster, in sentence case throughout', async ({ page }) => {
+    await stubApi(page);
+    await setTheme(page, 'dark');
+    await page.goto('/bots');
+
+    await expect(page.getByRole('heading', { name: 'Practice against bots' })).toBeVisible();
+
+    const rows = page.locator('.level-row');
+    await expect(rows).toHaveCount(5);
+    await expect(page.locator('.level-bots li').first()).toBeVisible();
+
+    // The old select folded every name flat into lowercase; the name here is
+    // its own element, read as `botLevelInfo(level).name` gives it, and never
+    // run through `.toLowerCase()`.
+    await expect(rows.nth(0).locator('.level-row-head .t')).toHaveText('Loose and passive');
+    await expect(rows.nth(1).locator('.level-row-head .t')).toHaveText('Loose');
+    await expect(rows.nth(2).locator('.level-row-head .t')).toHaveText('Tight and passive');
+    await expect(rows.nth(3).locator('.level-row-head .t')).toHaveText('Solid');
+    await expect(rows.nth(4).locator('.level-row-head .t')).toHaveText('Sharp');
+  });
+
+  test('starts a practice table at the level and table size chosen here', async ({ page }) => {
+    await fakeSocket(page);
+    await stubApi(page);
+    await setTheme(page, 'dark');
+    await page.goto('/bots');
+
+    await page.locator('.play-toggles .tab[data-value="heads-up"]').click();
+    await page.locator('.level-row').nth(4).click();
+    await page.getByRole('button', { name: 'Play', exact: true }).click();
+
+    const messages = (await sent(page)).map((raw) => JSON.parse(raw));
+    expect(messages).toContainEqual({ t: 'queue', mode: 'heads-up', speed: 'standard', bots: { level: 5 } });
   });
 });
 
