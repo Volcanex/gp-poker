@@ -145,6 +145,54 @@ describe('the decision clock', () => {
     15_000
   );
 
+  /* Regression for a bug that ran for the life of every table: the room
+     broadcast and then rearmed, so `TableView.clock` named the seat that had
+     just acted, with a deadline already in the past. `clock.seat` and the
+     seat the same view marks `acting` are the same seat, always. */
+  it(
+    'reports the clock of the seat that is to act, not the one that just acted',
+    async () => {
+      const sessA = await mintGuestSession(app);
+      const sessB = await mintGuestSession(app);
+      createdUserIds.push(sessA.id, sessB.id);
+
+      const connA = await connectSession(wsUrl, sessA);
+      const connB = await connectSession(wsUrl, sessB);
+      await connA.messages.wait((m) => m.t === 'hi');
+      await connB.messages.wait((m) => m.t === 'hi');
+
+      const matchId = await createMatchForPlayers(
+        [sessA.id, sessB.id],
+        testFormat({ hands: 1, clockMs: 5_000, graceMs: 5_000 })
+      );
+      createdMatchIds.push(matchId);
+
+      const seen: TableView[] = [];
+      connA.ws.on('message', (raw: Buffer) => {
+        const m = JSON.parse(raw.toString());
+        if (m.t === 'state') seen.push(m.s as TableView);
+      });
+      connA.ws.send(JSON.stringify({ t: 'join', m: matchId }));
+      connB.ws.send(JSON.stringify({ t: 'join', m: matchId }));
+
+      await Promise.all([
+        checkOrCallUntil(connA, (m) => m.t === 'end'),
+        checkOrCallUntil(connB, (m) => m.t === 'end'),
+      ]);
+
+      const decisions = seen.filter((v) => v.clock !== null && v.seats.some((s) => s.acting));
+      expect(decisions.length, 'the hand had decisions to check').toBeGreaterThan(2);
+      for (const view of decisions) {
+        const acting = view.seats.find((s) => s.acting)!;
+        expect(view.clock!.seat, `hand ${view.h} seq ${view.n} names the acting seat`).toBe(acting.i);
+      }
+
+      connA.ws.close();
+      connB.ws.close();
+    },
+    15_000
+  );
+
   // Regression for a bug found live: once a disconnected player's grace
   // window had already fired once (timing them out), rearmClock kept
   // pausing the clock on every later turn just because they were still

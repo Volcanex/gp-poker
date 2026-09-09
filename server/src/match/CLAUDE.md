@@ -245,6 +245,17 @@ first place counts as a win and every other place as a loss.
 
 ## Clock design
 
+**`rearmClock` runs before the broadcast that reports the state it belongs
+to.** `viewFor` reads `MatchRoom.clock`, so a room that broadcast first and
+rearmed after sent every client the deadline of the seat that had **just
+acted**, one decision behind, for as long as the table ran: on your own turn
+the band drew somebody else's clock, already expired, and `clock.seat` never
+matched the seat the same view marked `acting`. It lined up only when the same
+seat acted twice running, which is what a street change does, which is why it
+survived. Every path does it in that order now (`start`, `handleAct`,
+`handleClockExpiry`, `autoActSatOut` and the hand runner's `onChange`), and
+`clock.test.ts` holds them to it.
+
 A fresh `clockMs`-long deadline starts (`rearmClock`) whenever `hand.toActSeat()`
 changes to a new non-null seat, tracked in `MatchRoom.clock` (`{ seat, deadline,
 paused }`) and armed with a real `setTimeout`. On expiry (`handleClockExpiry`)

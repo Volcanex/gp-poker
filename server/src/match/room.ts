@@ -104,15 +104,18 @@ export class MatchRoom {
       matchId: this.id,
       match: this.match,
       onChange: () => {
-        this.broadcast();
+        // Rearm first, always: `clock` is read by `viewFor`, so a broadcast
+        // sent before it is rearmed reports the clock of the seat that has
+        // just acted. See "Clock design" in CLAUDE.md.
         this.rearmClock();
+        this.broadcast();
         this.settleIfDone();
       },
       onFail: (err) => this.abandon(err),
     });
     await this.hand.startHand(1);
-    this.broadcast();
     this.rearmClock();
+    this.broadcast();
   }
 
   // Whether the match is still live. Matchmaking asks this before putting a
@@ -255,8 +258,8 @@ export class MatchRoom {
     const applied = this.hand.onAction(userId, msg);
     if (!applied) return; // the hand runner already sent the specific err
     this.timeoutStreak.set(userId, 0);
-    this.broadcast();
     this.rearmClock();
+    this.broadcast();
     this.settleIfDone();
   }
 
@@ -291,7 +294,12 @@ export class MatchRoom {
     this.hand.next(userId, msg);
   }
 
-  // The decision clock. A fresh clockMs window starts whenever toActSeat()
+  // The decision clock. It is rearmed BEFORE the broadcast that reports the
+  // state it belongs to, everywhere, because `viewFor` reads `this.clock`:
+  // rearming afterwards sent every client the deadline of the seat that had
+  // just acted, one decision behind, for the whole life of the table.
+  //
+  // A fresh clockMs window starts whenever toActSeat()
   // changes; it is armed with a real setTimeout to the deadline, and the
   // deadline is also mirrored into `clock` so viewFor can report it. While
   // the acting player is disconnected the timer itself is not running
@@ -358,13 +366,14 @@ export class MatchRoom {
     // before the broadcast, so the message that reports the fold is also the
     // one that reports the sit-out.
     if (spent && this.playerIds.length > 2) this.satOut.add(userId);
-    this.broadcast();
     if (spent && this.playerIds.length === 2) {
+      this.broadcast();
       const opponent = this.playerIds.find((id) => id !== userId) ?? null;
       this.forfeit(opponent).catch((err) => this.abandon(err));
       return;
     }
     this.rearmClock();
+    this.broadcast();
     this.settleIfDone();
   }
 
@@ -372,8 +381,8 @@ export class MatchRoom {
     this.clockTimer = null;
     if (!this.hand || this.match.status !== 'playing') return;
     this.hand.onTimeout(seat);
-    this.broadcast();
     this.rearmClock();
+    this.broadcast();
     this.settleIfDone();
   }
 
