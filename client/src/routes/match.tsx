@@ -30,6 +30,10 @@ export function Match() {
   /* `?hold=1` marks every hand-over step as held for the viewer, the way a
      practice table is, so the band's deal button can be pictured and tested. */
   const hold = params.get('hold') === '1';
+  /* `?sitout=1` marks your own seat as sitting out, the way the room does
+     after three timeouts, so the prompt and the way back can be pictured and
+     tested without a table that has actually timed you out. */
+  const sitout = params.get('sitout') === '1';
   return isMock ? (
     <MockMatch
       step={numOrNull(params.get('step'))}
@@ -39,6 +43,7 @@ export function Match() {
       watch={watch}
       v2={v2}
       hold={hold}
+      sitout={sitout}
     />
   ) : (
     <LiveMatch id={id} />
@@ -158,6 +163,41 @@ function LiveMatch({ id }: { id: string }) {
   // table's hold is not tempted to reach into this one's state for it.
   const onNext = useCallback((m: string, h: number) => send({ t: 'next', m, h }), [send]);
 
+  /* Coming back from sitting out. Sent whenever this page has a seat and the
+     player has just returned to it, rather than only when the last view we
+     saw said the seat was sitting out: the way a seat gets sat out in the
+     first place is a phone browser suspending in the background, and the view
+     that says so arrives after the socket does. The room ignores a `back`
+     from a seat that is not sitting out, so the cheap message is the one to
+     send, and nothing here has to guess. */
+  const comeBack = useCallback(() => {
+    if (latest.current?.you == null) return;
+    send({ t: 'back', m: id });
+  }, [send, id]);
+
+  /* A socket that has just reopened, as an edge and not a state. A page that
+     sent `back` for as long as it was connected and sitting out would un-sit
+     an idle player the instant the table sat them out, and no seat would ever
+     sit out at all. */
+  const wasOpen = useRef(conn === 'open');
+  useEffect(() => {
+    const open = conn === 'open';
+    const returned = open && !wasOpen.current;
+    wasOpen.current = open;
+    if (returned) comeBack();
+  }, [conn, comeBack]);
+
+  /* And a tab that has just come to the front, which on a phone is the same
+     return by a different route: the browser suspends the page without
+     closing the socket often enough that the reconnect above never fires. */
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') comeBack();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [comeBack]);
+
   /* Play again means the match just played: the same mode, rated or not.
      Somebody who was watching it has no match to play again, so the primary
      button sends them back to the tables that are still running.
@@ -204,6 +244,7 @@ function LiveMatch({ id }: { id: string }) {
         view={view}
         onAct={onAct}
         onNext={() => onNext(id, view.h)}
+        onBack={comeBack}
         sending={sending}
         ended={ended != null}
         chat={chat}
@@ -232,10 +273,10 @@ function LiveMatch({ id }: { id: string }) {
 /* ----------------------------------------------------------------- mock */
 
 function MockMatch(
-  { step, mode, rated, practice, watch, v2, hold }:
+  { step, mode, rated, practice, watch, v2, hold, sitout }:
   {
     step: number | null; mode: Mode; rated: boolean; practice: boolean;
-    watch: boolean; v2: boolean; hold: boolean;
+    watch: boolean; v2: boolean; hold: boolean; sitout: boolean;
   },
 ) {
   const script = useMemo(() => mockScript(mode, rated, practice), [mode, rated, practice]);
@@ -282,7 +323,10 @@ function MockMatch(
     const timed = base.clock
       ? { ...base, clock: { ...base.clock, deadline: enteredAt + base.format.clockMs } }
       : base;
-    const seated = hold && timed.street === 'done' ? { ...timed, hold: 'you' as const } : timed;
+    const held = hold && timed.street === 'done' ? { ...timed, hold: 'you' as const } : timed;
+    const seated = sitout && held.you != null
+      ? { ...held, seats: held.seats.map((s) => (s.i === held.you ? { ...s, sittingOut: true } : s)) }
+      : held;
     if (!watch) return seated;
     /* A spectator has no seat, no decision and nobody's hole cards: the server
        sends everyone face down until a showdown, so the mock does too. Without
@@ -298,7 +342,7 @@ function MockMatch(
           : s
       )),
     };
-  }, [base, enteredAt, watch, hold]);
+  }, [base, enteredAt, watch, hold, sitout]);
 
   const replay = useCallback(() => {
     setI(0);
@@ -320,6 +364,7 @@ function MockMatch(
         chat={chat}
         look={v2 ? 'v2' : 'v1'}
         onNext={hold ? advance : undefined}
+        onBack={sitout ? advance : undefined}
       />
       {ended ? (
         <>

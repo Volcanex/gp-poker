@@ -40,6 +40,9 @@ export interface TableProps {
   /* A practice table's hand-over state offers the next hand early; the band
      renders the button and this is what it calls. */
   onNext?: () => void;
+  /* A sat-out seat's way back in. The band draws the prompt and the button;
+     this is what they send. */
+  onBack?: () => void;
 }
 
 const BOARD_SLOTS = 5;
@@ -60,7 +63,7 @@ const AWARD_MS = 220;
 const AWARD_SHUT = { '--wipe': '100%' };
 const AWARD_OPEN = { '--wipe': '0%' };
 
-export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', onNext }: TableProps) {
+export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', onNext, onBack }: TableProps) {
   const reduced = useReducedMotion();
   const headRef = useRef<HTMLDivElement>(null);
   useGInit(headRef);
@@ -284,6 +287,7 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
               best={show.best}
               stack={heroStack}
               onNext={onNext}
+              onBack={onBack}
             />
           ) : (
             <>

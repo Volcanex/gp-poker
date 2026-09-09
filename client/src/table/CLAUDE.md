@@ -161,6 +161,29 @@ The button is wider than the 96 px slot, so it is anchored to the slot's right
 end out of the flow and the words are padded clear of it: a slot that grew
 would move the line. The mock's `?hold=1` marks every hand-over step held.
 
+**Sitting out is a state of the band, in front of your turn and of waiting.**
+A seat the room has sat out arrives with `sittingOut` on it, and while it is
+true the decision line says "You are sitting out. Press to come back" and the
+controls column is one press, `Come back`, standing in the actions' own box
+(`.hb-back-btn` spans it at both sizes and sits at `--act-h` in the middle of
+it, so the band does not move and a phone does not get a button three rows
+tall). It does **not** stand in front of the hand being over: who won is worth
+reading, and the prompt is back the moment the next hand deals. A spectator has
+no seat to sit out. One button and not three disabled ones, because fold, check
+and raise are not what is on offer: the only decision a sat-out player has is
+whether to be at the table at all.
+
+`data-sitout` is stamped on `.hero-band` beside `data-state`, which stays what
+it was, so the state the footprint suites walk is unchanged and the sit-out
+prompt is a thing they can wait for on top of it. `../routes/match.tsx` sends
+`{t:'back', m}` from the button, and by itself on the two edges that mean the
+player has returned: a socket that has just reopened, and a tab that has just
+come to the front. It is deliberately **not** sent for as long as the page is
+connected and sitting out, which would un-sit an idle player the instant the
+table sat them out; the room ignores a `back` from a seat that is not sitting
+out, so the edges can fire without the page having to know. `/m/mock?sitout=1`
+marks your own seat sitting out, the way `?hold=1` marks a hand held.
+
 **The band is your seat at every width, not only on a phone.** The felt drew
 your cards, name, button marker, stack, last action, avatar, rating and clock,
 and the band drew most of them again a hundred pixels below; the rule that hid
