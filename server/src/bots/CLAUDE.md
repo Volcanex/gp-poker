@@ -117,33 +117,43 @@ hands with a standard error, plus the decision latency. The ordering test does
 not include level 6: it thinks for a real fraction of a second per decision,
 which is a benchmark script and not a unit test.
 
-Where level 6 stands, measured 2026-09-09 on h with a 500ms budget of
-processor time (the live budget is 1500ms of wall clock, so these are a floor):
+Where level 6 stands, measured 2026-09-09 on h with a 500ms budget of processor
+time. The live budget is 1500ms of wall clock, so these are a floor. The three
+30bb rows are one run of `bench-bots.ts` at 120 deals; the 100bb rows are
+earlier runs on all but the last of the range fixes, kept because a run long
+enough to say anything at a hundred big blinds takes hours.
 
 | matchup | stack | hands | bb/100 |
 |---|---|---|---|
 | level 6 vs level 5 | 30bb | 480 | -9 ± 27 |
+| level 6 vs level 4 | 30bb | 480 | **+49 ± 22** |
+| level 5 vs level 4 | 30bb | 480 | +30 ± 18 |
 | level 6 vs level 5 | 100bb | 320 | -6 ± 92 |
 | level 6 vs level 4 | 100bb | 400 | +176 ± 76 |
 | level 5 vs level 4 | 100bb | 400 | +205 ± 43 |
 
-**So level 6 is level 5's equal and clearly ahead of level 4, and the ordering
-6 > 5 is not demonstrated.** It is worth knowing how it got there, because the
-distance travelled is all range modelling and none of it is the solver: against
-level 5 at a hundred big blinds the first working version lost 455 bb/100, and
-fixing the population blend, then the bet size read, then tracking our own
-range by the strategy we actually played, then judging a hand against the
-opponent's range rather than our own, took it to 455, 143, 90, 57 and 6. Every
-one of those was a wrong range rather than a wrong solve.
+**So level 6 is level 5's equal, and it beats level 4 by more than level 5 does.
+The ordering 6 > 5 is not demonstrated.** The interval on the direct matchup
+covers zero at both stack depths, and the only hint the other way is the
+indirect one: 49 against level 4 where level 5 manages 30, on the same deals.
 
-Latency at that budget, wall clock, on a box that was busy: p50 563ms, p95
-1410ms. At a 150ms budget it is p50 154ms, p95 205ms.
+How it got there is worth more than where it got to, because the distance
+travelled is all range modelling and none of it is the solver. Against level 5
+at a hundred big blinds the first working version lost 455 bb/100. Fixing the
+population blend, then the bet size read, then tracking our own range by the
+strategy we actually played, then judging a hand against the opponent's range
+rather than our own, took it to 143, then 90, then 57, then 6. Every one of
+those was a wrong range and not a wrong solve, which is the thing to remember
+before reaching for the CFR code.
+
+Latency at that budget, wall clock, on a box that was busy with other work: p50
+563ms, p95 1410ms. At a 150ms budget it is p50 154ms, p95 205ms.
 
 Against Slumbot over its public API (`../../scripts/bench-slumbot.ts`), 400
 hands with the seats alternating: -20 bb/100 with a standard error of 104, and
-not one action rejected. Four hundred hands says nothing about a win rate and
-everything about whether the thing plays legal poker against a bot that was
-not built here.
+not one action rejected. Four hundred hands says nothing about a win rate
+against a bot that solves the whole game, and everything about whether this one
+plays legal poker outside its own test suite.
 
 The ordering of 1 to 5 is proved, not asserted by hand. `levels.test.ts` plays
 a seeded round robin through the engine and reads chips won. It is worth knowing why it
