@@ -3,6 +3,9 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { BOT_LEVELS, PRACTICE_PRESETS, SPEEDS, SPEED_NAME, ceilingFor, formatFor, speedOf } from '@opentable/protocol';
 import type { MatchFormat, Mode, PracticePreset, Speed } from '@opentable/protocol';
 import { Cpu } from '@phosphor-icons/react/dist/icons/Cpu';
+import { Eye } from '@phosphor-icons/react/dist/icons/Eye';
+import { GraduationCap } from '@phosphor-icons/react/dist/icons/GraduationCap';
+import { PuzzlePiece } from '@phosphor-icons/react/dist/icons/PuzzlePiece';
 import { Lightning } from '@phosphor-icons/react/dist/icons/Lightning';
 import { Trophy } from '@phosphor-icons/react/dist/icons/Trophy';
 import { Link as LinkIcon } from '@phosphor-icons/react/dist/icons/Link';
@@ -643,7 +646,7 @@ function PuzzlesCard() {
 
   return (
     <div className="card side-card">
-      <span className="t">Puzzles</span>
+      <span className="t"><PuzzlePiece size={16} aria-hidden="true" />Puzzles</span>
       {totals.total > 0 ? (
         <span className="muted">
           <b className="num">{Math.round((totals.right / totals.total) * 100)}%</b> right, over{' '}
@@ -667,7 +670,7 @@ function LearnCard() {
   const lesson = LESSONS[0];
   return (
     <div className="card side-card">
-      <span className="t">Learn</span>
+      <span className="t"><GraduationCap size={16} aria-hidden="true" />Learn</span>
       <span className="muted">{lesson.title}. {lesson.blurb}</span>
       <Link className="btn btn-secondary" to={`/learn/${lesson.slug}`}>
         Read the first lesson
@@ -696,7 +699,7 @@ function WatchCard() {
   const table = live?.[0] ?? null;
   return (
     <div className="card side-card">
-      <span className="t">Watch</span>
+      <span className="t"><Eye size={16} aria-hidden="true" />Watch</span>
       <span className="muted">
         {table
           ? `${table.players.map((p) => p.name).join(' and ')}, hand ${table.hand}`

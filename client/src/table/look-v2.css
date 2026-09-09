@@ -19,8 +19,12 @@
   --card-face: var(--text-primary);
   --card-ink: var(--surface-1);
   --card-edge: var(--border);
-  --card-back: var(--surface-2);
-  --card-back-line: var(--border-subtle);
+  /* A face-down card is red paper, the same deepened red as the pips, on
+     every theme: on the dark theme `--surface-2` was a shade off the felt and
+     an opponent's hidden hand read as two empty outlines. The games room
+     keeps its own maroon (room.css). */
+  --card-back: var(--card-red);
+  --card-back-line: color-mix(in oklab, var(--card-red) 55%, var(--text-primary));
   --card-red: color-mix(in oklab, var(--danger-fill) 74%, black);
   --card-blue: color-mix(in oklab, var(--chart-1) 66%, black);
   --card-green: color-mix(in oklab, var(--chart-6) 58%, black);
