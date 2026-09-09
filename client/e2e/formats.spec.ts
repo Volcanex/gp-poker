@@ -367,7 +367,8 @@ test.describe('the level', () => {
     // Wide enough for the sidebar, so the account is the row at its foot.
     const row = page.locator('.side-foot .account > .btn');
     await expect(row).toBeVisible();
-    await expect(row.locator('.lv')).toHaveText('Lv 8');
+    await expect(row.locator('.lv')).toHaveText('8');
+    await expect(row.locator('.lv')).toHaveAttribute('title', 'Level 8');
   });
 
   test('sits in the slim top bar once the sidebar is a sheet', async ({ page }) => {
@@ -375,7 +376,9 @@ test.describe('the level', () => {
     await stubApi(page);
     await setTheme(page, 'dark');
     await page.goto('/');
-    await expect(page.locator('.top .account > .btn .lv')).toHaveText('Lv 8');
+    const lv = page.locator('.top .account > .btn .lv');
+    await expect(lv).toHaveText('8');
+    await expect(lv).toHaveAttribute('title', 'Level 8');
   });
 
   test('goes with the rating on a phone, where only the name fits', async ({ page }) => {
