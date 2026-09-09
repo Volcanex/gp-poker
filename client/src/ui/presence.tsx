@@ -75,9 +75,18 @@ export function MatchFoundAlert() {
     if (viaCheck.current) viaCheck.current = false;
     else void sound.play('yourTurn');
     /* Pages that walk to the table by themselves get no toast: home, the
-       table, and the two lobbies (a challenge or a home game link), which
-       would otherwise leave the toast lying on the felt after they moved. */
-    if (pathname === '/' || pathname === `/m/${m.m}` || pathname.startsWith('/c/') || pathname.startsWith('/g/')) return;
+       bots setup page, the table, and the two lobbies (a challenge or a home
+       game link), which would otherwise leave the toast lying on the felt
+       after they moved. */
+    if (
+      pathname === '/' ||
+      pathname === '/bots' ||
+      pathname === `/m/${m.m}` ||
+      pathname.startsWith('/c/') ||
+      pathname.startsWith('/g/')
+    ) {
+      return;
+    }
     void announce(m.m);
   });
 

@@ -1,0 +1,33 @@
+/* The bots setup page. The level picker is a vertical list rather than a
+   segmented strip: each row carries a name, a description, a rating and its
+   own roster underneath, and a six-label tab strip has no room for any of
+   that. `.play-toggles` is shared with the home panel on purpose, so the
+   table and speed switchers read as the same control on both pages. */
+
+.bots-setup { display: flex; flex-direction: column; gap: var(--sp-3); max-width: 640px; }
+
+.level-picker { display: flex; flex-direction: column; gap: var(--sp-2); }
+
+.level-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.level-row[data-checked] { border-color: var(--accent-fill); }
+.level-row .radio { margin-top: 3px; flex: none; }
+
+.level-row-body { display: flex; flex-direction: column; gap: var(--sp-2); flex: 1; min-width: 0; }
+.level-row-head { display: flex; align-items: center; gap: var(--sp-2); }
+.level-row-head .t { flex: 1; font-size: 14px; font-weight: 500; }
+
+.level-bots { display: flex; flex-direction: column; gap: 2px; list-style: none; margin: 0; padding: 0; }
+.level-bots li { display: flex; align-items: baseline; gap: var(--sp-2); font-size: 12px; color: var(--text-secondary); }
+.level-bots .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
+
+@media (max-width: 620px) {
+  .level-row { flex-direction: column; }
+}
