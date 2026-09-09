@@ -286,8 +286,11 @@ box by `openAt`). The typed field clamps into itself and does not send, exactly
 as the dock's does. There is no mouse-only way to the typed field: the button
 had to become the send, so `r` and the legend are how it is found.
 
-**A practice table's readings are a section of the band above 1100 px.** They
-were a bar of their own between the felt and the band, and the owner's note was
+**A practice table's readings are a section of the band above 1100 px**, and
+the section's last reading sits on the buttons' own floor: the column spans the
+key legend's row too, so it is padded off the bottom by that row rather than
+running under it. They were a bar of their own between the felt and the band,
+and the owner's note was
 that they should not be: they take a third column on the far side of the
 controls, ruled off with a hairline, and the felt takes the strip's row back.
 The left group gives up the width for them (`--acts-w` drops to 240), because
@@ -612,17 +615,19 @@ five and three twenty fives into a hundred. A unit test walks every amount a
 table can hold and pins it, which is what lets the felt reserve five chips of
 height instead of the ten a stack will draw before it starts counting.
 
-**The pot's row stands over its own figure.** Every denomination keeps its
-slot inside the row, and the row itself is moved by however many columns it
-takes to put the chips actually held over the number under them: a pot of 3 is
-one white chip in the last of five slots, which sat 44 px right of the figure
-it belongs to. `shiftOf` counts the columns and `.chips-centred` draws it **as
-a transform**, which is the whole trick: the layout-shift observer does not
-count a box that is transformed, so the row can recentre as the pot changes
-denomination without breaking the rule that nothing here moves. The pot asks
-for it and nothing else does, because it is the one stack with a figure under
-it rather than beside it. Its figure is a step up the type scale from the rest
-of the felt's, at 18 px, in the same fixed box.
+**The pot's rack closes up and stands under its figure.** The denominations it
+is holding are packed side by side and the group is centred, so a pot of 3 is
+one white chip under the number rather than one marooned in the last of five
+reserved slots, 44 px right of it. `packOffsets` gives each column its distance
+in columns and `.chips-packed` draws it **as a transform**, which is the whole
+trick: the layout-shift observer does not count a box that is transformed, so
+every column keeps the box it was dealt and only the paint moves. The rack
+re-lays on the one event that already moves chips, the pot changing, so there
+is still one thing moving at a time. The pot asks for this and nothing else
+does, because it is the one stack with a figure under it rather than beside it.
+Its figure is a step up the type scale from the rest of the felt's, at 18 px, in
+the same fixed box, and **the figure's box is what the footprint tests
+measure**: the chips are paint, the number is the thing that must hold still.
 
 `chip-stack.tsx` draws them, and the rule that matters is this: **every
 denomination keeps its slot whether or not there is a chip in it, and a column

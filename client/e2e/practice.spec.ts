@@ -120,7 +120,9 @@ test('the band keeps one footprint with the readings in it', async ({ page }) =>
   await watchLayoutShift(page);
   await page.goto(`${PRACTICE}&v2=1`);
 
-  const FOOTPRINT = ['.hand-head', '.felt', '.board', '.pot', '.hero-band', '.hb-stats'];
+  const FOOTPRINT = [
+    '.hand-head', '.felt', '.board', '.pot', '.pot .v', '.hero-band', '.hb-stats',
+  ];
   await page.locator('.hero-band[data-state="turn"]').waitFor({ timeout: 30_000 });
   await expect(page.locator('.hb-stats .ls-cell').nth(2)).toContainText(/\d+\.\d%/);
   const settledAt = await markSettled(page);

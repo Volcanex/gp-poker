@@ -753,19 +753,18 @@
    rim and a darker line along its bottom edge so a stack reads as chips rather
    than as a column of dots. */
 .chips { display: inline-flex; align-items: flex-end; gap: var(--chip-gap); --chip-gap: 3px; }
-/* **The pot's row stands over its own middle.** Every denomination keeps its
-   reserved slot inside the row, so a chip still appears where that
-   denomination has always been; the row itself is moved by however many
-   columns it takes to put the chips actually held over the figure under them.
-   A pot of 3 is one white chip in the last of five slots, which sat 44 px right
-   of the number it belongs to.
+/* **The pot's rack closes up and stands under its figure.** The denominations
+   it is holding are packed side by side and the group is centred, so a pot of 3
+   is one white chip under the number rather than a chip marooned in the last of
+   five reserved slots, 44 px right of it.
 
-   It is a transform, not a margin, and that is the whole trick: the browser's
-   layout-shift observer does not count a box that is transformed, so the row
-   can recentre as the pot changes denomination without breaking the rule that
-   nothing on this felt moves. `shiftOf` in `chip-stack.tsx` counts the
-   columns; the pitch is a column and the gap after it. */
-.chips-centred { transform: translateX(calc(var(--shift, 0) * (var(--chip) + var(--chip-gap)))); }
+   Every column keeps its box and only the paint moves: `packOffsets` in
+   `chip-stack.tsx` gives each column its distance in columns and this draws it
+   as a transform, which the layout-shift observer does not count. So the rack
+   can re-lay as the pot changes denomination while the felt keeps the zero it
+   has always had, and it re-lays on the one event that already moves chips.
+   The pitch is a column and the gap after it. */
+.chips-packed .chip-col { transform: translateX(calc(var(--dx, 0) * (var(--chip) + var(--chip-gap)))); }
 .chip-col {
   position: relative; flex: none;
   width: var(--chip);

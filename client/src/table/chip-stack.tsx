@@ -25,17 +25,27 @@ export interface ChipStackProps {
   centred?: boolean;
 }
 
-/* How far to move a centred row so the chips it is actually holding sit over
-   the middle of it, counted in columns. **The slots do not move**: every
-   denomination keeps the place it has always had inside the row, and the row
-   is what shifts, so a chip still arrives where that denomination lives. The
-   shift is drawn as a transform for the same reason a card is: the browser's
-   layout-shift observer counts a box that moves and does not count a box that
-   is transformed, and this felt's whole rule is that its boxes hold still. */
-export function shiftOf(counts: Counts, slots: number[]): number {
+/* Where each column of a centred rack is drawn, counted in columns from the
+   slot it was dealt. **The rack closes up and stands under the figure**: the
+   denominations it is actually holding are packed side by side and the group is
+   centred, so a pot of 3 is one white chip under the number rather than a chip
+   marooned in the last of five slots.
+
+   **Every column keeps its box**, and only the paint moves: the offsets are
+   drawn as transforms, which the browser's layout-shift observer does not
+   count, so the felt keeps the zero it has always had while the rack re-lays.
+   It re-lays on the one event that already moves chips, the pot changing, so
+   there is still one thing moving at a time.
+
+   An empty slot draws nothing and its offset is nought. */
+export function packOffsets(counts: Counts, slots: number[]): number[] {
   const on = slots.map((d, i) => ((counts.get(d) ?? 0) > 0 ? i : -1)).filter((i) => i >= 0);
-  if (on.length === 0) return 0;
-  return (slots.length - 1 - (on[0] + on[on.length - 1])) / 2;
+  if (on.length === 0) return slots.map(() => 0);
+  const start = (slots.length - on.length) / 2;
+  return slots.map((_, i) => {
+    const at = on.indexOf(i);
+    return at < 0 ? 0 : start + at - i;
+  });
 }
 
 function countsOf(amount: number): Counts {
@@ -103,10 +113,9 @@ export function ChipStack({ amount, columns, centred }: ChipStackProps) {
   const look = useLook();
   const reduced = useReducedMotion();
   const counts = useTicked(amount, look === 'v2' && !reduced);
-  const style = centred
-    ? ({ '--shift': shiftOf(counts, slots) } as CSSProperties)
-    : undefined;
-  const cls = centred ? 'chips chips-centred' : 'chips';
+  const packed = centred ? packOffsets(counts, slots) : null;
+  const cls = centred ? 'chips chips-packed' : 'chips';
+  const colStyle = (i: number) => (packed ? ({ '--dx': packed[i] } as CSSProperties) : undefined);
 
   /* v2: the same columns and the same reserved slots, drawn as chips. Each is
      the sprite's three-quarter chip, and a column stacks them by the height
@@ -116,12 +125,12 @@ export function ChipStack({ amount, columns, centred }: ChipStackProps) {
      mounts and takes the set-down animation. */
   if (look === 'v2') {
     return (
-      <span className={cls} style={style} aria-hidden="true">
-        {slots.map((value) => {
+      <span className={cls} aria-hidden="true">
+        {slots.map((value, i) => {
           const count = counts.get(value) ?? 0;
           const visible = Math.min(count, MAX_VISIBLE);
           return (
-            <span className="chip-col" key={value}>
+            <span className="chip-col" key={value} style={colStyle(i)}>
               {Array.from({ length: visible }, (_, i) => (
                 <svg
                   className="chip"
@@ -142,12 +151,12 @@ export function ChipStack({ amount, columns, centred }: ChipStackProps) {
   }
 
   return (
-    <span className={cls} style={style} aria-hidden="true">
-      {slots.map((value) => {
+    <span className={cls} aria-hidden="true">
+      {slots.map((value, i) => {
         const count = counts.get(value) ?? 0;
         const visible = Math.min(count, MAX_VISIBLE);
         return (
-          <span className="chip-col" key={value}>
+          <span className="chip-col" key={value} style={colStyle(i)}>
             {Array.from({ length: visible }, (_, i) => (
               <span className="chip" key={i} data-d={value} style={{ bottom: `${i * 3}px` }} />
             ))}
