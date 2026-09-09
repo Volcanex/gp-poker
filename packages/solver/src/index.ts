@@ -45,8 +45,13 @@ export type { PreparedSubgame, SolveResult, SubgameSpec } from './solve.js';
 export {
   BASE_PRIOR,
   RangeTracker,
+  MIN_BET_SAMPLE,
+  MIN_HAND_SAMPLE,
+  MIN_POSTFLOP_SAMPLE,
+  aggressionFrequency,
   emptyStats,
   foldToBet,
+  foldToCbet,
   filterByAction,
   passivity,
   populationRange,
@@ -55,8 +60,9 @@ export {
   priorWeight,
   ranksWithinRange,
   strengthOnBoard,
+  vpipRate,
 } from './opponent.js';
 export type { Aggression, AggressionKind, OpponentStats, Position, PreflopStep } from './opponent.js';
 
 export { SolverBot, runInline } from './bot.js';
-export type { Decision, Rng, SolveRunner } from './bot.js';
+export type { Decision, Fallback, Rng, SolveRunner, SolverBotOptions } from './bot.js';
