@@ -626,15 +626,15 @@
   padding: var(--sp-4);
   min-height: 0;
   overflow: auto;
-  --seat-h: 60px;
-  /* The whole of the column the felt gives a seat: 1120 less the middle's 320
-     and the two 16px gutters, halved. It used to stop twelve pixels short of
-     that, which was twelve pixels the name could have had. */
-  --seat-w: 384px;
+  --seat-h: 72px;
+  /* The whole of the column the felt gives a seat: the felt's width less the
+     middle's and the two 16px gutters, halved. It used to stop short of that,
+     which was width the name could have had. */
+  --seat-w: 400px;
   /* Everybody else's cards, from the Cards setting. Regular is what the felt
      shipped with; the seat is 60px and its border takes two, so huge is the
      tallest card that clears it at the 1.4 the artwork is drawn at. */
-  --seat-card: 34px;
+  --seat-card: 40px;
   --board-card: 40px;
   --board-h: calc(var(--board-card) * 1.4); /* the board's row, and the pot's box under it */
   --pot-w: 108px; /* five chips of the pot's size and their gaps */
@@ -642,7 +642,7 @@
   /* The middle column. The pot is 108 px wide and the stats box under it needs
      more than that, so the column is sized here rather than by its widest
      child: it used to be the split board's width, and the board has left it. */
-  --mid-w: 320px;
+  --mid-w: 288px;
 }
 /* Centred with auto margins rather than `justify-content`, because a centred
    flex item that overflows its container clips at the top and cannot be
@@ -683,12 +683,24 @@
 /* The board's row spans the felt and the cards are centred in it, so the board
    sits at the middle top with the wings starting under it. */
 .board { grid-column: l / end; grid-row: board; justify-self: center; }
+/* **The middle stands on the seats' own rows, not above them.** It spans the
+   three of them, so it is given those three rows to place its contents in:
+   the pot centred on the middle seat, because the middle of the green is
+   where a pot sits and packing the column from the top left it up by the
+   board; the readings starting at the bottom seat, a little under its top
+   edge; and the award line in the room the pot leaves at the top, nearest
+   the board it is settling. */
 .middle {
   grid-column: m; grid-row: s1 / hero;
-  display: flex; flex-direction: column; align-items: center;
-  gap: var(--sp-2);
+  display: grid;
+  grid-template-rows: repeat(3, var(--seat-h));
+  row-gap: var(--sp-2);
+  justify-items: center;
   width: var(--mid-w); min-width: 0;
 }
+.middle > .award-zone { grid-row: 1; align-self: end; }
+.middle > .pot { grid-row: 2; align-self: center; }
+.middle > .stats { grid-row: 3; align-self: start; margin-top: var(--sp-2); }
 
 /* Below 1060 the middle cannot fit between two seats that hold a name, so it
    goes across the top and the columns start under it. The same lines, the
@@ -705,7 +717,13 @@
       [board] var(--board-h) [top] auto
       [s1] var(--seat-h) [s2] var(--seat-h) [s3] var(--seat-h) [hero end];
   }
-  .middle { grid-column: l / end; grid-row: top; width: 100%; max-width: 440px; justify-self: center; }
+  /* Across the top instead, where there are no seat rows to stand on: back to
+     one column in reading order. */
+  .middle {
+    grid-column: l / end; grid-row: top; width: 100%; max-width: 440px; justify-self: center;
+    display: flex; flex-direction: column; align-items: center; gap: var(--sp-2);
+  }
+  .middle > .award-zone, .middle > .pot, .middle > .stats { margin-top: 0; }
 }
 
 /* ----------------------------------------------------------------- board */
@@ -872,7 +890,9 @@
   box-sizing: border-box;
   width: 100%; max-width: var(--seat-w); height: var(--seat-h);
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) calc(var(--seat-h) - 2px);
+  /* The action square is the seat's height, capped: past 64px it stops being
+     a square with a word in it and starts being width the name wanted. */
+  grid-template-columns: auto auto minmax(0, 1fr) min(calc(var(--seat-h) - 2px), 64px);
   align-items: center;
   column-gap: var(--sp-2);
   padding-left: var(--sp-2);
@@ -907,8 +927,8 @@
 .avatar[data-size="28"] { --avatar-size: 28px; }
 .avatar[data-size="56"] { --avatar-size: 56px; }
 
-:root[data-seat-cards="regular"] .felt { --seat-card: 28px; }
-:root[data-seat-cards="huge"] .felt { --seat-card: 40px; }
+:root[data-seat-cards="regular"] .felt { --seat-card: 32px; }
+:root[data-seat-cards="huge"] .felt { --seat-card: 48px; }
 
 .seat-cards { display: flex; gap: 4px; }
 .seat .pcard { --card-w: var(--seat-card); }
