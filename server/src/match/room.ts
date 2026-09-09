@@ -340,6 +340,11 @@ export class MatchRoom {
       return;
     }
     if (this.resigned.has(userId)) return; // said twice, costs once
+    /* Nothing to leave. Either the match is already decided and waiting on
+       its own settle, or this seat has been knocked out and is watching the
+       rest of it: both have a place already, and charging a walkout for
+       pressing the button after that would be charging somebody for losing. */
+    if (this.hand.isDone() || this.hand.currentPlaces()[userId] !== undefined) return;
     if (!this.match.format.practice && this.playerIds.length > 2) this.pinLeavingPlace(userId);
     this.resigned.add(userId);
     this.chargeWalkoutIfRanked(userId);
