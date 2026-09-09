@@ -205,13 +205,14 @@ export class MatchRoom {
   private async deliverChat(userId: string, text: string, at: number): Promise<void> {
     const user = await getUserById(userId);
     if (!user) return;
-    // A bot has nothing to say. Nothing in `src/bots/` sends one, and if
-    // something ever did, a table should not repeat it as though it did.
-    if (user.bot) return;
+    // A bot only ever reaches here through its own `ChatProfile`
+    // (`server/src/bots/population-roster.ts`), which is what keeps this to
+    // the handful of sparing lines a bot is configured to say rather than
+    // anything a table could provoke out of it.
 
     const seatIndex = this.playerIds.indexOf(userId);
     const seat = seatIndex === -1 ? null : seatIndex;
-    const from: ChatFrom = { id: user.id, name: user.name, bot: false, seat, avatarV: user.avatarV };
+    const from: ChatFrom = { id: user.id, name: user.name, bot: user.bot, seat, avatarV: user.avatarV };
     const line: ChatLine = { t: 'chat', m: this.id, from, text, at };
 
     if (seat === null) {
