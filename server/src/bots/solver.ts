@@ -29,7 +29,8 @@
 
 import { SolverBot, type PreparedSubgame } from '@opentable/solver';
 import type { BotLevel, TableView } from '@opentable/protocol';
-import type { BotDecision, Rng } from './strategy.js';
+
+import { ensureLegal, type BotDecision, type Rng } from './strategy.js';
 
 export const SOLVER_LEVEL: BotLevel = 6;
 
@@ -85,7 +86,17 @@ export async function decideSolver(userId: string, view: TableView, rng: Rng): P
   }
   running += 1;
   try {
-    return await bot.decide(view, rng, slicedRunner, budgetFor(view.format.clockMs, view.format.ladder === true));
+    const decision = await bot.decide(view, rng, slicedRunner, budgetFor(view.format.clockMs, view.format.ladder === true));
+    // Same gate every other level leaves through. The solver clamps against
+    // the legal window itself, so this is a guarantee rather than a fix, and
+    // it is the sort of guarantee that should not depend on a package outside
+    // this directory continuing to be careful.
+    return decision === null ? null : ensureLegal(decision, view.legal!);
+  } catch (err) {
+    // A bot that throws must not take the table with it. Level 5 answers
+    // instead, and the reason is on the record.
+    console.error(`level 6 decision failed: ${err instanceof Error ? err.message : String(err)}`);
+    return null;
   } finally {
     running -= 1;
   }
