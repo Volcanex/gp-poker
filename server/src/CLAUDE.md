@@ -383,10 +383,12 @@ a human is not always on the first button.
 
 Two constants at the top of the file, both measured from the longest wait in that
 queue: `BOT_FILL_HEADS_UP_MS` (5s) and `BOT_FILL_SIX_MAX_MS` (20s). Heads-up
-gives a lone human one bot. Six-max launches on six humans, or, **in casual
-only**, after the threshold with bots in the remaining seats: a **rated**
-six-max table is people or nothing, because five bots at a table whose result
-moves a Glicko-2 rating is a rating anybody could dial in. **Bots never fill a
+gives a lone human one bot. Six-max launches on six humans, or after the
+threshold with bots in the remaining seats, ranked included. Ranked used to be
+people or nothing (five bots at a rated table is a rating anybody could dial
+in), but with one person on the site that meant ranked six-max never dealt;
+until the bot population plays the queue as ordinary opponents, a rated bot
+fill is the same bargain the rated heads-up fill already makes. **Bots never fill a
 table with no human**, and a roster too short to fill the table waits rather than seating a
 short-handed one. Candidates come from `availableBots(rating, n)` in `bots/`:
 loaded in this process, not in a live match (a finished room lingers a minute, so

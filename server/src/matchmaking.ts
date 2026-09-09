@@ -389,12 +389,13 @@ async function tickMultiway(entries: QueuedPlayer[], format: MatchFormat, now: n
   if (waiting.length === 0) return;
   if (now - waiting[0].joinedAt < BOT_FILL_SIX_MAX_MS) return;
 
-  // Ranked six-max fills with people or waits. Casual fills with bots, which
-  // is what makes it the room somebody can always get a table in, and it is
-  // also the room the ranked gate sends everybody to first.
+  // Six-max fills with bots after the threshold, ranked included. Ranked
+  // used to wait for six people, which with one person on the site meant it
+  // never dealt at all; bots are the population for now, their matches are
+  // rated the same way heads-up bot fills already are, and the pool branch
+  // makes them ordinary opponents in the queue anyway.
   const humans = waiting.slice(0, format.players);
   const needed = format.players - humans.length;
-  if (needed > 0 && format.rated) return;
   const bots = needed > 0 ? await availableBots(meanRating(humans), needed, format.mode) : [];
   // Bots never fill a table with no human, and a short roster waits rather
   // than seating a table that isn't full.

@@ -112,9 +112,8 @@ describe('bots', () => {
       const conn = await connectWs(wsUrl, session.token);
       await conn.messages.wait((m) => m.t === 'hi');
 
-      // Casual, because rated six-max fills with people or waits: five bots
-      // at a table whose result moves a Glicko-2 rating is a rating anybody
-      // could dial in, and casual is the room bots fill.
+      // Casual here; ranked six-max fills with bots the same way now, and
+      // the rating side of that is covered by the heads-up rated fill.
       conn.ws.send(JSON.stringify({ t: 'queue', mode: 'six-max', rated: false }));
       const searching = await conn.messages.wait((m) => m.t === 'q' && m.s === 'searching');
       expect(searching.mode).toBe('six-max');
