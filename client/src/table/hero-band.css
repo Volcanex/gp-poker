@@ -657,8 +657,11 @@
 
 /* ------------------------------------------------------------------- wait */
 
-/* The pre-action pills stand where the actions stand. */
-.hb-pre .btn { width: 100%; height: 100%; border-radius: var(--radius-full); font-size: 13px; }
+/* The pre-action pills stand where the actions stand, and read as the same
+   kind of thing: `.btn`'s own radius, not the stadium shape a pill elsewhere
+   on the site gets, because these three sit in the row the fold, call and
+   raise buttons occupy the moment the turn arrives. */
+.hb-pre .btn { width: 100%; height: 100%; font-size: 13px; }
 
 /* ------------------------------------------------------------------- over */
 
