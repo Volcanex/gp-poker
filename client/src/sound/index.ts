@@ -4,6 +4,7 @@ import type { SoundModule } from './sound-types.ts';
 
 export type { SoundEvent } from './events.ts';
 export type { SoundModule } from './sound-types.ts';
+export type { PlayOptions } from './engine.ts';
 
 export interface SoundPack {
   id: string;
@@ -92,10 +93,10 @@ export function subscribe(listener: () => void): () => void {
   return () => listeners.delete(listener);
 }
 
-export async function play(event: SoundEvent): Promise<void> {
+export async function play(event: SoundEvent, opts?: engine.PlayOptions): Promise<void> {
   if (!state.enabled) return;
   const pack = await loadPack(state.pack);
-  await engine.play(pack.sounds[event]);
+  await engine.play(pack.sounds[event], opts);
 }
 
 export function setEnabled(next: boolean): void {

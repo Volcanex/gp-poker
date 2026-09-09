@@ -9,6 +9,8 @@ export type SoundEvent =
   | 'yourTurn'
   | 'clockWarning'
   | 'tick'
+  | 'readyCheck'
+  | 'readyAccept'
   | 'handWon'
   | 'handLost'
   | 'matchWon'
@@ -27,6 +29,8 @@ export const soundEvents: readonly SoundEvent[] = [
   'yourTurn',
   'clockWarning',
   'tick',
+  'readyCheck',
+  'readyAccept',
   'handWon',
   'handLost',
   'matchWon',

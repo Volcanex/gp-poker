@@ -16,6 +16,10 @@ context on the first gesture. See "Integration points" for the contract.
   `AudioContext` doesn't exist (e.g. under jsdom in tests).
 - `events.ts`: the `SoundEvent` union and a `soundEvents` array of the
   same values, used by tests and pack authors to check coverage.
+- `countdown.ts`: `countdownRate(secondsLeft)`, the pure rule behind the
+  ready check's rising ticks. No audio, no react, no knowledge of a check:
+  it answers which second gets a tick and how high it sits, and nothing
+  else.
 - `sound-types.ts`: `SoundAsset`/`SoundModule` (alias), the shape every
   vendored sound file exports. This is soundcn's own data shape, kept
   compatible on purpose so a freshly vendored file only needs its import
@@ -80,7 +84,7 @@ Warcraft/Blizzard patterns. "Source pack" is the actual Kenney itch.io
 pack the file matched by name in soundcn's assets mirror; five sounds
 (marked `Kenney (unmirrored)`) aren't present in that mirror by filename
 but are independently verified via soundcn's registry metadata (author,
-licence, category all clean). The `web` pack's 16 sounds are not vendored at
+licence, category all clean). The `web` pack's 18 sounds are not vendored at
 all: they are synthesised in this repo and carry `author: "Open Table"`,
 which is why the provenance test checks the author per pack rather than
 expecting Kenney everywhere.
@@ -94,9 +98,9 @@ expecting Kenney everywhere.
 | chip-lay-1 | bet | felt | Kenney Casino Audio | CC0 |
 | chip-lay-2 | call | felt | Kenney Casino Audio | CC0 |
 | chips-collide-1 | chipsCollect | felt | Kenney Casino Audio | CC0 |
-| notification-pop | yourTurn | felt | Kenney (unmirrored) | CC0 |
+| notification-pop | yourTurn, readyCheck | felt | Kenney (unmirrored) | CC0 |
 | tick-001 | clockWarning, tick | felt | Kenney Interface Sounds | CC0 |
-| success-chime | handWon | felt | Kenney (unmirrored) | CC0 |
+| success-chime | handWon, readyAccept | felt | Kenney (unmirrored) | CC0 |
 | drop-001 | handLost | felt | Kenney Interface Sounds | CC0 |
 | drop-004 | matchLost | felt | Kenney Interface Sounds | CC0 |
 | jingles-hit-01 | matchWon | felt | Kenney Music Jingles (Hit) | CC0 |
@@ -106,22 +110,22 @@ expecting Kenney everywhere.
 | select-002 | call | arcade | Kenney Interface Sounds | CC0 |
 | select-003 | fold | arcade | Kenney Interface Sounds | CC0 |
 | select-004 | chipsCollect | arcade | Kenney Interface Sounds | CC0 |
-| confirmation-001 | yourTurn | arcade | Kenney Interface Sounds | CC0 |
+| confirmation-001 | yourTurn, readyCheck | arcade | Kenney Interface Sounds | CC0 |
 | jump-8bit | clockWarning | arcade | Kenney (unmirrored) | CC0 |
-| jingles-nes-01 | handWon | arcade | Kenney Music Jingles (8-Bit) | CC0 |
+| jingles-nes-01 | handWon, readyAccept | arcade | Kenney Music Jingles (8-Bit) | CC0 |
 | jingles-nes-02 | matchWon | arcade | Kenney Music Jingles (8-Bit) | CC0 |
 | glass-001 | deal | glass | Kenney Interface Sounds | CC0 |
 | glass-002 | bet | glass | Kenney Interface Sounds | CC0 |
 | glass-003 | call | glass | Kenney Interface Sounds | CC0 |
 | glass-004 | fold | glass | Kenney Interface Sounds | CC0 |
-| glass-005 | yourTurn | glass | Kenney Interface Sounds | CC0 |
+| glass-005 | yourTurn, readyCheck | glass | Kenney Interface Sounds | CC0 |
 | glass-006 | clockWarning | glass | Kenney Interface Sounds | CC0 |
 | impact-glass-light-000 | cardPlace | glass | Kenney Impact Sounds | CC0 |
 | impact-glass-light-001 | check | glass | Kenney Impact Sounds | CC0 |
 | impact-glass-light-002 | chipsCollect | glass | Kenney Impact Sounds | CC0 |
 | impact-glass-light-003 | handLost | glass | Kenney Impact Sounds | CC0 |
 | impact-glass-light-004 | tick, chat, click | glass | Kenney Impact Sounds | CC0 |
-| jingles-pizzi-00 | handWon | glass | Kenney Music Jingles (Pizzicato) | CC0 |
+| jingles-pizzi-00 | handWon, readyAccept | glass | Kenney Music Jingles (Pizzicato) | CC0 |
 | impact-bell-heavy-000 | matchWon | glass | Kenney Impact Sounds | CC0 |
 | jingles-steel-05 | matchLost | glass | Kenney Music Jingles (Steel) | CC0 |
 | deal | deal | web | Generated, client/scripts/sound-web.mjs | CC0 |
@@ -134,6 +138,8 @@ expecting Kenney everywhere.
 | your-turn | yourTurn | web | Generated, client/scripts/sound-web.mjs | CC0 |
 | clock-warning | clockWarning | web | Generated, client/scripts/sound-web.mjs | CC0 |
 | tick | tick | web | Generated, client/scripts/sound-web.mjs | CC0 |
+| ready-check | readyCheck | web | Generated, client/scripts/sound-web.mjs | CC0 |
+| ready-accept | readyAccept | web | Generated, client/scripts/sound-web.mjs | CC0 |
 | hand-won | handWon | web | Generated, client/scripts/sound-web.mjs | CC0 |
 | hand-lost | handLost | web | Generated, client/scripts/sound-web.mjs | CC0 |
 | match-won | matchWon | web | Generated, client/scripts/sound-web.mjs | CC0 |
@@ -146,7 +152,7 @@ expecting Kenney everywhere.
 `web` evokes early-2000s desktop and messenger audio, and every sound people
 remember from that era, the nudge, the door, the mail chime, the dial-up
 handshake, is a copyrighted recording. None of them may be copied, sampled or
-rebuilt note for note. So the pack contains no recording at all: sixteen
+rebuilt note for note. So the pack contains no recording at all: eighteen
 original sounds built from oscillators and filtered noise by
 `client/scripts/sound-web.mjs`, which anyone can rerun to get the same bytes
 back. That makes the whole pack CC0 with the repo as its author, and it makes
@@ -184,11 +190,16 @@ these three the moment a verified CC0 notification sound can be vendored.
 | felt | ~69 KB |
 | arcade | ~36 KB |
 | glass | ~72 KB |
-| web | ~173 KB |
+| web | ~197 KB |
 
 All under the 250 KB per-pack budget; `web` is the big one because uncompressed
 WAV costs about 59 KB of base64 per second of audio, and the script prints the
-running total so a regeneration cannot quietly blow past it.
+running total so a regeneration cannot quietly blow past it. `web` is
+additionally held to a tighter line in `src/test/sound-web.test.ts`, raised
+from 200 KB to 220 KB when the ready check's two sounds landed: eighteen
+sounds do not fit a line drawn for fifteen. Anything that would need it raised
+again should shorten a sound instead, because the next 20 KB is a third of a
+second of audio and there is nothing on this site that needs one.
 
 ## Integration points
 
@@ -207,7 +218,12 @@ them itself, which is what keeps the module free of table knowledge:
    match ending (`'matchWon'`/`'matchLost'`). Use `'click'` for generic UI
    taps if wanted.
 
-   **`tick` has two callers and one rule: a tick is a number changing.**
+   **The ready check has three of its own** (`../ui/ready-check.tsx`):
+   `readyCheck` when the prompt arrives, `tick` once a second through the
+   last ten with a rising `rate`, and `readyAccept` when the seat is taken.
+   Declining and running out are silent.
+
+   **`tick` has three callers and one rule: a tick is a number changing.**
    `../table/sounds.ts` plays it off `view.runout`, the count the server
    sends before each street of an all-in run-out, keyed on the number so a
    re-render cannot repeat one. `useCountdown` in `../table/dock.tsx` plays
@@ -215,7 +231,16 @@ them itself, which is what keeps the module free of table knowledge:
    that number is counted down by the client and there is no view to key
    on. Putting it inside the hook rather than beside the view is what keeps
    a practice table silent: a hand held for a person to deal on renders no
-   countdown, so it never ticks.
+   countdown, so it never ticks. The ready check is the third, and the only
+   one that bends the pitch.
+
+   **`play` takes a rate, and that is the only knob it takes.**
+   `engine.play(sound, {rate})` sets the buffer source's `playbackRate`,
+   which moves pitch and length together the way speeding up a record does,
+   clamped to a quarter and four times. It exists so a countdown can climb
+   without a file per step; `countdown.ts` is the pure table of which second
+   plays at which rate, and it is unit tested because a rule like "the ticks
+   climb" is impossible to hear a mistake in.
 3. **Settings section**: bind a toggle, a volume slider, and a pack
    picker to `useSoundSettings()` (`enabled`, `volume`, `pack`, `packs`,
    `setEnabled`, `setVolume`, `setPack`). Add a "Preview" button next to

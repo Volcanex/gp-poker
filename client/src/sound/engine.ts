@@ -67,7 +67,20 @@ async function getBuffer(sound: SoundModule, audio: AudioContext): Promise<Audio
   }
 }
 
-export async function play(sound: SoundModule | null | undefined): Promise<void> {
+/* How the same sound can be played twice and not sound twice the same. One
+   knob only: the rate the buffer is read back at, which moves the pitch and
+   the length together the way speeding up a record does. It is what lets a
+   countdown climb without a second file per step. */
+export interface PlayOptions {
+  rate?: number;
+}
+
+/* Anything outside this is a different sound rather than the same one under
+   tension, and a rate at or below zero stops the buffer dead. */
+const MIN_RATE = 0.25;
+const MAX_RATE = 4;
+
+export async function play(sound: SoundModule | null | undefined, opts: PlayOptions = {}): Promise<void> {
   if (!sound || !enabled || !unlocked) return;
   const audio = getContext();
   if (!audio) return;
@@ -76,6 +89,9 @@ export async function play(sound: SoundModule | null | undefined): Promise<void>
   const source = audio.createBufferSource();
   const gain = audio.createGain();
   source.buffer = buffer;
+  if (opts.rate !== undefined && Number.isFinite(opts.rate)) {
+    source.playbackRate.value = Math.max(MIN_RATE, Math.min(MAX_RATE, opts.rate));
+  }
   gain.gain.value = volume;
   source.connect(gain);
   gain.connect(audio.destination);

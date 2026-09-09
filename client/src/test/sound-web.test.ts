@@ -137,10 +137,16 @@ describe('the web pack', () => {
     }
   });
 
-  it('stays under the 200 KB base64 budget', () => {
+  /* 220 KB, raised from 200 when the ready check's two sounds landed. The
+     repo's per-pack ceiling is 250 KB (`../sound/CLAUDE.md`); this is the
+     tighter line web is held to, because uncompressed WAV costs about 59 KB
+     of base64 a second and this pack is where a careless sound gets
+     expensive. Eighteen sounds do not fit a line drawn for fifteen, and the
+     pack is a lazily-loaded chunk only a player who picks it ever fetches. */
+  it('stays under the 220 KB base64 budget', () => {
     const bytes = readdirSync(PACK_DIR)
       .filter((entry) => entry.endsWith('.ts') && entry !== 'index.ts')
       .reduce((total, entry) => total + statSync(path.join(PACK_DIR, entry)).size, 0);
-    expect(bytes).toBeLessThan(200 * 1024);
+    expect(bytes).toBeLessThan(220 * 1024);
   });
 });

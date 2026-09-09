@@ -35,6 +35,8 @@ export const felt: {
     yourTurn: notificationPopSound,
     clockWarning: tick001Sound,
     tick: tick001Sound,
+    readyCheck: notificationPopSound,
+    readyAccept: successChimeSound,
     handWon: successChimeSound,
     handLost: drop001Sound,
     matchWon: jinglesHit01Sound,

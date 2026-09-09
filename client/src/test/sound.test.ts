@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { soundEvents } from '../sound/events.ts';
+import { COUNTDOWN_FROM, countdownRate } from '../sound/countdown.ts';
 import { felt } from '../sound/packs/felt/index.ts';
 import { arcade } from '../sound/packs/arcade/index.ts';
 import { glass } from '../sound/packs/glass/index.ts';
@@ -113,6 +114,41 @@ describe('persistence', () => {
   });
 });
 
+/* The ready check's countdown. The rule is "the last ten seconds tick and
+   they climb", which is one sentence and four ways to get it wrong: ticking
+   before the countdown, ticking after it has run out, climbing the wrong way,
+   and climbing so far that the sample stops sounding like itself. */
+describe('the countdown rate', () => {
+  it('ticks the last ten seconds and nothing before or after them', () => {
+    expect(countdownRate(COUNTDOWN_FROM + 1)).toBeNull();
+    expect(countdownRate(20)).toBeNull();
+    expect(countdownRate(0)).toBeNull();
+    expect(countdownRate(-1)).toBeNull();
+    for (let left = 1; left <= COUNTDOWN_FROM; left++) {
+      expect(countdownRate(left), `${left} seconds left`).not.toBeNull();
+    }
+  });
+
+  it('starts at the sample\'s own pitch and climbs as it runs down', () => {
+    expect(countdownRate(COUNTDOWN_FROM)).toBe(1);
+    const rates = [];
+    for (let left = COUNTDOWN_FROM; left >= 1; left--) rates.push(countdownRate(left)!);
+    for (let i = 1; i < rates.length; i++) {
+      expect(rates[i], `tick ${i} is higher than the one before it`).toBeGreaterThan(rates[i - 1]);
+    }
+    // Far enough to feel, near enough that it is still the same tick.
+    expect(rates[rates.length - 1]).toBeGreaterThan(1.3);
+    expect(rates[rates.length - 1]).toBeLessThan(1.5);
+  });
+
+  it('gives one number per second rather than a float that drifts', () => {
+    expect(countdownRate(4)).toBe(countdownRate(4.2));
+    expect(countdownRate(7)).toBe(0.05 * 3 + 1);
+    expect(countdownRate(Number.NaN)).toBeNull();
+    expect(countdownRate(Number.POSITIVE_INFINITY)).toBeNull();
+  });
+});
+
 describe('playback gating', () => {
   it('is a no-op before unlock and never throws', async () => {
     const mod = await import('../sound/index.ts');
@@ -124,6 +160,16 @@ describe('playback gating', () => {
     const mod = await import('../sound/index.ts');
     await mod.sound.unlock();
     await expect(mod.sound.play('deal')).resolves.toBeUndefined();
+  });
+
+  /* A rate is an option on the same call, so a caller that passes one is
+     gated exactly like one that does not. */
+  it('takes a playback rate without changing whether it plays at all', async () => {
+    const mod = await import('../sound/index.ts');
+    mod.sound.setEnabled(true);
+    await expect(mod.sound.play('tick', { rate: 1.45 })).resolves.toBeUndefined();
+    mod.sound.setEnabled(false);
+    await expect(mod.sound.play('tick', { rate: 1.45 })).resolves.toBeUndefined();
   });
 });
 

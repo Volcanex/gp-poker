@@ -239,7 +239,7 @@ function wav(pcm) {
   return bytes;
 }
 
-/* The sixteen sounds. Waveform and length carry the character: ticks are
+/* The eighteen sounds. Waveform and length carry the character: ticks are
    filtered noise, actions are square and triangle blips, and the chimes and
    fanfares are sines with a little FM so the pack does not sound like one
    instrument playing everything. */
@@ -357,6 +357,31 @@ const SOUNDS = {
     addNoise(buf, { length: 70, seed: 909, tau: 0.006, gain: 1, filter: () => bandpass(2400, 1.8) });
     return { buf, ms: 70, dbfs: -5.5 };
   },
+  /* The ready check arriving: a two-note call up a fifth with a little FM on
+     it, the shape of a doorbell rather than of a notification. It is the one
+     sound on this site meant to reach somebody who is looking at another tab,
+     so it is the longest of the short ones and it rings rather than clicks. */
+  readyCheck: () => {
+    const buf = buffer(280);
+    addNote(buf, {
+      length: 170, kind: 'sine', freq: 659.26, gain: 0.7, tau: 0.1, attackMs: 4,
+      fmRatio: 2, fmIndex: 0.3,
+    });
+    addNote(buf, {
+      start: 110, length: 170, kind: 'sine', freq: 987.77, gain: 0.7, tau: 0.11, attackMs: 4,
+      fmRatio: 2, fmIndex: 0.3,
+    });
+    return { buf, ms: 280 };
+  },
+  /* Accepting it: two quick triangle notes an octave apart, short and dry.
+     Nothing celebratory, because taking a seat is not winning anything: it is
+     the sound of a switch closing. */
+  readyAccept: () => {
+    const buf = buffer(140);
+    addNote(buf, { length: 60, kind: 'triangle', freq: 784, gain: 0.8, tau: 0.045, attackMs: 2 });
+    addNote(buf, { start: 55, length: 85, kind: 'triangle', freq: 1568, gain: 0.7, tau: 0.05, attackMs: 2 });
+    return { buf, ms: 140, dbfs: CHIME_DBFS };
+  },
   /* Hand won: four notes up an E chord, ringing into each other. */
   handWon: () => {
     const buf = buffer(320);
@@ -462,6 +487,8 @@ const FILE_NAMES = {
   yourTurn: 'your-turn',
   clockWarning: 'clock-warning',
   tick: 'tick',
+  readyCheck: 'ready-check',
+  readyAccept: 'ready-accept',
   handWon: 'hand-won',
   handLost: 'hand-lost',
   matchWon: 'match-won',
