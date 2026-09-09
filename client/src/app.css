@@ -649,11 +649,12 @@
   --board-card: 40px;
   --board-h: calc(var(--board-card) * 1.4); /* the board's row, and the pot's box under it */
   --pot-w: 108px; /* five chips of the pot's size and their gaps */
-  --box-h: 100px; /* the stats box: five rows of 16 px, their gaps, the padding */
-  /* The middle column. The pot is 108 px wide and the stats box under it needs
-     more than that, so the column is sized here rather than by its widest
-     child: it used to be the split board's width, and the board has left it. */
-  --mid-w: 264px;
+  --box-h: 100px; /* the stats box below 1060, back in the middle strip: five rows of 16 px, their gaps, the padding */
+  /* The middle column, now the pot and the award line only: it used to be
+     the split board's width, and the stats box that stood under them left
+     for the empty seat corner, but 264 is still what the award line and the
+     stats box's own reading below 1060 need. */
+  --mid-w: 240px;
 }
 /* Centred with auto margins rather than `justify-content`, because a centred
    flex item that overflows its container clips at the top and cannot be
@@ -702,16 +703,15 @@
    edge; and the award line in the room the pot leaves at the top, nearest
    the board it is settling. */
 .middle {
-  grid-column: m; grid-row: s1 / hero;
+  grid-column: m; grid-row: s1 / s3;
   display: grid;
-  grid-template-rows: repeat(3, var(--seat-h));
+  grid-template-rows: repeat(2, var(--seat-h));
   row-gap: var(--sp-2);
   justify-items: center;
   width: var(--mid-w); min-width: 0;
 }
 .middle > .award-zone { grid-row: 1; align-self: end; }
 .middle > .pot { grid-row: 2; align-self: center; }
-.middle > .stats { grid-row: 3; align-self: start; margin-top: var(--sp-2); }
 
 /* Below 1060 the middle cannot fit between two seats that hold a name, so it
    goes across the top and the columns start under it. The same lines, the
@@ -720,21 +720,35 @@
   .felt-in {
     grid-template-columns: [l] minmax(0, 1fr) [r] minmax(0, 1fr) [end];
     grid-template-rows:
-      [board] var(--board-h) [top] auto
+      [board] var(--board-h) [top] auto [topstats] auto
       [s1] var(--seat-h) [s2] var(--seat-h) [s3] var(--seat-h) [hero] auto [end];
   }
   .match[data-band] .felt-in {
     grid-template-rows:
-      [board] var(--board-h) [top] auto
+      [board] var(--board-h) [top] auto [topstats] auto
       [s1] var(--seat-h) [s2] var(--seat-h) [s3] var(--seat-h) [hero end];
   }
   /* Across the top instead, where there are no seat rows to stand on: back to
-     one column in reading order. */
+     one column in reading order. There is no spare seat corner down here
+     either, both columns stack single file under the board, so the stats box
+     gets a row of its own under the pot and the award line rather than the
+     seat it takes above 1060, and goes back to the fuller reading that row
+     has room for. */
   .middle {
     grid-column: l / end; grid-row: top; width: 100%; max-width: 440px; justify-self: center;
     display: flex; flex-direction: column; align-items: center; gap: var(--sp-2);
   }
-  .middle > .award-zone, .middle > .pot, .middle > .stats { margin-top: 0; }
+  .middle > .award-zone, .middle > .pot { margin-top: 0; }
+  .stats {
+    grid-column: l / end; grid-row: topstats; justify-self: center;
+    width: 100%; max-width: 264px; height: var(--box-h); margin-top: var(--sp-2);
+    display: grid; grid-template-columns: auto minmax(0, 1fr);
+    column-gap: var(--sp-4); row-gap: 2px; align-content: start;
+    padding: 4px var(--sp-3);
+  }
+  .stats dd { text-align: right; margin: 0; }
+  .stats dt:nth-of-type(2), .stats dt:nth-of-type(3) { display: block; }
+  .stats .stats-next, .stats dt:last-of-type, .stats dd:last-of-type { display: block; }
 }
 
 /* ----------------------------------------------------------------- board */
@@ -787,13 +801,20 @@
    zone's reserved height still holds the felt still. */
 .award-chip { clip-path: inset(0 var(--wipe, 0%) 0 0 round var(--radius-full)); }
 
-/* The facts about the hand, in one box: labels left, values right, tabular,
-   one type size. Fixed height, and the rows fill it. */
+/* The facts about the hand. Above 1060 it stands in the bottom right seat
+   position: six-max leaves that corner of its right wing empty (the hero
+   sits in the band, not a seat), heads-up leaves the whole column spare, and
+   either way it is the one place on the felt built to hold a box this shape.
+   One row there, the seat's own height and width, Hand, Street and Blinds
+   only: Next level and To call repeat what the band and the dock already
+   say. Below 1060 both columns stack single file and there is no corner
+   spare, so the `@container` query below puts it back in the middle strip,
+   full height, all five rows. */
 .stats {
-  margin: 0; width: 100%; height: var(--box-h); box-sizing: border-box;
-  display: grid; grid-template-columns: auto minmax(0, 1fr);
-  column-gap: var(--sp-4); row-gap: 2px; align-content: start;
-  padding: 4px var(--sp-3);
+  grid-column: r; grid-row: s3; justify-self: start;
+  margin: 0; width: 100%; max-width: var(--seat-w); height: var(--seat-h); box-sizing: border-box;
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: 0 var(--sp-3);
   border: 1px solid var(--border-subtle); border-radius: var(--radius);
   background: var(--surface-1);
   font-size: 12px; line-height: 16px;
@@ -801,9 +822,11 @@
 }
 .stats dt { color: var(--text-secondary); white-space: nowrap; }
 .stats dd {
-  margin: 0; text-align: right; color: var(--text-primary);
+  margin: 0 var(--sp-3) 0 0; text-align: left; color: var(--text-primary);
   font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.stats dt:nth-of-type(2), .stats dt:nth-of-type(3) { display: none; }
+.stats .stats-next, .stats dt:last-of-type, .stats dd:last-of-type { display: none; }
 
 /* ------------------------------------------------------------------ chips */
 

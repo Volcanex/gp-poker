@@ -302,9 +302,14 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
                 ))}
               </AnimatePresence>
             </div>
-
-            <StatsBox view={view} />
           </div>
+
+          {/* Six-max leaves the right wing's bottom seat empty (the hero
+              sits in the band, not here), and heads-up leaves the whole
+              column spare: a direct child of the felt's own grid rather than
+              the middle column's, so it can stand in that corner above 1060
+              and fall back to the middle strip, under the pot, below it. */}
+          <StatsBox view={view} />
         </div>
       </div>
 
