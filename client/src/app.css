@@ -55,12 +55,25 @@
 /* The six-max tab's label: a 6 with MAX running up its right side, own
    request. `writing-mode` turns the word without a transform, which keeps
    its baseline where a screen reader and the layout both expect it. */
-.mode-6max { display: inline-flex; align-items: center; gap: 3px; line-height: 1; }
+/* Six-max as a wordmark: the numeral, with "max" running up its side. The
+   numeral is set larger than the tab's own text so there is a side to run up,
+   and **the word is never taller than the numeral it leans on**: three
+   lowercase letters, all of them x-height, stacked in the digit's own cap
+   height. Lowercase because the site is sentence case throughout and because
+   m, a and x have neither an ascender nor a descender between them, which is
+   what lets three of them fit in the height of one digit. */
+.mode-6max { display: inline-flex; align-items: center; gap: 2px; line-height: 1; }
+.mode-6max-n { font-size: 18px; line-height: 1; font-weight: 500; }
 .mode-6max-suffix {
   writing-mode: vertical-rl;
   transform: rotate(180deg);
-  font-size: 9px;
-  letter-spacing: 0.02em;
+  /* Sized off the numeral rather than the tab: three of these stacked have to
+     come to the digit's cap height, which is a shade over seven tenths of its
+     font size. */
+  font-size: 6px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  font-weight: 600;
 }
 
 /* ------------------------------------------------------------------ shell */
@@ -614,7 +627,10 @@
   min-height: 0;
   overflow: auto;
   --seat-h: 60px;
-  --seat-w: 372px;
+  /* The whole of the column the felt gives a seat: 1120 less the middle's 320
+     and the two 16px gutters, halved. It used to stop twelve pixels short of
+     that, which was twelve pixels the name could have had. */
+  --seat-w: 384px;
   /* Everybody else's cards, from the Cards setting. Regular is what the felt
      shipped with; the seat is 60px and its border takes two, so huge is the
      tallest card that clears it at the 1.4 the artwork is drawn at. */
@@ -913,29 +929,32 @@
    into a five hundred, and a table holding 1200 never stacks three of those.
    So four is the tallest column the felt can produce, and reserving exactly
    it is what keeps a rack off the seat's `overflow: hidden` edge. */
-/* Sized so four rows clear the seat's `overflow: hidden` edge: v1 stacks a
-   column by 3px a chip and v2 by 0.14 of its width, so the flat discs have
-   to be the smaller of the two to fit the same 60px seat. */
+/* Beside a player's own number, on the one line with it: every denomination,
+   so a bet of any size is seen leaving. It is the same component as the pot's
+   stack and ticks on the same clock, which is what makes a bet read as chips
+   moving from one place to the other. Four rows and no more, because that is
+   the tallest column `denominate` can build. */
 .seat-chips {
-  display: flex; justify-content: flex-end; width: 100%;
-  --chip: 13px; --chip-rows: 4;
+  display: inline-flex; align-items: flex-end;
+  --chip: 11px; --chip-rows: 4;
 }
 .seat-chips .chips { gap: 2px; }
+.seat-chips { margin-right: calc(5ch + 6px); }
 
-/* The figure on its own line under the rack. */
+/* The figure and the chips beside it on one line, always. */
 .seat-stack {
   display: flex; align-items: flex-end; justify-content: flex-end; gap: 6px; width: 100%;
   font-size: 15px; line-height: 16px; font-weight: 500; letter-spacing: -0.015em;
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }
-/* "all in" lands in a slot the figure always leaves open, out of the flow, so
+/* "all in" lands in a slot the chips always leave open, out of the flow, so
    nothing moves when it does. "out" takes the same slot in the flow, because
    a busted seat's row is rebuilt anyway. */
 .seat-stack { position: relative; }
 .seat-stack .u { font-size: 11px; line-height: 16px; color: var(--text-secondary); font-weight: 400; }
 .seat-stack .u-allin { position: absolute; right: calc(4ch + 6px); bottom: 0; }
-/* Room for every stack a table can hold, so nothing beside the digits moves
-   when the figure gains one. */
+/* Room for every stack a table can hold, so the chips beside the digits never
+   move when the figure gains one. */
 .stack-v { display: inline-block; min-width: 4ch; text-align: right; }
 
 .btn-marker {

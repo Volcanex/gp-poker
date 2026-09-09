@@ -196,7 +196,12 @@
      legend's row as well, so without this the readings ran twenty pixels below
      the row of controls beside them and the section read as hanging off the
      bottom of the band. */
-  padding-bottom: calc(var(--hb-keys-h) + var(--keys-gap) + var(--hb-floor-lift, 0px));
+  /* Not lifted with the controls beside it. The readings are four lines and a
+     bar, which is nearly the whole height of the band: raising this column by
+     the controls' lift pushed its first reading up off the top of the band and
+     into the decision line, where it landed on the countdown. It keeps the
+     floor it had. */
+  padding-bottom: calc(var(--hb-keys-h) + var(--keys-gap));
 }
 /* The way on from a held hand, at the foot of the readings it ends. Full
    width of the column and on the buttons' own height, so it reads as the

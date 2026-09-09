@@ -34,7 +34,8 @@ export function modeTabLabel(m: Mode): React.ReactNode {
   if (m !== 'six-max') return MODE_NAME[m];
   return (
     <span className="mode-6max">
-      6<span className="mode-6max-suffix">MAX</span>
+      <span className="mode-6max-n">6</span>
+      <span className="mode-6max-suffix">max</span>
     </span>
   );
 }

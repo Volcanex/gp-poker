@@ -32,10 +32,9 @@ export interface SeatProps {
    itself on the seat's right edge. The cards lead because they are the hand:
    the seat is read across from what was dealt to who holds it.
 
-   The identity block is three rows, not two: the name line, the chips, then
-   the figure they are worth. The chips used to sit beside the figure on one
-   line, which put a rack and a number in the same reading, and neither had
-   the width to be read at a glance.
+   The identity block is two rows: the name line, then the rack and the figure
+   it is worth beside each other. The rack and its number are one reading and
+   they stay on one line.
 
    The square is the seat's height and always drawn, empty as a quiet outline,
    so a word arriving in it moves nothing. It holds what the player last did
@@ -103,19 +102,16 @@ export function Seat({
           {seat.bot && <span className="seat-bot seat-bot-line">Bot</span>}
           {!seat.connected && <span className="seat-off">Disconnected</span>}
         </span>
-        {/* The rack, on its own row above the figure. An empty stack draws
-            every denomination's empty slot, so a seat busting out keeps this
-            row's height exactly as a full one has it: that reserved box is
-            what held the last shift on the six-max footprint. */}
-        <span className="seat-chips">
-          <ChipStack amount={seat.out ? 0 : seat.stack} />
-        </span>
-
         {seat.out ? (
           <span className="seat-stack num" key="out">
             {/* Keyed apart from the live row, so busting out remounts the
                 row rather than retyping a live figure into a placing; a
-                retyped node is one the layout-shift observer can measure. */}
+                retyped node is one the layout-shift observer can measure.
+                The same row as a live seat's, chip slot included: an empty
+                stack is the height of a full one, so a seat busting out
+                keeps its box, which is what held the last shift on the
+                six-max footprint. */}
+            <span className="seat-chips"><ChipStack amount={0} /></span>
             <span className="u u-allin">{seat.place == null ? '' : 'out'}</span>
             {/* The same reserved slot the digits use, so a seat busting out
                 does not move the word beside it. */}
@@ -123,15 +119,18 @@ export function Seat({
           </span>
         ) : (
           <span className="seat-stack num" key="live">
+            <span className="seat-chips"><ChipStack amount={seat.stack} /></span>
             {/* The badge is drawn twice and CSS keeps one: on a phone the name
                 line has no room for it and the stack line has plenty. */}
             {seat.bot && <span className="seat-bot seat-bot-stack">Bot</span>}
-            {/* Out of the flow, in a slot the figure leaves open, and always
+            {/* Out of the flow, in a slot the chips leave open, and always
                 rendered: a node that mounts when the word arrives is a node
                 Chrome's layout-shift observer can give a stale rect, and it
                 did, on six-max at 1280. An empty box that was always there
                 has nothing to move from. */}
             <span className="u u-allin">{seat.allin ? 'all in' : ''}</span>
+            {/* The digits get a fixed slot so the chips beside them do not
+                slide every time a stack changes size. */}
             <span className="stack-v" key={seat.stack}>{seat.stack}</span>
           </span>
         )}

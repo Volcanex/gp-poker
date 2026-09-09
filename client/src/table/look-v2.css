@@ -167,5 +167,5 @@
 
 /* The seat's rack. A three quarter chip is shorter than the flat disc it
    replaced (0.72 of its width against a full one), so it can be wider here
-   and still keep four rows inside the seat. */
-.match[data-look="v2"] .seat-chips { --chip: 16px; }
+   and still stand on one line beside the figure. */
+.match[data-look="v2"] .seat-chips { --chip: 13px; }
