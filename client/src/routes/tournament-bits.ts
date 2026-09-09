@@ -80,14 +80,19 @@ export function shapeLabel(shape: TournamentShape): string {
 }
 
 /* What a round is called. A round with one table is the final whichever shape
-   it is, and a bracket knows its own length from the width of its first round,
-   so "round 2 of 3" is sayable there and only there: a shootout's depth
-   depends on how many turned up. */
-export function roundName(rounds: TournamentTable[][], round: number): string {
+   it is.
+
+   A bracket can say what it is out of while it is still running, because its
+   depth is a fact about its first round: a bracket that starts with n matches
+   is log2(n) + 1 rounds long, whatever happens in them. A shootout cannot,
+   because how many tables the next round has depends on how many people come
+   through this one, so it counts up and says nothing it does not know. */
+export function roundName(rounds: TournamentTable[][], round: number, shape?: TournamentShape): string {
   const tables = rounds[round - 1] ?? [];
   if (tables.length === 1) return 'Final';
   if (tables.length === 2) return 'Semi-finals';
-  const total = rounds.length;
+  const first = rounds[0]?.length ?? 0;
+  const total = shape === 'bracket' && first > 0 ? Math.log2(first) + 1 : rounds.length;
   return total > round ? `Round ${round} of ${total}` : `Round ${round}`;
 }
 
@@ -98,11 +103,12 @@ export function progressLabel(t: {
   status: TournamentStatus;
   round: number;
   rounds: TournamentTable[][];
+  shape?: TournamentShape;
 }): string {
   if (t.status === 'upcoming') return 'Registration open';
   if (t.status === 'cancelled') return 'Not enough entrants';
   if (t.status === 'finished') return 'Finished';
-  return roundName(t.rounds, t.round);
+  return roundName(t.rounds, t.round, t.shape);
 }
 
 /* A seat's own line on a table card: where it came and whether that took it

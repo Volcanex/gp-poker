@@ -65,14 +65,20 @@ import {
 
 const HOUR = 60 * 60 * 1000;
 
-let clock = 0;
-const bases: number[] = [];
+/* The clock starts years ahead, randomised so two runs against the same
+   database do not collide on `(kind, starts_at)`, which is unique, and it only
+   ever moves **forward**: each test takes the next stretch of calendar.
 
-// A fresh stretch of calendar for one test. Randomised so two runs against the
-// same database do not collide on `(kind, starts_at)`, which is unique.
+   It used to be re-randomised per test, which meant it could land earlier than
+   the test before it, and then a fixture that test had left upcoming was still
+   in the future and the scheduler handed it back as this test's. */
+let base = Date.now() + (20_000 + Math.floor(Math.random() * 200_000)) * HOUR;
+const FIRST_BASE = base;
+let clock = base;
+
 function freshBase(): number {
-  clock = Date.now() + (20_000 + Math.floor(Math.random() * 200_000)) * HOUR;
-  bases.push(clock);
+  base += 5_000 * HOUR;
+  clock = base;
   return clock;
 }
 
@@ -289,7 +295,7 @@ describe('tournaments', () => {
     resetReadyChecks();
     const ids = createdUserIds.length > 0 ? createdUserIds : ['00000000-0000-0000-0000-000000000000'];
     await sql`delete from matches where id in (select match_id from match_players where user_id in ${sql(ids)})`;
-    if (bases.length > 0) await sql`delete from tournaments where starts_at >= ${new Date(Math.min(...bases))}`;
+    await sql`delete from tournaments where starts_at >= ${new Date(FIRST_BASE)}`;
     for (const id of createdUserIds) await deleteUser(id);
     await app.close();
   });
@@ -318,16 +324,20 @@ describe('tournaments', () => {
     return app.inject({ method: 'POST', url: `/api/tournaments/${id}/register`, headers: auth(session) });
   }
 
-  /* A fresh fixture on a fresh stretch of calendar. Ticked more than once
-     because a row an earlier test left upcoming has to be opened (and, with
-     nobody in it, cancelled) before the schedule writes the next one. */
+  /* A fresh fixture on a fresh stretch of calendar.
+
+     A row an earlier test left upcoming is taken away rather than played: it
+     belongs to another test's field, whose sockets are closed, and opening it
+     would spend a ready-check window on nobody. The seat cap is checked on the
+     way out because two tests can ask for the same kind with different caps. */
   async function nextFixture(fixture: TournamentFixture) {
     configureTournaments({ fixtures: [fixture] });
     freshBase();
+    await sql`delete from tournaments where kind = ${fixture.kind} and status = 'upcoming'`;
     for (let i = 0; i < 6; i++) {
       await tournamentTick();
       const row = await getUpcomingTournament(fixture.kind);
-      if (row && row.startsAt.getTime() > clock) return row;
+      if (row && row.startsAt.getTime() > clock && row.seats === fixture.seats) return row;
     }
     throw new Error(`no upcoming ${fixture.kind} was scheduled`);
   }

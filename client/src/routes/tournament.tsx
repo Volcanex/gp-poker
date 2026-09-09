@@ -321,7 +321,7 @@ function Bracket({ rounds, meId }: { rounds: TournamentTable[][]; meId: string |
             <div className="bracket-round" key={i}>
               {tables.map((table) => (
                 <div className="bracket-slot" key={table.table}>
-                  <BracketMatch table={table} meId={meId} round={roundName(rounds, i + 1)} />
+                  <BracketMatch table={table} meId={meId} round={roundName(rounds, i + 1, 'bracket')} />
                 </div>
               ))}
             </div>
