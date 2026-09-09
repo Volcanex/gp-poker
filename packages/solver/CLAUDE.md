@@ -1,7 +1,7 @@
 # @opentable/solver
 
 Real time CFR+ over one street of a heads-up subgame, and the range tracking
-that decides what to hand it. This is what level 6 plays on
+that decides what to hand it. Two tiers play on it, `regular` and `solver`
 (`server/src/bots/`); nothing else uses it yet.
 
 Pure and isomorphic. It imports `@opentable/preflop` (for the charts and the
@@ -21,10 +21,11 @@ runs unchanged on the server, in a script and in a browser worker.
   and the place is documented below. An unmodified solve loses badly to level 5,
   because equilibrium bluffs are made to keep a balanced opponent indifferent
   and none of this site's other bots is balanced.
-- **Not yet demonstrably better than level 5.** Measured, it is level 5's equal,
-  and it beats level 4 by more than level 5 does. That is not the same claim as
-  beating level 5. The numbers are in `server/src/bots/CLAUDE.md` and what would
-  buy the difference is at the bottom of this file.
+- **Not yet demonstrably better than the sharp tier.** Measured, the solver
+  tier is its equal and beats the solid tier by more than sharp does, which is
+  not the same claim as beating sharp. The numbers are in
+  `server/src/bots/CLAUDE.md` and what would buy the difference is at the
+  bottom of this file.
 
 ## The pieces
 
@@ -107,7 +108,7 @@ about two orders of magnitude.
 
 ## Nothing blocks for long
 
-Level 6 runs on the server's main thread in slices (see
+Both tiers run on the server's main thread in slices (see
 `server/src/bots/CLAUDE.md` for why it is not a worker). The contract that
 makes that safe lives here: **the longest thing this package does without
 returning is one CFR iteration**, a couple of milliseconds. The part that was
@@ -116,8 +117,8 @@ iteration instead and sweeps whatever is ready. Early iterations therefore see
 a coarser leaf than late ones, which CFR+ already discounts by weighting the
 average strategy linearly.
 
-Anything added here has to keep that property or level 6 starts stalling
-websockets.
+Anything added here has to keep that property or the thinking tiers start
+stalling websockets.
 
 ## What is left to buy
 

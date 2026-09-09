@@ -3,6 +3,14 @@
 The bot population, one bot's message loop, the persona layer, and the pure
 decision function.
 
+## A bot plays a tier, not a number
+
+`BotTier` and `LEVEL_TIER` live in the protocol. **Nothing in this directory
+branches on a level number**: `decide` dispatches on the tier, the roster
+derives which levels think from the tier, and the budget table is keyed by
+tier. That is what makes the coming renumbering a one-table edit rather than a
+search through five files for integer comparisons.
+
 ## Shape
 - `strategy.ts` - `decide(view, rng, level, persona)`. Pure: same `TableView`
   a browser gets in, one legal action out. No socket, no room, no database,
@@ -39,7 +47,7 @@ seat, the ladder — keeps the ranges that existed before practice tables had
 their own pacing. Both are still capped against a quarter of `format.clockMs`
 exactly as before, so a short test clock is unaffected either way.
 
-## Six levels, five of them in one function
+## Seven levels, five tiers in one function
 `decide` takes a level, default 4. **Level 4 is the bot that existed before
 levels did, byte for byte**: `server/test/strategy.test.ts` pins it and must
 keep passing untouched. Every other level reuses the same `Ctx`, the same
@@ -51,9 +59,9 @@ keep passing untouched. Every other level reuses the same `Ctx`, the same
 - 5 is level 4 plus semi-bluffs, a continuation bet, board-aware sizing,
   thinner river value, an occasional 3-bet bluff, and a margin on its calls.
 
-`decide` maps level 6 onto level 5 rather than falling through to its default
-branch, so a view that reaches the pure function with a level it does not
-implement plays the nearest thing rather than silently playing level 4.
+`decide` maps a thinking tier onto `sharp` rather than falling through to its
+default branch, so a view that reaches the pure function with a tier it does
+not implement plays the nearest thing rather than silently playing `solid`.
 
 **Level 5 bluffs less than its description suggests, on purpose.** Every level
 below it calls a bet down to about a quarter of the pot in equity, so against
@@ -62,17 +70,36 @@ money is in value bets and in not paying off. Turning the bluff frequencies up
 makes level 5 lose to level 2. This is tuned against these opponents, not
 against a solver.
 
-## Level 6 solves the street it is looking at
+## The two tiers that think
 
 Everything above is one number: the fraction of remaining holdings the bot's
-hand beats. Level 6 is the first that has ranges. It tracks both of them
-through the hand (chart reads preflop, and postflop a lean by made hand
-strength for the opponent and the exact solved strategy for itself), builds the
-subgame in front of it and runs CFR+ on it. `@opentable/solver` holds all of
-that; `packages/solver/CLAUDE.md` has the sizes, the budgets and what the solve
-is and is not.
+hand beats. `regular` and `solver` are the first that have ranges. They track
+both of them through the hand (chart reads preflop, and postflop a lean by made
+hand strength for the opponent and the exact solved strategy for itself), build
+the subgame in front of them and run CFR+ on it. `@opentable/solver` holds all
+of that; `packages/solver/CLAUDE.md` has the sizes, the budgets and what the
+solve is and is not.
 
-A few things about it belong here rather than there.
+**`solver` solves every postflop street** on a 1500ms budget: the river
+exactly, the flop and turn against a depth limited leaf.
+
+**`regular` solves only the river**, on 400ms, and plays the sharp tier
+everywhere else. It is not a worse solver, it is a different bet about where
+the money is: that a measured read on the person in front of it beats a depth
+limited guess at two streets of play. It carries four deviations from the sharp
+tier, each driven by a statistic and each a no-op until its sample arrives, so
+a bot with no read plays exactly the sharp tier. It raises for thin value
+against a wide VPIP, fires a checked street against somebody who folds to flop
+bets more than the price, sizes value up against somebody who folds less than
+the price, and gives up a bluffcatcher against somebody who rarely bets.
+
+**A thinking tier owns the whole hand.** It asks its own fallback for the
+streets it does not solve rather than returning null and letting the caller
+choose, because a hand where somebody else made half the decisions is a hand
+where our own range is a guess. The fallback is injected, not imported: the
+solver package has no business reaching into the server for the older tiers.
+
+A few things about them belong here rather than there.
 
 **It runs on the main thread, in slices, and not in a worker.** A worker was
 the plan. The server ships as one esbuild bundle (`server/build.mjs`) because
@@ -87,21 +114,23 @@ eight milliseconds, hands the event loop back, and goes again until the budget
 is spent, so a websocket behind a thinking bot waits about ten milliseconds.
 
 **Two solves at a time, and a third falls back.** A bot that answers on time
-with a level 5 decision beats a bot that answers late.
+with a sharp tier decision beats a bot that answers late. The regular tier
+solves one street in four, so a table full of them costs about a quarter of
+what a table of solvers does, which is most of the reason it exists.
 
 **The ladder gets a fifth of the budget.** It plays bots against each other in
-every gap when nobody is here, one match after another, so two level 6 accounts
-meeting there at the full budget would keep a core busy around the clock on a
-box that runs everything else Gabriel has. Nobody is watching a ladder match,
-so it gets 250ms and a slightly worse bot.
+every gap when nobody is here, one match after another, so two thinking
+accounts meeting there at the full budget would keep a core busy around the
+clock on a box that runs everything else Gabriel has. Nobody is watching a
+ladder match, so it gets 250ms and a slightly worse bot.
 
 **It is not multiway.** The solver is heads-up. A six-max hand gets level 5
 until it is heads-up postflop, at which point it is solved like any other.
 
-**It deviates from the solve in one place**, and without that deviation it
-loses. An equilibrium bluffs to make the opponent indifferent; every level below
+**The solver tier deviates from the solve in one place**, and without that
+deviation it loses. An equilibrium bluffs to make the opponent indifferent; every level below
 this one calls a bet down to about a quarter of the pot in equity, so those
-bluffs are pure donations. Level 6 measures how often an opponent has actually
+bluffs are pure donations. It measures how often an opponent has actually
 folded to its bets and cuts the bottom of its own betting range in proportion
 to how far short of the price that is. Seeing a fold at all needs plumbing: a
 fold ends the hand, so the bot is told when a hand finishes
@@ -110,44 +139,47 @@ showed a hand.
 
 ## The benchmark
 
-`server/scripts/bench-bots.ts` is where level 6's claim lives, because "beats
-level 5" is a number with an interval and not a test that passes. It plays the
-same duplicate design the ordering test uses and reports big blinds per hundred
-hands with a standard error, plus the decision latency. The ordering test does
-not include level 6: it thinks for a real fraction of a second per decision,
-which is a benchmark script and not a unit test.
+`../../scripts/bench-bots.ts` is where a thinking tier's claim lives, because
+"beats the tier below" is a number with an interval and not a test that passes.
+It plays the same duplicate design the ordering test uses and reports big
+blinds per hundred hands with a standard error, plus the decision latency. The
+ordering test does not include them: they think for a real fraction of a second
+per decision, which is a benchmark script and not a unit test.
 
-Where level 6 stands, measured 2026-09-09 on h with a 500ms budget of processor
-time. The live budget is 1500ms of wall clock, so these are a floor. The three
-30bb rows are one run of `bench-bots.ts` at 120 deals; the 100bb rows are
-earlier runs on all but the last of the range fixes, kept because a run long
-enough to say anything at a hundred big blinds takes hours.
+Where the solver tier stands, measured 2026-09-09 on h with a 500ms budget of
+processor time (the live budget is 1500ms of wall clock, so these are a floor).
+It was level 6 when these were taken and is level 7 now; the tier is what the
+rows are about.
 
 | matchup | stack | hands | bb/100 |
 |---|---|---|---|
-| level 6 vs level 5 | 30bb | 480 | -9 ± 27 |
-| level 6 vs level 4 | 30bb | 480 | **+49 ± 22** |
-| level 5 vs level 4 | 30bb | 480 | +30 ± 18 |
-| level 6 vs level 5 | 100bb | 320 | -6 ± 92 |
-| level 6 vs level 4 | 100bb | 400 | +176 ± 76 |
-| level 5 vs level 4 | 100bb | 400 | +205 ± 43 |
+| solver vs sharp | 30bb | 480 | -9 ± 27 |
+| solver vs solid | 30bb | 480 | **+49 ± 22** |
+| sharp vs solid | 30bb | 480 | +30 ± 18 |
+| solver vs sharp | 100bb | 320 | -6 ± 92 |
+| solver vs solid | 100bb | 400 | +176 ± 76 |
+| sharp vs solid | 100bb | 400 | +205 ± 43 |
 
-**So level 6 is level 5's equal, and it beats level 4 by more than level 5 does.
-The ordering 6 > 5 is not demonstrated.** The interval on the direct matchup
-covers zero at both stack depths, and the only hint the other way is the
-indirect one: 49 against level 4 where level 5 manages 30, on the same deals.
+**So the solver tier is the sharp tier's equal, and it beats solid by more than
+sharp does. Solver over sharp is not demonstrated.** The interval on the direct
+matchup covers zero at both stack depths, and the only hint the other way is
+the indirect one: 49 against solid where sharp manages 30, on the same deals.
+That gap is the whole reason the regular tier exists: a tier that reads the
+person rather than the tree is a different bet about where the money is.
 
 How it got there is worth more than where it got to, because the distance
-travelled is all range modelling and none of it is the solver. Against level 5
-at a hundred big blinds the first working version lost 455 bb/100. Fixing the
-population blend, then the bet size read, then tracking our own range by the
-strategy we actually played, then judging a hand against the opponent's range
-rather than our own, took it to 143, then 90, then 57, then 6. Every one of
-those was a wrong range and not a wrong solve, which is the thing to remember
-before reaching for the CFR code.
+travelled is all range modelling and none of it is the solver. Against the
+sharp tier at a hundred big blinds the first working version lost 455 bb/100.
+Fixing the population blend, then the bet size read, then tracking our own
+range by the strategy we actually played, then judging a hand against the
+opponent's range rather than our own, took it to 143, then 90, then 57, then 6.
+Every one of those was a wrong range and not a wrong solve, which is the thing
+to remember before reaching for the CFR code.
 
-Latency at that budget, wall clock, on a box that was busy with other work: p50
-563ms, p95 1410ms. At a 150ms budget it is p50 154ms, p95 205ms.
+Latency, wall clock, on a box that was busy with other work: the solver tier is
+p50 563ms and p95 1410ms at a 500ms budget, p50 154ms and p95 205ms at 150ms.
+The regular tier is p50 0ms, because three decisions in four never reach a
+solve at all.
 
 Against Slumbot over its public API (`../../scripts/bench-slumbot.ts`), 400
 hands with the seats alternating: -20 bb/100 with a standard error of 104, and
@@ -155,7 +187,7 @@ not one action rejected. Four hundred hands says nothing about a win rate
 against a bot that solves the whole game, and everything about whether this one
 plays legal poker outside its own test suite.
 
-The ordering of 1 to 5 is proved, not asserted by hand. `levels.test.ts` plays
+The ordering of the instant tiers is proved, not asserted by hand. `levels.test.ts` plays
 a seeded round robin through the engine and reads chips won. It is worth knowing why it
 is shaped the way it is before changing its numbers:
 
