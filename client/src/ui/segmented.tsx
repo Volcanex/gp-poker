@@ -22,7 +22,7 @@ import { useGInit } from './bits.tsx';
    already has and stops. */
 export interface SegmentedOption<T extends string> {
   value: T;
-  label: string;
+  label: React.ReactNode;
 }
 
 export interface SegmentedProps<T extends string> {

@@ -112,7 +112,10 @@ export function AccountMenu() {
         aria-haspopup="menu"
       >
         {me && <Avatar seed={me.id} name={me.name} size={24} avatarV={avatarVersion(me.avatarV)} />}
-        {me?.country && <Flag code={me.country} size={16} />}
+        {/* Sized against this row's text and its 24px avatar, not the seat's
+            16px flag: a flag scaled for a much smaller row reads as an
+            afterthought beside the name here. */}
+        {me?.country && <Flag code={me.country} size={20} />}
         {me ? me.name : 'Account'}
         {me && <span className="r num">{int(modeRating(me, mode).rating)}</span>}
         {me && <span className="m">{MODE_NAME[mode].toLowerCase()}</span>}

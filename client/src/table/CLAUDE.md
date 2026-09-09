@@ -561,11 +561,19 @@ did, as a verb line and an amount line (`actionWords` in `labels.ts`: "Bets"
 50, "Calls" 50, "Raises to" 150, "Checks", "Folds", "All in" 320), in one of
 the three action colours declared at the top of `../app.css` (`--act-bet` for
 bet, raise and all in; `--act-call` for check and call; `--act-fold`), the
-`-text` variant on an 18% tint of the colour. The label is `seat.last` as the
-view carries it: it persists for the street, the view clears it when the next
-street deals, and a fold keeps it to the end of the hand. While the seat is
-acting the square holds `TurnSeconds` instead and `TurnBar` runs along its
-bottom edge; both come from `turn-clock.tsx` unchanged, the bar is re-placed
+`-text` variant on an 18% tint of the colour. **The verb sits on the square's
+own vertical centre, not the centre of the two lines together**: `.act-w` and
+`.act-v` are each positioned off `--act-w-h`, the verb's own line height, so
+"Checks" and "Folds" (no amount) land exactly where "Calls 50" does, rather
+than a check or a fold's word riding high over an invisible reserved amount
+line nobody can see. `--act-w-h` is declared beside `.seat-act`'s own
+`line-height` and moved with it at the narrow container query, the same
+paired-property bargain the dock's countdown length makes with the protocol.
+The label is `seat.last` as the view carries it: it persists for the street,
+the view clears it when the next street deals, and a fold keeps it to the end
+of the hand. While the seat is acting the square holds `TurnSeconds` instead
+and `TurnBar` runs along its bottom edge; both come from `turn-clock.tsx`
+unchanged, the bar is re-placed
 in CSS. Folded seats dim as they always have. A showdown hand name is not on
 the seat: the band's result line says it.
 
