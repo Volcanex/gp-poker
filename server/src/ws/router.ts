@@ -1,4 +1,12 @@
-import { DEFAULT_MODE, DEFAULT_SPEED, type ClientMsg, type Speed } from '@opentable/protocol';
+import {
+  DEFAULT_MODE,
+  DEFAULT_SPEED,
+  isModeChoice,
+  isSpeedChoice,
+  modesFor,
+  speedsFor,
+  type ClientMsg,
+} from '@opentable/protocol';
 import { hub } from './hub.js';
 import { dequeue, dequeueOnDisconnect, enqueue, enqueuePractice } from '../matchmaking.js';
 import { respondReady } from '../ready.js';
@@ -22,14 +30,20 @@ import { unwatchArena, watchArena } from '../arena.js';
 export function routeClientMessage(userId: string, msg: ClientMsg): void {
   switch (msg.t) {
     case 'queue': {
-      const mode = msg.mode ?? DEFAULT_MODE;
-      const speed: Speed = msg.speed === 'fast' ? 'fast' : DEFAULT_SPEED;
+      // Validated rather than trusted: "any" is a real value on this message
+      // now, and anything else off the wire falls back to the default.
+      const choice = isModeChoice(msg.mode) ? msg.mode : DEFAULT_MODE;
+      const speedChoice = isSpeedChoice(msg.speed) ? msg.speed : DEFAULT_SPEED;
       // A practice request never joins the human queue: it either gets a table
       // of bots straight away or an error saying they are all busy. It skips
       // the ready check too, for the same reason: nobody is waiting on you at
-      // a table you asked for a second ago.
-      if (msg.bots) void enqueuePractice(userId, mode, msg.bots.level, speed);
-      else void enqueue(userId, mode, msg.rated ?? true, speed);
+      // a table you asked for a second ago. It also has nothing to widen: the
+      // table is dealt now, so "any" is resolved to its first real value.
+      if (msg.bots) {
+        void enqueuePractice(userId, modesFor(choice)[0], msg.bots.level, speedsFor(speedChoice)[0]);
+      } else {
+        void enqueue(userId, choice, msg.rated ?? true, speedChoice);
+      }
       return;
     }
     case 'ready':

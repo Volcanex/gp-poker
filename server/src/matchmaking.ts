@@ -3,14 +3,20 @@ import { groupQueue, pairQueue, widenRd, window as ratingWindow, type QueueEntry
 import {
   DEFAULT_MODE,
   DEFAULT_SPEED,
+  MODES,
   RANKED_GATE_MATCHES,
+  SPEEDS,
   botLevelInfo,
   formatFor,
+  modesFor,
   speedOf,
+  speedsFor,
   type MatchFormat,
   type Mode,
+  type ModeChoice,
   type ReadyFailure,
   type Speed,
+  type SpeedChoice,
 } from '@opentable/protocol';
 import { hub } from './ws/hub.js';
 import {
@@ -41,16 +47,24 @@ const BOT_FILL_HEADS_UP_MS = 5_000;
 const BOT_FILL_SIX_MAX_MS = 20_000;
 
 interface QueuedPlayer extends QueueEntry {
-  mode: Mode;
+  /* What this search will accept, in the order it prefers. One entry each for
+     a player who named a mode and a speed; two for one who said "any". The
+     first is the one the search is described by and the one a bot fill falls
+     back to, so a wide search still has a shape rather than being a shrug. */
+  modes: Mode[];
+  speeds: Speed[];
   rated: boolean;
-  speed: Speed;
 }
 
-// One queue per (mode, rated, speed) combination, so eight independent
-// searches share this map and never pair across each other. Speed is a real
-// third dimension and not a tag on a shared queue: a twenty minute six-max
-// table and a two hour one are different games, however alike their ratings
-// are kept.
+/* One map, and the buckets are built per tick from what each search accepts.
+   It used to be one queue per (mode, rated, speed) triple, eight of them that
+   never paired across each other, because speed is a real third dimension: a
+   twenty minute six-max table and a two hour one are different games, however
+   alike their ratings are kept. They still are. What changed is that a player
+   may now enter more than one of those queues at once by saying "any", which
+   is a fact about the search rather than about the games, so it belongs here
+   and not in the format. Rated is never widened: see `ModeChoice` in the
+   protocol for why. */
 const queue = new Map<string, QueuedPlayer>();
 let tickTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -92,6 +106,11 @@ function bucketKey(mode: Mode, rated: boolean, speed: Speed): string {
   return `${mode}:${rated}:${speed}`;
 }
 
+// Whether a search would sit down at this table.
+function accepts(entry: QueuedPlayer, mode: Mode, rated: boolean, speed: Speed): boolean {
+  return entry.rated === rated && entry.modes.includes(mode) && entry.speeds.includes(speed);
+}
+
 /* Rated play opens after one finished casual or practice match. Enforced here
    rather than only drawn on the home page, because the queue is the door and
    a disabled radio is a hint. It is deliberately a single match: enough that
@@ -103,10 +122,16 @@ export async function rankedUnlocked(userId: string): Promise<boolean> {
 
 export async function enqueue(
   userId: string,
-  mode: Mode = DEFAULT_MODE,
+  modeChoice: ModeChoice = DEFAULT_MODE,
   rated = true,
-  speed: Speed = DEFAULT_SPEED
+  speedChoice: SpeedChoice = DEFAULT_SPEED
 ): Promise<void> {
+  const modes = modesFor(modeChoice);
+  const speeds = speedsFor(speedChoice);
+  // The mode the search is described by, rated at, and bot filled into: the
+  // first one it accepts, which for a named choice is that choice.
+  const mode = modes[0];
+  const speed = speeds[0];
   if (queue.has(userId)) return;
   const user = await getUserById(userId);
   if (!user) return;
@@ -154,9 +179,9 @@ export async function enqueue(
     rating: standing.rating,
     rd: widened.rd,
     joinedAt: Date.now(),
-    mode,
+    modes,
+    speeds,
     rated,
-    speed,
   };
   queue.set(userId, entry);
   sendSearching(entry, countIn(mode, rated, speed));
@@ -228,9 +253,12 @@ export function dequeueOnDisconnect(userId: string): void {
   }
 }
 
+// How many searches would sit down at this table. A player who said "any" is
+// counted in every table they would take, which is the honest answer to "how
+// many people are waiting for a game you could be in".
 function countIn(mode: Mode, rated: boolean, speed: Speed): number {
   let n = 0;
-  for (const e of queue.values()) if (e.mode === mode && e.rated === rated && e.speed === speed) n += 1;
+  for (const e of queue.values()) if (accepts(e, mode, rated, speed)) n += 1;
   return n;
 }
 
@@ -243,15 +271,18 @@ function sendSearching(entry: QueuedPlayer, gathered: number): void {
   // passing it through raw. It is also derived from a rating deviation,
   // which is a float, and nobody reads a rating range to the decimal.
   const range = Number.isFinite(window) ? Math.round(window) : undefined;
-  const seats = resolveFormat(entry.mode, entry.rated, entry.speed).players;
+  // Described by the search's first choice: a wide search is still looking
+  // for something in particular first, and "searching for a table" with no
+  // table named reads as the client having lost track of what it asked for.
+  const seats = resolveFormat(entry.modes[0], entry.rated, entry.speeds[0]).players;
   hub.send(entry.id, {
     t: 'q',
     s: 'searching',
     w: waited,
     range,
-    mode: entry.mode,
+    mode: entry.modes[0],
     rated: entry.rated,
-    speed: entry.speed,
+    speed: entry.speeds[0],
     ...(seats > 2 ? { seated: Math.min(gathered, seats) } : {}),
   });
 }
@@ -414,26 +445,48 @@ async function tickMultiway(entries: QueuedPlayer[], format: MatchFormat, now: n
   launch(humans, needed, format);
 }
 
+// Exported for the tests that assert what a search accepts, which is a fact
+// about the entry rather than about any table it might land at.
+export function __queueForTest(): ReadonlyMap<string, { modes: Mode[]; speeds: Speed[]; rated: boolean }> {
+  return queue;
+}
+
 // Exported so tests can pair a queue deterministically instead of waiting on
 // the real interval.
 export async function tick(): Promise<void> {
   const now = Date.now();
-  const buckets = new Map<string, QueuedPlayer[]>();
-  for (const entry of queue.values()) {
-    const key = bucketKey(entry.mode, entry.rated, entry.speed);
-    const list = buckets.get(key);
-    if (list) list.push(entry);
-    else buckets.set(key, [entry]);
+
+  /* **A search can stand in more than one bucket.** The tables are still the
+     real (mode, rated, speed) triples and pairing still happens inside one of
+     them; a player who said "any" is simply considered for every table they
+     would take. Both pairing paths already drop anyone `queue` no longer
+     holds, so somebody seated by the first bucket they appear in is skipped
+     by the rest.
+
+     Shuffled, because the order tables are considered in decides which one a
+     wide search falls into when several could take it, and a fixed order
+     would quietly make the first table the only one that ever fills. */
+  const buckets = new Map<string, { mode: Mode; rated: boolean; speed: Speed; entries: QueuedPlayer[] }>();
+  for (const rated of [true, false]) {
+    for (const mode of MODES) {
+      for (const speed of SPEEDS) {
+        const entries = [...queue.values()].filter((e) => accepts(e, mode, rated, speed));
+        if (entries.length > 0) buckets.set(bucketKey(mode, rated, speed), { mode, rated, speed, entries });
+      }
+    }
   }
 
-  for (const entries of buckets.values()) {
-    const { mode, rated, speed } = entries[0];
-    const format = resolveFormat(mode, rated, speed);
+  for (const bucket of shuffled([...buckets.values()])) {
+    const entries = bucket.entries.filter((e) => queue.has(e.id));
+    if (entries.length === 0) continue;
+    const format = resolveFormat(bucket.mode, bucket.rated, bucket.speed);
     if (format.players > 2) await tickMultiway(entries, format, now);
     else await tickHeadsUp(entries, format, now);
   }
 
-  for (const entry of queue.values()) sendSearching(entry, countIn(entry.mode, entry.rated, entry.speed));
+  for (const entry of queue.values()) {
+    sendSearching(entry, countIn(entry.modes[0], entry.rated, entry.speeds[0]));
+  }
 }
 
 export function startMatchmaking(): void {

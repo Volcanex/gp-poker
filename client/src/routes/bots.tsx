@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BOT_LEVELS, SPEEDS, SPEED_NAME } from '@opentable/protocol';
+import { BOT_LEVELS, SPEEDS, SPEED_NAME, modesFor, speedsFor } from '@opentable/protocol';
 import type { BotLevel, Mode, Speed } from '@opentable/protocol';
 import { api } from '../net/api.ts';
 import { levelAverageRating } from '../net/adapt.ts';
@@ -25,8 +25,11 @@ export function BotsPage() {
   const { queue, startPractice, clearFound, offline, ready } = useSession();
 
   const last = readPlayChoice();
-  const [mode, setMode] = useState<Mode>(last?.mode ?? 'six-max');
-  const [speed, setSpeed] = useState<Speed>(last?.speed ?? 'standard');
+  /* Practice deals now, so it has nothing to widen: a table has to have a
+     size and a pace before it can be dealt, and a stored "any" resolves to
+     whichever it prefers. */
+  const [mode, setMode] = useState<Mode>(modesFor(last?.mode ?? 'six-max')[0]);
+  const [speed, setSpeed] = useState<Speed>(speedsFor(last?.speed ?? 'standard')[0]);
   const [level, setLevel] = useState<BotLevel>(4);
   const [bots, setBots] = useState<BotRow[]>([]);
 

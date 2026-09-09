@@ -1,13 +1,21 @@
-import type { Mode } from '@opentable/protocol';
+import { MODES, SPEED_NAME, type Mode, type ModeChoice, type SpeedChoice } from '@opentable/protocol';
 import { Segmented } from './segmented.tsx';
 
 /* Six handed first, everywhere a pair of modes is offered: it is the main
    game now, and a tab strip that opens on the sideshow says otherwise. */
-export const MODES: Mode[] = ['six-max', 'heads-up'];
+export { MODES };
 /* Six-max reads as "6X" everywhere the site names it, own request: short for
    six max and "sounds cooler". The URL slug and the protocol id are
    unaffected, this is display text only. */
 export const MODE_NAME: Record<Mode, string> = { 'six-max': '6X', 'heads-up': 'Heads-up' };
+
+/* What a search that has not named one calls itself. One word, and the same
+   word for both dimensions: two controls saying "any" are saying one thing. */
+export const ANY_NAME = 'Any';
+
+export function speedChoiceName(s: SpeedChoice): string {
+  return s === 'any' ? ANY_NAME : SPEED_NAME[s];
+}
 
 /* The name mid-sentence. Every other label here is sentence case, so folding
    it into a lowercase sentence is just `.toLowerCase()`; 6X is a short form,
@@ -30,7 +38,8 @@ export interface ModeTabsProps {
    same control: this one, the play panel's mode toggle and the bot roster's.
    Everywhere else the site only has room for the short form, so a badge, a
    sentence and a table cell all keep `MODE_NAME`. */
-export function modeTabLabel(m: Mode): React.ReactNode {
+export function modeTabLabel(m: ModeChoice): React.ReactNode {
+  if (m === 'any') return ANY_NAME;
   if (m !== 'six-max') return MODE_NAME[m];
   return (
     <span className="mode-6max">

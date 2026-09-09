@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  BOT_LEVELS, PRACTICE_PRESETS, SPEEDS, SPEED_NAME, ceilingFor, formatFor, rankedBanText, speedOf,
+  BOT_LEVELS, MODE_CHOICES, PRACTICE_PRESETS, SPEED_CHOICES, SPEED_NAME,
+  ceilingFor, formatFor, modesFor, rankedBanText, speedOf,
 } from '@opentable/protocol';
-import type { MatchFormat, Mode, PracticePreset, Speed } from '@opentable/protocol';
+import type {
+  MatchFormat, Mode, ModeChoice, PracticePreset, Speed, SpeedChoice,
+} from '@opentable/protocol';
 import { Cpu } from '@phosphor-icons/react/dist/icons/Cpu';
 import { Eye } from '@phosphor-icons/react/dist/icons/Eye';
 import { GraduationCap } from '@phosphor-icons/react/dist/icons/GraduationCap';
@@ -16,7 +19,7 @@ import { api, ApiError } from '../net/api.ts';
 import { avatarSeed, avatarVersion, mainModeOf, modeRating } from '../net/adapt.ts';
 import type { ArenaListing, CreatedChallenge, LeaderboardRow, LiveMatch, Me } from '../net/types.ts';
 import { readPlayChoice, useSession } from '../net/session.tsx';
-import { MODES, MODE_NAME, modeInline, modeTabLabel } from '../ui/mode-tabs.tsx';
+import { MODE_NAME, modeInline, modeTabLabel, speedChoiceName } from '../ui/mode-tabs.tsx';
 import { Segmented } from '../ui/segmented.tsx';
 import { elapsed, useNow } from '../ui/bits.tsx';
 import { arenaCardLine } from './arena-bits.ts';
@@ -28,6 +31,17 @@ import { LESSONS } from './learn/lessons.ts';
 import { readPuzzles } from '../puzzles/store.ts';
 import { RecentMatches, StatsStrip } from './feed.tsx';
 import { ShareLink } from '../ui/share-link.tsx';
+
+/* The same line for a search that has not named one game. A promise cannot be
+   made from a format when two of them would do, so it says what is being
+   looked for and leaves the shape to the table that turns up: the blurb's
+   whole job is that it never disagrees with the match it starts. */
+function choiceBlurb(mode: ModeChoice, speed: SpeedChoice): string {
+  if (mode !== 'any' && speed !== 'any') return modeBlurb(mode, speed);
+  const size = mode === 'any' ? 'Six handed or heads-up' : MODE_NAME[mode];
+  const pace = speed === 'any' ? ' at either speed' : `, ${SPEED_NAME[speed].toLowerCase()},`;
+  return `${size}${pace}. Whichever table fills first.`;
+}
 
 /* The line under the play button is built from the format the button would
    actually deal, so the promise cannot drift from the match it starts.
@@ -63,7 +77,7 @@ function capText(f: MatchFormat): string {
    that whatever they have played most, which is the same rule their profile
    opens on. A player who has played nothing is pinned to six handed, because
    that is the main game. */
-function pinnedMode(me: Me | null): Mode {
+function pinnedMode(me: Me | null): ModeChoice {
   const last = readPlayChoice();
   if (last) return last.mode;
   return me ? mainModeOf(me) : 'six-max';
@@ -84,9 +98,11 @@ export function Home() {
      The pin is resolved again when the account lands, because the first
      render happens before /api/me has answered. */
   const [last] = useState(() => readPlayChoice());
-  const [mode, setMode] = useState<Mode>(() => pinnedMode(null));
+  const [mode, setMode] = useState<ModeChoice>(() => pinnedMode(null));
   const [rated, setRated] = useState(last?.rated ?? true);
-  const [speed, setSpeed] = useState<Speed>(last?.speed ?? 'standard');
+  /* Any is the default speed. A player who has chosen before keeps what they
+     chose, including a narrow one. */
+  const [speed, setSpeed] = useState<SpeedChoice>(last?.speed ?? 'any');
   const [pinned, setPinned] = useState(last != null);
 
   useEffect(() => {
@@ -133,7 +149,7 @@ export function Home() {
 
   return (
     <main className="page wide stack home-page">
-      <PlayerBar me={me} mode={mode} />
+      <PlayerBar me={me} mode={modesFor(mode)[0]} />
 
       {offline && ready && (
         <div className="card" role="status">
@@ -154,9 +170,14 @@ export function Home() {
           <div className="card play-panel">
             <span className="t">Play</span>
             <div className="play-toggles">
+              {/* Speed and table size can both say "any". With this few people
+                  playing, four queues of nearly nobody is a slower game than
+                  one wide search, so the widest of them is the default and a
+                  player narrows it only if they care. Ranked cannot: see
+                  `ModeChoice` in the protocol. */}
               <Segmented
                 label="Speed"
-                options={SPEEDS.map((sp) => ({
+                options={SPEED_CHOICES.map((sp) => ({
                   value: sp,
                   label:
                     sp === 'fast' ? (
@@ -165,11 +186,11 @@ export function Home() {
                         {SPEED_NAME[sp]}
                       </>
                     ) : (
-                      SPEED_NAME[sp]
+                      speedChoiceName(sp)
                     ),
                 }))}
                 value={speed}
-                onPick={setSpeed}
+                onPick={(v) => setSpeed(v as SpeedChoice)}
               />
               <Segmented
                 label="Ranked or casual"
@@ -183,13 +204,13 @@ export function Home() {
               />
               <Segmented
                 label="Table size"
-                options={MODES.map((m) => ({ value: m, label: modeTabLabel(m) }))}
+                options={MODE_CHOICES.map((m) => ({ value: m, label: modeTabLabel(m) }))}
                 value={mode}
-                onPick={setMode}
+                onPick={(v) => setMode(v as ModeChoice)}
               />
             </div>
 
-            <span className="muted">{modeBlurb(mode, speed)}</span>
+            <span className="muted">{choiceBlurb(mode, speed)}</span>
             {rankedLocked && (
               <span className="muted">Play one casual game first. Ranked opens as soon as it finishes.</span>
             )}
@@ -206,7 +227,13 @@ export function Home() {
             </button>
 
             <div className="play-ways">
-              <PracticeWay onPlay={startPractice} disabled={!ready || offline} pinnedMode={mode} />
+              {/* Practice deals now, so it has nothing to widen: a table has
+                  to have a size before it can be dealt. */}
+              <PracticeWay
+                onPlay={startPractice}
+                disabled={!ready || offline}
+                pinnedMode={modesFor(mode)[0]}
+              />
               <ArenaWay />
               <LinkWay kind="challenge" disabled={!ready || offline} />
               <LinkWay kind="home" disabled={!ready || offline} />
@@ -257,7 +284,7 @@ export function Home() {
 
       <RecentMatches />
 
-      <Leaderboard mode={mode} />
+      <Leaderboard mode={modesFor(mode)[0]} />
 
       {/* The three promises this site is built on. They sat above the picker
           when the page led with a headline; the panel leads now, so they sit

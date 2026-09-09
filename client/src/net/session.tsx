@@ -1,8 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
-import { DEFAULT_MODE, DEFAULT_SPEED } from '@opentable/protocol';
-import type { ClientMsg, Mode, ReadyFailure, Speed, ServerMsg, UserSummary } from '@opentable/protocol';
+import {
+  DEFAULT_MODE, DEFAULT_SPEED, isModeChoice, isSpeedChoice, modesFor, speedsFor,
+} from '@opentable/protocol';
+import type {
+  ClientMsg, Mode, ModeChoice, ReadyFailure, ServerMsg, Speed, SpeedChoice, UserSummary,
+} from '@opentable/protocol';
 import { api } from './api.ts';
 import type { Me } from './types.ts';
 import { socket } from './socket.ts';
@@ -61,13 +65,16 @@ export function readyCancelledText(why?: ReadyFailure, cooldownUntil?: number): 
 /* What the player last chose to play, so the picker opens where they left it
    and "play again" means the same thing they just played. */
 export interface PlayChoice {
-  mode: Mode;
+  mode: ModeChoice;
   rated: boolean;
-  speed: Speed;
+  speed: SpeedChoice;
 }
 
 const CHOICE_KEY = 'ot-play-choice';
-const DEFAULT_CHOICE: PlayChoice = { mode: DEFAULT_MODE, rated: true, speed: DEFAULT_SPEED };
+/* Six handed and ranked, at any speed. The two that name a game name the one
+   this site is mainly about; the speed does not, because with this few people
+   playing the fastest way to a table is not to mind which one. */
+const DEFAULT_CHOICE: PlayChoice = { mode: DEFAULT_MODE, rated: true, speed: 'any' };
 
 /* Null until something has actually been played: the picker must not claim a
    mode was played last on a first visit. */
@@ -76,10 +83,11 @@ export function readPlayChoice(): PlayChoice | null {
     const raw = localStorage.getItem(CHOICE_KEY);
     if (!raw) return null;
     const v = JSON.parse(raw) as Partial<PlayChoice>;
-    const mode: Mode = v.mode === 'heads-up' ? 'heads-up' : 'six-max';
     // A choice saved before speed existed was the long game, which is what
-    // every stored format without one means too.
-    const speed: Speed = v.speed === 'fast' ? 'fast' : 'standard';
+    // every stored format without one means too; one saved before "any" was
+    // a real value is still whatever it named.
+    const mode = isModeChoice(v.mode) ? v.mode : DEFAULT_MODE;
+    const speed = isSpeedChoice(v.speed) ? v.speed : DEFAULT_SPEED;
     return { mode, rated: v.rated !== false, speed };
   } catch {
     return null;
@@ -145,7 +153,7 @@ interface Session {
   readyCheck: ReadyState | null;
   answerReady: (accept: boolean) => void;
   send: (m: ClientMsg) => void;
-  startQueue: (mode?: Mode, rated?: boolean, speed?: Speed) => void;
+  startQueue: (mode?: ModeChoice, rated?: boolean, speed?: SpeedChoice) => void;
   startPractice: (mode: Mode, level: number, speed?: Speed) => void;
   cancelQueue: () => void;
   clearFound: () => void;
@@ -161,7 +169,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [offline, setOffline] = useState(false);
   const [conn, setConn] = useState<ConnState>('idle');
   const [queue, setQueue] = useState<QueueState>(() => ({
-    s: 'idle', since: 0, ...(readPlayChoice() ?? DEFAULT_CHOICE),
+    s: 'idle',
+    since: 0,
+    ...(() => {
+      const c = readPlayChoice() ?? DEFAULT_CHOICE;
+      return { mode: modesFor(c.mode)[0], rated: c.rated, speed: speedsFor(c.speed)[0] };
+    })(),
   }));
   const [readyCheck, setReadyCheck] = useState<ReadyState | null>(null);
 
@@ -331,7 +344,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   /* Called with a choice from the picker, and without one from "play again",
      which repeats whatever was played last. */
-  const startQueue = useCallback((mode?: Mode, rated?: boolean, speed?: Speed) => {
+  const startQueue = useCallback((mode?: ModeChoice, rated?: boolean, speed?: SpeedChoice) => {
     const last = readPlayChoice() ?? DEFAULT_CHOICE;
     const choice: PlayChoice = {
       mode: mode ?? last.mode,
@@ -339,7 +352,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       speed: speed ?? last.speed,
     };
     writePlayChoice(choice);
-    setQueue({ s: 'searching', since: Date.now(), ...choice });
+    /* The state describes the search the way the server describes it back:
+       by its first preference. A wide search is still looking for something
+       in particular first, and the `searching` message that lands a moment
+       later says exactly this, so the two never disagree on screen. */
+    setQueue({
+      s: 'searching',
+      since: Date.now(),
+      mode: modesFor(choice.mode)[0],
+      rated: choice.rated,
+      speed: speedsFor(choice.speed)[0],
+    });
     socket.send({ t: 'queue', ...choice });
   }, []);
 

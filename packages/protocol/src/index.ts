@@ -453,8 +453,41 @@ export function practiceAwayFor(format: MatchFormat): number {
    more poker than a duel, and heads-up is the sideshow beside it. Standard,
    because a default should be the ordinary game rather than the fast one. */
 export const DEFAULT_FORMAT = SIX_MAX_STANDARD;
+/* Six handed first: it is the main game, and the order here is the order the
+   switchers draw. The client used to hold its own copy of this beside the tab
+   labels; the queue needs it now too, so it lives with the type. */
+export const MODES: Mode[] = ['six-max', 'heads-up'];
+
 export const DEFAULT_MODE: Mode = 'six-max';
 export const DEFAULT_SPEED: Speed = 'standard';
+
+/* **A search can decline to care.** With this few people playing, splitting
+   them across two speeds and two table sizes is four queues of nearly nobody,
+   so a player may say "any" to either and be paired into whichever of them
+   fills first. Ranked has no "any": rated and casual are not two flavours of
+   the same game, one moves a number that follows you around and the other does
+   not, and nobody should be handed that by a matchmaker's convenience. */
+export type Any = 'any';
+export type ModeChoice = Mode | Any;
+export type SpeedChoice = Speed | Any;
+
+export const MODE_CHOICES: ModeChoice[] = [...MODES, 'any'];
+export const SPEED_CHOICES: SpeedChoice[] = [...SPEEDS, 'any'];
+
+/* The concrete values a choice will accept, in the order it prefers them.
+   "Any" is deliberately not a format of its own: it is a set of the real ones,
+   resolved here so the queue, the blurb and the bot fill all read the same
+   list rather than each deciding what "any" means. */
+export function modesFor(choice: ModeChoice): Mode[] {
+  return choice === 'any' ? [...MODES] : [choice];
+}
+export function speedsFor(choice: SpeedChoice): Speed[] {
+  return choice === 'any' ? [...SPEEDS] : [choice];
+}
+export const isModeChoice = (v: unknown): v is ModeChoice =>
+  v === 'any' || (typeof v === 'string' && (MODES as string[]).includes(v));
+export const isSpeedChoice = (v: unknown): v is SpeedChoice =>
+  v === 'any' || (typeof v === 'string' && (SPEEDS as string[]).includes(v));
 
 /* A bot's strategy is a **tier**, and a level is only where that tier currently
    sits on the ladder. The distinction earns its keep the moment the ladder is
@@ -874,7 +907,7 @@ export function arenaPoints(outcome: 'win' | 'loss' | 'draw', streakBefore: numb
 export type ClientMsg =
   // defaults: six-max, long, rated. `bots` asks for a practice table instead:
   // no human queue, seats filled from the roster at that level, never rated.
-  | { t: 'queue'; mode?: Mode; rated?: boolean; speed?: Speed; bots?: { level: number } }
+  | { t: 'queue'; mode?: ModeChoice; rated?: boolean; speed?: SpeedChoice; bots?: { level: number } }
   | { t: 'dequeue' }
   // Accept or decline the table the ready check is offering. Sent without an
   // id: a player is only ever offered one table at a time, and the server
