@@ -134,7 +134,7 @@ const LIVE = [
   },
 ];
 
-/* Three to a level, the five levels the server ships, so the practice card's
+/* Three to a level, the seven levels the server ships, so the practice card's
    picker has every step in it and the ladder has a roster to draw. */
 const BOT_LEVELS = [
   { level: 1, levelName: 'Loose and passive', description: 'Level 1: loose and passive, calls almost everything' },
@@ -142,6 +142,8 @@ const BOT_LEVELS = [
   { level: 3, levelName: 'Tight and passive', description: 'Level 3: tight and passive, folds a lot' },
   { level: 4, levelName: 'Solid', description: 'Level 4: solid, bets its good hands' },
   { level: 5, levelName: 'Sharp', description: 'Level 5: sharp, punishes a passive table' },
+  { level: 6, levelName: 'Regular', description: 'Level 6: reads how you play and solves the river against it' },
+  { level: 7, levelName: 'Solver', description: 'Level 7: tracks both ranges and solves the board while you wait' },
 ];
 
 const BOT_NAMES = [
@@ -150,6 +152,8 @@ const BOT_NAMES = [
   'StealthyCyclone', 'TawnyFjord', 'CheerySled',
   'ShadyHarp', 'RegalCloud', 'BreezyWhirlwind',
   'JauntySwan', 'SmokySeal', 'RoyalZinc',
+  'MossyLantern', 'QuietFalcon', 'AmberSluice',
+  'IronHeron', 'PaleMeridian', 'SableKnot',
 ];
 
 const BOTS = BOT_NAMES.map((name, i) => {

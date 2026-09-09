@@ -232,7 +232,7 @@ test.describe('the practice presets', () => {
     await page.getByRole('button', { name: 'Hard' }).click();
 
     const messages = (await sent(page)).map((raw) => JSON.parse(raw));
-    expect(messages).toContainEqual({ t: 'queue', mode: 'heads-up', speed: 'standard', bots: { level: 5 } });
+    expect(messages).toContainEqual({ t: 'queue', mode: 'heads-up', speed: 'standard', bots: { level: 6 } });
   });
 });
 
@@ -245,7 +245,7 @@ test.describe('the bots setup page', () => {
     await expect(page.getByRole('heading', { name: 'Practice against bots' })).toBeVisible();
 
     const rows = page.locator('.level-row');
-    await expect(rows).toHaveCount(5);
+    await expect(rows).toHaveCount(7);
     await expect(page.locator('.level-bots li').first()).toBeVisible();
 
     // The old select folded every name flat into lowercase; the name here is
@@ -256,6 +256,8 @@ test.describe('the bots setup page', () => {
     await expect(rows.nth(2).locator('.level-row-head .t')).toHaveText('Tight and passive');
     await expect(rows.nth(3).locator('.level-row-head .t')).toHaveText('Solid');
     await expect(rows.nth(4).locator('.level-row-head .t')).toHaveText('Sharp');
+    await expect(rows.nth(5).locator('.level-row-head .t')).toHaveText('Regular');
+    await expect(rows.nth(6).locator('.level-row-head .t')).toHaveText('Solver');
   });
 
   test('starts a practice table at the level and table size chosen here', async ({ page }) => {

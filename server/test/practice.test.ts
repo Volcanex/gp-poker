@@ -4,6 +4,8 @@ import { BOT_LEVELS, formatFor, type MatchFormat, type Mode } from '@opentable/p
 import { makeApp, mintGuestSession, deleteUser, listenForWs, connectWs, testFormat } from './helpers.js';
 import { createMatchForPlayers, setFormatResolver } from '../src/matchmaking.js';
 import { getMatchById, sql, type UserRow } from '../src/db.js';
+import { config } from '../src/config.js';
+import { levelForIndex } from '../src/bots/population-roster.js';
 
 /* Practice mode: a table of bots on demand, at a level the player picks,
    never rated. Nothing here waits on the matchmaking tick, because practice
@@ -42,9 +44,13 @@ describe('practice against bots', () => {
       select bot_level, count(*)::text as n from users where bot = true group by bot_level order by bot_level
     `;
     for (const row of rows) expect(row.botLevel).not.toBeNull();
-    // Read off the protocol rather than written down, so adding a level is a
-    // roster change and not a test failure.
-    expect(rows.length).toBe(BOT_LEVELS.length);
+    for (const row of rows) expect(BOT_LEVELS.some((b) => b.level === row.botLevel)).toBe(true);
+    // Read off the roster rather than written down, so adding a level is a
+    // roster change and not a test failure. The thinking seats sit at the
+    // end of the full population, so a test's fifteen carry only the five
+    // instant levels and the production roster carries all seven.
+    const expected = new Set(Array.from({ length: config.botCount }, (_, i) => levelForIndex(i)));
+    expect(rows.length).toBe(expected.size);
   });
 
   it('seats a six-max practice table immediately, unrated, with five bots', async () => {

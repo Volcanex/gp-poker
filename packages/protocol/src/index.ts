@@ -500,14 +500,15 @@ export function botLevelInfo(level: number): BotLevelInfo {
 }
 
 /* The home page's three quick presets, one table so the button row and the
-   bots setup page cannot describe "hard" differently. When the level 6 bot
-   lands, hard moves here and only here. */
+   bots setup page cannot describe "hard" differently. Hard is the regular,
+   the first tier that reads you; the solver above it is on the setup page
+   for whoever goes looking. */
 export type PracticePreset = 'easy' | 'medium' | 'hard';
 
 export const PRACTICE_PRESETS: Record<PracticePreset, BotLevel> = {
   easy: 2,
   medium: 4,
-  hard: 5,
+  hard: 6,
 };
 
 const FORMATS: Record<Mode, Record<Speed, MatchFormat>> = {
