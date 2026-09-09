@@ -429,9 +429,22 @@ two rules of its own:
   dismiss and Escape is refused, because a browser that closed it locally would
   still be in the check and would still be charged for not answering.
 - **One cue per check, on the check rather than on the table it becomes.**
-  `presence.tsx` plays the same `yourTurn` cue on `q found`, so it skips its
-  own whenever a check announced the table first; a challenge, a home game and
+  `presence.tsx` plays its `yourTurn` cue on `q found`, so it skips its own
+  whenever a check announced the table first; a challenge, a home game and
   practice have no check and still get it.
+- **The check has a countdown, and it is a different noise from the felt's.**
+  `readyCheck` when the prompt arrives, one `tick` a second through the last
+  ten with the pitch climbing (`../sound/countdown.ts` owns the rates and is
+  unit tested), and `readyAccept` the moment the player takes the seat.
+  Declining and running out are silent: neither is a thing to celebrate or to
+  chase, and a sound on a check that has already lapsed is a sound about
+  nothing.
+- **The ticks stop where they would be noise: a check already answered, and a
+  hidden tab.** The arrival cue is the exception and plays either way, because
+  it is the one alert on this site whose whole job is to reach somebody who is
+  looking at something else. Everything else obeys the ordinary gates, the
+  sound preference and the unlock on first gesture, which is why nothing here
+  checks either.
 
 ## Level in the shell
 

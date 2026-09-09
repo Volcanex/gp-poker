@@ -69,6 +69,44 @@ const push = async (page: Page, msg: unknown) => {
 const sent = (page: Page) =>
   page.evaluate(() => (window as unknown as { __ws: { sent: string[] } }).__ws.sent);
 
+/* Web Audio cannot be listened to from a test, so the graph is asked instead:
+   every buffer source the page starts records the rate it was started at.
+   That is enough to prove the ready check's countdown fires once a second and
+   climbs, which is the half of it that is not pure arithmetic. */
+interface Played {
+  rate: number;
+  /* The buffer's own length, which is how a test tells one sound from
+     another without being able to hear either. */
+  seconds: number;
+}
+
+async function recordAudio(page: Page, enabled = true) {
+  await page.addInitScript(() => {
+    const played: Played[] = [];
+    (window as unknown as { __played: Played[] }).__played = played;
+    const Ctor = window.AudioContext;
+    if (!Ctor) return;
+    const create = Ctor.prototype.createBufferSource;
+    Ctor.prototype.createBufferSource = function patched(this: AudioContext) {
+      const src = create.call(this);
+      const start = src.start.bind(src);
+      src.start = ((...args: Parameters<AudioBufferSourceNode['start']>) => {
+        played.push({ rate: src.playbackRate.value, seconds: src.buffer?.duration ?? 0 });
+        return start(...args);
+      }) as AudioBufferSourceNode['start'];
+      return src;
+    };
+  });
+  await page.addInitScript((on) => {
+    localStorage.setItem('ot.sound', JSON.stringify({ enabled: on, volume: 0.2, pack: 'felt' }));
+  }, enabled);
+}
+
+const played = (page: Page) =>
+  page.evaluate(() => (window as unknown as { __played: Played[] }).__played);
+
+const playedRates = async (page: Page) => (await played(page)).map((p) => p.rate);
+
 const READY = {
   t: 'ready',
   s: 'pending',
@@ -297,6 +335,105 @@ test.describe('the ready check', () => {
     // The buttons settle on the press rather than on a round trip.
     await expect(dialog.getByRole('button', { name: 'Accepted' })).toBeDisabled();
     await expect(dialog).toContainText('Waiting for the rest of the table');
+  });
+
+  /* "Make it cool", and the cool part is the only part a unit test cannot
+     reach: that the ticks actually reach the audio graph, one a second, each
+     higher than the last. `../src/sound/countdown.ts` owns which rate belongs
+     to which second and is tested on its own. */
+  test('counts the last seconds down out loud, climbing', async ({ page }) => {
+    await recordAudio(page);
+    await fakeSocket(page);
+    await stubApi(page);
+    await setTheme(page, 'dark');
+    await page.goto('/');
+
+    /* Browsers refuse audio until a gesture, and the app unlocks on the first
+       one, so the test has to make one before there is a modal over the page. */
+    await page.mouse.click(5, 5);
+
+    await push(page, { ...READY, deadline: Date.now() + 5_500 });
+    await expect(page.locator('dialog.ready-dlg')).toBeVisible();
+
+    /* The cue lands with the prompt; the ticks want the window to run down. */
+    await expect.poll(async () => (await playedRates(page)).length, { timeout: 15_000 })
+      .toBeGreaterThanOrEqual(4);
+    const rates = await playedRates(page);
+
+    /* Read by pitch rather than by position. Each sound is decoded before it
+       is started, so two different samples asked for a second apart can reach
+       the graph in either order on a loaded machine, and the prompt losing
+       that race to the first tick says nothing about either of them. */
+    expect(rates.filter((r) => r === 1), 'the prompt, at the sample its own pitch')
+      .not.toHaveLength(0);
+    const ticks = rates.filter((r) => r > 1);
+    expect(ticks.length, 'one tick a second through the last of the window')
+      .toBeGreaterThanOrEqual(3);
+    for (let i = 0; i < ticks.length; i++) {
+      expect(ticks[i], `tick ${i} is still the same tick`).toBeLessThan(1.5);
+      if (i > 0) {
+        expect(ticks[i], `tick ${i} climbs on the one before it`).toBeGreaterThan(ticks[i - 1]);
+      }
+    }
+  });
+
+  /* Two more rules of the check's sound: taking the seat has a noise of its
+     own, and turning it down has none. Declining says nothing at all, and it
+     stops the countdown with it: the pressure was the point and it is over. */
+  test('accepting sounds different from the prompt, and declining says nothing', async ({ page }) => {
+    await recordAudio(page);
+    await fakeSocket(page);
+    await stubApi(page);
+    await setTheme(page, 'dark');
+    await page.goto('/');
+    await page.mouse.click(5, 5);
+
+    /* Twenty seconds out, so the window is nowhere near the last ten and the
+       only sounds in the graph are the prompt's and the answer's. */
+    await push(page, { ...READY, deadline: Date.now() + 20_000 });
+    const dialog = page.locator('dialog.ready-dlg');
+    await expect(dialog).toBeVisible();
+    await expect.poll(async () => (await played(page)).length, { timeout: 15_000 }).toBe(1);
+
+    await dialog.getByRole('button', { name: 'Accept the table' }).click();
+    await expect.poll(async () => (await played(page)).length, { timeout: 5_000 }).toBe(2);
+    const [prompt, confirm] = await played(page);
+    expect(confirm.seconds, 'the confirm is a different sound from the prompt')
+      .not.toBeCloseTo(prompt.seconds, 3);
+  });
+
+  test('declining is silent and stops the countdown', async ({ page }) => {
+    await recordAudio(page);
+    await fakeSocket(page);
+    await stubApi(page);
+    await setTheme(page, 'dark');
+    await page.goto('/');
+    await page.mouse.click(5, 5);
+
+    await push(page, { ...READY, deadline: Date.now() + 8_000 });
+    const dialog = page.locator('dialog.ready-dlg');
+    await expect(dialog).toBeVisible();
+    await expect.poll(async () => (await played(page)).length, { timeout: 15_000 })
+      .toBeGreaterThanOrEqual(2);
+
+    await dialog.getByRole('button', { name: 'Decline' }).click();
+    const atDecline = (await played(page)).length;
+    await page.waitForTimeout(2_500);
+    expect(await played(page)).toHaveLength(atDecline);
+  });
+
+  test('makes no noise when the sound preference is off', async ({ page }) => {
+    await recordAudio(page, false);
+    await fakeSocket(page);
+    await stubApi(page);
+    await setTheme(page, 'dark');
+    await page.goto('/');
+    await page.mouse.click(5, 5);
+
+    await push(page, { ...READY, deadline: Date.now() + 3_000 });
+    await expect(page.locator('dialog.ready-dlg')).toBeVisible();
+    await page.waitForTimeout(2_500);
+    expect(await played(page)).toEqual([]);
   });
 
   test('moves the counter when somebody else accepts', async ({ page }) => {

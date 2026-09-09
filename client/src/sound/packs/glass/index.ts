@@ -35,6 +35,8 @@ export const glass: {
     yourTurn: glass005Sound,
     clockWarning: glass006Sound,
     tick: impactGlassLight004Sound,
+    readyCheck: glass005Sound,
+    readyAccept: jinglesPizzi00Sound,
     handWon: jinglesPizzi00Sound,
     handLost: impactGlassLight003Sound,
     matchWon: impactBellHeavy000Sound,

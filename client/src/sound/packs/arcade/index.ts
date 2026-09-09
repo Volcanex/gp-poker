@@ -30,6 +30,8 @@ export const arcade: {
     yourTurn: confirmation001Sound,
     clockWarning: jump8bitSound,
     tick: click8bitSound,
+    readyCheck: confirmation001Sound,
+    readyAccept: jinglesNes01Sound,
     handWon: jinglesNes01Sound,
     handLost: click8bitSound,
     matchWon: jinglesNes02Sound,

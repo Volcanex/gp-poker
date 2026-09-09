@@ -54,6 +54,16 @@ filled and none of them yours.
 The one thing no route can stub is the websocket, so the home page's baseline
 says the connection dropped, which is true.
 
+**The ready check's sound is measured through the audio graph, not heard.**
+`recordAudio` patches `AudioContext.prototype.createBufferSource` with an init
+script and records the playback rate and the buffer's own length every time a
+source is started, which is enough to say that the countdown ticks once a
+second and climbs, that accepting plays a different sample from the prompt,
+and that declining and a turned-off preference play nothing. Browsers refuse
+audio until a gesture, so those tests click the page once before the modal
+covers it; without that click the graph stays empty and the assertion would be
+about the autoplay policy rather than about the countdown.
+
 **`formats.spec.ts` is the exception, and it replaces the websocket rather than
 routing it.** Its `fakeSocket` puts a stand-in `window.WebSocket` in front of
 the bundle with an init script: it says `hi` on open, because the real socket
@@ -90,7 +100,7 @@ it.
 
 | Spec | Guards |
 | --- | --- |
-| `formats.spec.ts` | the play panel's shape (three switchers, one button, four one-line ways to play), the pin and the remembered choice, the ranked gate disabling ranked, no middle dot anywhere on the page, the ready check modal end to end, and the level and badges on a profile |
+| `formats.spec.ts` | the play panel's shape (three switchers, one button, four one-line ways to play), the pin and the remembered choice, the ranked gate disabling ranked, no middle dot anywhere on the page, the ready check modal end to end **and its countdown out loud**, and the level and badges on a profile |
 | `footprint.spec.ts` | the boxes and zero layout shift, playing and watching, that the dock is one height in all three states, and that the strips tile the grid |
 | `ergonomics.spec.ts` | phone target sizes, the primary action in the bottom quarter, the sizing model and clamping, a pre-action firing, and the ring at 768, 1280 and 1920 |
 | `showdown.spec.ts` | your cards face up through a lost showdown and after the end, the winning five, the award chip clear of the pot label |
