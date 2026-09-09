@@ -141,14 +141,37 @@ describe('leaving a match', () => {
       await new Promise((r) => setTimeout(r, 300));
       expect((await getMatchById(matchId))!.status).toBe('playing');
 
+      // The seat reads as sitting out on the wire, which is what the rest of
+      // the table sees, and the socket is still open the whole time: leaving
+      // is not a disconnect and must not need one to take effect.
+      const satOut = await conns[1].messages.wait(
+        (m) => m.t === 'state' && m.s.seats.some((x: any) => x.i === seat && x.sittingOut)
+      );
+      expect(satOut.s.seats.find((x: any) => x.i === seat).sittingOut).toBe(true);
+
       // And there is no way back into it: a sat-out player is one action from
-      // being at the table again, somebody who left is not.
+      // being at the table again, somebody who left is not. Neither door
+      // opens, and `back` is the one built for a player who is there and
+      // cannot reach the buttons.
       const view = first.s as TableView;
       conns[0].ws.send(
         JSON.stringify({ t: 'act', m: matchId, h: view.h, n: view.n, a: 'f' })
       );
       const refused = await conns[0].messages.wait((m) => m.t === 'err');
       expect(refused.c).toBe('not_your_turn');
+
+      conns[0].ws.send(JSON.stringify({ t: 'back', m: matchId }));
+      /* Read from a state the table sent AFTER that, not from whichever one
+         is at the head of the queue: the room broadcasts constantly and an
+         older frame would say what was true before the message was sent. */
+      const after = { h: satOut.s.h as number, n: satOut.s.n as number };
+      const still = await conns[1].messages.wait(
+        (m) =>
+          m.t === 'state' &&
+          (m.s.h > after.h || (m.s.h === after.h && m.s.n > after.n)) &&
+          m.s.seats.some((x: any) => x.i === seat)
+      );
+      expect(still.s.seats.find((x: any) => x.i === seat).sittingOut).toBe(true);
 
       // The other two play it out. The leaver is blinded off and placed with
       // everybody else rather than being dropped from the result.
