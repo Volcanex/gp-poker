@@ -1,6 +1,9 @@
 import { evaluateCards } from 'phe';
 import { bucketFor, chartFor, handClass, percentileOf, regionsOf, spotFor, type DecisionAction } from '@opentable/preflop';
 import { DEFAULT_BOT_LEVEL, type ActionKind, type BotLevel, type Card, type LegalActions, type SeatView, type TableView } from '@opentable/protocol';
+import { NEUTRAL_PERSONA, type Persona } from './persona.js';
+
+export type { Persona } from './persona.js';
 
 /* The bot brain. Pure: it takes the same TableView a client gets, plus a
    random source, and returns one action that is guaranteed to be in that
@@ -282,11 +285,18 @@ interface Ctx {
   myTotal: number; // chips behind plus what is already in front of me
   effectiveBb: number;
   rng: Rng;
+  persona: Persona;
 }
 
+// The one chokepoint every bet and raise in this file passes through, which
+// is what makes `persona.aggression` a single-line change rather than a
+// scaling factor threaded into every call site by hand. At the neutral
+// persona (aggression 1) `targetIncrease * 1 === targetIncrease` exactly, so
+// this changes nothing for the byte-for-byte level 4 pin.
 function aggressive(ctx: Ctx, targetIncrease: number): BotDecision {
   const { legal, currentBet, myTotal } = ctx;
-  const raiseTo = clamp(Math.round(currentBet + targetIncrease), legal.min, legal.max);
+  const scaled = targetIncrease * ctx.persona.aggression;
+  const raiseTo = clamp(Math.round(currentBet + scaled), legal.min, legal.max);
   if (raiseTo >= ALL_IN_FRACTION * myTotal && legal.actions.includes('a')) return { a: 'a' };
   if (legal.actions.includes('b')) return { a: 'b', v: raiseTo };
   if (legal.actions.includes('r')) return { a: 'r', v: raiseTo };
@@ -399,7 +409,9 @@ function postflop(ctx: Ctx): BotDecision {
 
   if (checkedTo) {
     const lateStreet = ctx.view.street === 'turn' || ctx.view.street === 'river';
-    if (lateStreet && ctx.rng() < BLUFF_CHANCE) return aggressive(ctx, Math.max(ctx.bb, Math.round(ctx.pot * 0.5)));
+    if (lateStreet && ctx.rng() < BLUFF_CHANCE * ctx.persona.bluffChance) {
+      return aggressive(ctx, Math.max(ctx.bb, Math.round(ctx.pot * 0.5)));
+    }
     return { a: 'x' };
   }
   return potOddsOk(ctx, strength) ? passive(ctx) : giveUp(ctx);
@@ -425,7 +437,7 @@ function preflopProfile(ctx: Ctx, percentile: number, p: PreflopProfile): BotDec
   const raised = ctx.currentBet > ctx.bb;
   const call = ctx.legal.call;
 
-  if (percentile <= p.raise && ctx.rng() < p.raiseChance) {
+  if (percentile <= p.raise && ctx.rng() < Math.min(1, p.raiseChance * ctx.persona.aggression)) {
     return aggressive(ctx, raised ? 2 * ctx.currentBet : 2 * ctx.bb);
   }
   if (call === 0) {
@@ -435,7 +447,7 @@ function preflopProfile(ctx: Ctx, percentile: number, p: PreflopProfile): BotDec
   const cheap = call <= CHEAP_CALL * ctx.pot;
   const threshold = Math.max(raised ? p.playVsRaise : p.play, cheap ? p.priceDefend : 0);
   if (percentile > threshold) return giveUp(ctx);
-  if (call > p.callCap * ctx.myTotal) return giveUp(ctx);
+  if (call > p.callCap * ctx.persona.callCap * ctx.myTotal) return giveUp(ctx);
   return passive(ctx);
 }
 
@@ -457,7 +469,7 @@ function threeBetBluff(ctx: Ctx): boolean {
   const connector = Math.abs(ra - rb) <= 1 && Math.min(ra, rb) >= 3;
   const suitedAce = Math.max(ra, rb) === 12;
   if (!connector && !suitedAce) return false;
-  return ctx.rng() < SHARP_THREE_BET_BLUFF;
+  return ctx.rng() < Math.min(1, SHARP_THREE_BET_BLUFF * ctx.persona.bluffChance);
 }
 
 // Level 1: calls with anything that could still be best and never gets out of
@@ -474,7 +486,7 @@ function postflopStation(ctx: Ctx): BotDecision {
   }
   if (texture.madePair || texture.flushDraw || texture.openEnder || texture.overcards) return passive(ctx);
   const potBefore = Math.max(1, ctx.pot - call);
-  if (call > STATION_FOLD_POT_FRACTION * potBefore) return giveUp(ctx);
+  if (call > STATION_FOLD_POT_FRACTION * ctx.persona.callCap * potBefore) return giveUp(ctx);
   return passive(ctx);
 }
 
@@ -486,7 +498,7 @@ function postflopLoose(ctx: Ctx): BotDecision {
 
   if (strength > STRONG) return aggressive(ctx, sized(ctx, 0.66));
   if (checkedTo) {
-    if (ctx.rng() < LOOSE_BLUFF_CHANCE) return aggressive(ctx, sized(ctx, 0.5));
+    if (ctx.rng() < Math.min(1, LOOSE_BLUFF_CHANCE * ctx.persona.bluffChance)) return aggressive(ctx, sized(ctx, 0.5));
     return { a: 'x' };
   }
   return strength >= LOOSE_CALL ? passive(ctx) : giveUp(ctx);
@@ -521,7 +533,10 @@ function postflopSharp(ctx: Ctx): BotDecision {
 
   if (strength > valueAt) return aggressive(ctx, sized(ctx, wet + (strength > STRONG ? SHARP_VALUE_EXTRA : 0)));
 
-  const margin = river ? 0 : SHARP_CALL_MARGIN;
+  // Divided rather than multiplied: a bigger callCap means a smaller margin,
+  // i.e. a bot that calls more readily needs less extra equity to do it. At
+  // the neutral persona (callCap 1) this is exactly SHARP_CALL_MARGIN.
+  const margin = river ? 0 : SHARP_CALL_MARGIN / ctx.persona.callCap;
   if (strength >= MEDIUM) {
     if (checkedTo) return aggressive(ctx, sized(ctx, wet * 0.8));
     return potOddsOk(ctx, strength - margin) ? passive(ctx) : giveUp(ctx);
@@ -529,7 +544,7 @@ function postflopSharp(ctx: Ctx): BotDecision {
 
   const drawing = texture.flushDraw || texture.openEnder;
   if (checkedTo) {
-    if (drawing && !river && inPosition(ctx) && ctx.rng() < SHARP_SEMI_BLUFF_CHANCE) {
+    if (drawing && !river && inPosition(ctx) && ctx.rng() < Math.min(1, SHARP_SEMI_BLUFF_CHANCE * ctx.persona.bluffChance)) {
       return aggressive(ctx, sized(ctx, SHARP_DRY));
     }
     // The flop is the one street where the bot's last action is still its
@@ -537,11 +552,11 @@ function postflopSharp(ctx: Ctx): BotDecision {
     // be read straight off the view.
     const wasAggressor = ctx.me.last !== null && ['b', 'r', 'a'].includes(ctx.me.last.a);
     const boardFits = texture.wetness < 0.5 || texture.overcards || texture.madePair;
-    if (ctx.view.street === 'flop' && wasAggressor && boardFits && ctx.rng() < SHARP_CBET_CHANCE) {
+    if (ctx.view.street === 'flop' && wasAggressor && boardFits && ctx.rng() < Math.min(1, SHARP_CBET_CHANCE * ctx.persona.bluffChance)) {
       return aggressive(ctx, sized(ctx, SHARP_DRY * 0.8));
     }
     const lateStreet = ctx.view.street === 'turn' || river;
-    if (lateStreet && ctx.rng() < BLUFF_CHANCE) return aggressive(ctx, sized(ctx, 0.5));
+    if (lateStreet && ctx.rng() < Math.min(1, BLUFF_CHANCE * ctx.persona.bluffChance)) return aggressive(ctx, sized(ctx, 0.5));
     return { a: 'x' };
   }
 
@@ -550,7 +565,12 @@ function postflopSharp(ctx: Ctx): BotDecision {
   return potOddsOk(ctx, strength - margin) ? passive(ctx) : giveUp(ctx);
 }
 
-export function decide(view: TableView, rng: Rng = Math.random, level: BotLevel = DEFAULT_BOT_LEVEL): BotDecision {
+export function decide(
+  view: TableView,
+  rng: Rng = Math.random,
+  level: BotLevel = DEFAULT_BOT_LEVEL,
+  persona: Persona = NEUTRAL_PERSONA
+): BotDecision {
   const legal = view.legal;
   if (!legal) throw new Error('decide called on a view with no legal actions');
   const me = view.you === null ? undefined : view.seats[view.you];
@@ -577,11 +597,20 @@ export function decide(view: TableView, rng: Rng = Math.random, level: BotLevel 
     myTotal,
     effectiveBb: effective / bb,
     rng,
+    persona,
   };
 
   let decision: BotDecision;
   if (view.street === 'pre') {
-    const percentile = clamp(percentileOf(handClass(ctx.hole)) + (rng() * 2 - 1) * JITTER, 0, 100);
+    // Divided by looseness rather than multiplied: percentile 0 is the best
+    // hand, so a looser bot needs a *smaller* number to read as playable,
+    // and dividing by a looseness above 1 does exactly that. At the neutral
+    // persona (looseness 1) this is exactly the unadjusted percentile.
+    const percentile = clamp(
+      (percentileOf(handClass(ctx.hole)) + (rng() * 2 - 1) * JITTER) / persona.looseness,
+      0,
+      100
+    );
     if (level === 1 || level === 2 || level === 3) {
       decision = preflopProfile(ctx, percentile, PREFLOP[level]);
     } else if (level === 5 && threeBetBluff(ctx)) {
