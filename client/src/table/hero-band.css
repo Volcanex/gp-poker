@@ -821,11 +821,12 @@
   --hb-meta-h: calc(var(--hb-who-h) + var(--hb-nums-h) + 2px);
 
   /* Stacked is the default: one card read whole with the other behind it, out
-     by a bit over a third so its index shows and nothing else. The index is
-     drawn from x=9 to x=34 of a hundred wide card (`playing-card.tsx`), so
-     0.38 clears it with the card's own edge to spare. */
-  --card-peek: 0.38;
-  --card-span: 1.38;
+     far enough that its index shows with room to spare rather than sitting
+     on the seam. The index is drawn from x=9 to x=34 of a hundred wide card
+     (`playing-card.tsx`), so 0.38 was the minimum that cleared it; 0.44 gives
+     it a hair of daylight, own feedback that 0.38 read as too tight. */
+  --card-peek: 0.44;
+  --card-span: 1.44;
   --card-rise: 1.4;
   /* How much of the first card the second one covers when they are ajar, how
      far it is tilted, and the sine of that tilt. The sine is written out
