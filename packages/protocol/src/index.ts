@@ -683,6 +683,14 @@ export function banRemainingText(until: number, now = Date.now()): string {
   return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
 }
 
+/* What a refused ranked door says, and what the play panel says before
+   anybody presses one. One sentence in one place, because the server's
+   refusal and the client's disabled control are the same fact and two
+   wordings of it read as two different rules. */
+export function rankedBanText(until: number, now = Date.now()): string {
+  return `You left a ranked match. Ranked opens again in ${banRemainingText(until, now)}.`;
+}
+
 /* ------------------------------------------------------------ the gate
 
    Rated play opens after one finished casual or practice match. One, not

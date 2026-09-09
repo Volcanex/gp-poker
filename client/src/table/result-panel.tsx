@@ -8,6 +8,7 @@ import { avatarVersion } from '../net/adapt.ts';
 import { deltaTone } from '../ui/bits.tsx';
 import { int, signed } from '../ui/format.ts';
 import { ordinal, stakeWord } from './labels.ts';
+import { leaveText, leaverText } from './match-summary.tsx';
 import { rankSeats } from './results.ts';
 
 export interface ResultPanelProps {
@@ -60,7 +61,11 @@ export function ResultPanel({ match, meId, onAgain, onReview, againLabel }: Resu
         />
         <div className="rp-verdict">
           <span className="rp-t">{verdict}</span>
+          {/* The reason line, and the one reason worth its own words: a match
+              somebody walked out of did not end the way a played-out one
+              did, and the verdict alone would read as though it had. */}
           <span className="muted num">
+            {match.reason === 'left' ? `${leaveText(leaverText(match, meId))} ` : ''}
             {match.handsPlayed} {match.handsPlayed === 1 ? 'hand' : 'hands'},{' '}
             {stake === 'rated' ? 'rated' : `${stake}, no rating change`}
           </span>

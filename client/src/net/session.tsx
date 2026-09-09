@@ -234,10 +234,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           /* The match just moved the rating, and the account row is showing the
              value from before it. */
           void refreshMe();
-        } else if (m.t === 'err' && (m.c === 'bots_busy' || m.c === 'ranked_locked' || m.c === 'cooldown')) {
-          /* Three refusals that end a search rather than reject an action, so
+        } else if (
+          m.t === 'err' &&
+          (m.c === 'bots_busy' || m.c === 'ranked_locked' || m.c === 'cooldown' || m.c === 'ranked_ban')
+        ) {
+          /* Four refusals that end a search rather than reject an action, so
              the searching screen has to come down and say why. Practice never
-             queued in the first place; the other two never got in. */
+             queued in the first place; the other three never got in. */
           setQueue((prev) => ({
             s: 'idle', since: 0, mode: prev.mode, rated: prev.rated, speed: prev.speed, error: m.msg,
           }));

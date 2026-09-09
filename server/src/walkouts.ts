@@ -1,5 +1,5 @@
 import {
-  banRemainingText,
+  rankedBanText,
   walkoutBanMs,
   walkoutStrikesNow,
 } from '@opentable/protocol';
@@ -68,9 +68,9 @@ export async function chargeWalkout(userId: string, now = Date.now()): Promise<W
   return { strikes, banUntil: until > now ? until : null };
 }
 
-/* What a refused ranked door says. It names the reason and the moment it
-   stops applying, because a refusal that only says no leaves somebody
-   pressing the same button. */
+/* What a refused ranked door says. The sentence itself is in the protocol
+   beside the ladder, because the play panel says the same thing before
+   anybody reaches a door and two wordings read as two different rules. */
 export function rankedBanMessage(until: number, now = Date.now()): string {
-  return `You left a ranked match. Ranked opens again in ${banRemainingText(until, now)}.`;
+  return rankedBanText(until, now);
 }
