@@ -132,7 +132,13 @@ export function Seat({
         ) : last ? (
           <>
             <span className="act-w" key={last.word}>{last.word}</span>
-            <span className="act-v num" key={last.amount ?? 0}>{last.amount ?? '\u00a0'}</span>
+            {/* Only when there is a figure: a check or a fold's word is the
+                whole of what happened, and a blank second line under it was
+                reserved space nobody could see, pushing the word that always
+                shows off the square's actual middle. */}
+            {last.amount != null && (
+              <span className="act-v num" key={last.amount}>{last.amount}</span>
+            )}
           </>
         ) : null}
       </span>
