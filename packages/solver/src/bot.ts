@@ -26,8 +26,8 @@ import type { ActionKind, Card, LegalActions, SeatView, TableView } from '@opent
 import { NUM_COMBOS, cardIndex, comboIndex } from './cards.js';
 import {
   RangeTracker,
-  MIN_BET_SAMPLE,
   emptyStats,
+  foldToBet,
   passivity,
   positionRange,
   priorWeight,
@@ -394,7 +394,7 @@ export class SolverBot {
     const frequencies = frequenciesFor(result, combo);
     if (!frequencies) return null;
 
-    const sticky = this.stats.betsFaced >= MIN_BET_SAMPLE ? this.stats.foldsToOurBets / this.stats.betsFaced : null;
+    const sticky = foldToBet(this.stats);
     const read = passivity(this.stats);
     const ranks = sticky !== null || read > 0 ? ranksWithinRange(villainRange, board) : null;
     const facing = legal.call > 0;
