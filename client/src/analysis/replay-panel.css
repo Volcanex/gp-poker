@@ -46,6 +46,16 @@
   min-width: 38.25rem;
 }
 
+/* g's table pads every cell (var(--sp-3)) so the header's word and the
+   panel's own "Analysis" above it start on two different verticals: the
+   first column gives that padding back so the two sit on one rhythm. */
+.ra-table thead th:first-child,
+.ra-table tbody th:first-child,
+.ra-strip thead th:first-child,
+.ra-strip tbody th:first-child {
+  padding-left: 0;
+}
+
 .ra-table th,
 .ra-table td,
 .ra-strip th,
