@@ -8,6 +8,13 @@ export { ADJECTIVES, THINGS, VERBS };
 
 export type Rng = () => number;
 
+export {
+  generateRealisticIdentity,
+  looksRealistic,
+  REALISTIC_NAME_RE,
+  type RealisticIdentity,
+} from './realistic.js';
+
 /* xmur3 hashes a string into a 32-bit seed; mulberry32 turns that seed into
    a fast deterministic float generator. Same seed in, same sequence out,
    every time, on every platform. */

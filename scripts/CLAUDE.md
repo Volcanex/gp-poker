@@ -15,6 +15,13 @@ Ops scripts run on h as root. The systemd units that call them live in `ops/`.
   world readable in `/proc`, a process environment is not. It then unsets
   `DATABASE_URL` and `SESSION_SECRET` so a script it is sourced into cannot
   leak them by accident.
+- `population-reset.sql`: deletes every bot population account
+  (`users.bot = true`) and any match played entirely between them, clearing
+  `matches.winner` first for a bot that won a mixed match against a human so
+  the FK does not block the delete. Not wired up to run on its own and never
+  run against the live database without checking with Gabriel first; see
+  `server/src/bots/CLAUDE.md` for why the population exists and what a reset
+  actually costs (every bot's rating and history, nothing a human played).
 
 ## Gotcha
 The app role has no `CREATEDB`, so `restore.sh` makes a missing target

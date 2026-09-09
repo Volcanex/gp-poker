@@ -39,15 +39,42 @@ export const config = {
   // journald for a small box; 'warn' surfaces only errors/warnings unless
   // overridden.
   logLevel: process.env.LOG_LEVEL ?? 'warn',
-  // How many of the named bot accounts to keep alive. The whole roster, so
-  // every level has its three bots: a practice table asks for a level, and a
-  // level with nobody loaded cannot be practised against.
-  botCount: Number(process.env.BOT_COUNT ?? 15),
+  // The bot population: how many named accounts exist. Small under vitest by
+  // default (kept at the old roster size) so every test file's boot does not
+  // pay to upsert 120 rows; a test that wants the real size sets
+  // POPULATION_SIZE itself. `botCount` is this, kept as the name most of the
+  // codebase (and `/health`) already reads.
+  botCount: Number(process.env.POPULATION_SIZE ?? process.env.BOT_COUNT ?? (inTest ? 15 : 120)),
+  // Caps how many tables are running with no human at any of them, for CPU:
+  // a table's worth of decisions still runs on a timer even though nobody is
+  // watching.
+  populationMaxTables: Number(process.env.POPULATION_MAX_TABLES ?? 12),
+  // Whether the population's own play counts on the public surface: /api/live,
+  // /api/recent, the online and playing counts, the leaderboard, profiles.
+  // Off leaves every one of those exactly as it behaved before the
+  // population existed. Defaults to on whenever there is a population at
+  // all, because a population nobody can see is not what it is for - except
+  // under vitest, where it defaults off like every other population/ladder
+  // knob: existing tests build bot-only matches through test seams
+  // (`createMatchForPlayers`) to prove the *old* "no human, not shown"
+  // behaviour, and a suite that quietly changed what they were proving would
+  // be a suite lying about what it tests. `feed.test.ts` is where this is
+  // pinned; a test that wants the population's own visibility asks for it
+  // explicitly.
+  populationPublic: process.env.POPULATION_PUBLIC ? process.env.POPULATION_PUBLIC === 'true' : !inTest,
+  // The scheduler that decides who is online and sends them to queue on
+  // their own. Off under vitest unless a test turns it on through
+  // `configurePopulation`, the same reason the ladder and the arena are: a
+  // suite that quietly queues bots in the background has timings that are
+  // not its own. On the box this is what makes the ladder redundant, so
+  // `index.ts` starts one or the other, never both.
+  populationEnabled: process.env.POPULATION_ENABLED ? process.env.POPULATION_ENABLED === 'true' : !inTest,
   // The bot ladder: bots play each other in the background, rated, so the
-  // levels spread out before any human arrives. Off under vitest unless a
-  // test turns it on through `configureLadder`, because a suite that quietly
-  // plays poker in the background is a suite whose timings are somebody
-  // else's.
+  // levels spread out before any human arrives. Superseded by the population
+  // once that is enabled (see `index.ts`), and kept as the fallback for a box
+  // that turns the population off. Off under vitest unless a test turns it on
+  // through `configureLadder`, because a suite that quietly plays poker in
+  // the background is a suite whose timings are somebody else's.
   ladderEnabled: process.env.LADDER_ENABLED ? process.env.LADDER_ENABLED === 'true' : !inTest,
   // Gap between one ladder match ending and the next being considered. The
   // ladder is meant to trickle, not to grind: it exists to make the numbers

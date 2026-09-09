@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { formatFor, type MatchFormat, type Mode } from '@opentable/protocol';
-import { isGeneratedName } from '@opentable/identity';
+import { looksRealistic } from '@opentable/identity';
 import {
   acceptReady,
   makeApp,
@@ -74,7 +74,7 @@ describe('bots', () => {
       expect(match!.seats.length).toBe(2);
       const botSeat = match!.seats.find((s) => s.bot);
       expect(botSeat).toBeDefined();
-      expect(isGeneratedName(botSeat!.name)).toBe(true);
+      expect(looksRealistic(botSeat!.name)).toBe(true);
 
       conn.ws.send(JSON.stringify({ t: 'join', m: matchId }));
       const first = await conn.messages.wait((m) => m.t === 'state');

@@ -1,5 +1,7 @@
 import { DEFAULT_BOT_LEVEL, type BotLevel, type ClientMsg, type MatchFormat, type ServerMsg, type TableView } from '@opentable/protocol';
 import { decide, type Rng } from './strategy.js';
+import { NEUTRAL_PERSONA, type Persona } from './persona.js';
+import type { ChatProfile } from './population-roster.js';
 
 /* One bot at the table. It has no socket: the hub routes its messages to
    `receive` instead, so it sees exactly the same `state` views a browser
@@ -36,6 +38,14 @@ const PRACTICE_QUICK_MAX_MS = 800;
 
 const CLOCK_FRACTION = 4; // never think for longer than a quarter of the clock
 
+// A bot always accepts a ready check, and quickly: it has no reason to
+// hesitate, and no reason to ever decline. Needed once bots can reach the
+// ordinary queue on their own (`server/src/bots/population.ts`) rather than
+// only being pulled in after a human's ready check already passed, which is
+// the only way bots met one before.
+const READY_ACCEPT_MIN_MS = 300;
+const READY_ACCEPT_MAX_MS = 1200;
+
 // Exported for the test suite: proving the ranges actually differ by format
 // does not need a live match, timers and a socket around it.
 export function thinkRange(format: MatchFormat, trivial: boolean): [number, number] {
@@ -46,6 +56,15 @@ export function thinkRange(format: MatchFormat, trivial: boolean): [number, numb
 
 export type Dispatch = (userId: string, msg: ClientMsg) => void;
 
+// Greeting and gg delays: long enough to read as somebody glancing at the
+// table before typing rather than a script firing the instant a seat opens,
+// short enough that the line still lands while whoever it is for is there
+// to see it.
+const GREET_MIN_MS = 900;
+const GREET_MAX_MS = 3000;
+const FAREWELL_MIN_MS = 300;
+const FAREWELL_MAX_MS = 1500;
+
 export class BotPlayer {
   private timers = new Set<ReturnType<typeof setTimeout>>();
   private pending = new Set<string>();
@@ -54,19 +73,53 @@ export class BotPlayer {
     readonly userId: string,
     private dispatch: Dispatch,
     readonly level: BotLevel = DEFAULT_BOT_LEVEL,
-    private rng: Rng = Math.random
+    private rng: Rng = Math.random,
+    readonly persona: Persona = NEUTRAL_PERSONA,
+    private chat: ChatProfile | null = null
   ) {}
 
   receive(msg: ServerMsg): void {
+    if (msg.t === 'ready' && msg.s === 'pending') {
+      const delay = READY_ACCEPT_MIN_MS + this.rng() * (READY_ACCEPT_MAX_MS - READY_ACCEPT_MIN_MS);
+      const timer = setTimeout(() => {
+        this.timers.delete(timer);
+        this.dispatch(this.userId, { t: 'ready', a: true });
+      }, delay);
+      this.timers.add(timer);
+      return;
+    }
     if (msg.t === 'q' && msg.s === 'found' && msg.m) {
       this.dispatch(this.userId, { t: 'join', m: msg.m });
+      this.maybeSpeak(msg.m, this.chat?.greeting, GREET_MIN_MS, GREET_MAX_MS, true);
       return;
     }
     if (msg.t === 'end') {
+      // Sent without the decision-timer tracking below: the match is over
+      // and `clear()` runs right after this, which would otherwise cancel a
+      // farewell before it ever fired.
+      this.maybeSpeak(msg.m, this.chat?.farewell, FAREWELL_MIN_MS, FAREWELL_MAX_MS, false);
       this.clear();
       return;
     }
     if (msg.t === 'state') this.onView(msg.s);
+  }
+
+  // A line said sparingly: `chat.chattiness` is the chance this bot says
+  // anything at all in a given match, rolled once per line rather than once
+  // per match, so a chatty bot that has nothing configured for one of the
+  // two moments still says nothing there. `tracked` decides whether the
+  // timer is cancelled by `clear()` (a greeting, which a disconnect or an
+  // early finish should cancel) or left to fire on its own (a farewell,
+  // dispatched from inside the handler that is about to call `clear()`).
+  private maybeSpeak(matchId: string, line: string | undefined | null, minMs: number, maxMs: number, tracked: boolean): void {
+    if (!line || !this.chat) return;
+    if (this.rng() >= this.chat.chattiness) return;
+    const delay = minMs + this.rng() * (maxMs - minMs);
+    const timer = setTimeout(() => {
+      this.timers.delete(timer);
+      this.dispatch(this.userId, { t: 'chat', m: matchId, text: line });
+    }, delay);
+    if (tracked) this.timers.add(timer);
   }
 
   private onView(view: TableView): void {
@@ -78,7 +131,7 @@ export class BotPlayer {
     if (this.pending.has(key)) return;
     this.pending.add(key);
 
-    const decision = decide(view, this.rng, this.level);
+    const decision = decide(view, this.rng, this.level, this.persona);
     const me = view.seats[view.you];
     const trivial = decision.a === 'x' || me.stack === 0 || me.stack <= view.legal.call;
     const [lo, hi] = thinkRange(view.format, trivial);
