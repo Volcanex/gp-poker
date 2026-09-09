@@ -103,6 +103,15 @@ not the one applied. The dialog closes on Escape and on the backdrop, unlike
 the ready check's, because nothing is running against the player while it is
 open and dismissing it means the same as keeping playing.
 
+**The header's row has a width budget, and the leave control spent most of
+it.** `.hand-head .bar-in` may not wrap and may not scroll, so four controls
+plus the chat toggle have to fit at 360, and they do not while the copy
+button carries its label: the row ran 23 px over, which pushed Chat off the
+edge and left the group's position depending on how a font measured, which is
+what made the 360 screenshots flake. Below 400 px the label is hidden and the
+copy button is its icon (`../app.css`), which leaves 41 px of slack at 360 and
+71 at 390. Anything else added to this row has to be paid for out of that.
+
 The `<dialog>` sits inside `.head-acts` with the button that opens it. A
 closed dialog is `display: none` and an open one is in the top layer, so
 neither is part of the row: `../../e2e/leave.spec.ts` asserts the table's boxes
