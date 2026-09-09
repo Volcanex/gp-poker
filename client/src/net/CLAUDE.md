@@ -52,7 +52,13 @@ name changes immediately, with the refetch behind it for the counts.
 **The match to return to** is remembered in `localStorage` whenever a `state`
 arrives with a seat for you, and cleared on `end`. On load it is offered only
 after `GET /api/matches/:id` confirms the match is still playing: a match that
-finished while the tab was closed is not a match to return to.
+finished while the tab was closed is not a match to return to. **The server's
+own answer comes first**: `/api/me` carries `playing`, the match this player is
+seated at right now, and `/api/me` is refetched on every socket reopen after
+the first. That is the recovery for a `q found` pushed while the socket was
+down, which is what a phone's is the moment its owner switches to a messaging
+app to send a challenge link: the creator came back to a home page still
+saying "waiting for your friend" and a match already dealing without them.
 
 Two other subscriptions are pushed rather than polled, and both re-send on every
 reconnect rather than only on mount, because the server drops them on

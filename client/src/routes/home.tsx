@@ -514,6 +514,22 @@ function PracticeWay({
   );
 }
 
+/* What a remembered challenge link amounts to now: still waiting, spent, or
+   taken for a match that is still being played, which is a table to walk to.
+   A match already over is spent like any other used link, so a creator who
+   comes back hours later is not bounced to a finished game. */
+type LinkState = 'open' | 'spent' | { go: string };
+
+async function settleChallenge(id: string): Promise<LinkState> {
+  const c = await api.challenge(id);
+  if (c.status === 'open') return 'open';
+  if (c.status === 'accepted' && c.matchId) {
+    const m = await api.match(c.matchId);
+    if (m.status === 'playing') return { go: c.matchId };
+  }
+  return 'spent';
+}
+
 /* The two shared links, one row each. A heads-up challenge seats exactly two
    people and starts itself the moment the second one accepts; a home game is
    the six handed version, a lobby friends gather in and a host starts, with
@@ -523,6 +539,7 @@ function PracticeWay({
    control fewer and one less question to answer before making a link. The
    kind is a prop rather than state; everything else is what it always was. */
 function LinkWay({ kind, disabled }: { kind: LinkKind; disabled: boolean }) {
+  const nav = useNavigate();
   const [open, setOpen] = useState(false);
   const [rated, setRated] = useState(true);
   const [level, setLevel] = useState(2);
@@ -533,28 +550,66 @@ function LinkWay({ kind, disabled }: { kind: LinkKind; disabled: boolean }) {
   /* A remembered link is only shown once the server says it is still waiting,
      the same bargain the remembered live match makes. One link is remembered
      per browser, so the row it belongs to is the one that shows it and the
-     other row never opens on somebody else's link. */
+     other row never opens on somebody else's link. A challenge that has been
+     taken is not simply dropped: if the match it started is still on, this
+     page walks to it, exactly as it does on `q found`. */
   useEffect(() => {
     const saved = readChallenge();
     if (!saved || saved.kind !== kind) return;
     let live = true;
     const still =
       saved.kind === 'home'
-        ? api.homeGame(saved.id).then((g) => g.status === 'open')
-        : api.challenge(saved.id).then((c) => c.status === 'open');
+        ? api.homeGame(saved.id).then((g) => (g.status === 'open' ? 'open' : 'spent'))
+        : settleChallenge(saved.id);
     still
-      .then((isOpen) => {
+      .then((state) => {
         if (!live) return;
-        if (isOpen) {
+        if (state === 'open') {
           setLink(saved);
           setOpen(true);
-        } else writeChallenge(null);
+        } else {
+          writeChallenge(null);
+          if (state !== 'spent') nav(`/m/${state.go}`);
+        }
       })
       .catch(() => writeChallenge(null));
     return () => {
       live = false;
     };
-  }, [kind]);
+  }, [kind, nav]);
+
+  /* The socket is how the creator is told their friend has accepted, and a
+     phone drops the socket the moment its owner switches to a messaging app
+     to send the link, which is the one thing the creator does next. So while
+     a challenge is waiting this row also asks: every five seconds, and again
+     the instant the tab comes back to the front, which is when the push was
+     most likely missed. A home game needs none of this, because its host is
+     the one who starts it. */
+  useEffect(() => {
+    if (!link || kind !== 'challenge') return;
+    let live = true;
+    const ask = () =>
+      settleChallenge(link.id)
+        .then((state) => {
+          if (!live || state === 'open') return;
+          writeChallenge(null);
+          setLink(null);
+          if (state !== 'spent') nav(`/m/${state.go}`);
+        })
+        .catch(() => {
+          /* asked again on the next tick */
+        });
+    const timer = setInterval(ask, 5_000);
+    const onShow = () => {
+      if (document.visibilityState === 'visible') void ask();
+    };
+    document.addEventListener('visibilitychange', onShow);
+    return () => {
+      live = false;
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onShow);
+    };
+  }, [link, kind, nav]);
 
   const make = async () => {
     setBusy(true);

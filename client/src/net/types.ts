@@ -33,6 +33,11 @@ export interface Me extends UserSummary {
      it talks to, and absent reads as nothing to serve. */
   walkoutStrikes?: number;
   rankedBanUntil?: number | null;
+  /* The match this player is seated at right now, or null. The socket says
+     so first; this is the answer for a socket that was down at the time,
+     which a phone's is the moment its owner switches to a messaging app to
+     send a challenge link. Optional for the same reason the two above are. */
+  playing?: string | null;
 }
 
 /* An annotation made on the running site: what is wrong, where it was seen,

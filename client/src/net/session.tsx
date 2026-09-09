@@ -209,11 +209,24 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => socket.onState(setConn), []);
 
+  /* Whatever was pushed while the socket was down was pushed to nobody. The
+     one push worth recovering is a table that started, which `/api/me` says,
+     so it is asked again on every reopen after the first. */
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (conn !== 'open') return;
+    if (wasOpen.current) void refreshMe();
+    wasOpen.current = true;
+  }, [conn, refreshMe]);
+
   /* A remembered match is only offered once the server confirms it is still
      playing. It waits for `me` because the pill names the other seats, and
-     which seat is not yours is a question only an id answers. */
+     which seat is not yours is a question only an id answers. The server's
+     own answer (`me.playing`) comes first: it is the one a match that
+     started while this browser's socket was down leaves behind, and it is
+     read again on every reconnect below. */
   useEffect(() => {
-    const id = readLiveMatch();
+    const id = me?.playing ?? readLiveMatch();
     if (!id || !me) return;
     let live = true;
     api

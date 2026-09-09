@@ -260,6 +260,14 @@ is an `err` with `c: 'ranked_locked'` carrying the sentence the client prints;
 `/api/me` sends `rankedUnlocked` so the picker can disable the control rather
 than let somebody press a button that answers no.
 
+`/api/me` also sends `playing`: the id of the match this player is seated at
+right now, read off `roomForPlayer` and only while that room is still
+`active`, since a finished room lingers a minute before it is unregistered.
+It is the answer for a socket that was down when the match was created (a
+challenge accepted while the creator's phone was off sending the link), and
+the client refetches it on every reconnect. `challenge.test.ts` pins it on
+both seats after an accept.
+
 Challenge links and home games are **not** gated. Those are two people who
 have arranged a game, and the point of the gate is a first hand against a
 stranger.

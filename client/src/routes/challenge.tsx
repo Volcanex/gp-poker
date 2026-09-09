@@ -28,6 +28,10 @@ export function Challenge() {
   const [missing, setMissing] = useState(false);
   const [accepting, setAccepting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /* The creator's own spent link: true once the server has said the match
+     it started is already over, which is the only case the creator is shown
+     a spent page for rather than the table. */
+  const [over, setOver] = useState(false);
   useTitle(link ? `Play ${link.creator.name}` : null);
 
   useEffect(() => {
@@ -42,6 +46,46 @@ export function Challenge() {
       live = false;
     };
   }, [id]);
+
+  const mine = me?.id === link?.creator.id;
+
+  /* The creator on their own link. Waiting, the page asks every five seconds
+     whether the friend has arrived, because the socket that would say so is
+     the one a phone drops while its owner is off sending the link; taken,
+     it walks to the table if the match is still on, since a creator who
+     followed their own link back is looking for their game and not for a
+     notice that it exists. A match already over is a spent link. */
+  useEffect(() => {
+    if (!link || !mine) return;
+    let live = true;
+    if (link.status === 'open') {
+      const ask = () => api.challenge(id).then((c) => live && setLink(c)).catch(() => {});
+      const timer = setInterval(ask, 5_000);
+      const onShow = () => {
+        if (document.visibilityState === 'visible') void ask();
+      };
+      document.addEventListener('visibilitychange', onShow);
+      return () => {
+        live = false;
+        clearInterval(timer);
+        document.removeEventListener('visibilitychange', onShow);
+      };
+    }
+    if (link.status === 'accepted' && link.matchId) {
+      const m = link.matchId;
+      api
+        .match(m)
+        .then((match) => {
+          if (!live) return;
+          if (match.status === 'playing') nav(`/m/${m}`, { replace: true });
+          else setOver(true);
+        })
+        .catch(() => live && setOver(true));
+    }
+    return () => {
+      live = false;
+    };
+  }, [link, mine, id, nav]);
 
   const accept = useCallback(async () => {
     setAccepting(true);
@@ -70,18 +114,20 @@ export function Challenge() {
     );
   }
 
-  if (!link) {
+  /* The creator's taken link is a table being opened, until the server says
+     the match is over. */
+  const opening = link != null && mine && link.status === 'accepted' && link.matchId != null && !over;
+
+  if (!link || opening) {
     return (
       <Shell>
         <div className="searching">
           <span className="spinner" aria-hidden="true" />
-          <span className="muted">Opening the challenge</span>
+          <span className="muted">{opening ? 'Opening your table' : 'Opening the challenge'}</span>
         </div>
       </Shell>
     );
   }
-
-  const mine = me?.id === link.creator.id;
 
   if (link.status === 'expired' || link.status === 'cancelled') {
     const expired = link.status === 'expired';
@@ -104,13 +150,15 @@ export function Challenge() {
     return (
       <Shell>
         <div className="empty">
-          <h1 className="e-title">This challenge was already taken</h1>
+          <h1 className="e-title">{mine ? 'This link has been played' : 'This challenge was already taken'}</h1>
           <span className="e-desc">
-            {mine ? 'Your link has been used.' : 'Somebody opened this link first.'}
+            {mine ? 'Your friend opened it and the match is over.' : 'Somebody opened this link first.'}
           </span>
           <span className="tags">
             {link.matchId && (
-              <Link className="btn btn-secondary btn-sm" to={`/m/${link.matchId}`}>Go to the match</Link>
+              <Link className="btn btn-secondary btn-sm" to={`/m/${link.matchId}`}>
+                {mine ? 'See the match' : 'Go to the match'}
+              </Link>
             )}
             <Link className="btn btn-tertiary btn-sm" to="/">Go to the home page</Link>
           </span>

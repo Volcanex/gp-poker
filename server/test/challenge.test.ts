@@ -99,6 +99,8 @@ describe('challenge links', () => {
     await bobWs.messages.wait((m) => m.t === 'hi');
 
     const { id } = (await create(alice)).json();
+    const before = (await app.inject({ method: 'GET', url: '/api/me', headers: auth(alice) })).json();
+    expect(before.playing).toBeNull();
     const res = await accept(bob, id);
     expect(res.statusCode).toBe(200);
     const { matchId } = res.json() as { matchId: string };
@@ -120,6 +122,13 @@ describe('challenge links', () => {
     const view = (await app.inject({ method: 'GET', url: `/api/challenges/${id}` })).json();
     expect(view.status).toBe('accepted');
     expect(view.matchId).toBe(matchId);
+
+    // A creator whose socket was down when the link was taken has only this
+    // to find the table by, so both seats read it off /api/me too.
+    for (const s of [alice, bob]) {
+      const me = (await app.inject({ method: 'GET', url: '/api/me', headers: auth(s) })).json();
+      expect(me.playing).toBe(matchId);
+    }
 
     aliceWs.ws.close();
     bobWs.ws.close();

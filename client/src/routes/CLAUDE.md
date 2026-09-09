@@ -164,6 +164,23 @@ instead: the host holds a seat like everybody else and says when it starts, and
 everyone seated is pushed a `lobby` message on every change so the page fills in
 without polling. A page whose socket is not open asks again every five seconds.
 
+**The creator of a challenge is not left to the push.** The thing a creator
+does after making a link is leave the tab to send it, and a phone drops the
+socket while they are away, so the `q found` that answers the accept reaches
+nobody. So both places a creator waits also ask: the home page's "Link
+waiting" row and the creator's own `/c/:id` page poll the link every five
+seconds and again the moment the tab is visible again, and a link that has
+been taken for a match still being played is walked to (`settleChallenge` in
+`home.tsx`, `/m/:id` with `replace` on the link page), the same walk the home
+page makes on `q found`. A taken link whose match is already over is simply
+spent, so a creator coming back hours later is not bounced into a finished
+game; the link page says so and offers the match to look at. The creator
+following their own taken link used to get "this challenge was already taken"
+and a button, which is what the owner met the first time he sent one. Under
+all of that, `/api/me` carries `playing` and the session refetches it on
+every reconnect (`../net/CLAUDE.md`), so the top bar's pill knows about the
+match wherever the creator went.
+
 `home-game-seats.ts` is the pure half of the lobby: who is sitting where, and
 what happens to the chairs nobody took. `ShareLink` (`../ui/share-link.tsx`) is
 the address row both pages use. A home game is **rated only with two humans in

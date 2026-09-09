@@ -67,6 +67,14 @@ const BAND_STATS = '(min-width: 1100px)';
    instead, the way they always have. */
 const TOP_BAR_ACTS = '(min-width: 900px)';
 
+/* A phone. The game panel is a 340 px card, which on a 390 px screen is a
+   row nearly as tall as the felt it sits over; below this the hand's
+   readings stand in the felt and the actions in `.hand-head`, whatever the
+   setting says, since the setting is about where a panel goes on a screen
+   that has room for one. The number is the felt's own narrow container
+   query in `../app.css`. */
+const PHONE = '(max-width: 560px)';
+
 /* The hand-end sequence, in the order the eye needs it: the cards turn over,
    then the five that count are outlined and the rest of the board goes quiet,
    then the chips move. Each number is the moment that step starts. */
@@ -103,7 +111,8 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
      setting (`ui/prefs.ts`), read live because which placement is on
      decides this component's own DOM shape. */
   const info = useTableInfo();
-  const panelMode = info === 'panel' && !bare;
+  const phone = useMedia(PHONE);
+  const panelMode = info === 'panel' && !bare && !phone;
   /* Wired on whichever render actually mounts the span, wherever it is: the
      portal's own node arrives a render after `topActs` does, crossing 900
      swaps one span for the other, and switching the setting swaps the top

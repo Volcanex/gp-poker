@@ -41,7 +41,7 @@ import { readCountry } from './countries.js';
 import { config, shownAsBot } from './config.js';
 import { hub } from './ws/hub.js';
 import { queueSize, rankedUnlocked } from './matchmaking.js';
-import { getRoom } from './match/rooms.js';
+import { getRoom, roomForPlayer } from './match/rooms.js';
 import { claimGuest, login, requireUser, setSessionCookie, clearSessionCookie, createSessionForUser, SESSION_COOKIE } from './auth.js';
 import { rosterSummary } from './bots/index.js';
 import { onlineCount as populationOnlineCount } from './bots/population.js';
@@ -693,6 +693,15 @@ function meBody(user: UserRow, ratings: Record<Mode, RatingRow>, unlocked: boole
        running, including one that has already expired. */
     walkoutStrikes: walkoutStrikesNow(user.walkoutStrikes, user.walkoutAt?.getTime() ?? null, banNow),
     rankedBanUntil: banUntil !== null && banUntil > banNow ? banUntil : null,
+    /* The match this player is seated at right now, or null. The socket is
+       how a player is told their table has started, and a phone drops the
+       socket the moment its owner switches to a messaging app to send a
+       challenge link: the `q found` for the match their friend then opened
+       is pushed to nobody. This is the answer that survives the gap, read
+       off the live rooms rather than a query, and the client refreshes it on
+       every reconnect. A finished room lingers a minute before it is
+       unregistered, so it is asked whether it is still active. */
+    playing: playingNow(user.id),
     peak: headsUp.peak,
     peakAt: headsUp.peakAt,
     matches: headsUp.matches,
@@ -700,6 +709,11 @@ function meBody(user: UserRow, ratings: Record<Mode, RatingRow>, unlocked: boole
     losses: headsUp.losses,
     draws: headsUp.draws,
   };
+}
+
+function playingNow(userId: string): string | null {
+  const room = roomForPlayer(userId);
+  return room?.active ? room.id : null;
 }
 
 /* The absolute address of this site as the caller reached it, which is the

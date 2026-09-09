@@ -852,6 +852,49 @@ unit tested:
 `layoutMode` survives only because `../chat/chat.css` keys the chat panel's
 placement on `.felt[data-mode]`; the felt itself no longer has two shapes.
 
+### Heads-up on a phone
+
+One exception to "one geometry", and it is the case the owner met first: a
+seated player at a two seat table on a phone (`.match[data-band]
+.felt[data-mode="stack"]` inside the felt's 560 px container query in
+`../app.css`). The geometry above reserves three seat rows in two columns, so
+on a 390 px screen the one opponent stood in a half-width card at the top of
+an empty left column with the board over it and two thirds of the felt bare
+green; his words for it were a bad version of the desktop. There the felt is
+read top to bottom the way the table is sat: the opponent across the top,
+full width and at the desktop seat's size (picture, 28 px cards, name at 13
+px, the rack beside a 20 px figure, the marker back in the flow; not the
+rating, which cost the name its last three letters), then the board at 56 px
+cards, the pot and the readings centred in the room left, with the slack
+split above and below them by two `1fr` rows. Every other track is fixed and
+the two slack rows divide what a given screen leaves over, so the footprint
+rule holds. `.felt-in` takes `flex: 1 0 auto` so those rows have a height to
+divide and a short screen scrolls the felt rather than squashing a row; under
+700 px tall (an iPhone SE) the board and the pot's box each give up ten so
+the readings stay above the fold. A spectator's felt keeps the geometry
+above, because the bottom seat is a player's and still has to be placed. The
+ended match keeps the shape (`data-ended` as well as `data-band`): the band
+leaves with the match, and without this the felt under the result panel fell
+back to the half-width opponent in an empty column; ended, the slack rows are
+nought and your own seat, drawn again once the band is gone, takes a last
+full-width row, so the finished table reads opponent, board, you.
+
+**The game panel is not drawn on a phone.** `PHONE` in `table.tsx` (the same
+560) turns `panelMode` off whatever the setting says: a 340 px card over a
+390 px felt was a row nearly as tall as the felt, and the setting is about
+where a panel goes on a screen with room for one. So a phone is always `seat`
+mode: the actions in `.hand-head`, the readings in the felt, which on the
+heads-up felt is one quiet line under the pot with no box round it.
+
+**The stats box's narrow rules follow its wide ones in `../app.css`, and
+must.** They stood inside the 1060 container query with the rest of the
+geometry, above the box's own rule, so every declaration the two shared
+(height, width, display, padding) went to the rule later in the file, and
+below 1060 in `seat` mode the box stood a seat's size in a seat row nobody
+had reserved for it. The placement alone now stands with the middle's, so the
+query can re-place it; the rest of the narrow rules stand in a query of their
+own directly after the box's rule.
+
 ### The seat
 
 One card, one row, one edge. Left to right: the avatar, the two cards (backs,
@@ -890,6 +933,10 @@ the seat: the band's result line says it.
 
 `SeatView.out` seats render dimmed to 45% with their place ("4th") where the
 stack would be, and `SeatView.bot` gets a small mark beside the name.
+
+The phone rule that stands the button marker in the seat's corner is scoped
+to `.seat .btn-marker`: the band draws a marker on its own name line too, and
+an unscoped absolute rule stood that one in the top left corner of `.match`.
 
 ### The stats box
 
