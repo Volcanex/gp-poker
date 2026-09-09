@@ -201,6 +201,11 @@
    width. The declarations are g's own 720px block, applied by the attribute
    instead of by a media query. */
 .site[data-sheet] .g-nav-toggle { display: inline-flex; }
+/* Just the icon, no button ground under it: the rim read as a control next
+   to the wordmark rather than as the wordmark's own affordance. The hover
+   fill still comes from `.btn-tertiary`, so the press still has feedback. */
+.g-nav-toggle { --_edge: transparent; }
+.g-nav-toggle .gi { width: 18px; height: 18px; }
 @media (min-width: 721px) {
   .site[data-sheet] .g-shell.shell { grid-template-columns: 1fr; }
   .site[data-sheet] .g-shell.shell > aside {
