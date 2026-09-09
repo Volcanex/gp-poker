@@ -371,7 +371,7 @@ export class EngineHandRunner implements HandRunner {
         ...(info.country ? { country: info.country } : {}),
         rating: info.rating,
         connected: presence[i]?.connected ?? true,
-        bot: shownAsBot(info.bot),
+        bot: shownAsBot(info.bot, this.practice),
         avatarV: info.avatarV ?? 0,
         out: e === null,
         place: this.places[i],

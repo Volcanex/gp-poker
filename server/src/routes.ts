@@ -360,7 +360,7 @@ export function registerRoutes(app: FastifyInstance): void {
         handId: hand.id,
         matchId: hand.matchId,
         number: hand.number,
-        seats: match.seats.map((s) => ({ seat: s.seat, name: s.name, bot: shownAsBot(s.bot) })),
+        seats: match.seats.map((s) => ({ seat: s.seat, name: s.name, bot: shownAsBot(s.bot, match.format.practice === true) })),
         button: hand.button,
         sb,
         bb,
@@ -439,7 +439,7 @@ export function registerRoutes(app: FastifyInstance): void {
         uid: s.userId,
         avatarV: s.avatarV ?? 0,
         name: s.name,
-        bot: shownAsBot(s.bot),
+        bot: shownAsBot(s.bot, isPractice(m.format)),
         rating: Math.round(s.rating),
         country: s.country ?? null,
       })),
@@ -790,7 +790,7 @@ function toFeedMatch(m: MatchRow) {
       // when they played rather than the one they have now.
       avatarV: s.avatarV ?? 0,
       name: s.name,
-      bot: shownAsBot(s.bot),
+      bot: shownAsBot(s.bot, isPractice(m.format)),
       // The seat's own snapshot, not the player's flag today: a feed row says
       // what the table looked like, the same way it says what they were rated.
       country: s.country ?? null,

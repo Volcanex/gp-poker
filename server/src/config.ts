@@ -99,8 +99,10 @@ export const config = {
    every public payload (profiles, feeds, seats, chat, arena boards) carries
    `bot: false` for them. The database row keeps `bot = true` regardless: this
    is presentation, and the reset script and the roster still know who is who.
+   A practice table is the exception: there the person chose to play bots, so
+   its bots are shown as bots (and carry no flag, see matchmaking.ts).
    The practice picker's own roster (`/api/bots`) is the one place bots are
    listed as bots on purpose, and it does not go through here. */
-export function shownAsBot(isBot: boolean | null | undefined): boolean {
-  return isBot === true && !config.populationPublic;
+export function shownAsBot(isBot: boolean | null | undefined, practice = false): boolean {
+  return isBot === true && (practice || !config.populationPublic);
 }

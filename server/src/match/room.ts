@@ -230,7 +230,7 @@ export class MatchRoom {
 
     const seatIndex = this.playerIds.indexOf(userId);
     const seat = seatIndex === -1 ? null : seatIndex;
-    const from: ChatFrom = { id: user.id, name: user.name, bot: shownAsBot(user.bot), seat, avatarV: user.avatarV };
+    const from: ChatFrom = { id: user.id, name: user.name, bot: shownAsBot(user.bot, this.match.format.practice === true), seat, avatarV: user.avatarV };
     const line: ChatLine = { t: 'chat', m: this.id, from, text, at };
 
     if (seat === null) {

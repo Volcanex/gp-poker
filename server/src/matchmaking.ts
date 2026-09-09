@@ -267,7 +267,8 @@ export async function createMatchForPlayers(
       rating: Math.round(standings.get(u!.id)!.rating),
       bot: u!.bot,
       avatarV: u!.avatarV,
-      ...(u!.country ? { country: u!.country } : {}),
+      // A practice table's bots are bots, not people from somewhere: no flag.
+      ...(u!.country && !(format.practice === true && u!.bot) ? { country: u!.country } : {}),
     }));
     try {
       const match = await insertMatch(id, format, seats, format.rated);

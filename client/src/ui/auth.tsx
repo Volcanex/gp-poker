@@ -123,7 +123,11 @@ export function AccountMenu() {
             and the first thing dropped when the bar narrows: the rating is
             what somebody checks here, and the level is what they look at on
             the profile. Nothing until a match has actually been finished. */}
-        {me && levelOf(me) > 0 && <span className="lv num">Lv {levelOf(me)}</span>}
+        {me && levelOf(me) > 0 && (
+          <span className="lv num" title={`Level ${levelOf(me)}`} aria-label={`Level ${levelOf(me)}`}>
+            {levelOf(me)}
+          </span>
+        )}
       </button>
 
       <div className="menu" popover="auto" id="account-menu" role="menu">
