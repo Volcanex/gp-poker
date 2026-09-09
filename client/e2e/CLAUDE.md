@@ -23,6 +23,11 @@ street at a time behind a count. It is a script of its own rather than steps
 spliced into the heads-up one, because every spec here freezes a step by
 number and a step inserted in the middle moves every picture after it.
 
+`?rated=casual` runs the same script unrated, and that flag is stamped on the
+**views** as well as on the result: the watch bar's badge and the table's leave
+control both ask whether the game in front of them is rated, and a mock that
+only said so at the end could stage neither.
+
 The mock deals in the names people actually get (two CamelCase words, up to
 sixteen characters), because a mock dealing seven-letter lowercase names hid a
 truncation defect no test could see.

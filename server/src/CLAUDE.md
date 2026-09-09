@@ -263,6 +263,57 @@ Challenge links and home games are **not** gated. Those are two people who
 have arranged a game, and the point of the gate is a first hand against a
 stranger.
 
+## Walkouts and ranked bans
+
+`walkouts.ts` owns them, and is `ready.ts`'s opposite number in every way but
+one. A **walkout** is a ranked match ended early by the player it was ended
+for: `resign` from the table's leave control, or the heads-up forfeit the
+clock takes after three timeouts, which is also where a connection that never
+came back lands (`handleGraceExpiry` becomes a clock expiry). Casual and
+practice are never walkouts and a bot is never charged one.
+
+The one difference from the ready check is **where the state lives**. A
+no-show cooldown is in memory on the argument that a penalty nobody could see
+the reason for should not survive a deploy. A walkout is the other case: the
+opponent lost their game over it, so it is columns on `users`
+(`walkout_strikes`, `walkout_at`, `ranked_ban_until`).
+
+Strikes decay at one a day and **nothing sweeps them**. The count and the
+moment it was written are stored together and `walkoutStrikesNow` subtracts a
+strike per whole day on read, which is the answer a nightly job would reach
+without a nightly job existing. `chargeWalkout` lands the new strike on the
+decayed count, so three walkouts last week and one today is one strike.
+
+The ladder (`WALKOUT_BAN_MS` in the protocol, by the strike count *after* this
+walkout) is 1 free, 2 five minutes, 3 thirty minutes, 4 two hours, 5 or more
+eight hours. It is in the protocol and not here because the modal that warns
+what leaving will cost has to name the number the ban will be, and two copies
+of the table drift until the warning starts lying. A ban already running is
+never shortened by a fresh walkout.
+
+**Four ranked doors ask about a ban**, and unlike the gate above that includes
+the two arranged games, because the ban is about a match somebody walked out
+of rather than about playing a stranger:
+
+| Door | Where | Refusal |
+| --- | --- | --- |
+| the rated queue | `enqueue` | `err` with `c: 'ranked_ban'` |
+| an arena | `joinArena` | 409 |
+| a rated challenge link | `acceptChallenge`, **both seats** | 409 |
+| a rated home game | `startHomeGame` | 409 |
+
+The challenge asks about the creator as well as the person accepting: a banned
+player who sent the link would otherwise be dealt into a rated match by
+somebody else pressing the button. The home game asks in `startHomeGame`
+*after* it has worked out whether the table is rated at all, not at its door,
+because a table that drops to casual for want of a second human is not a
+ranked door and nobody should be kept out of it.
+
+`/api/me` carries `walkoutStrikes` and `rankedBanUntil` (epoch ms, null when
+none is running) so the play panel can disable ranked and say why, the same
+bargain `rankedUnlocked` makes. The sentence both the refusals and the panel
+use is `rankedBanText`, one function, because two wordings read as two rules.
+
 ## The ready check
 
 `ready.ts` owns it, and owns nothing about where the players came from: the
