@@ -11,7 +11,7 @@ import {
   testFormat,
   unlockRanked,
 } from './helpers.js';
-import { createMatchForPlayers, tick } from '../src/matchmaking.js';
+import { __queueForTest, createMatchForPlayers, dequeue, enqueue, tick } from '../src/matchmaking.js';
 import { resetReadyChecks } from '../src/ready.js';
 import { getMatchById, getRatingHistoryForUser, sql } from '../src/db.js';
 
@@ -83,6 +83,40 @@ describe('matchmaking', () => {
     expect(match).not.toBeNull();
     expect(match!.seats.map((s) => s.userId).sort()).toEqual([a.id, b.id].sort());
 
+    connA.ws.close();
+    connB.ws.close();
+  });
+
+  it('pairs two people before either is given a bot that was searching first', async () => {
+    const a = await mintGuestSession(app);
+    const b = await mintGuestSession(app);
+    createdUserIds.push(a.id, b.id);
+    const [bot] = await sql<{ id: string }[]>`select id from users where bot limit 1`;
+    expect(bot).toBeDefined();
+    // The bot has been searching longest, so the ordinary order would hand
+    // it the first person to arrive.
+    await enqueue(bot.id, 'heads-up', false, 'standard');
+
+    const connA = await connectWs(wsUrl, a.token);
+    const connB = await connectWs(wsUrl, b.token);
+    await connA.messages.wait((m) => m.t === 'hi');
+    await connB.messages.wait((m) => m.t === 'hi');
+    connA.ws.send(JSON.stringify({ t: 'queue', mode: 'heads-up', rated: false, speed: 'standard' }));
+    connB.ws.send(JSON.stringify({ t: 'queue', mode: 'heads-up', rated: false, speed: 'standard' }));
+    await connA.messages.wait((m) => m.t === 'q' && m.s === 'searching');
+    await connB.messages.wait((m) => m.t === 'q' && m.s === 'searching');
+
+    await tick();
+    const readyA = await connA.messages.wait((m) => m.t === 'ready' && m.s === 'pending');
+    const readyB = await connB.messages.wait((m) => m.t === 'ready' && m.s === 'pending');
+    expect(readyA.id).toBe(readyB.id);
+    expect(readyA.humans).toBe(2);
+    // The bot is still searching: nobody was given it.
+    expect(__queueForTest().has(bot.id)).toBe(true);
+
+    dequeue(bot.id);
+    connA.ws.send(JSON.stringify({ t: 'ready', a: false }));
+    resetReadyChecks();
     connA.ws.close();
     connB.ws.close();
   });

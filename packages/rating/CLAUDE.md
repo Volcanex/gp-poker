@@ -26,7 +26,10 @@ matchmaking or displaying their rating.
 
 ## Matchmaking
 `pairQueue` is pure and stateless; the server ticks it once a second
-against its live queue and applies whatever pairs come back. `window(entry,
+against its live queue and applies whatever pairs come back. Both it and
+`groupQueue` take an optional `reach` in place of `window`; `anyone` is the
+one that ignores rating altogether, which is what the server uses for its
+people-only pass. `window(entry,
 now)` is `max(100, 2*rd) + 50` per 5 seconds waited, capped at 1000, and
 unbounded (`Infinity`) once an entry has waited 60 seconds or more, so
 nobody queues forever. A pair only forms when the rating gap sits inside

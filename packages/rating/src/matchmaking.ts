@@ -15,6 +15,13 @@ const WINDOW_STEP_MS = 5000;
 const WINDOW_CAP = 1000;
 const WINDOW_UNBOUNDED_MS = 60000;
 
+/* How far a pairing may reach in rating for an entry at this moment. The
+   default is `window`, which opens with the wait; a caller that wants two
+   entries paired whatever the gap passes `anyone`. */
+export type Reach = (entry: QueueEntry, now: number) => number;
+
+export const anyone: Reach = () => Infinity;
+
 export function window(entry: QueueEntry, now: number): number {
   const waited = now - entry.joinedAt;
   if (waited >= WINDOW_UNBOUNDED_MS) return Infinity;
@@ -27,21 +34,21 @@ export function window(entry: QueueEntry, now: number): number {
 // pair only forms when the rating gap sits inside both sides' windows.
 // Sorting by joinedAt then id makes the result deterministic for equal
 // timestamps.
-export function pairQueue<T extends QueueEntry>(entries: T[], now: number): [T, T][] {
+export function pairQueue<T extends QueueEntry>(entries: T[], now: number, reach: Reach = window): [T, T][] {
   const ordered = [...entries].sort((a, b) => a.joinedAt - b.joinedAt || a.id.localeCompare(b.id));
   const paired = new Set<string>();
   const pairs: [T, T][] = [];
 
   for (const entry of ordered) {
     if (paired.has(entry.id)) continue;
-    const entryWindow = window(entry, now);
+    const entryWindow = reach(entry, now);
 
     let best: T | null = null;
     let bestDiff = Infinity;
     for (const other of ordered) {
       if (other.id === entry.id || paired.has(other.id)) continue;
       const diff = Math.abs(entry.rating - other.rating);
-      if (diff > entryWindow || diff > window(other, now)) continue;
+      if (diff > entryWindow || diff > reach(other, now)) continue;
       if (
         diff < bestDiff ||
         (diff === bestDiff && best !== null && (other.joinedAt < best.joinedAt || (other.joinedAt === best.joinedAt && other.id < best.id)))
@@ -68,10 +75,10 @@ export function pairQueue<T extends QueueEntry>(entries: T[], now: number): [T, 
    whole group is left in the queue rather than half-consumed, so the next
    anchor can still reach it. Entries past WINDOW_UNBOUNDED_MS have an
    infinite window and so accept anyone who accepts them. */
-export function groupQueue<T extends QueueEntry>(entries: T[], size: number, now: number): T[][] {
+export function groupQueue<T extends QueueEntry>(entries: T[], size: number, now: number, reach: Reach = window): T[][] {
   if (size < 2) return [];
   const ordered = [...entries].sort((a, b) => a.joinedAt - b.joinedAt || a.id.localeCompare(b.id));
-  const windows = new Map(ordered.map((e) => [e.id, window(e, now)]));
+  const windows = new Map(ordered.map((e) => [e.id, reach(e, now)]));
   const used = new Set<string>();
   const groups: T[][] = [];
 

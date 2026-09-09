@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { groupQueue, pairQueue, widenRd, window as ratingWindow, type QueueEntry } from '@opentable/rating';
+import { anyone, groupQueue, pairQueue, widenRd, window as ratingWindow, type QueueEntry } from '@opentable/rating';
 import {
   DEFAULT_MODE,
   DEFAULT_SPEED,
@@ -54,6 +54,10 @@ interface QueuedPlayer extends QueueEntry {
   modes: Mode[];
   speeds: Speed[];
   rated: boolean;
+  /* A population bot searching the ordinary queue. Both ticks pair the people
+     among themselves before anything else is considered: a bot is what a
+     person gets when no other person wants the same table. */
+  bot: boolean;
 }
 
 /* One map, and the buckets are built per tick from what each search accepts.
@@ -182,15 +186,16 @@ export async function enqueue(
     modes,
     speeds,
     rated,
+    bot: user.bot,
   };
   queue.set(userId, entry);
   sendSearching(entry, countIn(mode, rated, speed));
 }
 
 // How many people are searching right now, for the home page's stats strip.
-// Bots are never enqueued, so every entry is a human.
+// The population's bots search the same queue and are not people.
 export function queueSize(): number {
-  return queue.size;
+  return [...queue.values()].filter((e) => !e.bot).length;
 }
 
 /* Practice: no queue, no wait, no rating. The seats around the player are
@@ -402,8 +407,23 @@ function meanRating(entries: QueuedPlayer[]): number {
   return entries.reduce((sum, e) => sum + e.rating, 0) / entries.length;
 }
 
+/* People first, whatever the gap. Two people who want the same table are
+   paired the moment both are there, closest ratings first but with no rating
+   window at all: on a site this size a person is worth more than a close
+   rating, and the alternative was one of them dealt in against a bot by
+   the fill below while the other searched. Only then are the bots in the
+   queue considered, on the ordinary windows, for whoever is left. */
+function people(entries: QueuedPlayer[]): [QueuedPlayer[], QueuedPlayer[]] {
+  return [entries.filter((e) => !e.bot), entries.filter((e) => e.bot)];
+}
+
 async function tickHeadsUp(entries: QueuedPlayer[], format: MatchFormat, now: number): Promise<void> {
-  for (const [a, b] of pairQueue(entries, now)) {
+  const [humans] = people(entries);
+  for (const [a, b] of pairQueue(humans, now, anyone)) {
+    if (!queue.has(a.id) || !queue.has(b.id)) continue;
+    launch([a, b], 0, format);
+  }
+  for (const [a, b] of pairQueue(entries.filter((e) => queue.has(e.id)), now)) {
     if (!queue.has(a.id) || !queue.has(b.id)) continue;
     launch([a, b], 0, format);
   }
@@ -422,12 +442,21 @@ async function tickHeadsUp(entries: QueuedPlayer[], format: MatchFormat, now: nu
 }
 
 async function tickMultiway(entries: QueuedPlayer[], format: MatchFormat, now: number): Promise<void> {
-  for (const group of groupQueue(entries, format.players, now)) {
+  const [persons] = people(entries);
+  for (const group of groupQueue(persons, format.players, now, anyone)) {
+    if (group.some((e) => !queue.has(e.id))) continue;
+    launch(group, 0, format);
+  }
+  for (const group of groupQueue(entries.filter((e) => queue.has(e.id)), format.players, now)) {
     if (group.some((e) => !queue.has(e.id))) continue;
     launch(group, 0, format);
   }
 
-  const waiting = entries.filter((e) => queue.has(e.id)).sort((a, b) => a.joinedAt - b.joinedAt);
+  /* The fill seats every person waiting here first, longest wait first,
+     and only then the bots that were searching alongside them. */
+  const waiting = entries
+    .filter((e) => queue.has(e.id))
+    .sort((a, b) => Number(a.bot) - Number(b.bot) || a.joinedAt - b.joinedAt);
   if (waiting.length === 0) return;
   if (now - waiting[0].joinedAt < BOT_FILL_SIX_MAX_MS) return;
 

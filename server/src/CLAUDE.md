@@ -440,12 +440,23 @@ them (the rating row for the mode being queued for, not their heads-up one) and
 immediately replies `q searching` with the mode, the rated flag, the current
 `window()` range and, for a multiway table, `seated`.
 
-A 1s `setInterval` walks each bucket. Heads-up pairs humans with `pairQueue`;
+A 1s `setInterval` walks each bucket. Heads-up pairs with `pairQueue`;
 six-max gathers with `groupQueue(entries, 6, now)`, where the longest waiter
 anchors a group and pulls in the closest-rated entries that sit inside its window
 and each other's. **An anchor that cannot fill a whole table is left in the queue
 rather than half-consumed.** Both pairing functions are `@opentable/rating`'s, so
 the arithmetic is pure and tested there.
+
+**People first, whatever the gap.** The population's bots search the same
+queue (`QueuedPlayer.bot`), and both ticks run twice: once over the people
+alone with the rating window off (`anyone`), so two people who want the same
+table are paired the moment both are there, closest ratings first; then over
+whoever is left, bots included, on the ordinary windows. The six-max fill
+seats every waiting person before any bot that was searching alongside them.
+On a site this size a person is worth more than a close rating, and the
+alternative was one of two friends dealt in against a bot by the fill while
+the other searched. `matchmaking.test.ts` pins it with a bot that has been
+searching longest. `queueSize` counts people only.
 
 A gathered table is **offered before it is created**: `launch` takes everybody
 out of the queue and opens a ready check, and only an accepted one reaches

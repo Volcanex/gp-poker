@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupQueue, pairQueue, window, type QueueEntry } from '../src/matchmaking.js';
+import { anyone, groupQueue, pairQueue, window, type QueueEntry } from '../src/matchmaking.js';
 
 function mulberry32(seed: number) {
   let a = seed;
@@ -147,5 +147,17 @@ describe('groupQueue', () => {
     const groups = groupQueue(entries, 3, 1000);
     expect(groups.length).toBe(1);
     expect(groups[0].map((e) => e.id).sort()).toEqual(['p1', 'p2', 'p3']);
+  });
+});
+
+describe('reach', () => {
+  it('pairs and groups across any gap when told to', () => {
+    const a: QueueEntry = { id: 'a', rating: 1200, rd: 50, joinedAt: 0 };
+    const b: QueueEntry = { id: 'b', rating: 2200, rd: 50, joinedAt: 1 };
+    const c: QueueEntry = { id: 'c', rating: 1700, rd: 50, joinedAt: 2 };
+    expect(pairQueue([a, b], 0)).toEqual([]);
+    expect(pairQueue([a, b], 0, anyone)).toEqual([[a, b]]);
+    expect(groupQueue([a, b, c], 3, 0)).toEqual([]);
+    expect(groupQueue([a, b, c], 3, 0, anyone)).toEqual([[a, c, b]]);
   });
 });
