@@ -6,6 +6,15 @@ export interface RoomClock {
   paused: boolean;
 }
 
+/* What the room knows about a seat that the hand runner does not: whether
+   its player has a socket open, and whether they are sitting out. One object
+   per seat rather than a boolean array per fact, because there have now been
+   two of them and a third would be a third array to keep in step. */
+export interface SeatPresence {
+  connected: boolean;
+  sittingOut: boolean;
+}
+
 // Everything finishMatch needs to persist and to report, richer than the
 // wire-level MatchResult because it carries the Glicko-2 volatility that
 // never goes out over the wire. Constructed by whoever decides the match is
@@ -25,11 +34,11 @@ export interface MatchOutcome {
 /* The seam between orchestration and game state. MatchRoom owns
    subscribers, the wall clock, disconnect grace, persistence and rating
    writeback on finish, and never touches a HandState directly, only
-   through this interface. viewFor takes the room's clock and connectivity
-   state as parameters rather than the hand runner tracking disconnects
+   through this interface. viewFor takes the room's clock and per-seat
+   presence as parameters rather than the hand runner tracking either
    itself: masking hole cards is the engine's job, but whose turn it is on
-   the wall clock, and who is currently connected, are orchestration
-   concerns the hand runner shouldn't need to know about. */
+   the wall clock, who is currently connected and who is sitting out are
+   orchestration concerns the hand runner shouldn't need to know about. */
 export interface HandRunner {
   startHand(number: number): Promise<void>;
   // Returns whether the action actually changed state. A rejected action
@@ -54,5 +63,5 @@ export interface HandRunner {
   isDone(): boolean; // true once the whole MATCH is decided (bust or hands played out), not just the current hand
   matchResult(): MatchOutcome | null; // non-null once isDone()
   currentStacks(): Record<string, number>; // live stacks, for a forced forfeit that isn't isDone()
-  viewFor(userId: string | null, clock: RoomClock | null, connected: boolean[]): TableView | null;
+  viewFor(userId: string | null, clock: RoomClock | null, presence: SeatPresence[]): TableView | null;
 }

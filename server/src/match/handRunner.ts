@@ -26,7 +26,7 @@ import type {
 import { getRatingsForUsers, insertHand, updateHand, updateMatchHandsPlayed, type HandStudy, type MatchRow, type MatchSeat } from '../db.js';
 import { hub } from '../ws/hub.js';
 import { computeMatchRatings } from './rating.js';
-import type { HandRunner, MatchOutcome, RoomClock } from './types.js';
+import type { HandRunner, MatchOutcome, RoomClock, SeatPresence } from './types.js';
 
 // The hold a completed hand's result stays on screen for. It lives in the
 // protocol because the client counts the same number down in the dock, and two
@@ -354,7 +354,7 @@ export class EngineHandRunner implements HandRunner {
     return out;
   }
 
-  viewFor(userId: string | null, clock: RoomClock | null, connected: boolean[]): TableView | null {
+  viewFor(userId: string | null, clock: RoomClock | null, presence: SeatPresence[]): TableView | null {
     const state = this.state;
     const viewerTableSeat = userId !== null ? this.seatOf(userId) : null;
     const viewerEngineSeat = viewerTableSeat === null ? null : this.engineSeat(viewerTableSeat);
@@ -369,11 +369,14 @@ export class EngineHandRunner implements HandRunner {
         name: info.name,
         ...(info.country ? { country: info.country } : {}),
         rating: info.rating,
-        connected: connected[i] ?? true,
+        connected: presence[i]?.connected ?? true,
         bot: info.bot ?? false,
         avatarV: info.avatarV ?? 0,
         out: e === null,
         place: this.places[i],
+        // Absent rather than false: almost every seat in almost every hand
+        // is not sitting out, and the wire says so by not mentioning it.
+        ...(presence[i]?.sittingOut ? { sittingOut: true as const } : {}),
       };
       if (e === null) {
         return {
