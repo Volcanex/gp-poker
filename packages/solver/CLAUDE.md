@@ -17,9 +17,10 @@ runs unchanged on the server, in a script and in a browser worker.
 - **Not a preflop solver.** Preflop is the heuristic charts in
   `@opentable/preflop`, read with mixed frequencies at the boundaries. Solving
   preflop properly means solving everything behind it.
-- **Not an exploiter.** It tracks the opponent's range and widens its own reads
-  when their statistics say they are not playing like the charts, but it never
-  deviates to attack a leak. It plays its own game as well as it can.
+- **Not purely an equilibrium either.** It deviates in one place, deliberately,
+  and the place is documented below. An unmodified solve loses to level 5,
+  because equilibrium bluffs are made to keep a balanced opponent indifferent
+  and none of this site's other bots is balanced.
 
 ## The pieces
 
@@ -47,13 +48,20 @@ runs unchanged on the server, in a script and in a browser worker.
 - `solve.ts` - puts them together. The river is exact. The turn and the flop
   are **depth limited**: when the street closes without a fold the hand is
   worth its share of the pot at showdown, averaged over the cards still to
-  come, and no further betting is modelled.
+  come, and no further betting is modelled. That leaf is then discounted,
+  because a medium hand does not realise its raw equity against further
+  betting and a solver that believes it does will get a hundred big blinds in
+  with top pair.
 - `opponent.ts` - ranges through a hand. Preflop is a chart read of the line;
-  postflop every action leans the range by made hand strength on the board and
-  is then blended back towards a wide population prior.
+  postflop each of their actions leans the range by made hand strength on the
+  board, sharpened by how big the wager was and sharpest for a raise, and
+  damped against the range as it stood rather than against the population, so
+  a read that has already narrowed twice is not handed back.
 - `bot.ts` - `SolverBot.decide(view, rng, runner, budgetMs)`: the same
   `TableView` a browser gets in, one action or null out. Null means the spot is
-  not one it plays and the caller should ask an older level.
+  not one it plays and the caller should ask an older level. It also holds the
+  two things that are not the solve: the statistics kept on an opponent, and
+  the shaping applied to what comes back.
 
 ## Sizes and budgets
 
@@ -83,6 +91,36 @@ and stay there: what is left is the depth limited leaf, not the iteration
 count, and no amount of extra time moves it. Buying that back means solving the
 river subgames underneath the turn rather than valuing them by equity, which
 costs about two orders of magnitude.
+
+## The three things that are not the solve
+
+Each was worth more than the last, measured against level 5 at a hundred big
+blinds.
+
+**Our own range is tracked by the strategy we actually played**, not by the
+same lean an opponent's action gets. A solve says what every one of our combos
+does with the action we took, so this is exact and free. Getting it wrong makes
+our hand look like the top of a range it is not in, and the answer to that is a
+value bet with nothing to beat. The strategy applied is the shaped one below
+and not the solved one: what we tell ourselves we played has to be what we
+played.
+
+**Bluffs are cut against an opponent who does not fold.** A bluff of `b` into a
+pot of `p` needs them to fold `b / (p + b)` of the time to break even. The bot
+measures how often each opponent has actually folded to its bets and cuts the
+part of its range that loses to most of theirs in proportion to how far short
+of that price they are, and leans the top of its range onto the larger sizes by
+the same amount. Seeing a fold at all is why `observeResult` exists: a fold
+ends the hand and the bot is never asked again, so a bet nobody answered is
+counted when the next hand starts, unless somebody showed a hand.
+
+**The strategy is purified.** An average strategy is full of two percent
+branches that keep an equilibrium opponent honest. No opponent here is looking
+for the pattern, and the branches that survive at two percent are the ones the
+range model is least sure about, so anything under eight percent is dropped and
+what is left is sharpened. This is the standard purification and thresholding
+pair and it is known to help against opponents off the equilibrium, which is
+all of them.
 
 ## Nothing blocks for long
 

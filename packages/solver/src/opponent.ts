@@ -195,19 +195,35 @@ export function strengthOnBoard(board: number[]): Float32Array {
    hand the range holds, 1 the best. The overlay in bot.ts needs to know
    whether a hand is the top of what we could have or the bottom of it, which
    absolute strength does not say. */
-export function rankWithinRange(range: Range, board: number[], combo: number): number {
+export function ranksWithinRange(range: Range, board: number[]): Float32Array {
   const strength = strengthOnBoard(board);
-  const mine = strength[combo];
+  const order: number[] = [];
   let total = 0;
-  let below = 0;
   for (let i = 0; i < NUM_COMBOS; i++) {
-    const w = range[i];
-    if (w <= 0) continue;
-    total += w;
-    if (strength[i] < mine) below += w;
-    else if (strength[i] === mine) below += w / 2;
+    order.push(i);
+    total += range[i] > 0 ? range[i] : 0;
   }
-  return total <= 0 ? 0.5 : below / total;
+  const out = new Float32Array(NUM_COMBOS).fill(0.5);
+  if (total <= 0) return out;
+  order.sort((a, b) => strength[a] - strength[b]);
+
+  // One sweep from the worst hand up, with ties sharing the band they span so
+  // a rank does not depend on which of two equal hands is listed first.
+  let below = 0;
+  for (let p = 0; p < order.length; ) {
+    let q = p;
+    let group = 0;
+    while (q < order.length && strength[order[q]] === strength[order[p]]) {
+      const w = range[order[q]];
+      if (w > 0) group += w;
+      q += 1;
+    }
+    const share = (below + group / 2) / total;
+    for (let k = p; k < q; k++) out[order[k]] = share;
+    below += group;
+    p = q;
+  }
+  return out;
 }
 
 export type AggressionKind = 'bet' | 'raise' | 'call' | 'check';

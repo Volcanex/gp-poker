@@ -53,7 +53,7 @@ export {
   positionRange,
   preflopRange,
   priorWeight,
-  rankWithinRange,
+  ranksWithinRange,
   strengthOnBoard,
 } from './opponent.js';
 export type { Aggression, AggressionKind, OpponentStats, Position, PreflopStep } from './opponent.js';

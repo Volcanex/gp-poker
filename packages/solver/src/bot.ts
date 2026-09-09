@@ -32,7 +32,7 @@ import {
   passivity,
   positionRange,
   priorWeight,
-  rankWithinRange,
+  ranksWithinRange,
   type Aggression,
   type AggressionKind,
   type OpponentStats,
@@ -87,6 +87,15 @@ const MIN_ITERATIONS = 40;
    playing the equilibrium, which is every opponent this bot has. */
 const PURIFY_THRESHOLD = 0.08;
 const PURIFY_EXPONENT = 1.3;
+
+function purify(weights: number[]): number[] {
+  const total = weights.reduce((sum, v) => sum + v, 0);
+  if (!(total > 0)) return weights;
+  return weights.map((w) => {
+    const share = w / total;
+    return share < PURIFY_THRESHOLD ? 0 : Math.pow(share, PURIFY_EXPONENT);
+  });
+}
 
 /* All three are measured against the opponent's range and not our own: what
    makes a hand a bluff is that it loses to most of what they have, and a hand
@@ -385,65 +394,75 @@ export class SolverBot {
 
     const sticky = this.stats.betsFaced >= MIN_BET_SAMPLE ? this.stats.foldsToOurBets / this.stats.betsFaced : null;
     const read = passivity(this.stats);
-    if (sticky !== null || read > 0) {
-      const rank = rankWithinRange(villainRange, board, combo);
-      const facing = legal.call > 0;
-      const potNow = view.pot;
-      for (const f of frequencies) {
-        const aggressive = f.act.label === 'b' || f.act.label === 'r' || f.act.label === 'a';
+    const ranks = sticky !== null || read > 0 ? ranksWithinRange(villainRange, board) : null;
+    const facing = legal.call > 0;
+    const shape = (weights: number[], rank: number): number[] => {
+      const out = weights.slice();
+      if (!ranks) return purify(out);
+      for (let k = 0; k < out.length; k++) {
+        const act = result.acts[k];
+        const aggressive = act.label === 'b' || act.label === 'r' || act.label === 'a';
         if (aggressive && sticky !== null) {
           // What this particular size needs them to fold, against what they
           // actually fold. A bet that is already priced in is left alone.
-          const wager = Math.max(1, f.act.to - me.bet);
-          const breakeven = wager / (potNow + wager);
+          const wager = Math.max(1, act.to - me.bet);
+          const breakeven = wager / (view.pot + wager);
           const shortfall = Math.max(0, (breakeven - sticky) / breakeven);
-          if (rank < BLUFF_RANK) f.frequency *= 1 - MAX_BLUFF_CUT * shortfall * (1 - rank / BLUFF_RANK);
+          if (rank < BLUFF_RANK) out[k] *= 1 - MAX_BLUFF_CUT * shortfall * (1 - rank / BLUFF_RANK);
           else if (rank > VALUE_RANK) {
-            f.frequency *= 1 + MAX_VALUE_TILT * shortfall * ((rank - VALUE_RANK) / (1 - VALUE_RANK));
+            out[k] *= 1 + MAX_VALUE_TILT * shortfall * ((rank - VALUE_RANK) / (1 - VALUE_RANK));
           }
         }
-        if (facing && f.act.label === 'c' && rank < CATCH_RANK && read > 0) {
-          f.frequency *= 1 - MAX_CATCH_CUT * read * (1 - rank / CATCH_RANK);
+        if (facing && act.label === 'c' && rank < CATCH_RANK && read > 0) {
+          out[k] *= 1 - MAX_CATCH_CUT * read * (1 - rank / CATCH_RANK);
         }
       }
-      // Whatever came off has to land on something legal, and giving up is
-      // always legal.
-      const passiveAct = frequencies.find((f) => f.act.label === (facing ? 'f' : 'x'));
-      if (passiveAct) {
-        const left = frequencies.reduce((sum, f) => sum + f.frequency, 0);
-        passiveAct.frequency += Math.max(0, 1 - left);
+      // Whatever came off has to land on something legal, and giving up always
+      // is.
+      const giveUpAt = result.acts.findIndex((a) => a.label === (facing ? 'f' : 'x'));
+      if (giveUpAt >= 0) {
+        const left = out.reduce((sum, v) => sum + v, 0);
+        out[giveUpAt] += Math.max(0, 1 - left);
       }
-    }
+      return purify(out);
+    };
 
-    const before = frequencies.reduce((sum, f) => sum + f.frequency, 0);
-    if (before > 0) {
-      for (const f of frequencies) {
-        const share = f.frequency / before;
-        f.frequency = share < PURIFY_THRESHOLD ? 0 : Math.pow(share, PURIFY_EXPONENT);
-      }
-    }
-
-    const total = frequencies.reduce((sum, f) => sum + f.frequency, 0);
+    const weights = shape(
+      frequencies.map((f) => f.frequency),
+      ranks ? ranks[combo] : 0.5
+    );
+    const total = weights.reduce((sum, v) => sum + v, 0);
     if (!(total > 0)) return null;
     let roll = rng() * total;
-    let chosen = frequencies.length - 1;
-    for (let k = 0; k < frequencies.length; k++) {
-      roll -= frequencies[k].frequency;
+    let chosen = weights.length - 1;
+    for (let k = 0; k < weights.length; k++) {
+      roll -= weights[k];
       if (roll <= 0) {
         chosen = k;
         break;
       }
     }
 
-    // Our own range narrows by the strategy that produced the action, not by
-    // the lean an opponent's action gets, because here we know it exactly.
+    /* Our own range narrows by the strategy that produced the action, not by
+       the lean an opponent's action gets, because here we know it exactly. It
+       is the shaped strategy and not the solved one: what we tell ourselves we
+       played has to be what we played, or the range we hand the next street is
+       a range for a bot that does not exist. Shaping every combo costs one
+       pass over the universe, which is what the ranks sweep above is for. */
     const exact = new Float32Array(NUM_COMBOS);
     const n = result.universe.n;
-    for (let p = 0; p < n; p++) exact[result.universe.combos[p]] = result.strategy[chosen * n + p];
+    const raw = new Array<number>(result.acts.length);
+    for (let p = 0; p < n; p++) {
+      const c = result.universe.combos[p];
+      for (let k = 0; k < raw.length; k++) raw[k] = result.strategy[k * n + p];
+      const shaped = shape(raw, ranks ? ranks[c] : 0.5);
+      const sum = shaped.reduce((acc, v) => acc + v, 0);
+      exact[c] = sum > 0 ? shaped[chosen] / sum : 0;
+    }
     state.tracker.applyStrategy(state.heroPosition, board, exact);
     state.exactlyTracked = true;
 
-    return toDecision(frequencies[chosen].act, legal);
+    return toDecision(result.acts[chosen], legal);
   }
 
   /* Our own range in this spot, tracked the same way the opponent's is. It is
