@@ -127,17 +127,15 @@
 
 .chat-err { margin: 0; font-size: 12px; color: var(--danger-text); flex: none; }
 
-/* The toggle in the hand header. The count sits after the word so a number
-   arriving cannot move anything that was already on the row, and its slot is
-   held open whether or not there is one. */
+/* The toggle in the hand header. The count sits after the word and only
+   renders when there is one: a slot held open for a badge usually absent
+   read as a stray gap after "Chat". */
 .chat-toggle { gap: 6px; }
 .chat-toggle .chat-unread {
   min-width: 16px; height: 16px;
   display: inline-flex; align-items: center; justify-content: center;
   font-size: 10px; line-height: 1;
   border-radius: var(--radius-full);
-}
-.chat-toggle .chat-unread:not([aria-hidden="true"]) {
   background: var(--accent-fill); color: var(--accent-fg);
   padding: 0 4px;
 }
