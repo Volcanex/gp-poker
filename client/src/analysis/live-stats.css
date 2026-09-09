@@ -226,9 +226,20 @@
     "str"
     "outs"
     "eq";
-  gap: var(--sp-2);
+  gap: var(--sp-1);
   max-width: none;
   margin: 0;
 }
 
 .hb-stats .ls-cards { display: none; }
+
+/* The column's own height is the band's content row less the key legend
+   under it, and at the Regular card size that room is 28px short of what
+   the bar's own spacing needs, which pushed the first reading up through
+   the band's own top edge (the readings are bottom-anchored, so the
+   overflow shows above rather than below). Tightened to fit inside it at
+   every card size rather than lifted, which only moved the overflow into
+   the decision line above. */
+.hb-stats .ls-cell { gap: 2px; }
+.hb-stats .ls-line { height: 16px; }
+.hb-stats .ls-sub { height: 14px; line-height: 14px; }
