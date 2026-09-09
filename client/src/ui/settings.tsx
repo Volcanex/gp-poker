@@ -2,9 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { GearSix } from '@phosphor-icons/react';
 import { useGInit } from './bits.tsx';
 import {
-  ACCENTS, PALETTES, THEMES, applyPrefs, defaultAccentFor, readPrefs, writePrefs,
+  ACCENTS, CARD_LAYOUTS, CARD_SIZES, PALETTES, THEMES,
+  applyPrefs, defaultAccentFor, readPrefs, writePrefs,
 } from './prefs.ts';
-import type { AccentId, PaletteId, Prefs, ThemeChoice } from './prefs.ts';
+import type {
+  AccentId, CardLayout, CardSize, PaletteId, Prefs, ThemeChoice,
+} from './prefs.ts';
+import { Segmented } from './segmented.tsx';
 import { useSoundSettings } from '../sound/react.ts';
 import { PictureDialog } from './picture-dialog.tsx';
 import { CountryPicker } from './country-picker.tsx';
@@ -19,9 +23,28 @@ import type { PackId } from '../sound/index.ts';
    as such: a menu role over a set of switches announces the wrong thing. */
 export function SettingsMenu() {
   const wrapRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const pictureRef = useRef<HTMLDialogElement>(null);
   useGInit(wrapRef);
   const [prefs, setPrefs] = useState<Prefs>(() => readPrefs());
+
+  /* g-ui measures a tab strip's sliding indicator when it initialises the
+     strip, and a popover that has never been open measures nought: the two
+     switchers in here came up with an indicator no pixels wide, leaving the
+     label's weight as the only thing saying which option was on. Re-selecting
+     the tab that is already selected is what puts the indicator back, and it
+     is exactly what a click does, so opening the menu clicks it once. */
+  useEffect(() => {
+    const menu = menuRef.current;
+    if (!menu) return undefined;
+    const onToggle = (e: Event) => {
+      if ((e as unknown as { newState?: string }).newState !== 'open') return;
+      menu.querySelectorAll<HTMLButtonElement>('.tabs .tab[aria-selected="true"]')
+        .forEach((tab) => tab.click());
+    };
+    menu.addEventListener('toggle', onToggle);
+    return () => menu.removeEventListener('toggle', onToggle);
+  }, []);
 
   /* index.html has already stamped the attributes before first paint. This
      re-applies on mount so a stored record written by an older build, or one
@@ -67,7 +90,13 @@ export function SettingsMenu() {
         Settings
       </button>
 
-      <div className="menu settings-menu" popover="auto" id="settings-menu" aria-label="Settings">
+      <div
+        className="menu settings-menu"
+        popover="auto"
+        id="settings-menu"
+        aria-label="Settings"
+        ref={menuRef}
+      >
         <div className="menu-title" id="settings-theme">Theme</div>
         <div className="choices" role="radiogroup" aria-labelledby="settings-theme">
           {THEMES.map((t) => (
@@ -165,6 +194,32 @@ export function SettingsMenu() {
             onChange={(e) => update({ fourColour: e.target.checked })}
           />
         </label>
+
+        {/* How your own two cards are laid out on the band, and how big they
+            are drawn. Both take a row of their own rather than the control
+            column a switch-row gives: three words on a switcher do not fit
+            beside a label in a menu this narrow. They are here rather than
+            under Table because they are about the cards, which is also the
+            only group the four colour deck could sit in. */}
+        <div className="seg-row">
+          <span className="label">Layout</span>
+          <Segmented
+            options={CARD_LAYOUTS.map((c) => ({ value: c.id, label: c.label }))}
+            value={prefs.cards}
+            onPick={(v) => update({ cards: v as CardLayout })}
+            label="Card layout"
+          />
+        </div>
+
+        <div className="seg-row">
+          <span className="label">Size</span>
+          <Segmented
+            options={CARD_SIZES.map((c) => ({ value: c.id, label: c.label }))}
+            value={prefs.cardSize}
+            onPick={(v) => update({ cardSize: v as CardSize })}
+            label="Card size"
+          />
+        </div>
 
         <hr className="separator" />
 
