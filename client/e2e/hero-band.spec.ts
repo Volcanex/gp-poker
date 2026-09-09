@@ -695,3 +695,17 @@ test('the card in front is separated from the one behind it', async ({ page }) =
   await waitForBand(page, 'turn');
   await expect(page.locator('.hb-card[data-i="1"]')).toHaveCSS('filter', 'none');
 });
+
+/* Mirrored, the card in front is the first one and not the second, because a
+   rank is in a card's top left corner and the near edge has swapped sides. The
+   seam has to move with it, or it is drawn on the card nobody can see. */
+test('the seam moves to the other card on a left-handed table', async ({ page }) => {
+  await page.setViewportSize(DESKTOP);
+  await stubApi(page);
+  await setPrefs(page, { hand: 'left', cards: 'stacked' });
+  await page.goto('/m/mock?v2=1&step=9');
+  await waitForBand(page, 'turn');
+
+  await expect(page.locator('.hb-card[data-i="0"]')).toHaveCSS('filter', /drop-shadow/);
+  await expect(page.locator('.hb-card[data-i="1"]')).toHaveCSS('filter', 'none');
+});

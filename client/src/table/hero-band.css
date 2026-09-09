@@ -253,9 +253,13 @@
    invisible and the pair read as one wide card with two ranks printed on it.
    The card in front casts the band's own ground behind its leading edge, which
    is the sliver of daylight a real pair shows and is two pixels of a colour
-   already on screen rather than a shadow. Side by side needs none: the gap is
+   already on screen rather than a shadow. **It goes on whichever card is in
+   front**, which is the second one right handed and the first one mirrored,
+   and the leading edge is the left one either way: the card in front is the
+   one further from the band's near corner. Side by side needs none: the gap is
    the layout. */
-:root:not([data-cards="side"]) .hb-card[data-i="1"] {
+:root:not([data-cards="side"]) .hb-card[data-i="1"],
+:root[data-hand="left"]:not([data-cards="side"]) .hb-card[data-i="0"] {
   filter: drop-shadow(-2px 0 0 var(--surface-2));
 }
 :root[data-cards="ajar"] .hb-card[data-i="1"] {
@@ -704,8 +708,9 @@
 :root[data-hand="left"][data-cards="ajar"] .hb-card[data-i="1"] {
   rotate: calc(-1 * var(--fan-tilt));
 }
+/* Mirrored, the second card is the one behind and draws no seam of its own. */
 :root[data-hand="left"]:not([data-cards="side"]) .hb-card[data-i="1"] {
-  filter: drop-shadow(2px 0 0 var(--surface-2));
+  filter: none;
 }
 /* And the hand stacks the other way round with it. A card's rank is in its top
    left corner, so the card in front has to sit on the side the rank is not:

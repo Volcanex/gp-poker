@@ -456,7 +456,9 @@ card's own hairline is `--border`, an alpha grey that over a near white face
 comes out four values off it: measured, the join was invisible and the pair read
 as one wide card with two ranks printed on it. The card in front casts the
 band's own ground behind its leading edge, two pixels of a colour already on
-screen rather than a shadow. Side by side needs none, because the gap is the
+screen rather than a shadow. It goes on whichever card is in front, which is
+the second one right handed and the first one mirrored, and the leading edge is
+the left one either way. Side by side needs none, because the gap is the
 layout.
 
 A setting changes the band's height, which the footprint rule allows and the
