@@ -39,7 +39,11 @@ export function Seat({
 }: SeatProps) {
   const acting = seat.acting;
   const onClock = clock && clock.seat === seat.i ? clock : null;
-  const last = seat.last ? actionWords(seat.last.a, seat.last.v) : null;
+  /* A call and an all in carry no figure in the action log, so the square
+     reads the seat's street bet for them: "Calls 30" is what the seat has
+     matched, which is the number the table is reading. */
+  const lastValue = seat.last?.v ?? ((seat.last?.a === 'c' || seat.last?.a === 'a') && seat.bet > 0 ? seat.bet : undefined);
+  const last = seat.last ? actionWords(seat.last.a, lastValue) : null;
   const cards: (Card | null)[] = reveal ?? seat.cards ?? [null, null];
   /* Your own cards were never face down, so a showdown does not turn them over:
      they stay exactly where they are, which is the whole point of holding the
