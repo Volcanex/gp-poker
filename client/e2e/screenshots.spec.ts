@@ -126,3 +126,24 @@ for (const width of [390, 1366]) {
     });
   }
 }
+
+/* The practice strip on the felt people play on, at three moments that show
+   every state the bar has: before the flop (studs dark, the holding in
+   words), on the turn with two live draws (a lit stud, two hollow ones and
+   twelve outs with their cards), and on the river with the flush made (six
+   lit, no cards to come). Three widths, both themes: the phone stacks the
+   studs under the figures and the other two hold one line. */
+const PRACTICE_STATES: Shot[] = [
+  { name: 'practice-preflop', url: '/m/mock?v2=1&practice=1&step=2' },
+  { name: 'practice-draw', url: '/m/mock?v2=1&practice=1&step=9' },
+  { name: 'practice-made', url: '/m/mock?v2=1&practice=1&step=12' },
+];
+for (const theme of THEMES) {
+  for (const width of [390, 768, 1366]) {
+    for (const state of PRACTICE_STATES) {
+      test(`${state.name} at ${width} in ${theme}`, async ({ page }) => {
+        await shoot(page, state, width, theme);
+      });
+    }
+  }
+}
