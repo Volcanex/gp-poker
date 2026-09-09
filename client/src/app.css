@@ -1633,6 +1633,10 @@ a.btn { text-decoration: none; }
   outline: 1px solid var(--border-subtle);
   outline-offset: -1px;
   vertical-align: -1px;
+  /* Shared by every row a flag sits in (the home feed, a seat's name line):
+     the gap after it was the row's own, which read as the flag touching the
+     name rather than sitting beside it. */
+  margin-right: 3px;
 }
 .flag-empty { outline: none; }
 
