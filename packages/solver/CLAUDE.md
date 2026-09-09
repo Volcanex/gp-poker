@@ -79,55 +79,27 @@ runs unchanged on the server, in a script and in a browser worker.
 | flop | 400 to 1000 | ~20 | 8 of 96 sampled two card runouts per iteration |
 
 Exploitability, as a share of the pot the street started with, measured with
-`packages/solver/scripts/bench.ts` on the board `Ah Kd 7c 2s 9h` with ranges of
-30% and 45%. It is measured **inside the tree the solver builds**, so it says
-the solve converged, not that the bet size set is complete. Turn and flop are
-measured against every runout there is rather than against the sample the solve
-trained on.
+`packages/solver/scripts/bench.ts` on `Ah Kd 7c 2s 9h` and its prefixes with
+ranges of 30% and 45%. It is measured **inside the tree the solver builds and
+against the leaf it optimised**, so it says the solve converged, not that the
+bet size set is complete or that the leaf is right. Turn and flop are measured
+against every runout there is rather than against the sample the solve trained
+on.
 
 | budget | river | turn | flop |
 |---|---|---|---|
-| 300ms | 0.03% | 0.89% | |
-| 500ms | 0.01% | 0.73% | 1.63% |
-| 1000ms | 0.00% | 0.50% | 1.47% |
-| 1500ms | | 0.39% | 1.29% |
+| 300ms | 0.08% | 1.33% | |
+| 500ms | 0.03% | 0.99% | 1.31% |
+| 1000ms | 0.01% | 0.51% | 0.73% |
+| 1500ms | | 0.43% | 0.69% |
 
-The river is solved to a hundredth of a percent of the pot in a third of a
-second. The turn and the flop plateau around a half and one and a half percent
-and stay there: what is left is the depth limited leaf, not the iteration
-count, and no amount of extra time moves it. Buying that back means solving the
-river subgames underneath the turn rather than valuing them by equity, which
-costs about two orders of magnitude.
-
-## The three things that are not the solve
-
-Each was worth more than the last, measured against level 5 at a hundred big
-blinds.
-
-**Our own range is tracked by the strategy we actually played**, not by the
-same lean an opponent's action gets. A solve says what every one of our combos
-does with the action we took, so this is exact and free. Getting it wrong makes
-our hand look like the top of a range it is not in, and the answer to that is a
-value bet with nothing to beat. The strategy applied is the shaped one below
-and not the solved one: what we tell ourselves we played has to be what we
-played.
-
-**Bluffs are cut against an opponent who does not fold.** A bluff of `b` into a
-pot of `p` needs them to fold `b / (p + b)` of the time to break even. The bot
-measures how often each opponent has actually folded to its bets and cuts the
-part of its range that loses to most of theirs in proportion to how far short
-of that price they are, and leans the top of its range onto the larger sizes by
-the same amount. Seeing a fold at all is why `observeResult` exists: a fold
-ends the hand and the bot is never asked again, so a bet nobody answered is
-counted when the next hand starts, unless somebody showed a hand.
-
-**The strategy is purified.** An average strategy is full of two percent
-branches that keep an equilibrium opponent honest. No opponent here is looking
-for the pattern, and the branches that survive at two percent are the ones the
-range model is least sure about, so anything under eight percent is dropped and
-what is left is sharpened. This is the standard purification and thresholding
-pair and it is known to help against opponents off the equilibrium, which is
-all of them.
+Measured 2026-09-09 on h while other work was running, so the iteration counts
+are lower than a quiet box would give and the numbers are a floor. The river is
+solved to a hundredth of a percent of the pot in half a second. The turn and
+the flop keep improving with time but flatten out: what is left is the depth
+limited leaf, not the iteration count. Buying that back means solving the river
+subgames underneath the turn rather than valuing them by equity, which costs
+about two orders of magnitude.
 
 ## Nothing blocks for long
 
