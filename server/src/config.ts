@@ -93,3 +93,14 @@ export const config = {
      seconds of nothing. */
   explorerLagMs: Number(process.env.EXPLORER_LAG_MS ?? (inTest ? 0 : 10_000)),
 };
+
+/* Whether a bot account is shown as one. While the population plays in public
+   (`populationPublic`) the site is meant to read as a room full of people, so
+   every public payload (profiles, feeds, seats, chat, arena boards) carries
+   `bot: false` for them. The database row keeps `bot = true` regardless: this
+   is presentation, and the reset script and the roster still know who is who.
+   The practice picker's own roster (`/api/bots`) is the one place bots are
+   listed as bots on purpose, and it does not go through here. */
+export function shownAsBot(isBot: boolean | null | undefined): boolean {
+  return isBot === true && !config.populationPublic;
+}

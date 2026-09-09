@@ -203,9 +203,14 @@ and from the online/playing counts by default; `config.populationPublic`
 them on all four, because a population nobody can see is not what it is
 for. Off, every one of those behaves exactly as it did before the population
 existed: see `routes.ts`'s `isVisibleLive` and `getLeaderboard`'s
-`includeBots` argument. `/api/bots` always lists the whole roster regardless
-of the flag; it is the practice picker's own page, not a public-visibility
-surface.
+`includeBots` argument. With the flag on, every public payload also carries
+`bot: false` for them (`shownAsBot` in `../config.ts`, applied in
+`userView.ts`, `routes.ts`, the table view, chat and the arena board), so no
+"Bot" badge, bot level or bot-only profile gives them away: the owner wants
+the room to read as people while the population is the userbase. The row
+keeps `bot = true` regardless, which is what the reset script relies on.
+`/api/bots` always lists the whole roster as bots regardless of the flag; it
+is the practice picker's own page, not a public-visibility surface.
 
 ## Resetting the population
 

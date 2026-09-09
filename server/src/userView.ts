@@ -1,3 +1,4 @@
+import { shownAsBot } from './config.js';
 import { isProvisional as ratingIsProvisional } from '@opentable/rating';
 import type { MatchResult, Mode, ModeRating, UserSummary } from '@opentable/protocol';
 import { MODES, type RatingRow, type UserRow } from './db.js';
@@ -48,10 +49,10 @@ export function toUserSummary(user: UserRow, ratings: Record<Mode, RatingRow>): 
     id: user.id,
     name: user.name,
     guest: user.guest,
-    bot: user.bot,
+    bot: shownAsBot(user.bot),
     // Only a bot has one, and a person's summary should not carry the key at
     // all rather than carry a null.
-    ...(user.botLevel != null ? { botLevel: user.botLevel } : {}),
+    ...(shownAsBot(user.bot) && user.botLevel != null ? { botLevel: user.botLevel } : {}),
     // Always sent, null included: a summary is merged over the one the client
     // holds, so clearing a flag has to say so rather than go quiet.
     country: user.country,

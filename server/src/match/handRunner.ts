@@ -1,3 +1,4 @@
+import { shownAsBot } from '../config.js';
 import {
   apply,
   createHand,
@@ -370,7 +371,7 @@ export class EngineHandRunner implements HandRunner {
         ...(info.country ? { country: info.country } : {}),
         rating: info.rating,
         connected: presence[i]?.connected ?? true,
-        bot: info.bot ?? false,
+        bot: shownAsBot(info.bot),
         avatarV: info.avatarV ?? 0,
         out: e === null,
         place: this.places[i],

@@ -1,3 +1,4 @@
+import { shownAsBot } from '../config.js';
 import type { ChatFrom, ClientMsg, MatchResult, ServerMsg } from '@opentable/protocol';
 import { CHAT_HISTORY } from '@opentable/protocol';
 import { hub } from '../ws/hub.js';
@@ -229,7 +230,7 @@ export class MatchRoom {
 
     const seatIndex = this.playerIds.indexOf(userId);
     const seat = seatIndex === -1 ? null : seatIndex;
-    const from: ChatFrom = { id: user.id, name: user.name, bot: user.bot, seat, avatarV: user.avatarV };
+    const from: ChatFrom = { id: user.id, name: user.name, bot: shownAsBot(user.bot), seat, avatarV: user.avatarV };
     const line: ChatLine = { t: 'chat', m: this.id, from, text, at };
 
     if (seat === null) {

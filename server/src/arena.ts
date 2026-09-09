@@ -1,5 +1,5 @@
 import { arenaPoints, type ArenaStanding, type ArenaStatus, type MatchFormat } from '@opentable/protocol';
-import { config } from './config.js';
+import { config, shownAsBot } from './config.js';
 import {
   addArenaResult,
   deleteArenaPlayer,
@@ -409,7 +409,7 @@ function toStanding(row: ArenaPlayerRow, rank: number): ArenaStanding {
     uid: row.userId,
     avatarV: row.avatarV,
     name: row.name,
-    bot: row.bot,
+    bot: shownAsBot(row.bot),
     ...(row.country ? { country: row.country } : {}),
     rating: Math.round(row.rating),
     rank,
