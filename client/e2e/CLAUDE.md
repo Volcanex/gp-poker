@@ -83,7 +83,9 @@ other spec sees the ordinary player, so the bar is not in any other baseline.
 test set first) rather than either of those. Before 2026-09-08 it wrote
 `g-theme` and the attribute directly, which `applyPrefs` undid on mount, and
 every baseline in `__screenshots__` whose name ends in `-light` was quietly a
-picture of the dark theme.
+picture of the dark theme. `setPrefs` is the same bargain for every other
+setting: a patch merged into `ot.prefs` before the page loads, which is how the
+hand layout and card size specs put the band into a state a URL cannot ask for.
 
 **Playwright runs the last matching route handler**, so a catch-all has to be
 registered first and the fixtures after it. Registered the other way round the
@@ -103,6 +105,7 @@ it.
 | `formats.spec.ts` | the play panel's shape (three switchers, one button, four one-line ways to play), the pin and the remembered choice, the ranked gate disabling ranked, no middle dot anywhere on the page, the ready check modal end to end **and its countdown out loud**, and the level and badges on a profile |
 | `footprint.spec.ts` | the boxes and zero layout shift, playing and watching, that the dock is one height in all three states, and that the strips tile the grid |
 | `ergonomics.spec.ts` | phone target sizes, the primary action in the bottom quarter, the sizing model and clamping, a pre-action firing, and the ring at 768, 1280 and 1920 |
+| `hero-band.spec.ts` | the v2 band's one footprint through a hand at 390 and 1280, sitting out, the felt giving up your seat, the decision line, the sizes and the keys, and the hand's three layouts and three sizes: ten pictures, the card at the size the setting names, and the cards ending before the controls start |
 | `showdown.spec.ts` | your cards face up through a lost showdown and after the end, the winning five, the award chip clear of the pot label |
 | `access.spec.ts` | axe-core per state with zero serious or critical, a keyboard-only decision, tab reachability, and typing in the field not triggering the shortcuts |
 | `practice.spec.ts` | the strip is on a practice table and off a rated one, that it reads, and that a practice table keeps one footprint with zero layout shift |

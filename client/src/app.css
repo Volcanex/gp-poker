@@ -469,6 +469,19 @@
 .settings-menu .select,
 .settings-menu .country-picker .input { height: var(--h-control-sm); }
 .settings-menu .preview { align-self: flex-start; }
+/* A switcher of three words is wider than the control column a switch-row
+   gives it, so it takes a row of its own with the label above it, which is the
+   shape the theme choices already use. The tabs share it out by content and
+   not in equal thirds, the same bargain the theme row makes: "Side by side" in
+   a third of a 246 px menu is four pixels short and comes out as an ellipsis,
+   which is the one thing a label on a switcher may not be. */
+.settings-menu .seg-row { display: grid; gap: 4px; }
+.settings-menu .seg-row .label { font-size: 12px; color: var(--text-primary); font-weight: 400; }
+.settings-menu .seg-row .tabs { width: 100%; }
+.settings-menu .seg-row .tab {
+  flex: 1 1 auto; min-width: 0; padding: 0 6px;
+  font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 
 /* ------------------------------------------------------------ card colours */
 

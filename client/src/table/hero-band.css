@@ -37,56 +37,39 @@
   background: var(--surface-2);
 
   --band-gap: var(--sp-4);
-  --band-pad: var(--sp-3);
   /* The side gutter is the page's, not the band's own. The felt, the hand
      header and the dock this replaces all sit on it, and a band four pixels
      wider than the felt above it reads as a step in the edge. */
   --band-gut: var(--sp-4);
-  /* The decision line's row: one line of words with the clock's bar under it,
-     and the air over it that keeps it off the divider. */
-  --hb-line-h: 28px;
+  /* The air over the decision line that keeps it off the divider. It is the
+     band's own padding and comes back out of the gap under the line, so it is
+     no part of `--band-chrome` and lives here rather than at the root with
+     `--hb-line-h`. */
   --hb-line-top: 4px;
-  --hero-card: 76px;
-  /* The meta under the cards: the name line, the figures line, and the gap. */
-  --hb-who-h: 20px;
-  --hb-nums-h: 26px;
-  --hb-meta-gap: 6px;
   /* The flag's reserved box and the gap after it. The name is set in from the
      edge by exactly this much, so the stack and the last action are set in by
      it too and the three lines share one edge. */
   --hb-flag: 16px;
   --hb-flag-gap: 6px;
-  /* The floor under the hand's column. It is the fan's own width normally, but
-     the figure, its three chip columns and the last action are a line of their
-     own under the cards and they need more than a 76 px fan gives: below this
-     the label was pushed out of the column and printed over the key legend.
-     The cards stay on the column's near edge, so the shared left edge holds. */
+  /* The floor under the hand's column. It is the pair's own width normally,
+     but the figure, its three chip columns and the last action are a line of
+     their own under the cards, and a narrow layout at a small size does not
+     give them enough: below this the label was pushed out of the column and
+     printed over the key legend. The cards stay on the column's near edge, so
+     the shared left edge holds. */
   --hb-hand-min: 184px;
-  /* The rows and the two columns of the controls, named here because the
-     waiting pills and the hand-over ghosts stand in the same boxes and have to
-     be the same size in the same place. `--acts-w` is the left group, fold and
-     call; the sizes and the button that sends one take what is left. */
-  --sizes-h: 44px;
-  --act-h: 48px;
-  --act-gap: var(--sp-2);
+  /* The left group of the controls, fold and call; the sizes and the button
+     that sends one take what is left. */
   --acts-w: 312px;
   /* A practice table's readings, when they are a section of the band rather
      than a bar above it. The left group gives up the width for them, because
      fold and call are two words and the sizes are six numbers. */
   --stats-w: 248px;
   --stats-gap: var(--sp-4);
-  /* The legend's own row under the controls, and the gap over it. Named for
-     this band: `--keys-h` is the table grid's own row for the v1 legend. */
-  --hb-keys-h: 14px;
-  --keys-gap: 6px;
-  /* How much of the first card the second one covers, how far the second one
-     is tilted, and the sine of that tilt. The sine is written out because the
-     fan's box is drawn from it: a card rotated about its bottom corner reaches
-     past a box drawn to the cards' own size, up by its width times the sine
-     and out by its height times the same. */
-  --fan-overlap: 0.4;
-  --fan-tilt: 6deg;
-  --fan-sin: 0.1045;
+  /* The band's own padding, the rows of the controls, the legend's row and the
+     card geometry are all declared at the root rather than here, because
+     `--band-h` is derived from them and has to be readable from outside the
+     table. See the section at the foot of this file. */
 }
 
 /* Both rows sit on the felt's column. */
@@ -225,32 +208,31 @@
 .hb-hero {
   grid-area: cards;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) calc(var(--hb-who-h) + var(--hb-nums-h) + 2px);
+  grid-template-rows: minmax(0, 1fr) var(--hb-meta-h);
   row-gap: var(--hb-meta-gap);
-  /* The column is the fan's own width or the floor the meta line needs,
+  /* The column is the hand's own width or the floor the meta line needs,
      whichever is wider, so the name, the stack and the last action under it
      share the cards' near edge. */
-  width: max(
-    calc(var(--hero-card) * (2 - var(--fan-overlap) + 1.4 * var(--fan-sin))),
-    var(--hb-hand-min)
-  );
+  width: max(calc(var(--hero-card) * var(--card-span)), var(--hb-hand-min));
   min-width: 0; min-height: 0;
 }
 
-/* The fan. Both cards are absolute inside one box, so the tilt on the second
-   one cannot push the first one along, and **the box is the fan's real bounds
-   rather than the pair's**: a card rotated about its bottom left corner
-   reaches up past the top of the pair by its width times the sine of the
-   tilt and out past their right edge by its height times the same. Drawn to
-   the pair's size, the box was eleven pixels shorter and sixteen narrower than
-   the thing inside it, so the tilted card crossed the band's top edge and the
-   column beside it. The cards rest on the floor of the box; the slack is at
-   the top, which is where the tilt goes. */
+/* The hand. Both cards are absolute inside one box, so where the second one
+   sits cannot push the first one along, and **the box is the hand's real
+   bounds**: `--card-span` is how wide the pair is in card widths and
+   `--card-rise` how tall, both declared per layout at the foot of this file.
+   Ajar is the case that made those two tokens necessary: a card rotated about
+   its bottom left corner reaches up past the top of the pair by its width
+   times the sine of the tilt and out past their right edge by its height times
+   the same, and a box drawn to the pair's own size was eleven pixels shorter
+   and sixteen narrower than the thing inside it, so the tilted card crossed
+   the band's top edge and the column beside it. The cards rest on the floor of
+   the box; the slack is at the top, which is where the tilt goes. */
 .hb-cards {
   position: relative;
   flex: none;
-  width: calc(var(--hero-card) * (2 - var(--fan-overlap) + 1.4 * var(--fan-sin)));
-  height: calc(var(--hero-card) * (1.4 + var(--fan-sin)));
+  width: calc(var(--hero-card) * var(--card-span));
+  height: calc(var(--hero-card) * var(--card-rise));
 }
 .hb-card {
   position: absolute;
@@ -258,14 +240,35 @@
   left: 0;
   transform-origin: bottom left;
 }
+/* The second card is set along its own edge by `--card-peek`, which is the
+   whole of what a layout is: a bit over a third of a card stacked, so the one
+   behind shows its index and nothing else; a whole card and a hair side by
+   side; three fifths of one ajar. */
 .hb-card[data-i="1"] {
-  left: calc(var(--hero-card) * (1 - var(--fan-overlap)));
+  left: calc(var(--hero-card) * var(--card-peek));
+}
+/* **Two overlapping cards are the same paper, so the seam between them has to
+   be drawn.** The card's own hairline is `--border`, an alpha grey that over a
+   near white face comes out four values off it: measured, the join was
+   invisible and the pair read as one wide card with two ranks printed on it.
+   The card in front casts the band's own ground behind its leading edge, which
+   is the sliver of daylight a real pair shows and is two pixels of a colour
+   already on screen rather than a shadow. **It goes on whichever card is in
+   front**, which is the second one right handed and the first one mirrored,
+   and the leading edge is the left one either way: the card in front is the
+   one further from the band's near corner. Side by side needs none: the gap is
+   the layout. */
+:root:not([data-cards="side"]) .hb-card[data-i="1"],
+:root[data-hand="left"]:not([data-cards="side"]) .hb-card[data-i="0"] {
+  filter: drop-shadow(-2px 0 0 var(--surface-2));
+}
+:root[data-cards="ajar"] .hb-card[data-i="1"] {
   rotate: var(--fan-tilt);
   /* A card tilted about its bottom left corner drops its far corner by the
      width times the sine of the tilt, which is off the bottom of the band and
      onto the page. Lifted by exactly that, both cards rest on the same line,
      which is what a fan in a hand looks like anyway. */
-  translate: 0 calc(-1 * var(--hero-card) * 0.1045);
+  translate: 0 calc(-1 * var(--hero-card) * var(--fan-sin));
 }
 /* Bigger than any card on the felt, and set here rather than inherited: the
    card sets its own width, so a value has to reach it at higher specificity
@@ -700,10 +703,16 @@
 }
 :root[data-hand="left"] .hb-card[data-i="1"] {
   left: auto;
-  right: calc(var(--hero-card) * (1 - var(--fan-overlap)));
+  right: calc(var(--hero-card) * var(--card-peek));
+}
+:root[data-hand="left"][data-cards="ajar"] .hb-card[data-i="1"] {
   rotate: calc(-1 * var(--fan-tilt));
 }
-/* And the fan stacks the other way round with it. A card's rank is in its top
+/* Mirrored, the second card is the one behind and draws no seam of its own. */
+:root[data-hand="left"]:not([data-cards="side"]) .hb-card[data-i="1"] {
+  filter: none;
+}
+/* And the hand stacks the other way round with it. A card's rank is in its top
    left corner, so the card in front has to sit on the side the rank is not:
    mirrored, the second card lands over the first one's rank and a left handed
    player could not read the card they were dealt first. */
@@ -731,27 +740,127 @@
   right: auto; left: calc(var(--rail-inset) + 16px);
 }
 
-/* ------------------------------------------------------------------ rows */
+/* ------------------------------------- the hand's geometry, and the height */
 
-/* **The band is shorter under a mouse than under a thumb**, which is the one
-   place the two shapes part company on a number rather than on a layout. A
-   phone holds the band at 264: two giant cards and a thumb's column are what
-   it is for, and the felt above it is half a screen either way. A desktop band
-   at that height was taking a quarter of a 768 px laptop for a hand you are
-   already holding, which is what the owner called too much visual space, so
-   the cards step down to 76 px there and the band comes to 224. **The card
-   size is what sets the height**: the controls need barely half of it, so
-   trimming rows off them would have moved nothing.
-
-   The felt takes the difference back, which is what pays for the board's own
-   row across the top.
+/* **The card size sets the band's height**, so the two are one calculation and
+   not two numbers to keep in step. A layout says how wide and how tall the
+   pair of cards is in card widths (`--card-span`, `--card-rise`) and where the
+   second one sits (`--card-peek`); a size says how wide one card wants to be
+   (`--card-want`); and `--band-h` is the decision line, the padding, the meta
+   line and whichever of the hand and the controls needs more room. Change a
+   setting and every one of those follows. Two hand-written heights sat here
+   before and drifted from the cards inside them: the phone's controls were
+   five pixels taller than the box holding them and had been for a while.
 
    **The height is declared at the root, not on `.match`.** The mock's caption
    is fixed to the page and is not inside the table, so it cannot read a value
    declared on it; a second copy of either number beside it is a number that
    drifts. `.match` reads the root's. */
-:root { --band-h: 224px; --band-watch-h: 176px; }
-@media (max-width: 560px) { :root { --band-h: 264px; } }
+:root {
+  /* The band's vertical padding: the gap under the decision line and the floor
+     under the controls. The side gutter is the band's own (`--band-gut`), and
+     is kept there because changing it cannot move a row. */
+  --band-pad: var(--sp-3);
+  /* The rows of the controls, and the legend's row under them, named because
+     the waiting pills and the hand-over ghosts stand in the same boxes and
+     have to be the same size in the same place. `--keys-h` is the table grid's
+     own row for the v1 legend; this one is the band's. */
+  --sizes-h: 44px;
+  --act-h: 48px;
+  --act-gap: var(--sp-2);
+  --hb-keys-h: 14px;
+  --keys-gap: 6px;
+  /* The decision line: one line of words with the clock's bar under it. Four
+     pixels came off it when the cards grew, because the sentence is 20 px of
+     text and the bar is 2, and the row had four to give. */
+  --hb-line-h: 24px;
+  /* The meta line under the cards: the name, the figures and the gap over
+     them. `.hb-meta` draws the same sum, plus a pixel for the row gap in it. */
+  --hb-meta-gap: 6px;
+  --hb-who-h: 20px;
+  --hb-nums-h: 26px;
+  --hb-meta-h: calc(var(--hb-who-h) + var(--hb-nums-h) + 2px);
+
+  /* Stacked is the default: one card read whole with the other behind it, out
+     by a bit over a third so its index shows and nothing else. The index is
+     drawn from x=9 to x=34 of a hundred wide card (`playing-card.tsx`), so
+     0.38 clears it with the card's own edge to spare. */
+  --card-peek: 0.38;
+  --card-span: 1.38;
+  --card-rise: 1.4;
+  /* How much of the first card the second one covers when they are ajar, how
+     far it is tilted, and the sine of that tilt. The sine is written out
+     because the box is drawn from it. */
+  --fan-overlap: 0.4;
+  --fan-tilt: 6deg;
+  --fan-sin: 0.1045;
+
+  /* Large by default: the hand is the one thing on this screen you have to be
+     able to read, and the band the board's row shrank had taken it below what
+     the owner could read at a glance. Each step is a whole number of card
+     heights (a card is 1.4 wide, so 80, 100 and 120 are 112, 140 and 168) and
+     lands on the four pixel grid. */
+  --card-want: 100px;
+
+  /* The card gives way to the controls, never the other way round: the pair
+     takes what is left of the felt's column once the gutters, the gap and the
+     controls' own minimum are out of it, and a layout that is wider per card
+     gets a smaller card rather than a button underneath it. 392 is the two
+     16 px gutters, the 16 px gap and the 344 the two control groups need.
+     This is what the old "below 380 the fan reaches over the raise button"
+     rule was for, at every width and for all three layouts. */
+  --hero-card: min(var(--card-want), calc((100vw - 392px) / var(--card-span)));
+
+  /* Everything in the band that is not the hand: the hairline, the decision
+     line, the gap under it and the padding on the floor. `--hb-line-top` is
+     not in the sum on purpose: the air over the line comes back out of the gap
+     under it, so the two cancel and the band is the height it would be
+     without either. */
+  --band-chrome: calc(1px + var(--hb-line-h) + 2 * var(--band-pad));
+  /* What the hand needs, and what the controls need. The controls are the six
+     sizes over the send button, the two groups beside them and the legend's own
+     row; under a mouse the hand always wants more, and under a thumb the column
+     of three actions always does. */
+  --hb-hand-h: calc(
+    var(--hero-card) * var(--card-rise) + var(--hb-meta-gap) + var(--hb-meta-h)
+  );
+  --hb-col-h: calc(var(--sizes-h) + var(--act-h) + 2 * var(--act-gap)
+    + var(--hb-keys-h) + var(--keys-gap));
+  --band-h: calc(var(--band-chrome) + max(var(--hb-hand-h), var(--hb-col-h)));
+  --band-watch-h: 176px;
+}
+
+/* Side by side is two whole cards and a hair of daylight between them; ajar is
+   the fan this replaced. Both are wider per card than stacked, so both get a
+   smaller card sooner out of the clamp above. */
+:root[data-cards="side"] {
+  --card-peek: 1.06;
+  --card-span: 2.06;
+}
+:root[data-cards="ajar"] {
+  --card-peek: calc(1 - var(--fan-overlap));
+  --card-span: calc(2 - var(--fan-overlap) + 1.4 * var(--fan-sin));
+  --card-rise: calc(1.4 + var(--fan-sin));
+}
+
+:root[data-card-size="regular"] { --card-want: 80px; }
+:root[data-card-size="huge"] { --card-want: 120px; }
+
+/* The phone. The controls are a column of three actions under the six sizes
+   and they are what the band's height is: the hand only overtakes them past a
+   card the clamp will not give out at this width anyway. The clamp itself is
+   the page's own gutters, the gap and the 176 the thumb's column takes. */
+@media (max-width: 560px) {
+  :root {
+    --band-pad: var(--sp-2);
+    --sizes-h: 60px;
+    --act-h: 44px;
+    --hero-card: min(var(--card-want), calc((100vw - 208px) / var(--card-span)));
+    --hb-col-h: calc(var(--sizes-h) + var(--act-h)
+      + calc(2 * var(--act-h) + var(--act-gap)) + 3 * var(--act-gap));
+  }
+}
+
 /* Whether a practice table still has a strip above the band, as a height the
    mock's caption can add up (`../routes/match.tsx`). **The number is the one
    `BAND_STATS` uses in `table.tsx`**, which is what decides the same thing in
@@ -777,27 +886,24 @@
    column beside it, with the same six sizes over the same three actions. What
    goes is the key legend, because there is no keyboard to legend, and the
    felt's column, because on a phone the felt is the page's full width and so
-   is the band. The cards are the phone's own size, 104, and the band is the
-   264 they need. */
+   is the band. The card size is the setting's, clamped to the room left beside
+   the thumb's column; the band's height is the controls', which is more than
+   any card this width will give out. */
 @media (max-width: 560px) {
   .hero-band {
     --band-col: 176px;
     --band-gap: var(--sp-2);
-    --band-pad: var(--sp-2);
     --band-gut: var(--sp-3);
-    --hero-card: 104px;
-    /* A phone's fan is already wider than the floor, and the column beside it
+    /* A phone's hand is already wider than the floor, and the column beside it
        is a fixed 176: a floor here would push the controls off the screen. */
     --hb-hand-min: 0px;
-    --sizes-h: 60px;
-    --act-h: 44px;
   }
 
-  /* The controls take a thumb's column and the hand takes the fan's own width,
-     the same way round as the wide band. A `1fr` here was two pixels wider
-     than the fan at 390 and two narrower than it at 360, and left handed the
-     fan is set against the far edge, so those two pixels were the card leaving
-     the band. */
+  /* The controls take a thumb's column and the hand takes its own width, the
+     same way round as the wide band. A `1fr` here was two pixels wider than
+     the pair at 390 and two narrower than it at 360, and left handed the hand
+     is set against the far edge, so those two pixels were the card leaving the
+     band. */
   .hb-in {
     grid-template-columns: auto var(--band-col);
     grid-template-rows: minmax(0, 1fr);
@@ -847,14 +953,6 @@
     grid-template-columns: var(--band-col) auto;
     grid-template-areas: "acts cards";
   }
-}
-
-/* Below 380 the fan is wider than the room left beside the controls: the
-   tilted card reaches over the raise button, which is measured rather than
-   guessed (at 360 it crossed it by thirteen pixels). The card steps down
-   instead, because a card under a button is worse than a smaller card. */
-@media (max-width: 380px) {
-  .hero-band { --hero-card: 84px; }
 }
 
 /* A narrow window still has a keyboard, and the legend no longer sits between

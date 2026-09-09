@@ -19,18 +19,32 @@ export type PaletteId = 'slate' | 'felt' | 'sky' | 'umber';
    edge the thumb is on. Right is the default because most people are. */
 export type Handedness = 'right' | 'left';
 
+/* How the two cards in your own hand are laid out on the band, and how big
+   they are drawn. Both are geometry and both live in `../table/hero-band.css`:
+   a layout is a width in card widths, a peek and a tilt, and a size is one
+   number the band's own height is derived from. Nothing here knows a pixel.
+
+   Stacked is the default because it is how a player holds two cards: one card
+   in front, read whole, and the one behind it out far enough to read its
+   index. Ajar is the fan this replaced, kept because some people prefer it. */
+export type CardLayout = 'stacked' | 'side' | 'ajar';
+export type CardSize = 'regular' | 'large' | 'huge';
+
 export interface Prefs {
   theme: ThemeChoice;
   palette: PaletteId;
   accent: AccentId;
   fourColour: boolean;
   hand: Handedness;
+  cards: CardLayout;
+  cardSize: CardSize;
 }
 
 export const PREFS_KEY = 'ot.prefs';
 
 export const DEFAULT_PREFS: Prefs = {
   theme: 'room', palette: 'slate', accent: 'default', fourColour: false, hand: 'right',
+  cards: 'stacked', cardSize: 'large',
 };
 
 export const THEMES: { id: ThemeChoice; label: string }[] = [
@@ -74,6 +88,24 @@ const isAccent = (v: unknown): v is AccentId =>
 
 const isHand = (v: unknown): v is Handedness => v === 'right' || v === 'left';
 
+export const CARD_LAYOUTS: { id: CardLayout; label: string }[] = [
+  { id: 'stacked', label: 'Stacked' },
+  { id: 'side', label: 'Side by side' },
+  { id: 'ajar', label: 'Ajar' },
+];
+
+export const CARD_SIZES: { id: CardSize; label: string }[] = [
+  { id: 'regular', label: 'Regular' },
+  { id: 'large', label: 'Large' },
+  { id: 'huge', label: 'Huge' },
+];
+
+const isCardLayout = (v: unknown): v is CardLayout =>
+  typeof v === 'string' && CARD_LAYOUTS.some((c) => c.id === v);
+
+const isCardSize = (v: unknown): v is CardSize =>
+  typeof v === 'string' && CARD_SIZES.some((c) => c.id === v);
+
 const isPalette = (v: unknown): v is PaletteId =>
   typeof v === 'string' && PALETTES.some((p) => p.id === v);
 
@@ -96,6 +128,8 @@ export function readPrefs(store: Storage | null = safeStorage()): Prefs {
     accent: isAccent(r.accent) ? r.accent : DEFAULT_PREFS.accent,
     fourColour: typeof r.fourColour === 'boolean' ? r.fourColour : DEFAULT_PREFS.fourColour,
     hand: isHand(r.hand) ? r.hand : DEFAULT_PREFS.hand,
+    cards: isCardLayout(r.cards) ? r.cards : DEFAULT_PREFS.cards,
+    cardSize: isCardSize(r.cardSize) ? r.cardSize : DEFAULT_PREFS.cardSize,
   };
 }
 
@@ -140,6 +174,16 @@ export function applyPrefs(prefs: Prefs, root: HTMLElement, store: Storage | nul
 
   if (prefs.hand === 'left') root.setAttribute('data-hand', 'left');
   else root.removeAttribute('data-hand');
+
+  /* Two attributes rather than one, because they are two independent choices:
+     a layout is where the second card sits and a size is how big both are. The
+     default of each is the absent attribute, the way every other setting here
+     works, so a player who has chosen nothing carries no attributes at all. */
+  if (prefs.cards === 'stacked') root.removeAttribute('data-cards');
+  else root.setAttribute('data-cards', prefs.cards);
+
+  if (prefs.cardSize === 'large') root.removeAttribute('data-card-size');
+  else root.setAttribute('data-card-size', prefs.cardSize);
 }
 
 function safeStorage(): Storage | null {
