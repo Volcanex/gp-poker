@@ -89,6 +89,12 @@ is spent, so a websocket behind a thinking bot waits about ten milliseconds.
 **Two solves at a time, and a third falls back.** A bot that answers on time
 with a level 5 decision beats a bot that answers late.
 
+**The ladder gets a fifth of the budget.** It plays bots against each other in
+every gap when nobody is here, one match after another, so two level 6 accounts
+meeting there at the full budget would keep a core busy around the clock on a
+box that runs everything else Gabriel has. Nobody is watching a ladder match,
+so it gets 250ms and a slightly worse bot.
+
 **It is not multiway.** The solver is heads-up. A six-max hand gets level 5
 until it is heads-up postflop, at which point it is solved like any other.
 

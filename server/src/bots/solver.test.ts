@@ -53,9 +53,12 @@ describe('level 6', () => {
     expect(outcome.chips[0] + outcome.chips[1]).toBe(0);
   }, 30_000);
 
-  it('budgets a quarter of the clock and never more than a second and a half', () => {
+  it('budgets a quarter of the clock, capped, and far lower on the ladder', () => {
     expect(budgetFor(300)).toBe(75);
     expect(budgetFor(20_000)).toBe(1500);
     expect(budgetFor(1)).toBe(1);
+    // Nobody is watching a ladder match and it runs around the clock.
+    expect(budgetFor(20_000, true)).toBe(250);
+    expect(budgetFor(300, true)).toBe(75);
   });
 });

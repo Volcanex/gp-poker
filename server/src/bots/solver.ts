@@ -39,6 +39,13 @@ export const SOLVER_LEVEL: BotLevel = 6;
 const MAX_BUDGET_MS = 1500;
 const CLOCK_FRACTION = 4;
 
+/* The ladder plays bots against each other in the gaps when nobody is here,
+   one match after another, forever. Two level 6 accounts meeting on it at the
+   full budget would keep a core busy around the clock on a four core box that
+   also runs everything else Gabriel has. Nobody is watching a ladder match, so
+   it gets a fraction of the thinking time and a slightly worse bot. */
+const LADDER_BUDGET_MS = 250;
+
 // How long a slice runs before it hands the event loop back.
 const SLICE_MS = 8;
 
@@ -48,8 +55,9 @@ let running = 0;
 
 const bots = new Map<string, SolverBot>();
 
-export function budgetFor(clockMs: number): number {
-  return Math.max(1, Math.min(MAX_BUDGET_MS, Math.floor(clockMs / CLOCK_FRACTION)));
+export function budgetFor(clockMs: number, ladder = false): number {
+  const ceiling = ladder ? LADDER_BUDGET_MS : MAX_BUDGET_MS;
+  return Math.max(1, Math.min(ceiling, Math.floor(clockMs / CLOCK_FRACTION)));
 }
 
 const yieldToLoop = () => new Promise<void>((resolve) => setImmediate(resolve));
@@ -77,7 +85,7 @@ export async function decideSolver(userId: string, view: TableView, rng: Rng): P
   }
   running += 1;
   try {
-    return await bot.decide(view, rng, slicedRunner, budgetFor(view.format.clockMs));
+    return await bot.decide(view, rng, slicedRunner, budgetFor(view.format.clockMs, view.format.ladder === true));
   } finally {
     running -= 1;
   }
