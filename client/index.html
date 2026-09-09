@@ -20,8 +20,9 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <title>Open Table</title>
     <link rel="stylesheet" href="/g/g.css" />
-    <!-- Four attribute writes before the first paint, so a chosen theme, a
-         palette or a four colour deck is never a flash of the wrong ground.
+    <!-- Six attribute writes before the first paint, so a chosen theme, a
+         palette, a four colour deck or a card size is never a flash of the
+         wrong ground.
          g-ui reads its own g-theme key a moment later and lands on the same
          answer, because the app writes both in one call (src/ui/prefs.ts).
          Attributes only: what jade is, what felt is, what the games room is,
@@ -42,6 +43,10 @@
           }
           if (p.fourColour) el.setAttribute('data-deck', 'four');
           if (p.hand === 'left') el.setAttribute('data-hand', 'left');
+          /* The band's height is derived from these two, so a record read a
+             frame late is a band that resizes under the player's thumb. */
+          if (['side', 'ajar'].includes(p.cards)) el.setAttribute('data-cards', p.cards);
+          if (['regular', 'huge'].includes(p.cardSize)) el.setAttribute('data-card-size', p.cardSize);
         } catch {}
       })();
     </script>

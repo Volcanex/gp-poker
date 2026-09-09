@@ -3,8 +3,8 @@
    on the root element, and that is worth testing against a real one. */
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  DEFAULT_PREFS, PALETTES, PREFS_KEY, applyPrefs, contrastOf, contrastRatio, defaultAccentFor,
-  parseColour, readPrefs, writePrefs,
+  CARD_LAYOUTS, CARD_SIZES, DEFAULT_PREFS, PALETTES, PREFS_KEY, applyPrefs, contrastOf,
+  contrastRatio, defaultAccentFor, parseColour, readPrefs, writePrefs,
 } from '../ui/prefs.ts';
 import { denominate } from '../table/chips.ts';
 import { shortName } from '../table/labels.ts';
@@ -36,17 +36,26 @@ const throwingStore = (): Storage => ({
 describe('settings persistence', () => {
   it('round trips a choice', () => {
     const store = fakeStore();
-    writePrefs({ theme: 'light', palette: 'felt', accent: 'jade', fourColour: true, hand: 'left' }, store);
+    writePrefs({
+      theme: 'light', palette: 'felt', accent: 'jade', fourColour: true, hand: 'left',
+      cards: 'ajar', cardSize: 'huge',
+    }, store);
     expect(readPrefs(store)).toEqual({
       theme: 'light', palette: 'felt', accent: 'jade', fourColour: true, hand: 'left',
+      cards: 'ajar', cardSize: 'huge',
     });
   });
 
   it('keeps everything in one key', () => {
     const store = fakeStore();
-    writePrefs({ theme: 'system', palette: 'sky', accent: 'clay', fourColour: false, hand: 'right' }, store);
-    expect(store.getItem(PREFS_KEY))
-      .toBe('{"theme":"system","palette":"sky","accent":"clay","fourColour":false,"hand":"right"}');
+    writePrefs({
+      theme: 'system', palette: 'sky', accent: 'clay', fourColour: false, hand: 'right',
+      cards: 'side', cardSize: 'regular',
+    }, store);
+    expect(store.getItem(PREFS_KEY)).toBe(
+      '{"theme":"system","palette":"sky","accent":"clay","fourColour":false,"hand":"right"'
+      + ',"cards":"side","cardSize":"regular"}',
+    );
   });
 
   it('takes the defaults when nothing has been chosen', () => {
@@ -61,7 +70,35 @@ describe('settings persistence', () => {
     });
     expect(readPrefs(store)).toEqual({
       theme: 'room', palette: 'slate', accent: 'violet', fourColour: false, hand: 'right',
+      cards: 'stacked', cardSize: 'large',
     });
+  });
+
+  /* The two card settings are the newest keys here, so every stored record
+     written before them is a record that has neither, and the defaults have to
+     be the ones the band was drawing for those players anyway. A value this
+     build does not know is the same case as a missing one. */
+  it('takes stacked and large for a record written before the cards had settings', () => {
+    const store = fakeStore({ [PREFS_KEY]: '{"theme":"dark","hand":"left"}' });
+    expect(readPrefs(store)).toMatchObject({ cards: 'stacked', cardSize: 'large' });
+  });
+
+  it('refuses a layout or a size it does not draw', () => {
+    const store = fakeStore({ [PREFS_KEY]: '{"cards":"fanned","cardSize":"enormous"}' });
+    expect(readPrefs(store)).toMatchObject({ cards: 'stacked', cardSize: 'large' });
+  });
+
+  it('reads back every layout and every size it offers', () => {
+    for (const c of CARD_LAYOUTS) {
+      const store = fakeStore();
+      writePrefs({ ...DEFAULT_PREFS, cards: c.id }, store);
+      expect(readPrefs(store).cards).toBe(c.id);
+    }
+    for (const s of CARD_SIZES) {
+      const store = fakeStore();
+      writePrefs({ ...DEFAULT_PREFS, cardSize: s.id }, store);
+      expect(readPrefs(store).cardSize).toBe(s.id);
+    }
   });
 
   it('survives a value that is not json at all', () => {
@@ -89,6 +126,10 @@ describe('applying settings', () => {
     expect(root.getAttribute('data-accent')).toBe(null);
     expect(root.getAttribute('data-deck')).toBe(null);
     expect(root.getAttribute('data-hand')).toBe(null);
+    /* Stacked and large are the defaults, so they are absences too: a player
+       who has chosen nothing carries no card attributes at all. */
+    expect(root.getAttribute('data-cards')).toBe(null);
+    expect(root.getAttribute('data-card-size')).toBe(null);
   });
 
   it('leaves the attributes off for dark and slate, which are the absences', () => {
@@ -118,7 +159,10 @@ describe('applying settings', () => {
 
   it('stamps one attribute per choice', () => {
     applyPrefs(
-      { theme: 'light', palette: 'felt', accent: 'ocean', fourColour: true, hand: 'left' },
+      {
+        theme: 'light', palette: 'felt', accent: 'ocean', fourColour: true, hand: 'left',
+        cards: 'side', cardSize: 'huge',
+      },
       root, fakeStore(),
     );
     expect(root.getAttribute('data-theme')).toBe('light');
@@ -126,24 +170,35 @@ describe('applying settings', () => {
     expect(root.getAttribute('data-accent')).toBe('ocean');
     expect(root.getAttribute('data-deck')).toBe('four');
     expect(root.getAttribute('data-hand')).toBe('left');
+    expect(root.getAttribute('data-cards')).toBe('side');
+    expect(root.getAttribute('data-card-size')).toBe('huge');
   });
 
   /* Right handed is the default, so it is the absence of the attribute: a
      record that says so must clear one an earlier choice left behind. */
   it('clears the handedness attribute when the choice goes back to right', () => {
-    applyPrefs({ theme: 'dark', palette: 'slate', accent: 'default', fourColour: false, hand: 'left' }, root, fakeStore());
+    applyPrefs({ ...DEFAULT_PREFS, theme: 'dark', hand: 'left' }, root, fakeStore());
     applyPrefs(DEFAULT_PREFS, root, fakeStore());
     expect(root.getAttribute('data-hand')).toBe(null);
+  });
+
+  /* Same bargain for the cards: the band's height is derived from these two,
+     so an attribute left behind by an earlier choice is a band the wrong size
+     for the setting the player is actually on. */
+  it('clears the card attributes when the choice goes back to the defaults', () => {
+    applyPrefs({ ...DEFAULT_PREFS, cards: 'ajar', cardSize: 'regular' }, root, fakeStore());
+    expect(root.getAttribute('data-cards')).toBe('ajar');
+    expect(root.getAttribute('data-card-size')).toBe('regular');
+    applyPrefs(DEFAULT_PREFS, root, fakeStore());
+    expect(root.getAttribute('data-cards')).toBe(null);
+    expect(root.getAttribute('data-card-size')).toBe(null);
   });
 
   /* g-ui reads its own key at load. The one call that changes the theme writes
      both, so the two cannot disagree on the next reload. */
   it('writes the theme where g-ui will look for it', () => {
     const store = fakeStore();
-    applyPrefs(
-      { theme: 'system', palette: 'slate', accent: 'default', fourColour: false, hand: 'right' },
-      root, store,
-    );
+    applyPrefs({ ...DEFAULT_PREFS, theme: 'system' }, root, store);
     expect(store.getItem('g-theme')).toBe('system');
   });
 });
