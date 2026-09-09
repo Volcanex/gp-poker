@@ -440,10 +440,20 @@ export const WATCHING_FOOTPRINT = [
 
 export interface Box { x: number; y: number; width: number; height: number }
 
-export async function boxes(page: Page, which = FOOTPRINT): Promise<Record<string, Box>> {
-  const out: Record<string, Box> = {};
+/* A region that is not on the page at all is recorded as null rather than
+   waited for: the header row is not drawn on a phone (its actions are in the
+   top bar's "Game" menu, see `../src/table/CLAUDE.md`), and a box absent in
+   every state is still a box that has not moved. A region that is present but
+   has no box is still an error. */
+export async function boxes(page: Page, which = FOOTPRINT): Promise<Record<string, Box | null>> {
+  const out: Record<string, Box | null> = {};
   for (const sel of which) {
-    const box = await page.locator(sel).first().boundingBox();
+    const el = page.locator(sel).first();
+    if ((await el.count()) === 0) {
+      out[sel] = null;
+      continue;
+    }
+    const box = await el.boundingBox();
     if (!box) throw new Error(`${sel} is not on the page`);
     out[sel] = {
       x: Math.round(box.x), y: Math.round(box.y),

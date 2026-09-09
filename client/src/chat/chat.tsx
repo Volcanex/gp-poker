@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CHAT_MAX_LENGTH } from '@opentable/protocol';
+import { ChatCircle } from '@phosphor-icons/react/dist/icons/ChatCircle';
 import { Avatar } from '../ui/avatar.tsx';
 import { avatarVersion } from '../net/adapt.ts';
 import { useNow } from '../ui/bits.tsx';
@@ -25,6 +26,28 @@ export function ChatToggle({ chat }: { chat: ChatController }) {
     >
       Chat
       {chat.unread > 0 && <span className="chat-unread num">{chat.unread}</span>}
+    </button>
+  );
+}
+
+/* The phone's toggle: a round button in the felt's bottom right corner, out
+   of the flow, with the unread count as a small circle on its shoulder. It
+   stands in for the header's word on a phone, where there is no header row
+   left to hold it; it is not drawn while the panel is open, because the panel
+   is a sheet over that corner and carries its own Close. */
+export function ChatFab({ chat }: { chat: ChatController }) {
+  if (chat.open) return null;
+  return (
+    <button
+      type="button"
+      className="btn btn-secondary chat-fab"
+      aria-label={chat.unread > 0 ? `Table chat, ${chat.unread} unread` : 'Table chat'}
+      aria-expanded={false}
+      aria-controls="table-chat"
+      onClick={chat.toggle}
+    >
+      <ChatCircle size={22} aria-hidden="true" />
+      {chat.unread > 0 && <span className="chat-unread num" aria-hidden="true">{chat.unread}</span>}
     </button>
   );
 }

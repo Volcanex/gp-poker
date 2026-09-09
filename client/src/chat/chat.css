@@ -137,7 +137,7 @@
    renders when there is one: a slot held open for a badge usually absent
    read as a stray gap after "Chat". */
 .chat-toggle { gap: 6px; }
-.chat-toggle .chat-unread {
+.chat-unread {
   min-width: 16px; height: 16px;
   display: inline-flex; align-items: center; justify-content: center;
   font-size: 10px; line-height: 1;
@@ -145,3 +145,18 @@
   background: var(--accent-fill); color: var(--accent-fg);
   padding: 0 4px;
 }
+
+/* The phone's toggle, in the felt's bottom right corner: absolute against
+   `.match`, above the band and the practice strip, so it costs the grid
+   nothing and the footprint suites never see it. The count sits on its
+   shoulder in the same circle the header's word carries. */
+.chat-fab {
+  position: absolute; z-index: 4;
+  right: var(--sp-3);
+  bottom: calc(var(--dock-h) + var(--sp-3));
+  width: 44px; height: 44px; padding: 0;
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-overlay);
+}
+.match[data-practice] .chat-fab { bottom: calc(var(--dock-h) + var(--strip-h) + var(--sp-3)); }
+.chat-fab .chat-unread { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; }

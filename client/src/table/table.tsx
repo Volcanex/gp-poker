@@ -16,14 +16,15 @@ import { dealFrom, dealOrder, layoutMode, placeOf, seatOrder } from './layout.ts
 import { amountToCall } from './preactions.ts';
 import { readShowdown } from './best-five.ts';
 import { useTableSounds } from './sounds.ts';
-import { useMedia, useTableInfo } from '../ui/bits.tsx';
+import { useMedia, useTableInfo, useGInit } from '../ui/bits.tsx';
 import { LiveStats } from '../analysis/live-stats.tsx';
-import { ChatPanel, ChatToggle } from '../chat/chat.tsx';
+import { ChatFab, ChatPanel, ChatToggle } from '../chat/chat.tsx';
 import { LeaveControl } from './leave-control.tsx';
 import type { ChatController } from '../chat/use-chat.ts';
 import { LookContext, type Look } from './look.ts';
 import { DeckSprite } from './deck-sprite.tsx';
-import { useTopActsSlot } from '../ui/shell.tsx';
+import { DotsThreeCircle } from '@phosphor-icons/react/dist/icons/DotsThreeCircle';
+import { useTopActsSlot, useTopGameSlot } from '../ui/shell.tsx';
 import './look-v2.css';
 
 export interface TableProps {
@@ -101,6 +102,12 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
      is not there yet for it to find; this waits for the slot instead and
      wires the portalled span the moment it actually has one. */
   const topActs = useTopActsSlot();
+  /* And on a phone, the bar's end slot, where the settings button stands on
+     every other screen: the actions go into a "Game" menu there, the felt
+     gets the header row back, and the chat toggle becomes a button on the
+     felt itself. Null above 560 (`../ui/shell.tsx` renders the slot only for
+     a phone table), so nothing is portalled where the slot is not. */
+  const topGame = useTopGameSlot();
   /* Below 900 the top bar has no room left for them (see `TOP_BAR_ACTS`), so
      the actions stand in the felt's own header row instead, exactly as they
      did before this had a middle to go to. Only read in `seat` mode: the
@@ -113,6 +120,18 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
   const info = useTableInfo();
   const phone = useMedia(PHONE);
   const panelMode = info === 'panel' && !bare && !phone;
+  const gameMenu = phone && !bare && topGame != null;
+
+  /* A live table on a phone locks the page: `data-table` on the root turns
+     the document's own scrolling off (`../app.css`), because a page exactly
+     one screen tall still rubber-bands and drags the browser's toolbar away
+     to show bare ground under the band. The felt scrolls its own overflow
+     as it always has. A finished match is a document again. */
+  useEffect(() => {
+    if (bare || ended) return undefined;
+    document.documentElement.setAttribute('data-table', '');
+    return () => document.documentElement.removeAttribute('data-table');
+  }, [bare, ended]);
   /* Wired on whichever render actually mounts the span, wherever it is: the
      portal's own node arrives a render after `topActs` does, crossing 900
      swaps one span for the other, and switching the setting swaps the top
@@ -124,7 +143,7 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
     if (!el || el.dataset.gDone === '1') return;
     el.dataset.gDone = '1';
     window.g?.init(el);
-  }, [topActs, wideHead, panelMode]);
+  }, [topActs, wideHead, panelMode, gameMenu]);
 
   /* The bottom slot is yours when you are seated; watching, seat 0 takes it.
      Everyone else goes round the table from your left: up the left column,
@@ -223,7 +242,7 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
       {onLeave && view.you != null && (
         <LeaveControl format={view.format} ended={Boolean(ended)} out={mySeat?.out ?? false} onLeave={onLeave} />
       )}
-      {chat && <ChatToggle chat={chat} />}
+      {chat && !gameMenu && <ChatToggle chat={chat} />}
     </span>
   );
 
@@ -256,8 +275,9 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
           always rendered: Verify used to appear only once the seed was
           published, which moved whichever header held it at the end of
           every hand. */}
-      {!bare && !panelMode && wideHead && topActs && createPortal(headEl, topActs)}
-      {!bare && !panelMode && !wideHead && (
+      {gameMenu && createPortal(<GameMenu>{headEl}</GameMenu>, topGame)}
+      {!bare && !panelMode && !gameMenu && wideHead && topActs && createPortal(headEl, topActs)}
+      {!bare && !panelMode && !gameMenu && !wideHead && (
         <div className="hand-head">
           <div className="bar-in">{headEl}</div>
         </div>
@@ -383,6 +403,7 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
       )}
 
       {chat && !bare && !ended && <ChatPanel chat={chat} />}
+      {chat && gameMenu && !ended && <ChatFab chat={chat} />}
 
       {!bare && !ended && (
         <>
@@ -440,6 +461,34 @@ function StatsBox({ view }: { view: TableView }) {
         </Fragment>
       ))}
     </dl>
+  );
+}
+
+/* The phone's home for the match's own actions: g's menu on the Popover API
+   at the end of the site's top bar, in the slot the settings button gives up
+   there (settings goes into the sheet). The same `head-acts` span as every
+   other home, laid out as a column by `../app.css`, so the controls cannot
+   drift into a different set; the leave control's dialog opens from inside
+   the popover into the top layer above it. `useGInit` on the wrapper is what
+   places the menu under its trigger. */
+function GameMenu({ children }: { children: ReactNode }) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  useGInit(wrapRef);
+  return (
+    <div className="game" ref={wrapRef}>
+      <button
+        type="button"
+        className="btn btn-tertiary btn-sm"
+        popoverTarget="game-menu"
+        aria-haspopup="menu"
+      >
+        <DotsThreeCircle size={20} aria-hidden="true" />
+        Game
+      </button>
+      <div className="menu game-menu" popover="auto" id="game-menu" aria-label="Game">
+        {children}
+      </div>
+    </div>
   );
 }
 

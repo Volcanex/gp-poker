@@ -19,7 +19,7 @@ const MODES = [
   { name: 'six-max', url: '/m/mock?mode=six-max' },
 ];
 
-function diff(a: Record<string, Box>, b: Record<string, Box>): string[] {
+function diff(a: Record<string, Box | null>, b: Record<string, Box | null>): string[] {
   return Object.keys(a).filter((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k]));
 }
 

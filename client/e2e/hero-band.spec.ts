@@ -16,7 +16,7 @@ const PHONE = { width: 390, height: 844 };
 const DESKTOP = { width: 1280, height: 800 };
 const BAND_FOOTPRINT = ['.hand-head', '.felt', '.board', '.pot', '.pot .v', '.hero-band'];
 
-function diff(a: Record<string, Box>, b: Record<string, Box>): string[] {
+function diff(a: Record<string, Box | null>, b: Record<string, Box | null>): string[] {
   return Object.keys(a).filter((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k]));
 }
 

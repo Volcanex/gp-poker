@@ -413,6 +413,18 @@
 /* --------------------------------------------------------------- settings */
 
 .settings { display: flex; flex: none; }
+
+/* A phone table's "Game" menu, in the settings button's place at the end of
+   the bar (`../ui/shell.tsx` renders the slot; `table/table.tsx` portals the
+   menu in). The same `head-acts` span the header row and the top bar carry,
+   stood up as a column of full-width rows, with the copy button's label back
+   since a menu row has the room the 360 px header did not. */
+.top-game, .game { display: flex; flex: none; }
+.game-menu { min-width: 200px; display: flex; flex-direction: column; padding: 8px; }
+.game-menu:not(:popover-open) { display: none; }
+.game-menu .head-acts { display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
+.game-menu .head-acts .btn { justify-content: flex-start; }
+.game-menu .head-acts .copy-btn .copy-label { display: inline; }
 .settings-menu {
   min-width: 262px; display: flex; flex-direction: column; gap: 6px; padding: 8px;
   /* Taller than a short window: g's menu placement flips above the trigger
@@ -583,6 +595,21 @@
 }
 
 .match:not([data-bare]):not([data-ended]) { max-height: calc(100dvh - var(--top-h)); }
+
+/* A live table locks the page (`data-table` on the root, stamped by
+   `table/table.tsx` for as long as one is on screen). The table is exactly
+   one screen tall, and a page exactly one screen tall still rubber-bands on
+   a phone and drags the browser's toolbar away to show bare ground under
+   the band. So the document does not scroll at all while a table is up;
+   the felt scrolls its own overflow as it always has. */
+:root[data-table] { height: 100dvh; overflow: hidden; overscroll-behavior: none; }
+:root[data-table] body { height: 100%; overflow: hidden; }
+
+/* Nothing on a live table is for selecting: a thumb resting on the felt
+   was lighting up seat names and the decision line. Chat and the typed
+   field keep their text. */
+.match:not([data-ended]) { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.match .chat-panel, .match input, .match textarea { user-select: text; -webkit-user-select: text; }
 
 /* One column, said out loud. Every child names its row and none of them named
    a column, which was fine while exactly one thing sat in each: the moment two

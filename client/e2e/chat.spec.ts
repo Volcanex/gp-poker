@@ -13,7 +13,7 @@ const SIZES = [
   { name: 'desktop', width: 1280, height: 800 },
 ];
 
-function diff(a: Record<string, Box>, b: Record<string, Box>): string[] {
+function diff(a: Record<string, Box | null>, b: Record<string, Box | null>): string[] {
   return Object.keys(a).filter((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k]));
 }
 
@@ -29,7 +29,9 @@ for (const size of SIZES) {
     const shut = await boxes(page);
 
     const panel = page.locator('#table-chat');
-    const toggle = page.locator('.chat-toggle');
+    /* On a phone the toggle is the round button on the felt, not the header's
+       word: see chat/CLAUDE.md. */
+    const toggle = page.locator(size.width <= 560 ? '.chat-fab' : '.chat-toggle');
     await expect(panel).toBeHidden();
 
     await toggle.click();
@@ -53,7 +55,10 @@ for (const size of SIZES) {
     await expect(page.locator('.chat-line').last()).toContainText('Good game');
     expect(diff(shut, await boxes(page)), 'boxes that moved when a message was sent').toEqual([]);
 
-    await toggle.click();
+    /* The phone's button is not drawn while the panel is open (the panel is
+       a sheet over that corner), so there the panel's own Close shuts it. */
+    if (size.width <= 560) await panel.getByRole('button', { name: 'Close' }).click();
+    else await toggle.click();
     await expect(panel).toBeHidden();
     expect(diff(shut, await boxes(page)), 'boxes that moved when chat closed').toEqual([]);
 

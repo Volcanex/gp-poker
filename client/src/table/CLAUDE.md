@@ -879,6 +879,27 @@ back to the half-width opponent in an empty column; ended, the slack rows are
 nought and your own seat, drawn again once the band is gone, takes a last
 full-width row, so the finished table reads opponent, board, you.
 
+**A phone table has no header row at all.** Under 560 the match's actions go
+into a "Game" menu (g's `.menu` on the Popover API, `GameMenu` in `table.tsx`)
+portalled into `.top-game`, the slot `../ui/shell.tsx` renders at the end of
+the site's top bar in place of the settings button, which moves into the
+hamburger's sheet for the length of the match. The same `head-acts` span as
+every other home, stood up as a column of rows by `../app.css`; the copy
+button gets its label back, the chat toggle leaves for a button on the felt
+(`../chat/CLAUDE.md`), and the leave control's dialog opens from inside the
+popover into the top layer above it. Row 2 of the grid is then empty and the
+felt has those 44 px.
+
+**A live table locks the page.** `table.tsx` stamps `data-table` on the root
+for as long as a live, non-bare table is on screen and `../app.css` turns the
+document's scrolling off under it: a page exactly one screen tall still
+rubber-bands on a phone and drags the browser's toolbar away to show bare
+ground under the band. The felt scrolls its own overflow as it always has,
+and a finished match is a document again. The same block turns text
+selection off on a live table (`user-select: none`, and the long-press
+callout with it), because a thumb resting on the felt was lighting up names;
+chat and the typed field keep theirs.
+
 **The game panel is not drawn on a phone.** `PHONE` in `table.tsx` (the same
 560) turns `panelMode` off whatever the setting says: a 340 px card over a
 390 px felt was a row nearly as tall as the felt, and the setting is about

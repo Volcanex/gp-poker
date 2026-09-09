@@ -12,7 +12,7 @@ import {
 const PRACTICE = '/m/mock?practice=1';
 const STRIP = '.practice-strip';
 
-function diff(a: Record<string, Box>, b: Record<string, Box>): string[] {
+function diff(a: Record<string, Box | null>, b: Record<string, Box | null>): string[] {
   return Object.keys(a).filter((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k]));
 }
 
@@ -182,9 +182,9 @@ test('the strip takes its own room, not the dock or the header', async ({ page }
   await waitForDock(page, 'turn');
   const practice = await boxes(page);
 
-  expect(practice['.dock'].height).toBe(rated['.dock'].height);
-  expect(practice['.hand-head'].height).toBe(rated['.hand-head'].height);
+  expect(practice['.dock']!.height).toBe(rated['.dock']!.height);
+  expect(practice['.hand-head']?.height).toBe(rated['.hand-head']?.height);
   /* The felt gives up exactly the strip's height and nothing else. */
   const strip = await page.locator(STRIP).boundingBox();
-  expect(rated['.felt'].height - practice['.felt'].height).toBe(Math.round(strip!.height));
+  expect(rated['.felt']!.height - practice['.felt']!.height).toBe(Math.round(strip!.height));
 });

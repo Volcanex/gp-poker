@@ -18,6 +18,31 @@ export function useTopActsSlot(): HTMLSpanElement | null {
   return useContext(TopActsSlot);
 }
 
+/* The bar's end slot on a phone table, where the settings button stands
+   everywhere else: the table portals its "Game" menu into it. Null wherever
+   the slot is not rendered, so a table on a wider screen never finds it. */
+const TopGameSlot = createContext<HTMLSpanElement | null>(null);
+export function useTopGameSlot(): HTMLSpanElement | null {
+  return useContext(TopGameSlot);
+}
+
+/* A phone: the one width class where the bar has no room for both a settings
+   button and a game's own controls, and where the felt has no row to spare
+   for a header of its own. The same number as `PHONE` in table/table.tsx. */
+const PHONE = '(max-width: 560px)';
+
+function useMatches(query: string): boolean {
+  const [on, setOn] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const read = () => setOn(mq.matches);
+    read();
+    mq.addEventListener('change', read);
+    return () => mq.removeEventListener('change', read);
+  }, [query]);
+  return on;
+}
+
 /* The site's persistent chrome: g-system's `.g-shell`, which is a sidebar of
    sections beside the page and, under 720px, the same sidebar as an off-canvas
    sheet behind a scrim. What the sheet does and how it moves is g's; what is
@@ -54,25 +79,20 @@ const SECTIONS = [
    popover that the profile page also opens by id, so a second copy hidden with
    a media query would be a second element with the same id. */
 function useOffCanvas(sheet: boolean): boolean {
-  const [narrow, setNarrow] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches,
-  );
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 720px)');
-    const read = () => setNarrow(mq.matches);
-    read();
-    mq.addEventListener('change', read);
-    return () => mq.removeEventListener('change', read);
-  }, []);
-  return sheet || narrow;
+  return sheet || useMatches('(max-width: 720px)');
 }
 
 export function SiteShell({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const sheet = sidebarIsSheet(pathname);
   const offCanvas = useOffCanvas(sheet);
+  /* A phone table: the settings go into the sheet and the bar's end slot is
+     the game's. Settings is one popover element the profile page also opens
+     by id, so it is moved, never duplicated. */
+  const phoneTable = sheet && useMatches(PHONE);
   const [open, setOpen] = useState(false);
   const [topActs, setTopActs] = useState<HTMLSpanElement | null>(null);
+  const [topGame, setTopGame] = useState<HTMLSpanElement | null>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const barRef = useRef<HTMLElement>(null);
   /* The hamburger is g's `list` icon, injected by g-ui.js from the data
@@ -132,7 +152,8 @@ export function SiteShell({ children }: { children: ReactNode }) {
         <span className="spacer" />
         <PlayingPill />
         {offCanvas && <AccountMenu />}
-        {offCanvas && <SettingsMenu />}
+        {offCanvas && !phoneTable && <SettingsMenu />}
+        {phoneTable && <span className="top-game" ref={setTopGame} />}
       </header>
 
       <div className="g-shell shell">
@@ -146,9 +167,9 @@ export function SiteShell({ children }: { children: ReactNode }) {
                 </NavLink>
               ))}
             </nav>
-            {!offCanvas && (
+            {(!offCanvas || phoneTable) && (
               <div className="side-foot">
-                <AccountMenu />
+                {!offCanvas && <AccountMenu />}
                 <SettingsMenu />
               </div>
             )}
@@ -156,7 +177,9 @@ export function SiteShell({ children }: { children: ReactNode }) {
         </aside>
 
         <div className="shell-main">
-          <TopActsSlot.Provider value={topActs}>{children}</TopActsSlot.Provider>
+          <TopActsSlot.Provider value={topActs}>
+            <TopGameSlot.Provider value={topGame}>{children}</TopGameSlot.Provider>
+          </TopActsSlot.Provider>
         </div>
 
         <div className="g-scrim" onClick={close} />

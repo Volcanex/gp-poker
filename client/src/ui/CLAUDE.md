@@ -55,7 +55,13 @@ the toggle is in the top bar.
 settings panel is a single popover that the profile page opens by id, so there
 is no second copy to hide with a media query: while the sidebar is a sheet the
 two sit in the top bar, and while it is a rail they sit at its foot. That is
-the one thing the shell asks in JavaScript rather than in CSS.
+the one thing the shell asks in JavaScript rather than in CSS. **On a phone
+table** (`sidebarIsSheet` and under 560, `PHONE` here and in
+`table/table.tsx`) the settings go into the sheet's foot instead and the bar's
+end slot is `.top-game`, handed out by `useTopGameSlot` the same way
+`.top-acts` is, for the table's "Game" menu (`../table/CLAUDE.md`): the bar
+has no room for both a settings button and a game's own controls, and the
+felt has no row to spare for a header.
 
 **The top bar has a middle, for a page that has actions worth the extra
 prominence.** `.top-acts`, a `<span>` between the wordmark and the account
