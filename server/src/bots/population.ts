@@ -1,6 +1,8 @@
 import { config } from '../config.js';
 import { rankedUnlocked } from '../matchmaking.js';
 import { liveRooms } from '../match/rooms.js';
+import { fillableTournaments, registerForTournament } from '../tournaments/index.js';
+import { isTournamentPlayer } from '../db.js';
 import { isBotBusy, isBotQueued, levelOf, loadedPopulation, sendBotMessage } from './index.js';
 import { isOnlineAt } from './population-roster.js';
 
@@ -93,6 +95,37 @@ function botOnlyTableCount(): number {
     .length;
 }
 
+/* Tournament fields, filled shortly before they are played.
+
+   A bot registers for a fixture only if its own weekly schedule says it is
+   online **at the start**, not now: a tournament is an hour of poker in the
+   diary rather than a table somebody wandered into, and a bot that will have
+   logged off by the time the bracket is drawn would only withdraw at its first
+   ready check.
+
+   The floor is per fixture (`fixtures.ts`) and the seat cap is absolute. This
+   never takes the last seats off people: the cap is the cap, and a person who
+   arrives at a full field displaces the bot that registered last, which is
+   `registerForTournament`'s own rule. */
+async function fillTournaments(): Promise<void> {
+  const fixtures = await fillableTournaments();
+  if (fixtures.length === 0) return;
+  for (const fixture of fixtures) {
+    let bots = fixture.bots;
+    let registered = fixture.registered;
+    if (bots >= fixture.botFloor || registered >= fixture.seats) continue;
+    for (const { userId, bot } of loadedPopulation()) {
+      if (bots >= fixture.botFloor || registered >= fixture.seats) break;
+      if (!isOnlineAt(bot.schedule, bot.timezone, fixture.startsAt)) continue;
+      if (await isTournamentPlayer(fixture.id, userId)) continue;
+      const result = await registerForTournament(fixture.id, userId);
+      if (!result.ok) continue;
+      bots += 1;
+      registered += 1;
+    }
+  }
+}
+
 /* One pass over the loaded population. Exported so a test can drive it a
    step at a time instead of waiting on the interval, the way `tick` is in
    matchmaking and `ladderTick` is in the ladder.
@@ -105,6 +138,9 @@ export async function populationTick(): Promise<void> {
   ticking = true;
   try {
     const now = clock();
+    // Before the queue, because a fixture that starts in the next hour is
+    // worth a seat more than another casual table is.
+    await fillTournaments();
     let dispatched = 0;
     for (const { userId, bot } of loadedPopulation()) {
       const online = isOnlineAt(bot.schedule, bot.timezone, now);

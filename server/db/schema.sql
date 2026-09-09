@@ -329,3 +329,78 @@ alter table hands add column if not exists bb int;
 alter table users add column if not exists walkout_strikes int not null default 0;
 alter table users add column if not exists walkout_at timestamptz;
 alter table users add column if not exists ranked_ban_until timestamptz;
+
+-- Tournaments: a field that funnels up to a final, on a fixed calendar. Three
+-- fixtures and no admin, the way arenas have none: the scheduler creates each
+-- kind's next row as soon as the previous one starts, so there are at most
+-- three upcoming and never zero.
+--
+-- `kind` names the fixture (which is what the calendar in
+-- server/src/tournaments/fixtures.ts is keyed by) and `shape` says how it is
+-- played. Both are stored rather than looked up from the kind at read time,
+-- because a stored tournament is a record of what was played and a fixture
+-- whose shape or seat cap is changed later must not rewrite history.
+--
+-- `starts_at` is unique per kind, so two processes scheduling the same fixture
+-- produce one row, exactly as `arenas.starts_at` does.
+create table if not exists tournaments (
+  id text primary key,                         -- short public id, the shareable URL
+  kind text not null,                          -- daily-bracket | sunday-shootout | monthly-championship
+  shape text not null,                         -- bracket | shootout
+  mode text not null,                          -- heads-up | six-max
+  name text not null,
+  seats int not null,                          -- the cap on the field
+  starts_at timestamptz not null,
+  status text not null default 'upcoming',     -- upcoming | running | finished | cancelled
+  round int not null default 0,                -- the round in play, 0 before the start
+  podium jsonb,                                -- [{uid, avatarV, name, place}], written at the end
+  created_at timestamptz not null default now(),
+  finished_at timestamptz
+);
+create unique index if not exists tournaments_kind_start on tournaments(kind, starts_at);
+create index if not exists tournaments_status on tournaments(status, starts_at);
+
+-- One row per person registered. Registration opens when the tournament row is
+-- created and closes at the start; withdrawing before the start deletes the
+-- row, because somebody who is not playing is not in the field.
+--
+-- `withdrawn` is the other kind of leaving: silence or a decline at a round's
+-- ready check takes a player out of a tournament they are already in, and they
+-- still have a place to be given, so the row stays and is marked. `seed` and
+-- `rating` are written once, at the start: a seeding is a claim about the
+-- moment the tournament began.
+create table if not exists tournament_players (
+  tournament_id text not null references tournaments(id) on delete cascade,
+  user_id uuid not null references users(id) on delete cascade,
+  registered_at timestamptz not null default now(),
+  seed int,                                    -- 1 = top seed, written at the start
+  rating double precision,                     -- their rating in the mode, frozen at the start
+  place int,                                   -- written when the tournament ends
+  out_round int,                               -- the round they went out in; null while still in
+  withdrawn boolean not null default false,
+  primary key (tournament_id, user_id)
+);
+create index if not exists tournament_players_user on tournament_players(user_id);
+
+-- One table of one round. The bracket's cards and the funnel's tables are the
+-- same row, which is why there is one table here and not two: a heads-up
+-- bracket match is a shootout table with two seats and one advancing.
+--
+-- `seats` is the user ids assigned to it, in seat order, and it is written when
+-- the round starts. `places` is the table's own finishing order once it has
+-- been played, and `advanced` is who it took through. All three are stored
+-- rather than derived from the match row, because a bye and a walkover are
+-- tables with a result and no match at all.
+create table if not exists tournament_tables (
+  tournament_id text not null references tournaments(id) on delete cascade,
+  round int not null,                          -- 1-based
+  table_no int not null,                       -- 0-based within the round
+  match_id text references matches(id) on delete set null,
+  status text not null default 'pending',      -- pending | playing | done
+  bye boolean not null default false,          -- went through with no hand dealt
+  seats jsonb not null default '[]',           -- [user_id] in seat order
+  places jsonb,                                -- {user_id: place at this table}
+  advanced jsonb,                              -- [user_id] who went through
+  primary key (tournament_id, round, table_no)
+);
+create index if not exists tournament_tables_match on tournament_tables(match_id);

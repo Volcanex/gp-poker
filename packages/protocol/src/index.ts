@@ -35,9 +35,18 @@
    `ranked_ban` error code and the `left` match reason are all new, and a
    client that never sends `resign` is served exactly as it was. An older
    client reading a `left` result falls through to no reason line rather than
-   to a wrong one. */
+   to a wrong one.
 
-export const PROTOCOL_VERSION = 5;
+   v6 is tournaments, and by the rule above it would have been additive:
+   `format.tournament`, the `tournament` message in both directions and the
+   shapes below are all new, and a v5 client that never sends one is served
+   exactly as it was. The number moves anyway because this repo's convention is
+   that a change to this package bumps it, which is cheaper than arguing about
+   which changes are additive at the moment somebody is making one. Nothing
+   reads the number to refuse a client: the server sends it in `hi` and that is
+   all, so a v5 client keeps working. */
+
+export const PROTOCOL_VERSION = 6;
 
 export type Card = string; // 'As', 'Td', '2c' (rank + suit, lowercase suit)
 
@@ -112,6 +121,22 @@ export interface MatchFormat {
   // ordinary rated heads-up match in every other way, so this is the only
   // thing that tells the scorer, the feed and the table it belongs to one.
   arena?: string;
+  /* The tournament table this match is, if it is one. Shaped like
+     `format.arena` and for the same reason: a tournament match is an ordinary
+     match on an ordinary public page, and this is the only thing that says
+     otherwise. The round and the table are carried as well as the id because
+     the result panel says which round it was and the funnel needs to find its
+     own table without a second lookup. */
+  tournament?: TournamentRef;
+}
+
+/* Which table of which round of which tournament. Its own shape rather than
+   three optional fields on the format, so "is this a tournament match" is one
+   question with one answer. */
+export interface TournamentRef {
+  id: string;
+  round: number; // 1-based
+  table: number; // 0-based within the round
 }
 
 export function speedOf(format: MatchFormat): Speed {
@@ -903,6 +928,103 @@ export function arenaPoints(outcome: 'win' | 'loss' | 'draw', streakBefore: numb
   return streakBefore >= ARENA_FIRE_FROM ? ARENA_FIRE_POINTS : ARENA_WIN_POINTS;
 }
 
+/* ------------------------------------------------------------ tournaments
+
+   A tournament is a field that funnels up to a final, on a fixed calendar.
+   Two shapes and no more: a heads-up **bracket** (single elimination, the
+   winner of each match goes through) and a six-max **shootout** (tables play
+   down, the top two or three of each go through, one table left is the final).
+
+   The names, the seat caps and the schedule are server-side data
+   (`server/src/tournaments/fixtures.ts`) and travel on the payload, so the
+   client never holds a second copy of the calendar. What lives here is what
+   both sides have to agree a meaning for: the shape, the statuses, the
+   minimum field, and the board the live subscription pushes. */
+
+export type TournamentShape = 'bracket' | 'shootout';
+
+/* Four statuses. `cancelled` is the one an arena has no need of: a bracket
+   with three people in it is not a bracket, so a fixture that nobody turned
+   up to says so rather than crowning somebody who beat nobody. */
+export type TournamentStatus = 'upcoming' | 'running' | 'finished' | 'cancelled';
+
+/* The field a shape needs before it is worth playing. Below this at the start
+   the fixture is cancelled. Here rather than in the server because the
+   registration card says how many are still needed. */
+export const TOURNAMENT_MIN_FIELD: Record<TournamentShape, number> = { bracket: 4, shootout: 6 };
+
+/* Seats at a six-max shootout table, and the floor a table is balanced down
+   to. Three, because two players at a six-max table is heads-up by another
+   name and a shootout round should not quietly change game. */
+export const SHOOTOUT_TABLE_SEATS = 6;
+export const SHOOTOUT_MIN_TABLE = 3;
+
+/* One person in a tournament, before it starts and after. `seed` is null
+   until the field is seeded at the start, which is also when `rating` is
+   frozen: a seeding is a claim about the moment the tournament began, and a
+   rating that kept moving under it would make the bracket unreadable an hour
+   later.
+
+   `place` is written for everybody when the tournament finishes, and
+   `outRound` is the round they went out in, which is what ties the places
+   inside a round together. */
+export interface TournamentEntrant {
+  uid: string;
+  name: string;
+  bot: boolean;
+  rating: number;
+  seed: number | null;
+  place: number | null;
+  outRound: number | null;
+  withdrawn: boolean;
+  avatarV?: number; // picture version, 0 for none
+  country?: string; // see SeatView.country
+}
+
+/* One seat at one table of one round. `place` is the place at that table (a
+   heads-up winner is 1, a six-max table's places are its elimination order)
+   and `advanced` is whether it took them through. Both null and false while
+   the table is still to be played. */
+export interface TournamentSeat {
+  uid: string;
+  name: string;
+  bot: boolean;
+  seed: number;
+  rating: number;
+  place: number | null;
+  advanced: boolean;
+  avatarV?: number;
+  country?: string;
+}
+
+/* A table of a round. `bye` is a seat that went through without a hand being
+   dealt: a bracket's odd seat, a walkover after the opponent failed their
+   ready check, or a shootout table left with one player. It is marked rather
+   than hidden, because a bracket that quietly skipped a round reads as a
+   drawing error. */
+export interface TournamentTable {
+  round: number; // 1-based
+  table: number; // 0-based within the round
+  status: 'pending' | 'playing' | 'done';
+  matchId: string | null; // the public match page, once there is one
+  bye: boolean;
+  seats: TournamentSeat[];
+  advance: number; // how many of this table go through
+}
+
+/* The board, pushed to everyone watching one tournament. `rounds` is every
+   round played so far, outer index round-1, which is the bracket's columns and
+   the funnel's bands in the order they are drawn. `entrants` is only sent
+   before the start, where the page is a seeded list rather than a bracket. */
+export interface TournamentBoard {
+  id: string;
+  status: TournamentStatus;
+  round: number; // the round in play, 0 before the start
+  entrants: number;
+  rounds: TournamentTable[][];
+  you: { seed: number | null; place: number | null; out: boolean; registered: boolean } | null;
+}
+
 /* Client -> server */
 export type ClientMsg =
   // defaults: six-max, long, rated. `bots` asks for a practice table instead:
@@ -945,6 +1067,10 @@ export type ClientMsg =
   // the pushes go to, and that is a thing only the page knows, so it says so
   // rather than the server guessing from who joined.
   | { t: 'arena'; a: string | null }
+  // Watch one tournament's board, or `null` to stop. The same bargain the
+  // arena's makes: a page is the only thing that knows which board it is
+  // showing, and watching a tournament is not the same as being in one.
+  | { t: 'tournament'; id: string | null }
   | { t: 'ping' };
 
 /* Who said something at a table. `seat` is null for a spectator, which is also
@@ -1002,6 +1128,11 @@ export type ServerMsg =
       endsAt: number; // epoch ms
       playing: number; // arena matches in progress
     }
+  // A tournament's board, pushed to everyone watching it on every change: a
+  // registration, a round starting, a table settling, the whole thing
+  // finishing. There is no beat behind it the way the arena has one, because
+  // a tournament changes on events rather than continuously.
+  | { t: 'tournament'; board: TournamentBoard }
   | {
       t: 'err';
       // `ranked_locked` is the one refusal that is not about this request

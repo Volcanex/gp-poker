@@ -2,6 +2,7 @@ import { buildApp } from './app.js';
 import { config } from './config.js';
 import { sql } from './db.js';
 import { startArena, stopArena } from './arena.js';
+import { startTournaments, stopTournaments } from './tournaments/index.js';
 import { startLadder, stopLadder } from './ladder.js';
 import { startPopulation, stopPopulation } from './bots/population.js';
 import { startMatchmaking, stopMatchmaking } from './matchmaking.js';
@@ -19,6 +20,7 @@ async function main() {
   if (config.populationEnabled) startPopulation();
   else startLadder();
   startArena();
+  startTournaments();
 
   await app.listen({ host: config.host, port: config.port });
 
@@ -27,6 +29,7 @@ async function main() {
     stopPopulation();
     stopLadder();
     stopArena();
+    stopTournaments();
     await app.close();
     await sql.end();
     process.exit(0);

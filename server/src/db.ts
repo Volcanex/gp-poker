@@ -1627,6 +1627,391 @@ export async function getArenasForUser(userId: string, limit = 20): Promise<User
   `;
 }
 
+// ---- tournaments ----
+
+/* A tournament, its field and its tables. Unlike the arena's board none of
+   this is a running total: a tournament's state is which tables have been
+   played and who came through them, so every row here is a record of
+   something that happened rather than a counter something adds to. */
+
+export interface TournamentRow {
+  id: string;
+  kind: string;
+  shape: 'bracket' | 'shootout';
+  mode: Mode;
+  name: string;
+  seats: number;
+  startsAt: Date;
+  status: 'upcoming' | 'running' | 'finished' | 'cancelled';
+  round: number;
+  podium: { uid: string; avatarV?: number; name: string; place: number }[] | null;
+  createdAt: Date;
+  finishedAt: Date | null;
+}
+
+export interface TournamentPlayerRow {
+  tournamentId: string;
+  userId: string;
+  name: string;
+  bot: boolean;
+  avatarV: number;
+  country: string | null;
+  registeredAt: Date;
+  seed: number | null;
+  /* Frozen at the start. Before then there is nothing stored, so the join
+     below reports their live standing in the tournament's mode instead, which
+     is what an entrant list before the start should show. */
+  rating: number;
+  place: number | null;
+  outRound: number | null;
+  withdrawn: boolean;
+}
+
+export interface TournamentTableRow {
+  tournamentId: string;
+  round: number;
+  tableNo: number;
+  matchId: string | null;
+  status: 'pending' | 'playing' | 'done';
+  bye: boolean;
+  seats: string[];
+  places: Record<string, number> | null;
+  advanced: string[] | null;
+}
+
+/* Creates a fixture's next row, or does nothing because it is already there.
+   `(kind, starts_at)` is unique, so two processes stocking the same schedule
+   produce one tournament, the way `arenas.starts_at` does. */
+export async function ensureTournament(t: {
+  id: string;
+  kind: string;
+  shape: string;
+  mode: Mode;
+  name: string;
+  seats: number;
+  startsAt: Date;
+}): Promise<TournamentRow> {
+  const [row] = await sql<TournamentRow[]>`
+    insert into tournaments (id, kind, shape, mode, name, seats, starts_at)
+    values (${t.id}, ${t.kind}, ${t.shape}, ${t.mode}, ${t.name}, ${t.seats}, ${t.startsAt})
+    on conflict (kind, starts_at) do nothing
+    returning *
+  `;
+  if (row) return row;
+  const [existing] = await sql<TournamentRow[]>`
+    select * from tournaments where kind = ${t.kind} and starts_at = ${t.startsAt}
+  `;
+  return existing;
+}
+
+export async function getTournamentById(id: string): Promise<TournamentRow | null> {
+  const [row] = await sql<TournamentRow[]>`select * from tournaments where id = ${id}`;
+  return row ?? null;
+}
+
+// Everything not yet settled, soonest first. Short by construction: one
+// upcoming per fixture plus whatever is running.
+export async function getOpenTournaments(): Promise<TournamentRow[]> {
+  return sql<TournamentRow[]>`
+    select * from tournaments
+    where status in ('upcoming', 'running')
+    order by starts_at asc
+  `;
+}
+
+export async function getUpcomingTournament(kind: string): Promise<TournamentRow | null> {
+  const [row] = await sql<TournamentRow[]>`
+    select * from tournaments
+    where kind = ${kind} and status = 'upcoming'
+    order by starts_at asc limit 1
+  `;
+  return row ?? null;
+}
+
+/* The results list, paged. Cancelled ones are in it: a fixture nobody turned
+   up to is part of the record, and hiding it would make the calendar look like
+   it skipped a day. */
+export async function getSettledTournaments(limit = 10, offset = 0): Promise<TournamentRow[]> {
+  return sql<TournamentRow[]>`
+    select * from tournaments
+    where status in ('finished', 'cancelled')
+    order by starts_at desc
+    limit ${limit} offset ${offset}
+  `;
+}
+
+export async function countSettledTournaments(): Promise<number> {
+  const [row] = await sql<{ n: number }[]>`
+    select count(*)::int as n from tournaments where status in ('finished', 'cancelled')
+  `;
+  return row?.n ?? 0;
+}
+
+export async function setTournamentStatus(
+  id: string,
+  status: 'running' | 'finished' | 'cancelled',
+  round?: number
+): Promise<void> {
+  if (round === undefined) {
+    await sql`update tournaments set status = ${status} where id = ${id}`;
+    return;
+  }
+  await sql`update tournaments set status = ${status}, round = ${round} where id = ${id}`;
+}
+
+export async function setTournamentRound(id: string, round: number): Promise<void> {
+  await sql`update tournaments set round = ${round} where id = ${id}`;
+}
+
+/* Closes a tournament in one transaction: every place onto its player row, the
+   podium and the status onto the tournament. One write, for the reason
+   `finishArena` is one: nothing may settle a table afterwards, and the status
+   is what says so. */
+export async function finishTournament(
+  id: string,
+  places: { userId: string; place: number }[],
+  podium: TournamentRow['podium']
+): Promise<void> {
+  await sql.begin(async (tx) => {
+    for (const p of places) {
+      await tx`
+        update tournament_players set place = ${p.place}
+        where tournament_id = ${id} and user_id = ${p.userId}
+      `;
+    }
+    await tx`
+      update tournaments
+      set status = 'finished', podium = ${sql.json(jsonb(podium))}, finished_at = now()
+      where id = ${id}
+    `;
+  });
+}
+
+/* The field. Ordered by seed once there is one, and by rating before then,
+   which is the order the entrant list is read in and the order the seeding
+   itself is computed from. `rating` is the frozen one where it exists and the
+   player's live standing in the tournament's mode where it does not. */
+export async function getTournamentPlayers(tournamentId: string): Promise<TournamentPlayerRow[]> {
+  return sql<TournamentPlayerRow[]>`
+    select
+      tp.tournament_id, tp.user_id, u.name, u.bot, u.avatar_v, u.country,
+      tp.registered_at, tp.seed, tp.place, tp.out_round, tp.withdrawn,
+      coalesce(tp.rating, r.rating, 1500) as rating
+    from tournament_players tp
+    join tournaments t on t.id = tp.tournament_id
+    join users u on u.id = tp.user_id
+    left join ratings r on r.user_id = tp.user_id and r.mode = t.mode
+    where tp.tournament_id = ${tournamentId}
+    order by tp.seed asc nulls last, coalesce(tp.rating, r.rating, 1500) desc, tp.registered_at asc
+  `;
+}
+
+/* One registration, with the seat cap tested inside the insert. Answers false
+   when the field is already full, so thirty-two people opening the page at
+   once cannot all take the last seat: the same bargain the home game's
+   seating insert makes, and for the same reason. */
+export async function insertTournamentPlayer(
+  tournamentId: string,
+  userId: string,
+  cap: number
+): Promise<boolean> {
+  const rows = await sql`
+    insert into tournament_players (tournament_id, user_id)
+    select ${tournamentId}::text, ${userId}::uuid
+    where (select count(*) from tournament_players where tournament_id = ${tournamentId}) < ${cap}
+    on conflict (tournament_id, user_id) do nothing
+    returning user_id
+  `;
+  return rows.length > 0;
+}
+
+export async function isTournamentPlayer(tournamentId: string, userId: string): Promise<boolean> {
+  const rows = await sql`
+    select 1 from tournament_players where tournament_id = ${tournamentId} and user_id = ${userId}
+  `;
+  return rows.length > 0;
+}
+
+export async function deleteTournamentPlayer(tournamentId: string, userId: string): Promise<boolean> {
+  const rows = await sql`
+    delete from tournament_players
+    where tournament_id = ${tournamentId} and user_id = ${userId}
+    returning user_id
+  `;
+  return rows.length > 0;
+}
+
+/* Out of a tournament they were already in: silence or a decline at a round's
+   ready check. The row stays, because they still have a place coming to them,
+   and `out_round` is what ties it to everybody else who went out that round. */
+export async function withdrawTournamentPlayer(
+  tournamentId: string,
+  userId: string,
+  round: number
+): Promise<void> {
+  await sql`
+    update tournament_players set withdrawn = true, out_round = ${round}
+    where tournament_id = ${tournamentId} and user_id = ${userId} and withdrawn = false
+  `;
+}
+
+// The seeding, written once at the start, along with the rating it was
+// computed from.
+export async function setTournamentSeeds(
+  tournamentId: string,
+  seeds: { userId: string; seed: number; rating: number }[]
+): Promise<void> {
+  await sql.begin(async (tx) => {
+    for (const s of seeds) {
+      await tx`
+        update tournament_players set seed = ${s.seed}, rating = ${s.rating}
+        where tournament_id = ${tournamentId} and user_id = ${s.userId}
+      `;
+    }
+  });
+}
+
+// Which round a player went out in, for everybody a round eliminated. Written
+// as the round settles rather than at the end, so a page can say "out in round
+// two" while the tournament is still running.
+export async function setTournamentOutRound(
+  tournamentId: string,
+  userIds: string[],
+  round: number
+): Promise<void> {
+  if (userIds.length === 0) return;
+  await sql`
+    update tournament_players set out_round = ${round}
+    where tournament_id = ${tournamentId} and user_id in ${sql(userIds)} and out_round is null
+  `;
+}
+
+export async function getTournamentTables(tournamentId: string): Promise<TournamentTableRow[]> {
+  return sql<TournamentTableRow[]>`
+    select * from tournament_tables where tournament_id = ${tournamentId}
+    order by round asc, table_no asc
+  `;
+}
+
+export async function getTournamentTablesForRound(
+  tournamentId: string,
+  round: number
+): Promise<TournamentTableRow[]> {
+  return sql<TournamentTableRow[]>`
+    select * from tournament_tables
+    where tournament_id = ${tournamentId} and round = ${round}
+    order by table_no asc
+  `;
+}
+
+/* A round's tables, written in one transaction so a round either exists whole
+   or not at all: a tick that failed halfway through would otherwise leave a
+   round whose remaining tables nobody ever deals. */
+export async function insertTournamentTables(
+  tournamentId: string,
+  round: number,
+  tables: { tableNo: number; seats: string[] }[]
+): Promise<void> {
+  await sql.begin(async (tx) => {
+    for (const t of tables) {
+      await tx`
+        insert into tournament_tables (tournament_id, round, table_no, seats)
+        values (${tournamentId}, ${round}, ${t.tableNo}, ${sql.json(jsonb(t.seats))})
+        on conflict (tournament_id, round, table_no) do nothing
+      `;
+    }
+  });
+}
+
+export async function setTournamentTableMatch(
+  tournamentId: string,
+  round: number,
+  tableNo: number,
+  matchId: string
+): Promise<void> {
+  await sql`
+    update tournament_tables set match_id = ${matchId}, status = 'playing'
+    where tournament_id = ${tournamentId} and round = ${round} and table_no = ${tableNo}
+  `;
+}
+
+/* A table settled. Answers false when it was already done, which is what
+   makes the finished-match listener and the tick safe to both run: whoever
+   gets there first settles it and the other one finds nothing to do. */
+export async function finishTournamentTable(
+  tournamentId: string,
+  round: number,
+  tableNo: number,
+  result: { places: Record<string, number>; advanced: string[]; bye: boolean }
+): Promise<boolean> {
+  const rows = await sql`
+    update tournament_tables set
+      status = 'done',
+      places = ${sql.json(jsonb(result.places))},
+      advanced = ${sql.json(jsonb(result.advanced))},
+      bye = ${result.bye}
+    where tournament_id = ${tournamentId} and round = ${round} and table_no = ${tableNo}
+      and status <> 'done'
+    returning table_no
+  `;
+  return rows.length > 0;
+}
+
+/* What a profile shows: every settled tournament this player was in, newest
+   first, with where they came. */
+export interface UserTournamentSummary {
+  id: string;
+  name: string;
+  kind: string;
+  shape: 'bracket' | 'shootout';
+  startsAt: Date;
+  status: 'finished' | 'cancelled';
+  place: number | null;
+  players: number;
+}
+
+export async function getTournamentsForUser(userId: string, limit = 20): Promise<UserTournamentSummary[]> {
+  return sql<UserTournamentSummary[]>`
+    select
+      t.id, t.name, t.kind, t.shape, t.starts_at, t.status, tp.place,
+      (select count(*)::int from tournament_players x where x.tournament_id = t.id) as players
+    from tournament_players tp
+    join tournaments t on t.id = tp.tournament_id
+    where tp.user_id = ${userId} and t.status in ('finished', 'cancelled')
+    order by t.starts_at desc
+    limit ${limit}
+  `;
+}
+
+/* The headline tile's two numbers: tournaments won and podium finishes. One
+   query rather than counting the list above, because the list is capped and a
+   career total must not be. */
+export async function getTournamentRecord(userId: string): Promise<{ wins: number; podiums: number }> {
+  const [row] = await sql<{ wins: number; podiums: number }[]>`
+    select
+      count(*) filter (where tp.place = 1)::int as wins,
+      count(*) filter (where tp.place <= 3)::int as podiums
+    from tournament_players tp
+    join tournaments t on t.id = tp.tournament_id
+    where tp.user_id = ${userId} and t.status = 'finished' and tp.place is not null
+  `;
+  return { wins: row?.wins ?? 0, podiums: row?.podiums ?? 0 };
+}
+
+/* How many people are registered for each of a list of tournaments, in one
+   query. The listing draws three cards and each one says "n of m", which is
+   three counts and should not be three round trips. */
+export async function countTournamentPlayers(ids: string[]): Promise<Map<string, number>> {
+  if (ids.length === 0) return new Map();
+  const rows = await sql<{ tournamentId: string; n: number }[]>`
+    select tournament_id, count(*)::int as n
+    from tournament_players
+    where tournament_id in ${sql(ids)}
+    group by tournament_id
+  `;
+  return new Map(rows.map((r) => [r.tournamentId, r.n]));
+}
+
 /* Tickets: the annotation layer's rows. `drawing` is a PNG data URL and is the
    only large column here, so a list never selects it: a page of ticket titles
    is a page of ticket titles, not a megabyte of strokes each. */
