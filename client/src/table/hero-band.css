@@ -51,11 +51,12 @@
      it too and the three lines share one edge. */
   --hb-flag: 16px;
   --hb-flag-gap: 6px;
-  /* The floor under the hand's column. It is the fan's own width normally, but
-     the figure, its three chip columns and the last action are a line of their
-     own under the cards and they need more than a 76 px fan gives: below this
-     the label was pushed out of the column and printed over the key legend.
-     The cards stay on the column's near edge, so the shared left edge holds. */
+  /* The floor under the hand's column. It is the pair's own width normally,
+     but the figure, its three chip columns and the last action are a line of
+     their own under the cards, and a narrow layout at a small size does not
+     give them enough: below this the label was pushed out of the column and
+     printed over the key legend. The cards stay on the column's near edge, so
+     the shared left edge holds. */
   --hb-hand-min: 184px;
   /* The left group of the controls, fold and call; the sizes and the button
      that sends one take what is left. */
@@ -893,11 +894,11 @@
     --hb-hand-min: 0px;
   }
 
-  /* The controls take a thumb's column and the hand takes the fan's own width,
-     the same way round as the wide band. A `1fr` here was two pixels wider
-     than the fan at 390 and two narrower than it at 360, and left handed the
-     fan is set against the far edge, so those two pixels were the card leaving
-     the band. */
+  /* The controls take a thumb's column and the hand takes its own width, the
+     same way round as the wide band. A `1fr` here was two pixels wider than
+     the pair at 390 and two narrower than it at 360, and left handed the hand
+     is set against the far edge, so those two pixels were the card leaving the
+     band. */
   .hb-in {
     grid-template-columns: auto var(--band-col);
     grid-template-rows: minmax(0, 1fr);
