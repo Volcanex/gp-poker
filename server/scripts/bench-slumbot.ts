@@ -148,7 +148,9 @@ function viewFor(reply: SlumbotReply, position: Position, hand: number): TableVi
   actions.push(call <= 0 ? 'x' : 'c');
   if (currentBet === 0) actions.push('b');
   else if (cap > currentBet) actions.push('r');
-  actions.push('a');
+  // Only when there is something left to shove. Slumbot rejects a bet that is
+  // not a raise, where the engine here would have called it an all-in.
+  if (cap > currentBet) actions.push('a');
 
   const seats: SeatView[] = [0, 1].map((i) => ({
     i,
@@ -205,12 +207,18 @@ function normalise(card: string): string {
   return `${card[0].toUpperCase()}${card[1].toLowerCase()}`;
 }
 
-function encode(decision: { a: ActionKind; v?: number }, view: TableView): string {
-  if (decision.a === 'f') return 'f';
-  if (decision.a === 'x') return 'k';
-  if (decision.a === 'c') return 'c';
-  if (decision.a === 'a') return `b${view.legal!.max}`;
-  return `b${decision.v}`;
+/* Slumbot validates strictly, so anything that is not clearly a raise goes out
+   as a call or a check instead. A rejected action costs the whole hand. */
+function encode(decision: { a: ActionKind; v?: number }, view: TableView, position: Position): string {
+  const legal = view.legal!;
+  if (decision.a === 'f') return legal.call > 0 ? 'f' : 'k';
+  if (decision.a === 'x') return legal.call > 0 ? 'c' : 'k';
+  if (decision.a === 'c') return legal.call > 0 ? 'c' : 'k';
+  const currentBet = Math.max(position.bets[0], position.bets[1]);
+  const wanted = decision.a === 'a' ? legal.max : (decision.v ?? legal.min);
+  const to = Math.max(legal.min, Math.min(legal.max, Math.round(wanted)));
+  if (!(to > currentBet)) return legal.call > 0 ? 'c' : 'k';
+  return `b${to}`;
 }
 
 async function main(): Promise<void> {
@@ -232,10 +240,13 @@ async function main(): Promise<void> {
     let guard = 0;
     while (reply.winnings === undefined && !reply.error_msg && guard++ < 60) {
       const position = parseAction(reply.action);
+      const parsedFrom = reply.action;
       if (position.done) break;
       const view = viewFor(reply, position, hand);
       const decision = (await bot.decide(view, rng, runInline, BUDGET_MS)) ?? decide(view, rng, 5);
-      reply = await post('act', { token, incr: encode(decision, view) });
+      const incr = encode(decision, view, position);
+      reply = await post('act', { token, incr });
+      if (reply.error_msg) console.error(`  hand ${hand}: ${reply.error_msg} sending ${incr} after ${JSON.stringify(view.legal)} on "${parsedFrom}"`);
     }
 
     if (reply.error_msg) {

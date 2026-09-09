@@ -15,7 +15,7 @@
    part, and it is the single biggest approximation in this package. */
 
 import { Cfr, type CfrOptions, type ShowdownEvaluator } from './cfr.js';
-import { COMBO_HIGH, COMBO_LOW, NUM_CARDS } from './cards.js';
+import { NUM_CARDS } from './cards.js';
 import type { Range } from './range.js';
 import {
   accumulateShowdown,
@@ -330,10 +330,3 @@ export function frequenciesFor(result: SolveResult, combo: number): { act: Act; 
   return result.acts.map((act, k) => ({ act, frequency: result.strategy[k * n + p] }));
 }
 
-export function comboFromCards(a: number, b: number): number {
-  const hi = a > b ? a : b;
-  const lo = a > b ? b : a;
-  return (hi * (hi - 1)) / 2 + lo;
-}
-
-export { COMBO_HIGH, COMBO_LOW };

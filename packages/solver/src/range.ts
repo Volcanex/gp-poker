@@ -63,15 +63,6 @@ export function chartRange(bucket: StackBucket, spot: Spot, action: DecisionActi
   return rangeFromPercentiles(region[0], region[1]);
 }
 
-/* The union of the actions a player could still hold after taking one of them,
-   which is what an opponent's range is when we do not know which of two
-   non-folding actions they took. Weights add and are capped at one. */
-export function unionRange(...ranges: Range[]): Range {
-  const out = emptyRange();
-  for (const r of ranges) for (let i = 0; i < NUM_COMBOS; i++) out[i] = Math.min(1, out[i] + r[i]);
-  return out;
-}
-
 export function blendRanges(a: Range, b: Range, weightB: number): Range {
   const out = emptyRange();
   const wa = 1 - weightB;
@@ -96,17 +87,6 @@ function deadMaskOf(cards: number[]): [number, number] {
     else hi |= 1 << (c - 26);
   }
   return [lo, hi];
-}
-
-export function rangeWeight(range: Range): number {
-  let total = 0;
-  for (let i = 0; i < NUM_COMBOS; i++) total += range[i];
-  return total;
-}
-
-export function scaleRange(range: Range, factor: number): Range {
-  for (let i = 0; i < NUM_COMBOS; i++) range[i] *= factor;
-  return range;
 }
 
 /* Widen a range towards "any two cards" by `amount`, so a line we cannot

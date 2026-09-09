@@ -52,10 +52,6 @@ export function budgetFor(clockMs: number): number {
   return Math.max(1, Math.min(MAX_BUDGET_MS, Math.floor(clockMs / CLOCK_FRACTION)));
 }
 
-export function solverLoad(): number {
-  return running;
-}
-
 const yieldToLoop = () => new Promise<void>((resolve) => setImmediate(resolve));
 
 async function slicedRunner(prepared: PreparedSubgame, budgetMs: number): Promise<void> {
@@ -91,10 +87,4 @@ export async function decideSolver(userId: string, view: TableView, rng: Rng): P
    hand is over and the bot is never asked again. See `SolverBot`. */
 export function observeSolverResult(userId: string, view: TableView): void {
   bots.get(userId)?.observeResult(view);
-}
-
-// The roster is fixed and small, so this is only ever called by a test that
-// wants a bot with no memory of the hand before.
-export function forgetSolverState(): void {
-  bots.clear();
 }

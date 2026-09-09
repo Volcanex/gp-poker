@@ -88,9 +88,12 @@ const MIN_ITERATIONS = 40;
 const PURIFY_THRESHOLD = 0.08;
 const PURIFY_EXPONENT = 1.3;
 
-const BLUFF_RANK = 0.6; // the part of our range whose bets are mostly bluffs
-const CATCH_RANK = 0.75; // the part that is calling rather than raising for value
-const VALUE_RANK = 0.8; // the part that wants to be paid rather than to fold anybody
+/* All three are measured against the opponent's range and not our own: what
+   makes a hand a bluff is that it loses to most of what they have, and a hand
+   can be the top of a range that is beaten anyway. */
+const BLUFF_RANK = 0.5; // beats less than half of what they hold
+const CATCH_RANK = 0.6; // calling rather than raising for value
+const VALUE_RANK = 0.7; // wants to be paid rather than to fold anybody
 const MAX_BLUFF_CUT = 0.9;
 const MAX_CATCH_CUT = 0.7;
 // The same read that says a bluff will not get through says a value bet will.
@@ -383,7 +386,7 @@ export class SolverBot {
     const sticky = this.stats.betsFaced >= MIN_BET_SAMPLE ? this.stats.foldsToOurBets / this.stats.betsFaced : null;
     const read = passivity(this.stats);
     if (sticky !== null || read > 0) {
-      const rank = rankWithinRange(heroRange, board, combo);
+      const rank = rankWithinRange(villainRange, board, combo);
       const facing = legal.call > 0;
       const potNow = view.pot;
       for (const f of frequencies) {

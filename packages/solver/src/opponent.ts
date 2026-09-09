@@ -18,12 +18,11 @@ import { NUM_COMBOS } from './cards.js';
 import {
   blendRanges,
   chartRange,
-  cloneRange,
   emptyRange,
+  cloneRange,
   headsUpSpot,
   rangeFromPercentiles,
   removeBlocked,
-  unionRange,
   widen,
   type Range,
 } from './range.js';
@@ -332,14 +331,4 @@ export class RangeTracker {
     return widen(out, 0.02, [...board, ...dead]);
   }
 
-  /* A range holding exactly one hand, for the seat whose cards we can see. The
-     solver still needs our whole range to balance against, so this is only
-     used where the hand is genuinely known to both sides (it is not). */
-  static single(combo: number): Range {
-    const range = emptyRange();
-    range[combo] = 1;
-    return range;
-  }
 }
-
-export { unionRange };

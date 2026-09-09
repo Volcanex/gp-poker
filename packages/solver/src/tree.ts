@@ -171,7 +171,3 @@ function raiseTargets(spec: TreeSpec, facingTo: number, potAfterCall: number, mi
 function dedupe(values: number[]): number[] {
   return [...new Set(values)].sort((a, b) => a - b);
 }
-
-export function countNodes(tree: Tree): number {
-  return tree.decisions.length;
-}

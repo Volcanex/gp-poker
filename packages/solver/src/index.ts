@@ -3,11 +3,7 @@ export {
   NUM_COMBOS,
   cardIndex,
   cardOf,
-  comboCards,
   comboIndex,
-  comboOfCards,
-  rankOfCard,
-  suitOfCard,
 } from './cards.js';
 
 export {
@@ -17,11 +13,8 @@ export {
   cloneRange,
   emptyRange,
   rangeFromPercentiles,
-  rangeWeight,
   regionWeight,
   removeBlocked,
-  scaleRange,
-  unionRange,
   widen,
 } from './range.js';
 export type { Range } from './range.js';
