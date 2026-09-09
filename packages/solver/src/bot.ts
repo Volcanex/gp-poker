@@ -27,6 +27,7 @@ import type { ActionKind, Card, LegalActions, SeatView, TableView } from '@opent
 import { NUM_COMBOS, cardIndex, comboIndex } from './cards.js';
 import {
   RangeTracker,
+  MIN_BET_SAMPLE,
   emptyStats,
   passivity,
   positionRange,
@@ -77,7 +78,7 @@ const MIN_ITERATIONS = 40;
 
 const BLUFF_RANK = 0.6; // the part of our range whose bets are mostly bluffs
 const CATCH_RANK = 0.75; // the part that is calling rather than raising for value
-const MAX_BLUFF_CUT = 0.85;
+const MAX_BLUFF_CUT = 0.9;
 const MAX_CATCH_CUT = 0.7;
 
 // Preflop sizings, in the units each is naturally read in: an open is a
@@ -97,6 +98,9 @@ interface HandState {
   // Set when the decision just taken came from a solve, so `record` knows the
   // range has already been narrowed by the exact strategy behind it.
   exactlyTracked: boolean;
+  // True while a postflop bet or raise of ours is still unanswered. If the
+  // hand ends with it still set and nobody showed a hand, they folded to it.
+  pendingBet: boolean;
 }
 
 export class SolverBot {
@@ -120,6 +124,14 @@ export class SolverBot {
     const inHand = view.seats.filter((s) => !s.out && !s.folded && s.cards !== null);
     const key = `${view.m}:${view.h}`;
     if (!this.hand || this.hand.key !== key) {
+      // A bet of ours that the last hand never answered was folded to. The
+      // hand may instead have ended at a showdown, which `observeResult`
+      // clears when the server tells us; a harness that never calls it simply
+      // sees a slightly high fold rate.
+      if (this.hand?.pendingBet) {
+        this.stats.foldsToOurBets += 1;
+        this.hand.pendingBet = false;
+      }
       const effective = Math.min(...inHand.map((s) => s.stack + s.bet)) / view.blinds.bb;
       this.hand = {
         key,
@@ -129,6 +141,7 @@ export class SolverBot {
         heroPosition: me.button ? 'sb' : 'bb',
         lastWagerFraction: 0,
         exactlyTracked: false,
+        pendingBet: false,
       };
       this.stats.hands += 1;
     }
@@ -148,6 +161,8 @@ export class SolverBot {
     state.seenN = view.n;
     const last = opponent.last;
     if (!last) return;
+    // They answered whatever we last put in, so it was not folded to.
+    state.pendingBet = false;
     const aggressive = last.a === 'b' || last.a === 'r' || last.a === 'a';
     if (view.street === 'pre') {
       if (state.multiway) return;
@@ -174,6 +189,10 @@ export class SolverBot {
       return;
     }
     if (decision.a === 'f') return;
+    if (decision.a === 'b' || decision.a === 'r' || decision.a === 'a') {
+      this.stats.betsFaced += 1;
+      state.pendingBet = true;
+    }
     if (state.exactlyTracked) {
       state.exactlyTracked = false;
       const wager = decision.a === 'b' || decision.a === 'r' || decision.a === 'a' ? (decision.v ?? me.stack + me.bet) - me.bet : 0;
@@ -191,6 +210,20 @@ export class SolverBot {
     // street, how big a call it was is still known.
     state.lastWagerFraction = aggressive ? potFraction : 0;
     state.tracker.postflopAction(state.heroPosition, view.board.map(cardIndex), { kind, potFraction });
+  }
+
+  /* The end of a hand, which is the only place a fold can be seen: when
+     somebody folds, the hand is over and this bot is never asked again. A
+     showdown clears the flag instead, since a bet that got to a showdown was
+     called rather than folded to. Callers that never send this (a benchmark
+     harness that stops at the last decision) lose only the ability to tell a
+     called river bet from a folded one, which reads as a fold rate a little
+     high rather than as nothing at all. */
+  observeResult(view: Pick<TableView, 'm' | 'h' | 'result'>): void {
+    if (!this.hand || this.hand.key !== `${view.m}:${view.h}`) return;
+    if (!this.hand.pendingBet) return;
+    const shown = view.result ? Object.keys(view.result.shown).length : 0;
+    if (shown > 0) this.hand.pendingBet = false;
   }
 
   async decide(view: TableView, rng: Rng, runner: SolveRunner, budgetMs: number): Promise<Decision | null> {
@@ -329,14 +362,23 @@ export class SolverBot {
     const frequencies = frequenciesFor(result, combo);
     if (!frequencies) return null;
 
+    const sticky = this.stats.betsFaced >= MIN_BET_SAMPLE ? this.stats.foldsToOurBets / this.stats.betsFaced : null;
     const read = passivity(this.stats);
-    if (read > 0) {
+    if (sticky !== null || read > 0) {
       const rank = rankWithinRange(heroRange, board, combo);
       const facing = legal.call > 0;
+      const potNow = view.pot;
       for (const f of frequencies) {
         const aggressive = f.act.label === 'b' || f.act.label === 'r' || f.act.label === 'a';
-        if (aggressive && rank < BLUFF_RANK) f.frequency *= 1 - MAX_BLUFF_CUT * read * (1 - rank / BLUFF_RANK);
-        if (facing && f.act.label === 'c' && rank < CATCH_RANK) {
+        if (aggressive && rank < BLUFF_RANK && sticky !== null) {
+          // What this particular size needs them to fold, against what they
+          // actually fold. A bet that is already priced in never gets cut.
+          const wager = Math.max(1, f.act.to - me.bet);
+          const breakeven = wager / (potNow + wager);
+          const shortfall = Math.max(0, (breakeven - sticky) / breakeven);
+          f.frequency *= 1 - MAX_BLUFF_CUT * shortfall * (1 - rank / BLUFF_RANK);
+        }
+        if (facing && f.act.label === 'c' && rank < CATCH_RANK && read > 0) {
           f.frequency *= 1 - MAX_CATCH_CUT * read * (1 - rank / CATCH_RANK);
         }
       }

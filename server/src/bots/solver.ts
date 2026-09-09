@@ -87,6 +87,12 @@ export async function decideSolver(userId: string, view: TableView, rng: Rng): P
   }
 }
 
+/* Told when a hand ends, because a fold can only be seen after the fact: the
+   hand is over and the bot is never asked again. See `SolverBot`. */
+export function observeSolverResult(userId: string, view: TableView): void {
+  bots.get(userId)?.observeResult(view);
+}
+
 // The roster is fixed and small, so this is only ever called by a test that
 // wants a bot with no memory of the hand before.
 export function forgetSolverState(): void {

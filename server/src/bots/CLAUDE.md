@@ -39,7 +39,7 @@ seat, the ladder — keeps the ranges that existed before practice tables had
 their own pacing. Both are still capped against a quarter of `format.clockMs`
 exactly as before, so a short test clock is unaffected either way.
 
-## Five levels, not five brains
+## Six levels, five of them in one function
 `decide` takes a level, default 4. **Level 4 is the bot that existed before
 levels did, byte for byte**: `server/test/strategy.test.ts` pins it and must
 keep passing untouched. Every other level reuses the same `Ctx`, the same
@@ -51,12 +51,65 @@ keep passing untouched. Every other level reuses the same `Ctx`, the same
 - 5 is level 4 plus semi-bluffs, a continuation bet, board-aware sizing,
   thinner river value, an occasional 3-bet bluff, and a margin on its calls.
 
+`decide` maps level 6 onto level 5 rather than falling through to its default
+branch, so a view that reaches the pure function with a level it does not
+implement plays the nearest thing rather than silently playing level 4.
+
 **Level 5 bluffs less than its description suggests, on purpose.** Every level
 below it calls a bet down to about a quarter of the pot in equity, so against
 the field it actually plays there is almost no folding equity to win: the
 money is in value bets and in not paying off. Turning the bluff frequencies up
 makes level 5 lose to level 2. This is tuned against these opponents, not
 against a solver.
+
+## Level 6 solves the street it is looking at
+
+Everything above is one number: the fraction of remaining holdings the bot's
+hand beats. Level 6 is the first that has ranges. It tracks both of them
+through the hand (chart reads preflop, and postflop a lean by made hand
+strength for the opponent and the exact solved strategy for itself), builds the
+subgame in front of it and runs CFR+ on it. `@opentable/solver` holds all of
+that; `packages/solver/CLAUDE.md` has the sizes, the budgets and what the solve
+is and is not.
+
+Three things about it belong here rather than there.
+
+**It runs on the main thread, in slices, and not in a worker.** A worker was
+the plan. The server ships as one esbuild bundle (`server/build.mjs`) because
+the workspace packages are TypeScript source with no build of their own, so a
+worker entry point needs a second bundle in production and a TypeScript loader
+inside a worker thread in dev, which Node does not carry across the thread
+boundary. That is two code paths for how the bots think, and the one that only
+exists in production is the one nobody exercises. The price is a property the
+solver has to keep: nothing it does may block for longer than a single CFR
+iteration, a couple of milliseconds. `solver.ts` runs iterations for about
+eight milliseconds, hands the event loop back, and goes again until the budget
+is spent, so a websocket behind a thinking bot waits about ten milliseconds.
+
+**Two solves at a time, and a third falls back.** A bot that answers on time
+with a level 5 decision beats a bot that answers late.
+
+**It is not multiway.** The solver is heads-up. A six-max hand gets level 5
+until it is heads-up postflop, at which point it is solved like any other.
+
+**It deviates from the solve in exactly one place**, and that place is why it
+beats the levels below it rather than drawing with them. An equilibrium bluffs
+to make the opponent indifferent; every level below this one calls a bet down
+to about a quarter of the pot in equity, so those bluffs are pure donations.
+Level 6 measures how often an opponent has actually folded to its bets and cuts
+the bottom of its own betting range in proportion to how far short of the price
+that is. Seeing a fold at all needs plumbing: a fold ends the hand, so the bot
+is told when a hand finishes (`observeSolverResult`) and counts a bet nobody
+answered, unless somebody showed a hand.
+
+## The benchmark
+
+`server/scripts/bench-bots.ts` is where level 6's claim lives, because "beats
+level 5" is a number with an interval and not a test that passes. It plays the
+same duplicate design the ordering test uses and reports big blinds per hundred
+hands with a standard error, plus the decision latency. The ordering test does
+not include level 6: it thinks for a real fraction of a second per decision,
+which is a benchmark script and not a unit test.
 
 The ordering is proved, not asserted by hand. `levels.test.ts` plays a seeded
 round robin through the engine and reads chips won. It is worth knowing why it

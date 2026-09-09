@@ -91,6 +91,12 @@ export interface OpponentStats {
   pfr: number; // hands where they raised preflop
   aggressive: number; // postflop bets and raises
   passive: number; // postflop checks and calls
+  // Postflop bets and raises of ours that they had to answer, and how many of
+  // them they folded to. A fold is only ever seen after the fact: the hand
+  // ends and we are never asked again, so it is counted when the next hand
+  // starts and the answer never came. See SolverBot.
+  betsFaced: number;
+  foldsToOurBets: number;
 }
 
 /* Postflop actions before the passivity read is allowed to change anything. */
@@ -118,7 +124,22 @@ export function passivity(stats: OpponentStats): number {
 }
 
 export function emptyStats(): OpponentStats {
-  return { hands: 0, vpip: 0, pfr: 0, aggressive: 0, passive: 0 };
+  return { hands: 0, vpip: 0, pfr: 0, aggressive: 0, passive: 0, betsFaced: 0, foldsToOurBets: 0 };
+}
+
+/* Bets of ours they have had to answer before the fold rate is allowed to
+   change anything. */
+export const MIN_BET_SAMPLE = 15;
+
+/* How often this opponent folds to a bet, or null while the sample is too
+   small to mean anything. This is the number the decision to bluff actually
+   turns on, and it is the reason the plumbing exists to see a fold at all: a
+   bluff of b into a pot of p needs them to fold b / (p + b) of the time to
+   break even, and against somebody who folds less than that every bluff in a
+   balanced strategy is a donation. */
+export function foldToBet(stats: OpponentStats): number | null {
+  if (stats.betsFaced < MIN_BET_SAMPLE) return null;
+  return stats.foldsToOurBets / stats.betsFaced;
 }
 
 /* How far the ranges we read off the charts should be widened for this

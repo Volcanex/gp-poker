@@ -1,6 +1,6 @@
 import { DEFAULT_BOT_LEVEL, type BotLevel, type ClientMsg, type MatchFormat, type ServerMsg, type TableView } from '@opentable/protocol';
 import { decide, type BotDecision, type Rng } from './strategy.js';
-import { SOLVER_LEVEL, decideSolver } from './solver.js';
+import { SOLVER_LEVEL, decideSolver, observeSolverResult } from './solver.js';
 import { NEUTRAL_PERSONA, type Persona } from './persona.js';
 import type { ChatProfile } from './population-roster.js';
 
@@ -130,6 +130,9 @@ export class BotPlayer {
   }
 
   private onView(view: TableView): void {
+    // A finished hand carries no legal actions and is not a decision, but it
+    // is the only place a level 6 bot can see that somebody folded to it.
+    if (view.result && this.level === SOLVER_LEVEL) observeSolverResult(this.userId, view);
     if (!view.legal || view.you === null) return;
     // A view can be rebroadcast without the action moving on (an opponent
     // disconnecting, say); key on the exact decision point so the bot does

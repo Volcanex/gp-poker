@@ -91,7 +91,12 @@ export function viewOf(state: HandState, seat: number, options: ViewOptions): Ta
   };
 }
 
-export type Brain = (view: TableView, rng: Rng) => BotDecision | Promise<BotDecision>;
+export interface Brain {
+  (view: TableView, rng: Rng): BotDecision | Promise<BotDecision>;
+  // Told when a hand is over, which is the only place a fold can be seen: a
+  // fold ends the hand and the folding seat is never asked again.
+  finish?(result: Pick<TableView, 'm' | 'h' | 'result'>): void;
+}
 
 /* A brain for one seat. Levels 1 to 5 are the pure function; level 6 gets its
    own SolverBot, because its whole point is the state it keeps across a hand.
@@ -100,11 +105,13 @@ export type Brain = (view: TableView, rng: Rng) => BotDecision | Promise<BotDeci
 export function brainForLevel(level: BotLevel, budgetMs?: number): Brain {
   if (level !== SOLVER_LEVEL) return (view, rng) => decide(view, rng, level);
   const bot = new SolverBot();
-  return async (view, rng) => {
+  const brain: Brain = async (view, rng) => {
     const budget = budgetMs ?? budgetFor(view.format.clockMs);
     const solved = await bot.decide(view, rng, runInline, budget);
     return solved ?? decide(view, rng, SOLVER_LEVEL);
   };
+  brain.finish = (result) => bot.observeResult(result);
+  return brain;
 }
 
 export interface HandSetup {
@@ -152,6 +159,13 @@ export async function playHand(
     state = apply(state, seat, decision.v !== undefined ? { a: decision.a, v: decision.v } : { a: decision.a });
   }
   if (state.street !== 'done') throw new Error('a hand did not finish');
+
+  const ended = {
+    m: options.matchId ?? 'sim',
+    h: options.handNumber ?? 1,
+    result: state.result ? { awards: state.result.awards, shown: state.result.shown } : null,
+  };
+  for (const brain of brains) brain.finish?.(ended);
 
   return {
     chips: [state.seats[0].stack - setup.stack, state.seats[1].stack - setup.stack],

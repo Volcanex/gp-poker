@@ -55,6 +55,10 @@ files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
   EV-lost scorer. Preflop only, no solver at runtime.
 - `packages/equity`: postflop analysis (hand naming, exact or sampled
   equity, outs, range notation). Isomorphic, runs in the client's worker.
+- `packages/solver`: real time CFR+ over one street of a heads-up subgame,
+  and the range tracking that feeds it. What level 6 plays on, and nothing
+  else uses it. Isomorphic; the river is solved exactly, the flop and turn
+  are depth limited.
 - `packages/identity`: generated CamelCase names (guests, bots) and
   deterministic geometric avatars from a user id. Pure, no dependencies.
 - `server`: Fastify REST + `ws` WebSocket + `postgres` driver. Owns
@@ -105,13 +109,20 @@ files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
   Glicko-2 rating is a rating anybody could dial in. Bot matches are
   otherwise rated for now, a bootstrap choice to revisit once there are
   users.
-- Bots play at one of five levels (`users.bot_level`, `BOT_LEVELS` in the
+- Bots play at one of six levels (`users.bot_level`, `BOT_LEVELS` in the
   protocol), 1 loose and passive up to 5 sharp. Level 4 is the bot that
-  existed before levels and is still the default. The roster is 15, three per
-  level, generated from the same seed so the first eight names never moved.
-  The ordering is proved by a seeded round robin through the engine
-  (`server/src/bots/levels.test.ts`), not asserted by hand; see
-  `server/src/bots/CLAUDE.md` for why that test is shaped the way it is.
+  existed before levels and is still the default. Levels 1 to 5 are one pure
+  function of the view; **level 6 is a different animal**, and the only one
+  that thinks: it tracks both ranges through the hand and solves the street in
+  front of it with CFR+ (`packages/solver`), on the main thread in slices
+  because a worker would need a second bundle in production and a TypeScript
+  loader in a worker in dev. The roster is 17, three each at levels 1 to 5 and
+  two at level 6, generated from the same seed so the first eight names never
+  moved. The ordering of 1 to 5 is proved by a seeded round robin through the
+  engine (`server/src/bots/levels.test.ts`), not asserted by hand; level 6's
+  margin is measured by `server/scripts/bench-bots.ts`, because "beats level 5"
+  is a number with an interval rather than a test that passes. See
+  `server/src/bots/CLAUDE.md` for why both are shaped the way they are.
 - Practice mode is a `queue` message carrying `bots: {level}`. It skips the
   human queue, builds the table on the spot from bots at that level and
   outwards, and is **always unrated** (`format.practice`, persisted like every
@@ -225,8 +236,9 @@ the entry point; the detail lives down the tree.
   `server/src/ws/`, `server/src/bots/` and `server/test/`
 - one per workspace package: `packages/engine/`, `packages/equity/`,
   `packages/identity/`, `packages/preflop/`, `packages/protocol/`,
-  `packages/rating/`
-- `ops/CLAUDE.md` for the systemd units, `scripts/CLAUDE.md` for the ops scripts
+  `packages/rating/`, `packages/solver/`
+- `ops/CLAUDE.md` for the systemd units, `scripts/CLAUDE.md` for the ops
+  scripts, `server/scripts/CLAUDE.md` for the measurement ones
 
 `AGENTS.md` beside any of them is a symlink to it.
 
