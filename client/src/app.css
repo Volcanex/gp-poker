@@ -924,6 +924,10 @@
 /* Every badge on the line is shorter than the name's 16 px line, so a seat
    with a badge and a seat without are one height. */
 .seat-you { color: var(--text-secondary); font-size: 11px; line-height: 16px; }
+.seat-rating {
+  color: var(--text-secondary); font-size: 11px; line-height: 16px; flex: none;
+  font-variant-numeric: tabular-nums;
+}
 .seat-bot {
   color: var(--text-secondary); font-size: 10px; line-height: 14px;
   padding: 0 4px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
@@ -1014,6 +1018,7 @@
   .seat-bot { font-size: 9px; padding: 0 3px; line-height: 12px; }
   .seat-bot-line { display: none; }
   .seat-bot-stack { display: inline; }
+  .seat-rating { display: none; }
   .btn-marker { position: absolute; top: 1px; left: 1px; z-index: 1; width: 13px; height: 13px; font-size: 8px; }
   .seat-act { font-size: 10px; line-height: 12px; }
   .seat-act .act-v, .seat-act .turn-secs { font-size: 11px; line-height: 14px; }

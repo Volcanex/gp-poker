@@ -6,6 +6,7 @@ import { actionWords, ordinal, shortName } from './labels.ts';
 import { Avatar } from '../ui/avatar.tsx';
 import { avatarVersion } from '../net/adapt.ts';
 import { FlagSlot } from '../ui/flag.tsx';
+import { int } from '../ui/format.ts';
 
 export interface SeatProps {
   seat: SeatView;
@@ -82,6 +83,7 @@ export function Seat({
               slot the button marker keeps, and for the same reason. */}
           <FlagSlot code={seat.country} size={16} />
           <span className="seat-name" title={seat.name}>{shortName(seat.name, 16)}</span>
+          <span className="seat-rating num">{int(seat.rating)}</span>
           {you && <span className="seat-you">You</span>}
           {/* Always here, hidden when the button is elsewhere: a marker that
               comes and goes moves every badge after it once a hand. */}

@@ -807,9 +807,15 @@ placement on `.felt[data-mode]`; the felt itself no longer has two shapes.
 
 One card, one row, one edge. Left to right: the avatar, the two cards (backs,
 or faces at a showdown), the identity block with the name and its badges
-right-aligned (flag slot, name, button marker, bot badge) and the stack figure
-under the name with its small chip stack beside it, then the **action square**
-on the seat's right edge.
+right-aligned (flag slot, name, rating, button marker, bot badge) and the
+stack figure under the name with its small chip stack beside it, then the
+**action square** on the seat's right edge.
+
+`seat.rating` sits beside the name, muted, the same figure the profile and
+`PlayerBar` show, unrounded on the wire and rounded once at the display site
+by `int()`. It is the first thing the felt gives up under 560px: half a phone
+is 179px and a name is what a seat is read by there, so `.seat-rating` joins
+the flag slot and the bot line off `.seat-line`'s reserved space.
 
 The square is `--seat-h` on a side and always rendered, empty as a quiet
 outline, so a word arriving in it moves nothing. It shows what the player just
