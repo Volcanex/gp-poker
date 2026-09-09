@@ -144,6 +144,15 @@ export function cardsOf(shown: Record<number, Card[]> | undefined, seat: number)
   return shown[seat] ?? null;
 }
 
+/* Whether a pair of cards is on the table face up. The server sends a hidden
+   holding as two question marks and an absent one as null, so this is the one
+   reading of "these cards are being shown" the felt has: at a showdown, and
+   from the moment an all-in run-out closes the betting. A seat that folded
+   stays hidden through a run-out, so it reads false here like any other. */
+export function faceUp(cards: Card[] | null | undefined): boolean {
+  return cards != null && cards.length === 2 && !cards.some((c) => c.startsWith('?'));
+}
+
 /* What a match is worth, in one word. A match is rated, casual or practice and
    never two of them, and the two places that say it in prose read it from here
    so they cannot drift from each other or from the badge on the feed. */

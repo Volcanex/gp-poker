@@ -30,6 +30,9 @@ export function Match() {
   /* `?hold=1` marks every hand-over step as held for the viewer, the way a
      practice table is, so the band's deal button can be pictured and tested. */
   const hold = params.get('hold') === '1';
+  /* `?runout=1` runs the all-in run-out script instead of either ordinary
+     one: both hands up, the board arriving a street at a time behind a count. */
+  const runout = params.get('runout') === '1';
   return isMock ? (
     <MockMatch
       step={numOrNull(params.get('step'))}
@@ -39,6 +42,7 @@ export function Match() {
       watch={watch}
       v2={v2}
       hold={hold}
+      runout={runout}
     />
   ) : (
     <LiveMatch id={id} />
@@ -232,13 +236,16 @@ function LiveMatch({ id }: { id: string }) {
 /* ----------------------------------------------------------------- mock */
 
 function MockMatch(
-  { step, mode, rated, practice, watch, v2, hold }:
+  { step, mode, rated, practice, watch, v2, hold, runout }:
   {
     step: number | null; mode: Mode; rated: boolean; practice: boolean;
-    watch: boolean; v2: boolean; hold: boolean;
+    watch: boolean; v2: boolean; hold: boolean; runout: boolean;
   },
 ) {
-  const script = useMemo(() => mockScript(mode, rated, practice), [mode, rated, practice]);
+  const script = useMemo(
+    () => mockScript(mode, rated, practice, runout),
+    [mode, rated, practice, runout],
+  );
   const start = step == null ? 0 : Math.max(0, Math.min(script.length - 1, step));
   const [i, setI] = useState(start);
   const [enteredAt, setEnteredAt] = useState(() => Date.now());
@@ -303,8 +310,8 @@ function MockMatch(
   const replay = useCallback(() => {
     setI(0);
     setEnteredAt(Date.now());
-    nav(mode === 'six-max' ? '/m/mock?mode=six-max' : '/m/mock');
-  }, [nav, mode]);
+    nav(runout ? '/m/mock?runout=1' : mode === 'six-max' ? '/m/mock?mode=six-max' : '/m/mock');
+  }, [nav, mode, runout]);
 
   if (!view) return <Pending text="Loading the mock table" />;
 

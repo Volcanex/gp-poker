@@ -384,6 +384,40 @@ board and the stats box. It is masked from its leading edge over 220 ms
 is paint, not layout, so the zone's height holds the felt still. Reduced
 motion draws it in place.
 
+## The all-in run-out
+
+When everybody left in the hand is all in there is nothing to decide, and the
+server turns the live hands over and then deals the rest of the board a street
+at a time behind a count of three (`server/src/match/CLAUDE.md`). Two things
+on the felt answer it, and neither is new furniture.
+
+**The count stands in the award zone.** `view.runout` is `{next, in}`, sent by
+the server between the streets and absent on the beat one lands, and the zone
+already reserves its height for the award line, which a hand still being dealt
+has nothing to put in it. It is drawn as a plain badge, `Turn in 3`, keyed on
+the value so a new number is a new node rather than a text node moving inside
+a centred box, which is the same bargain the pot's figure and every stats
+value make. Nothing else on the screen changes size, and the run-out is not in
+the footprint suite's list for that reason: it is content arriving in a box
+that was always there.
+
+**The flip is keyed on the cards, not on the result.** `reveal` used to be
+`result.shown` and nothing else, so a run-out, which has no result yet, would
+have swapped a card back for a face with no turn at all. `faceUp` in
+`labels.ts` is the one reading of "these cards are being shown", and the felt
+takes a seat's own cards as its reveal while a run-out is running. A seat that
+folded keeps its two question marks and reads false, so it stays face down;
+your own cards were never face down and are not turned over, exactly as at a
+showdown. When the result finally arrives it names the same two cards, so the
+`up`/`down` key does not change and nothing flips twice.
+
+**The decision line says what it always said.** `actingText` already reads
+"Waiting for the next card" when nobody is acting, which is what a run-out is,
+so the band prints one status and the felt counts. The `?runout=1` mock script
+is the whole sequence with no server (`../dev/mock.ts`); it is its own script
+rather than steps spliced into the heads-up one, because every spec that
+freezes a step addresses it by number.
+
 ## When the match ends
 
 `end` no longer replaces the table. The server holds the last hand like any

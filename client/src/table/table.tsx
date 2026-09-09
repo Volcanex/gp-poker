@@ -10,7 +10,7 @@ import { Dock, KeyLegend, playerList } from './dock.tsx';
 import { HeroBand } from './hero-band.tsx';
 import { StakeBadge } from '../routes/feed.tsx';
 import { MODE_NAME } from '../ui/mode-tabs.tsx';
-import { blindsRow, cardsOf, handText, streetText } from './labels.ts';
+import { blindsRow, cardsOf, faceUp, handText, streetText } from './labels.ts';
 import { dealFrom, dealOrder, layoutMode, placeOf, seatOrder } from './layout.ts';
 import { amountToCall } from './preactions.ts';
 import { readShowdown } from './best-five.ts';
@@ -98,6 +98,14 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
 
   const result = view.street === 'done' ? view.result : null;
   const phase = useHandEnd(result ? `${view.m}:${view.h}` : null, reduced);
+
+  /* An all-in run-out turns every live hand over before the board is
+     finished, so the flip is keyed on a seat's cards being face up rather
+     than on a result that has not arrived yet. Once it does arrive the same
+     two cards are still there, so nothing flips a second time. */
+  const runout = view.runout ?? null;
+  const revealOf = (s: SeatView): Card[] | null =>
+    cardsOf(result?.shown, s.i) ?? (runout && faceUp(s.cards) ? s.cards : null);
 
   const show = useShowdown(view, result, phase);
 
@@ -189,7 +197,7 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
                   you={s.i === view.you}
                   clock={view.clock}
                   format={view.format}
-                  reveal={cardsOf(result?.shown, s.i)}
+                  reveal={revealOf(s)}
                   handNo={view.h}
                   dealAt={deal.get(s.i) ?? 0}
                   seatCount={dealt}
@@ -244,7 +252,18 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
 
             {/* The award line. The zone holds its height in every street so
                 nothing on the felt moves when a hand is paid. */}
+            {/* The award line, and between the streets of a run-out the count
+                to the next card. One zone, one reserved height, one thing in
+                it at a time: a run-out has nothing to award yet and a paid
+                hand has nothing left to count to. */}
             <div className="award-zone">
+              {runout && (
+                /* Keyed on the value, so a new number is new content rather
+                   than a text node moving inside a centred box. */
+                <span className="badge num" role="timer" key={`${runout.next}-${runout.in}`}>
+                  {streetText(runout.next)} in {runout.in}
+                </span>
+              )}
               <AnimatePresence>
                 {settled && show.awards.map((a) => (
                   <motion.span
@@ -333,8 +352,8 @@ function StatsBox({ view }: { view: TableView }) {
    a seat showing '?' is somebody else's, so neither has a holding to analyse. */
 function holeOf(seat: SeatView | null): [Card, Card] | null {
   const cards = seat?.cards;
-  if (!cards || cards.length !== 2 || cards.some((c) => c === '?')) return null;
-  return [cards[0], cards[1]];
+  if (!faceUp(cards)) return null;
+  return [cards![0], cards![1]];
 }
 
 /* Which step of the hand-end sequence we are on: 0 reveal, 1 highlight,
