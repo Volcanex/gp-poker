@@ -162,7 +162,7 @@ announces the wrong thing.
 **Every setting is an attribute on the root element and every value is in CSS.**
 `prefs.ts` holds ids and no colours: an accent is `data-accent="jade"` and
 `../app.css` says what jade is. That is what keeps the pre-paint script in
-`../../index.html` down to three attribute writes with nothing to drift, and it
+`../../index.html` down to six attribute writes with nothing to drift, and it
 is why the swatch in the menu can paint itself by carrying the same attribute.
 
 | Setting | Attribute | Values |
@@ -171,6 +171,17 @@ is why the swatch in the menu can paint itself by carrying the same attribute.
 | Palette | `data-palette` | absent (slate), `felt`, `sky`, `umber` |
 | Accent | `data-accent` | absent (g's own), `ocean`, `jade`, `violet`, `clay`, `ember` |
 | Four colour deck | `data-deck` | absent, `four` |
+| Handedness | `data-hand` | absent (right), `left` |
+| Card layout | `data-cards` | absent (stacked), `side`, `ajar` |
+| Card size | `data-card-size` | absent (large), `regular`, `huge` |
+
+**The card layout and the card size are geometry, and the geometry is in
+`../table/hero-band.css`.** A layout is how wide and how tall the pair of cards
+is in card widths plus where the second one sits; a size is one number the
+band's own height is derived from. `prefs.ts` knows the ids and the labels and
+nothing else, exactly as it knows no colours. Stacked is the default because it
+is how a player holds two cards: one in front read whole, the one behind it out
+far enough to read its index.
 
 **Every row is one grid.** `.settings-menu .switch-row` is
 `grid-template-columns: 1fr auto`, a label on the left and a control on the
@@ -179,12 +190,26 @@ same edge. Every sized control shares `--h-control-sm`; the switch and the
 palette swatches are the exceptions the grid does not force onto the height
 scale, because a 28px toggle would stop reading as one. The country picker
 used to be a section title over a full-width control with nothing beside it;
-it is a `.switch-row` like everything else now, labelled "Flag". The trigger
+it is a `.switch-row` like everything else now, labelled "Flag".
+
+**Except a switcher, which takes a row of its own.** `.seg-row` is a label over
+a full-width `Segmented`, and the card layout and card size use it: three words
+on a strip do not fit in the control column a `.switch-row` gives, and "Side by
+side" in an equal third of a 246 px menu comes out as an ellipsis. The tabs
+share the row by content, the way the theme choices do. **A tab strip inside a
+popover needs one nudge**: g-ui measures the sliding indicator when it
+initialises the strip, and a popover that has never been open measures nought,
+so the indicator came up no pixels wide and the label's weight was the only
+thing saying which option was on. `settings.tsx` listens for the popover's
+`toggle` and clicks the tab that is already selected, which is what puts it
+back, because re-selecting is exactly what a click does.
+
+The trigger
 button carries `GearSix` at the same size and placement as a nav item's icon,
 overridden to 20px in the sidebar row (`.side-foot .settings > .btn svg`)
 because `.btn`'s own icon rule would otherwise shrink it to 15px.
 
-All three live in one record under `ot.prefs`. **The theme is written twice on
+Every one of them lives in one record under `ot.prefs`. **The theme is written twice on
 purpose**: g-ui reads its own `g-theme` key at load and stamps the attribute
 itself, so `applyPrefs` writes both in the one call that changes it, and nothing
 else in this app calls `g.theme()`. Sound is not in that record: it is a separate

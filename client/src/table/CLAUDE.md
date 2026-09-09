@@ -120,11 +120,11 @@ scoped to `.hero-band` and `.match[data-band]` so it cannot.
 
 | | Phone | Wide |
 | --- | --- | --- |
-| Band height (`--band-h`) | 264 px | 224 px |
-| Decision line (`--hb-line-h`) | 28 px | 28 px |
+| Band height (`--band-h`) | 265 px | 243 px at the default |
+| Decision line (`--hb-line-h`) | 24 px | 24 px |
 | Practice readings | the strip, in the table's row 4 | a section on the right, above 1100 px |
-| Card | 104 px | 76 px |
-| Hand column | the fan's own width | the fan's own width |
+| Card | 100 px at the default | 100 px at the default |
+| Hand column | the hand's own width | the hand's own width |
 | Action column | 176 px | the rest of the felt's column |
 | Sizes | six, two rows of three | six, one row |
 | Actions | three rows: bet, call, fold | two groups: fold and call, then bet |
@@ -285,8 +285,11 @@ for what the column drops.
 left and right: fold and check or call on the left in `--acts-w`, the six sizes
 directly over the button that sends one on the right. That is a row shorter
 than the two rows of five, which is where the band's 40 px came from: **the
-card size sets the band's height**, not the controls, so the cards came down to
-76 px with it and the felt took the difference back. On a phone the same pieces
+card size sets the band's height**, not the controls, so the cards came down
+with it and the felt took the difference back. Under a mouse that is still
+true, which is why the card is a setting and the height is derived from it; on
+a phone the controls are the taller of the two and the band is theirs. On a
+phone the same pieces
 stack: the six as two rows of three, then bet, then call, then fold on the
 bottom edge under the thumb, and a box there opens the sweep on itself rather
 than sending, because a box that small under a thumb is worth confirming.
@@ -351,6 +354,11 @@ by dropping to 224. Measured on the mock at 1366 by 768: the band went 264 to
 224, the felt row 416 to 456, and the felt's content 196 to 260. Neither shape
 scrolls and there is still no page scrollbar.
 
+The band has since taken 19 of those 40 back for the cards, which had become
+too small to read: at the default it is 243 and the felt row 437, and the two
+numbers move together with the card size setting (see the table above).
+Neither shape scrolls at any of the three sizes.
+
 **The mock's caption stands above the band, and the mock places it.** It printed
 over the hero's cards, which are the one thing on this screen you have to be
 able to read. It stays fixed and out of the flow, so it is still no part of the
@@ -388,25 +396,87 @@ field's own Enter. The clamp and all-in semantics come from
 `raiseAction` and `raiseLabel` in `sizing.ts`, which the dock's `submitRaise`
 also calls.
 
-**The fan's box is the fan's real bounds**, not the pair's. A card rotated about
-its bottom left corner reaches up past the top of the pair by its width times
-the sine of the tilt and out past their right edge by its height times the same,
-so a box drawn to the cards' own size was eleven pixels shorter and sixteen
-narrower than the thing inside it, and the tilted card crossed the band's top
-edge and the column beside it. `--fan-sin` is written out for that reason. The
-cards rest on the floor of the box and the slack is at the top, which is where
-the tilt goes.
+**The hand's box is the hand's real bounds**, not the pair's. A card rotated
+about its bottom left corner reaches up past the top of the pair by its width
+times the sine of the tilt and out past their right edge by its height times the
+same, so a box drawn to the cards' own size was eleven pixels shorter and
+sixteen narrower than the thing inside it, and the tilted card crossed the
+band's top edge and the column beside it. `--fan-sin` is written out for that
+reason. The cards rest on the floor of the box and the slack is at the top,
+which is where the tilt goes.
+
+## Three layouts, three sizes, one calculation
+
+**The hand is a setting** (`cards` and `cardSize` in `../ui/prefs.ts`, stamped
+as `data-cards` and `data-card-size` on the root by `applyPrefs` and by the
+pre-paint script in `../../index.html`). Both are pure geometry and the
+geometry is all in `hero-band.css`; prefs knows the ids and the labels and not
+a pixel.
+
+| Layout | What it is | `--card-peek` | `--card-span` | `--card-rise` |
+| --- | --- | --- | --- | --- |
+| `stacked` (the default) | one card read whole with the other behind it, out far enough to read its index | 0.38 | 1.38 | 1.4 |
+| `side` | two whole cards with a hair of daylight between them | 1.06 | 2.06 | 1.4 |
+| `ajar` | the fan this replaced: the second card overlapped and tilted 6 degrees | 0.6 | 1.7463 | 1.5045 |
+
+`--card-peek` is where the second card sits, in card widths; `--card-span` and
+`--card-rise` are how wide and how tall the pair is, in the same unit, and the
+box is drawn from them. 0.38 is measured rather than chosen: the index is drawn
+from x=9 to x=34 of a hundred wide card (`playing-card.tsx`), so 0.38 clears it
+with the card's own edge to spare.
+
+**The card size is one number and the band's height is derived from it.**
+`--card-want` is 80, 100 or 120 px, each a whole number of card heights
+(1.4 times the width: 112, 140, 168) and each on the four pixel grid, and
+`--band-h` is `--band-chrome` plus whichever of the hand and the controls needs
+more room. Two hand-written heights sat at the root before and drifted from the
+cards inside them: the phone's controls were five pixels taller than the box
+holding them and had been for a while. Large is the default because the band
+the board's row shrank took the cards to 76 and the owner could no longer read
+them at a glance; the four pixels the decision line gave up (28 to 24) are the
+sentence's own 20 px of text plus the bar, with nothing else in the row.
+
+| At 1366 by 768 | Card | Band | Felt row |
+| --- | --- | --- | --- |
+| Regular | 80 by 112 | 215 | 465 |
+| Large, the default | 100 by 140 | 243 | 437 |
+| Huge | 120 by 168 | 271 | 409 |
+| Large, ajar | 100 by 140 | 253 | 427 |
+
+**The card gives way to the controls, never the other way round.**
+`--hero-card` is `min(--card-want, (100vw - <chrome>) / --card-span)`, so a
+layout that is wider per card takes a smaller card rather than reaching over the
+raise button. That is what the old "below 380 the fan crosses it by thirteen
+pixels" rule was for, and the clamp replaces it at every width and for all three
+layouts: side by side at 390 comes out at 88 rather than 100, and everything
+above a laptop width is the setting's own number.
+
+**Two overlapping cards are the same paper, so the seam has to be drawn.** The
+card's own hairline is `--border`, an alpha grey that over a near white face
+comes out four values off it: measured, the join was invisible and the pair read
+as one wide card with two ranks printed on it. The card in front casts the
+band's own ground behind its leading edge, two pixels of a colour already on
+screen rather than a shadow. Side by side needs none, because the gap is the
+layout.
+
+A setting changes the band's height, which the footprint rule allows and the
+suites do not have to be told about: it happens when a player chooses it, not
+between two states of the same table. `../../e2e/hero-band.spec.ts` pictures
+every layout and every size on the mock at both widths, asserts the card is the
+size the setting names, and asserts the hand ends before the controls start in
+all three layouts at both widths.
 
 **Handedness is a setting** (`hand` in `../ui/prefs.ts`), stamped as
 `data-hand="left"` on the root by the pre-paint script in `../../index.html` as
 well as by `applyPrefs`, so a left handed player never sees the right handed
 layout flash past. The band mirrors by swapping its grid areas at both sizes,
-the fan tilts the other way and the sweep moves to the near edge. **The fan
-also stacks the other way round**: a card's rank is in its top left corner, so
-mirrored, the second card lands over the first one's rank and a left handed
-player could not read the card they were dealt first. The tilted card is lifted
-by its own width times the sine of the tilt, because a card rotated about its
-bottom corner drops the far one off the bottom of the band and onto the page.
+the second card sits along the other edge, the fan tilts the other way and the
+sweep moves to the near edge. **The hand also stacks the other way round**: a
+card's rank is in its top left corner, so mirrored, the second card lands over
+the first one's rank and a left handed player could not read the card they were
+dealt first. The tilted card is lifted by its own width times the sine of the
+tilt, because a card rotated about its bottom corner drops the far one off the
+bottom of the band and onto the page.
 
 ## Sizing
 
