@@ -595,7 +595,7 @@
    The dock and its legend name their own rows, so they are renumbered here
    rather than left to auto-placement, which would have put the strip last. */
 .match > .watch-bar { grid-row: 1; }
-.match > .hand-head { grid-row: 2; }
+.match > .hand-head, .match > .game-panel { grid-row: 2; }
 .match > .felt { grid-row: 3; }
 .match > .practice-strip { grid-row: 4; }
 .match > .dock { grid-row: 5; }
@@ -839,6 +839,45 @@
 }
 .stats dt:nth-of-type(2), .stats dt:nth-of-type(3) { display: none; }
 .stats .stats-next, .stats dt:last-of-type, .stats dd:last-of-type { display: none; }
+
+/* ------------------------------------------------------------- game panel */
+
+/* `panelMode`'s card (`table.tsx`'s `GamePanel`), top right of the match
+   screen under the profile chip in the site's own top bar directly above
+   it. It takes `.hand-head`'s own optional row (`grid-row: 2` on both,
+   never both rendered at once) rather than floating over the felt: the
+   felt's board and its own top-right seat are not at a fixed distance from
+   `.match`'s own top edge, they are `.felt-in`'s auto margins centring
+   whatever slack a given viewport height and card size setting leave over,
+   which shrinks toward nothing exactly in the tight cases (1280x720, a
+   large seat card) this file is measured against, and a floating panel
+   pinned to a fixed offset overlapped that seat the moment the felt had
+   less spare height than the panel was tall. A reserved row cannot
+   overlap anything below it: the felt starts after it, always. */
+.game-panel {
+  justify-self: end;
+  width: 340px;
+  display: flex; flex-direction: column; gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  margin: var(--sp-2) var(--sp-4) var(--sp-2) 0;
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-card);
+  background: var(--surface-2);
+}
+.gp-div { flex: none; height: 1px; background: var(--border-subtle); }
+
+/* The same one line `seat` mode reads in the felt corner: one row is a third
+   the height of the three-row table below 1060, which is what buys this
+   row's own room back at 1280x720 with a large seat card, the tight case
+   this screen is measured against. It needs the width the felt corner has
+   and this panel does not by default, so the panel takes it instead of the
+   240px every other card on this screen keeps to. */
+.game-panel .stats { height: auto; padding: 0; border: none; background: none; }
+
+/* The actions wrap here, unlike in the top bar or `.hand-head`, where they
+   may not: the panel is a fixed width rather than a row fighting the rest
+   of a bar for space, and four controls read better as two short lines than
+   as one that has to give up a label to fit. */
+.game-panel .head-acts { flex-wrap: wrap; row-gap: 6px; }
 
 /* ------------------------------------------------------------------ chips */
 

@@ -2,11 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { GearSix } from '@phosphor-icons/react';
 import { useGInit } from './bits.tsx';
 import {
-  ACCENTS, CARD_LAYOUTS, CARD_SIZES, PALETTES, THEMES,
+  ACCENTS, CARD_LAYOUTS, CARD_SIZES, PALETTES, TABLE_INFO, THEMES,
   applyPrefs, defaultAccentFor, readPrefs, writePrefs,
 } from './prefs.ts';
 import type {
-  AccentId, CardLayout, CardSize, PaletteId, Prefs, ThemeChoice,
+  AccentId, CardLayout, CardSize, PaletteId, Prefs, TableInfo, ThemeChoice,
 } from './prefs.ts';
 import { Segmented } from './segmented.tsx';
 import { useSoundSettings } from '../sound/react.ts';
@@ -245,6 +245,22 @@ export function SettingsMenu() {
             onChange={(e) => update({ hand: e.target.checked ? 'left' : 'right' })}
           />
         </label>
+
+        {/* Where the hand's facts and the match's actions are read from: one
+            card in the top bar's own corner, or the stats box back in the
+            seat six-max leaves empty and heads-up leaves whole. A row of its
+            own, the way Layout and Size take theirs, because "In a panel"
+            and "In the seat" do not fit beside a label in a menu this
+            narrow. */}
+        <div className="seg-row">
+          <span className="label">Hand info</span>
+          <Segmented
+            options={TABLE_INFO.map((t) => ({ value: t.id, label: t.label }))}
+            value={prefs.tableInfo}
+            onPick={(v) => update({ tableInfo: v as TableInfo })}
+            label="Hand info placement"
+          />
+        </div>
 
         <hr className="separator" />
 

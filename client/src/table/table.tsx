@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { Link } from 'react-router-dom';
@@ -16,7 +16,7 @@ import { dealFrom, dealOrder, layoutMode, placeOf, seatOrder } from './layout.ts
 import { amountToCall } from './preactions.ts';
 import { readShowdown } from './best-five.ts';
 import { useTableSounds } from './sounds.ts';
-import { useMedia } from '../ui/bits.tsx';
+import { useMedia, useTableInfo } from '../ui/bits.tsx';
 import { LiveStats } from '../analysis/live-stats.tsx';
 import { ChatPanel, ChatToggle } from '../chat/chat.tsx';
 import { LeaveControl } from './leave-control.tsx';
@@ -95,19 +95,27 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
   const topActs = useTopActsSlot();
   /* Below 900 the top bar has no room left for them (see `TOP_BAR_ACTS`), so
      the actions stand in the felt's own header row instead, exactly as they
-     did before this had a middle to go to. */
+     did before this had a middle to go to. Only read in `seat` mode: the
+     game panel is `panelMode`'s own home for them and never asks the top
+     bar for anything. */
   const wideHead = useMedia(TOP_BAR_ACTS);
-  /* Wired on whichever render actually mounts the span, portalled or not:
-     the portal's own node arrives a render after `topActs` does, and
-     crossing 900 either way swaps one span for the other, so `headRef`
-     points at a fresh, unwired node more than once in this component's
-     life. `useGInit`'s once-on-mount guard cannot see either change. */
+  /* Where the hand's own facts and the match's actions are read from: a
+     setting (`ui/prefs.ts`), read live because which placement is on
+     decides this component's own DOM shape. */
+  const info = useTableInfo();
+  const panelMode = info === 'panel' && !bare;
+  /* Wired on whichever render actually mounts the span, wherever it is: the
+     portal's own node arrives a render after `topActs` does, crossing 900
+     swaps one span for the other, and switching the setting swaps the top
+     bar or `.hand-head` for the game panel, so `headRef` points at a fresh,
+     unwired node more than once in this component's life. `useGInit`'s
+     once-on-mount guard cannot see any of that. */
   useEffect(() => {
     const el = headRef.current;
     if (!el || el.dataset.gDone === '1') return;
     el.dataset.gDone = '1';
     window.g?.init(el);
-  }, [topActs, wideHead]);
+  }, [topActs, wideHead, panelMode]);
 
   /* The bottom slot is yours when you are seated; watching, seat 0 takes it.
      Everyone else goes round the table from your left: up the left column,
@@ -227,21 +235,25 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
     >
       {watching && <WatchBar view={view} />}
 
-      {/* The match's own actions: the site's top bar above 900
-          (`TOP_BAR_ACTS`), portalled into the slot `SiteShell` renders in
-          `header.top`, or the felt's own header row below it, where the top
-          bar has no room left for them beside the account and settings menus
-          it already carries on this route. One element either way, declared
-          once so the two homes cannot drift into two different rows of
-          controls. Every control is always rendered: Verify used to appear
-          only once the seed was published, which moved the header at the
-          end of every hand. */}
-      {!bare && wideHead && topActs && createPortal(headEl, topActs)}
-      {!bare && !wideHead && (
+      {/* The match's own actions, wherever the `tableInfo` setting sends
+          them. `panelMode`: the game panel, top right, holds both this and
+          the stats box, and neither the top bar nor `.hand-head` sees them.
+          Otherwise: the site's top bar above 900 (`TOP_BAR_ACTS`), portalled
+          into the slot `SiteShell` renders in `header.top`, or the felt's
+          own header row below it, where the top bar has no room left for
+          them beside the account and settings menus it already carries on
+          this route. One element either way, declared once so its homes
+          cannot drift into two different sets of controls. Every control is
+          always rendered: Verify used to appear only once the seed was
+          published, which moved whichever header held it at the end of
+          every hand. */}
+      {!bare && !panelMode && wideHead && topActs && createPortal(headEl, topActs)}
+      {!bare && !panelMode && !wideHead && (
         <div className="hand-head">
           <div className="bar-in">{headEl}</div>
         </div>
       )}
+      {panelMode && <GamePanel stats={<StatsBox view={view} />} actions={headEl} />}
 
       <div className="felt" data-mode={mode} data-seats={order.length}>
         <div className="felt-in">
@@ -343,12 +355,15 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
             </div>
           </div>
 
-          {/* Six-max leaves the right wing's bottom seat empty (the hero
-              sits in the band, not here), and heads-up leaves the whole
-              column spare: a direct child of the felt's own grid rather than
-              the middle column's, so it can stand in that corner above 1060
-              and fall back to the middle strip, under the pot, below it. */}
-          <StatsBox view={view} />
+          {/* `seat` mode only: `panelMode` is already false for a bare
+              replay, which has no game panel to draw and always reads the
+              felt itself here instead. Six-max leaves the right wing's
+              bottom seat empty (the hero sits in the band, not here), and
+              heads-up leaves the whole column spare: a direct child of the
+              felt's own grid rather than the middle column's, so it can
+              stand in that corner above 1060 and fall back to the middle
+              strip, under the pot, below it. */}
+          {!panelMode && <StatsBox view={view} />}
         </div>
       </div>
 
@@ -416,6 +431,33 @@ function StatsBox({ view }: { view: TableView }) {
         </Fragment>
       ))}
     </dl>
+  );
+}
+
+/* `panelMode`'s home for the hand's own facts and the match's own actions:
+   one card, top right of the match screen, under the profile chip in the
+   site's own top bar directly above it. Both were their own thing once (the
+   stats box in a seat, the actions in a header row); one card reads as one
+   panel of information about the match you are in, which is what the two
+   were anyway.
+
+   `position: absolute` on `.match`'s own box rather than `position: fixed`
+   on the viewport: `.match` starts exactly where `header.top` ends, so its
+   own top right corner already sits under the chip, and the panel leaves
+   with the table rather than floating over whatever route comes after it.
+
+   Its own box does not resize as Verify or Leave game enable and disable,
+   the same rule `.head-acts` has always kept: `stats` is a fixed five rows
+   (`StatsBox` always renders `To call`, whether or not it is your turn to
+   answer it) and `actions` is the same `head-acts` span `seat` mode portals
+   elsewhere, Leave game always rendered for a seated player. */
+function GamePanel({ stats, actions }: { stats: ReactNode; actions: ReactNode }) {
+  return (
+    <div className="game-panel">
+      {stats}
+      <div className="gp-div" aria-hidden="true" />
+      {actions}
+    </div>
   );
 }
 

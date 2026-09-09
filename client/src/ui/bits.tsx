@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
+import type { TableInfo } from './prefs.ts';
 
 declare global {
   interface Window {
@@ -76,6 +77,35 @@ export function useMedia(query: string): boolean {
     return () => mq.removeEventListener('change', read);
   }, [query]);
   return on;
+}
+
+/* An attribute `applyPrefs` (`./prefs.ts`) stamps on the root element, read
+   live. Most of what that file writes is a pixel a stylesheet can carry
+   alone and nothing here needs to know it changed; this is for the one kind
+   of setting a component's own DOM shape depends on, where a stylesheet
+   cannot make the choice by itself. A `MutationObserver` rather than the
+   settings menu's own state, because the menu is not an ancestor of every
+   reader: `SiteShell` mounts once for the app and a match is a route deep
+   under it, so there is no prop this could arrive on. */
+export function useRootAttr(name: string): string | null {
+  const [v, setV] = useState<string | null>(
+    () => (typeof document === 'undefined' ? null : document.documentElement.getAttribute(name)),
+  );
+  useEffect(() => {
+    const root = document.documentElement;
+    const read = () => setV(root.getAttribute(name));
+    read();
+    const obs = new MutationObserver(read);
+    obs.observe(root, { attributes: true, attributeFilter: [name] });
+    return () => obs.disconnect();
+  }, [name]);
+  return v;
+}
+
+/* Panel is the default and the absent attribute, the way every setting in
+   `./prefs.ts` works, so anything but `seat` reads as `panel`. */
+export function useTableInfo(): TableInfo {
+  return useRootAttr('data-table-info') === 'seat' ? 'seat' : 'panel';
 }
 
 export function useNow(active: boolean, everyMs = 1000): number {

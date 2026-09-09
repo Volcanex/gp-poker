@@ -3,8 +3,8 @@
    on the root element, and that is worth testing against a real one. */
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  CARD_LAYOUTS, CARD_SIZES, DEFAULT_PREFS, PALETTES, PREFS_KEY, applyPrefs, contrastOf,
-  contrastRatio, defaultAccentFor, parseColour, readPrefs, writePrefs,
+  CARD_LAYOUTS, CARD_SIZES, DEFAULT_PREFS, PALETTES, PREFS_KEY, TABLE_INFO, applyPrefs,
+  contrastOf, contrastRatio, defaultAccentFor, parseColour, readPrefs, writePrefs,
 } from '../ui/prefs.ts';
 import { denominate } from '../table/chips.ts';
 import { shortName } from '../table/labels.ts';
@@ -38,11 +38,11 @@ describe('settings persistence', () => {
     const store = fakeStore();
     writePrefs({
       theme: 'light', palette: 'felt', accent: 'jade', fourColour: true, hand: 'left',
-      cards: 'ajar', cardSize: 'huge', seatCards: 'regular',
+      cards: 'ajar', cardSize: 'huge', seatCards: 'regular', tableInfo: 'seat',
     }, store);
     expect(readPrefs(store)).toEqual({
       theme: 'light', palette: 'felt', accent: 'jade', fourColour: true, hand: 'left',
-      cards: 'ajar', cardSize: 'huge', seatCards: 'regular',
+      cards: 'ajar', cardSize: 'huge', seatCards: 'regular', tableInfo: 'seat',
     });
   });
 
@@ -50,11 +50,11 @@ describe('settings persistence', () => {
     const store = fakeStore();
     writePrefs({
       theme: 'system', palette: 'sky', accent: 'clay', fourColour: false, hand: 'right',
-      cards: 'side', cardSize: 'regular', seatCards: 'huge',
+      cards: 'side', cardSize: 'regular', seatCards: 'huge', tableInfo: 'seat',
     }, store);
     expect(store.getItem(PREFS_KEY)).toBe(
       '{"theme":"system","palette":"sky","accent":"clay","fourColour":false,"hand":"right"'
-      + ',"cards":"side","cardSize":"regular","seatCards":"huge"}',
+      + ',"cards":"side","cardSize":"regular","seatCards":"huge","tableInfo":"seat"}',
     );
   });
 
@@ -70,7 +70,7 @@ describe('settings persistence', () => {
     });
     expect(readPrefs(store)).toEqual({
       theme: 'room', palette: 'slate', accent: 'violet', fourColour: false, hand: 'right',
-      cards: 'stacked', cardSize: 'large', seatCards: 'large',
+      cards: 'stacked', cardSize: 'large', seatCards: 'large', tableInfo: 'panel',
     });
   });
 
@@ -88,6 +88,11 @@ describe('settings persistence', () => {
     expect(readPrefs(store)).toMatchObject({ cards: 'stacked', cardSize: 'large' });
   });
 
+  it('refuses a hand info placement it does not draw', () => {
+    const store = fakeStore({ [PREFS_KEY]: '{"tableInfo":"sidebar"}' });
+    expect(readPrefs(store)).toMatchObject({ tableInfo: 'panel' });
+  });
+
   it('reads back every layout and every size it offers', () => {
     for (const c of CARD_LAYOUTS) {
       const store = fakeStore();
@@ -98,6 +103,11 @@ describe('settings persistence', () => {
       const store = fakeStore();
       writePrefs({ ...DEFAULT_PREFS, cardSize: s.id }, store);
       expect(readPrefs(store).cardSize).toBe(s.id);
+    }
+    for (const t of TABLE_INFO) {
+      const store = fakeStore();
+      writePrefs({ ...DEFAULT_PREFS, tableInfo: t.id }, store);
+      expect(readPrefs(store).tableInfo).toBe(t.id);
     }
   });
 
@@ -130,6 +140,9 @@ describe('applying settings', () => {
        who has chosen nothing carries no card attributes at all. */
     expect(root.getAttribute('data-cards')).toBe(null);
     expect(root.getAttribute('data-card-size')).toBe(null);
+    /* Panel is the default placement for the hand's own facts and the
+       match's actions, so it too is an absence. */
+    expect(root.getAttribute('data-table-info')).toBe(null);
   });
 
   it('leaves the attributes off for dark and slate, which are the absences', () => {
@@ -161,7 +174,7 @@ describe('applying settings', () => {
     applyPrefs(
       {
         theme: 'light', palette: 'felt', accent: 'ocean', fourColour: true, hand: 'left',
-        cards: 'side', cardSize: 'huge', seatCards: 'huge',
+        cards: 'side', cardSize: 'huge', seatCards: 'huge', tableInfo: 'seat',
       },
       root, fakeStore(),
     );
@@ -172,6 +185,7 @@ describe('applying settings', () => {
     expect(root.getAttribute('data-hand')).toBe('left');
     expect(root.getAttribute('data-cards')).toBe('side');
     expect(root.getAttribute('data-card-size')).toBe('huge');
+    expect(root.getAttribute('data-table-info')).toBe('seat');
   });
 
   /* Right handed is the default, so it is the absence of the attribute: a
@@ -192,6 +206,16 @@ describe('applying settings', () => {
     applyPrefs(DEFAULT_PREFS, root, fakeStore());
     expect(root.getAttribute('data-cards')).toBe(null);
     expect(root.getAttribute('data-card-size')).toBe(null);
+  });
+
+  /* `table.tsx` reads this one itself (`useTableInfo`), not just a
+     stylesheet, so a stale attribute is a component reading the wrong
+     placement rather than a wrong pixel. */
+  it('clears the table info attribute when the choice goes back to the default', () => {
+    applyPrefs({ ...DEFAULT_PREFS, tableInfo: 'seat' }, root, fakeStore());
+    expect(root.getAttribute('data-table-info')).toBe('seat');
+    applyPrefs(DEFAULT_PREFS, root, fakeStore());
+    expect(root.getAttribute('data-table-info')).toBe(null);
   });
 
   /* g-ui reads its own key at load. The one call that changes the theme writes

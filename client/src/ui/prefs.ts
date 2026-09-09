@@ -30,6 +30,16 @@ export type Handedness = 'right' | 'left';
 export type CardLayout = 'stacked' | 'side' | 'ajar';
 export type CardSize = 'regular' | 'large' | 'huge';
 
+/* Where the hand's own facts (Hand, Street, Blinds) and the match's own
+   actions (Copy link, Verify, Leave game, Chat) are read from. `panel` is
+   the default: one card, top right of the match page under the profile
+   chip, holding both; the actions leave `.hand-head`/the top bar entirely
+   in this mode. `seat` is the original placement, the bottom right seat
+   six-max leaves empty (the hero sits in the band) and heads-up leaves
+   whole: the stats box stands there and the actions keep their own row or
+   the site's top bar, as `table.tsx`'s `TOP_BAR_ACTS` already decided. */
+export type TableInfo = 'seat' | 'panel';
+
 export interface Prefs {
   theme: ThemeChoice;
   palette: PaletteId;
@@ -44,13 +54,14 @@ export interface Prefs {
      watching, and somebody who wants their own hand huge does not
      necessarily want five more pairs that size on the felt. */
   seatCards: CardSize;
+  tableInfo: TableInfo;
 }
 
 export const PREFS_KEY = 'ot.prefs';
 
 export const DEFAULT_PREFS: Prefs = {
   theme: 'room', palette: 'slate', accent: 'default', fourColour: false, hand: 'right',
-  cards: 'stacked', cardSize: 'large', seatCards: 'large',
+  cards: 'stacked', cardSize: 'large', seatCards: 'large', tableInfo: 'panel',
 };
 
 export const THEMES: { id: ThemeChoice; label: string }[] = [
@@ -112,6 +123,13 @@ const isCardLayout = (v: unknown): v is CardLayout =>
 const isCardSize = (v: unknown): v is CardSize =>
   typeof v === 'string' && CARD_SIZES.some((c) => c.id === v);
 
+export const TABLE_INFO: { id: TableInfo; label: string }[] = [
+  { id: 'panel', label: 'In a panel' },
+  { id: 'seat', label: 'In the seat' },
+];
+
+const isTableInfo = (v: unknown): v is TableInfo => v === 'seat' || v === 'panel';
+
 const isPalette = (v: unknown): v is PaletteId =>
   typeof v === 'string' && PALETTES.some((p) => p.id === v);
 
@@ -137,6 +155,7 @@ export function readPrefs(store: Storage | null = safeStorage()): Prefs {
     cards: isCardLayout(r.cards) ? r.cards : DEFAULT_PREFS.cards,
     cardSize: isCardSize(r.cardSize) ? r.cardSize : DEFAULT_PREFS.cardSize,
     seatCards: isCardSize(r.seatCards) ? r.seatCards : DEFAULT_PREFS.seatCards,
+    tableInfo: isTableInfo(r.tableInfo) ? r.tableInfo : DEFAULT_PREFS.tableInfo,
   };
 }
 
@@ -194,6 +213,13 @@ export function applyPrefs(prefs: Prefs, root: HTMLElement, store: Storage | nul
 
   if (prefs.seatCards === 'large') root.removeAttribute('data-seat-cards');
   else root.setAttribute('data-seat-cards', prefs.seatCards);
+
+  /* Panel is the default: `table.tsx` reads this attribute itself, through
+     `useTableInfo` (`ui/bits.tsx`), because which placement is on decides
+     the felt's own DOM shape (a seat position and a portal target versus one
+     combined card) and not just a pixel a stylesheet can carry alone. */
+  if (prefs.tableInfo === 'panel') root.removeAttribute('data-table-info');
+  else root.setAttribute('data-table-info', prefs.tableInfo);
 }
 
 function safeStorage(): Storage | null {
