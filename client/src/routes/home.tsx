@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { BOT_LEVELS, SPEEDS, SPEED_NAME, botLevelInfo, ceilingFor, formatFor, speedOf } from '@opentable/protocol';
-import type { MatchFormat, Mode, Speed } from '@opentable/protocol';
+import { BOT_LEVELS, PRACTICE_PRESETS, SPEEDS, SPEED_NAME, ceilingFor, formatFor, speedOf } from '@opentable/protocol';
+import type { MatchFormat, Mode, PracticePreset, Speed } from '@opentable/protocol';
 import { Robot } from '@phosphor-icons/react/dist/icons/Robot';
 import { Trophy } from '@phosphor-icons/react/dist/icons/Trophy';
 import { Link as LinkIcon } from '@phosphor-icons/react/dist/icons/Link';
 import { UsersThree } from '@phosphor-icons/react/dist/icons/UsersThree';
 import { api, ApiError } from '../net/api.ts';
-import { avatarSeed, avatarVersion, levelAverageRating, mainModeOf, modeRating } from '../net/adapt.ts';
-import type { ArenaListing, BotRow, CreatedChallenge, LeaderboardRow, LiveMatch, Me } from '../net/types.ts';
+import { avatarSeed, avatarVersion, mainModeOf, modeRating } from '../net/adapt.ts';
+import type { ArenaListing, CreatedChallenge, LeaderboardRow, LiveMatch, Me } from '../net/types.ts';
 import { readPlayChoice, useSession } from '../net/session.tsx';
 import { MODES, MODE_NAME } from '../ui/mode-tabs.tsx';
 import { Segmented } from '../ui/segmented.tsx';
@@ -175,7 +175,7 @@ export function Home() {
               disabled={!ready || offline}
               onClick={() => startQueue(mode, willBeRated, speed)}
             >
-              Play {MODE_NAME[mode].toLowerCase()}
+              Play
             </button>
 
             <div className="play-ways">
@@ -405,15 +405,20 @@ const LINK_KINDS: { kind: LinkKind; label: string }[] = [
 ];
 
 
-/* A table of bots at a level you pick, never rated, and the one row that can
-   deal a table without the queue. The mode is not asked for again: practice
-   is played at whatever the panel above is pinned to, since the row exists to
-   answer "let me try this" and a second table-size control here would be the
-   same question twice.
+/* Three named presets, never rated, and the row that can deal a table
+   without the queue. The mode is not asked for again: practice is played at
+   whatever the panel above is pinned to, since a preset answers "let me try
+   this" and a second table-size control here would be the same question
+   twice.
 
-   The rating beside each level is the live average of the bots that play at
-   it, so the number is what those opponents have actually earned rather than
-   a claim about the level. */
+   Easy, medium and hard are one shared table, `PRACTICE_PRESETS` in the
+   protocol, so this row and the `/bots` setup page it links to cannot
+   describe "hard" differently, and the level 6 bot landing in another
+   branch only has to move that one table. `More` is for anyone who wants
+   the level, the format and the individual bots spelled out before they
+   press play. */
+const PRESET_LABEL: Record<PracticePreset, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+
 function PracticeWay({
   onPlay,
   disabled,
@@ -424,22 +429,6 @@ function PracticeWay({
   pinnedMode: Mode;
 }) {
   const [open, setOpen] = useState(false);
-  const [level, setLevel] = useState(2);
-  const [bots, setBots] = useState<BotRow[]>([]);
-
-  useEffect(() => {
-    if (!open) return;
-    let live = true;
-    api
-      .bots()
-      .then((rows) => live && setBots(rows))
-      .catch(() => {
-        /* the picker still works; it just cannot show what the bots are rated */
-      });
-    return () => {
-      live = false;
-    };
-  }, [open]);
 
   return (
     <Way
@@ -451,36 +440,22 @@ function PracticeWay({
       <span className="muted">
         Live equity and outs are shown at the table. Practice matches are never rated.
       </span>
-      <label className="field">
-        <span className="label">Level</span>
-        <span className="select-wrap">
-          <select
-            className="select"
-            value={level}
-            onChange={(e) => setLevel(Number(e.target.value))}
-            aria-label="Bot level"
+      <div className="practice-presets">
+        {(Object.keys(PRACTICE_PRESETS) as PracticePreset[]).map((preset) => (
+          <button
+            key={preset}
+            type="button"
+            className="btn btn-primary"
+            disabled={disabled}
+            onClick={() => onPlay(pinnedMode, PRACTICE_PRESETS[preset])}
           >
-            {BOT_LEVELS.map((b) => {
-              const avg = levelAverageRating(bots, b.level, pinnedMode);
-              const form = avg == null ? 'no rated matches yet' : `rated ${avg}`;
-              return (
-                <option key={b.level} value={b.level}>
-                  Level {b.level}, {b.name.toLowerCase()}, {form}
-                </option>
-              );
-            })}
-          </select>
-        </span>
-      </label>
-      <span className="muted">{botLevelInfo(level).description}</span>
-      <button
-        type="button"
-        className="btn btn-primary"
-        disabled={disabled}
-        onClick={() => onPlay(pinnedMode, level)}
-      >
-        Play {MODE_NAME[pinnedMode].toLowerCase()} against bots
-      </button>
+            {PRESET_LABEL[preset]}
+          </button>
+        ))}
+        <Link className="btn btn-secondary" to="/bots">
+          More
+        </Link>
+      </div>
     </Way>
   );
 }
@@ -618,7 +593,7 @@ function LinkWay({ kind, disabled }: { kind: LinkKind; disabled: boolean }) {
                   >
                     {BOT_LEVELS.map((b) => (
                       <option key={b.level} value={b.level}>
-                        Level {b.level}, {b.name.toLowerCase()}
+                        Level {b.level}, {b.name}
                       </option>
                     ))}
                   </select>
