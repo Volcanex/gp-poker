@@ -83,7 +83,18 @@ async function shoot(
      says which step it is on. Hidden rather than masked: a magenta block
      over the dock hides the thing the baseline is for. */
   await page.addStyleTag({ content: '.devnote { display: none !important; }' });
-  await page.evaluate(() => document.fonts.ready);
+  /* **Every face, not just the ready promise.** The first page in a fresh
+     context lays its text out on the metric-matched fallback and swaps the real
+     face in afterwards, and `fonts.ready` can resolve either side of that: the
+     hand header's Copy link came out 101 px wide on a cold context and 103 on a
+     warm one, which is a hundred pixels of diff on a button nobody had touched
+     and the reason this suite flaked a handful of shots a run. Loading each
+     face and then waiting settles it. A face that cannot be fetched is not
+     worth failing a screenshot over. */
+  await page.evaluate(async () => {
+    await Promise.all([...document.fonts].map((f) => f.load().catch(() => undefined)));
+    await document.fonts.ready;
+  });
   /* And every avatar. They are inline SVG data URIs, so they never hit
      the network and it is tempting to assume they are there, but the
      decode is still asynchronous: a shot taken between layout and paint

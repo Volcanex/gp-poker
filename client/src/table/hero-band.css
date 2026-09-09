@@ -58,9 +58,14 @@
      printed over the key legend. The cards stay on the column's near edge, so
      the shared left edge holds. */
   --hb-hand-min: 184px;
-  /* The left group of the controls, fold and call; the sizes and the button
-     that sends one take what is left. */
-  --acts-w: 312px;
+  /* The left group, fold and call; the sizes and the button that sends one
+     take what is left. **A share of the controls, capped**, not a fixed
+     width: a band 600 px wide is still the wide band, and a fixed 312 left
+     the six sizes forty pixels between them to fight over. The cap is what
+     the pair want on a felt at its full 1120. The rows' heights live at the
+     root with the rest of the geometry, because `--band-h` is derived from
+     them. */
+  --acts-w: min(312px, 34%);
   /* A practice table's readings, when they are a section of the band rather
      than a bar above it. The left group gives up the width for them, because
      fold and call are two words and the sizes are six numbers. */
@@ -161,7 +166,7 @@
    whether this band or the strip draws them, and only above 1100 px, where
    there is room for a third column at all. */
 .hero-band[data-stats] {
-  --acts-w: 240px;
+  --acts-w: min(240px, 30%);
 }
 .hero-band[data-stats] .hb-in {
   grid-template-columns: auto minmax(0, 1fr) var(--stats-w);
@@ -417,6 +422,10 @@
   height: 100%;
   min-height: 0;
 }
+/* Seven under a mouse: the six sizes and the square that opens one of your
+   own. The row keeps its box either way, so the column it sits in and the
+   button under it do not move when the seventh square is not there. */
+.hb-sizes[data-custom] { grid-template-columns: repeat(7, minmax(0, 1fr)); }
 .hb-size {
   position: relative;
   display: grid;
@@ -452,6 +461,21 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+/* The seventh square says a word where the others say a number, so the word is
+   set at the size the corner keys are rather than the size of a figure: it is
+   a door, not an amount, and it should not read as loudly as one. */
+.hb-size-custom .s-v {
+  font-size: 12px; line-height: 20px; font-weight: 500;
+  letter-spacing: 0;
+}
+/* Under about 800 px the seven squares are too narrow for a word, so the
+   square draws the ellipsis it is: the button's own label is what says what it
+   does, so nothing is lost but the letters. */
+@media (max-width: 800px) {
+  .hb-size-custom .s-v { font-size: 0; }
+  .hb-size-custom .s-v::after { content: '…'; font-size: 15px; line-height: 20px; }
+}
+
 /* The key, in the corner, quiet enough to find rather than to read: it is a
    reminder for the hand already on the keyboard, not a label. */
 .hb-size .s-k {

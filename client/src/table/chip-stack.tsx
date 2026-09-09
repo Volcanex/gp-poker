@@ -9,15 +9,34 @@ const MAX_VISIBLE = 10;
    column of four is gone before the next action lands. */
 export const TICK_MS = 60;
 
+type Counts = Map<number, number>;
+
 export interface ChipStackProps {
   amount: number;
   /* How many denominations to draw, highest first. The mini stack beside a
      player's own number takes the big three: that is what says deep or short
      at a glance, and the ones and fives are noise at that size. */
   columns?: number;
+  /* Stand the chips over the middle of the row rather than in their slots as
+     they fall. The pot asks for this and nothing else does: it is the one
+     stack with a figure under it, and a pot of 3 is a single one-chip in the
+     last of five reserved slots, which put the chips 44 px right of the number
+     they belong to. See `shiftOf`. */
+  centred?: boolean;
 }
 
-type Counts = Map<number, number>;
+/* How far to move a centred row so the chips it is actually holding sit over
+   the middle of it, counted in columns. **The slots do not move**: every
+   denomination keeps the place it has always had inside the row, and the row
+   is what shifts, so a chip still arrives where that denomination lives. The
+   shift is drawn as a transform for the same reason a card is: the browser's
+   layout-shift observer counts a box that moves and does not count a box that
+   is transformed, and this felt's whole rule is that its boxes hold still. */
+export function shiftOf(counts: Counts, slots: number[]): number {
+  const on = slots.map((d, i) => ((counts.get(d) ?? 0) > 0 ? i : -1)).filter((i) => i >= 0);
+  if (on.length === 0) return 0;
+  return (slots.length - 1 - (on[0] + on[on.length - 1])) / 2;
+}
 
 function countsOf(amount: number): Counts {
   return new Map(denominate(amount).map((c) => [c.value, c.count]));
@@ -79,11 +98,15 @@ function useTicked(amount: number, on: boolean): Counts {
    the same size at 0 and at 1200, a chip appears where that denomination has
    always been, and none of it moves the felt around it. A centred group whose
    membership changes moves every member; that was the whole bug. */
-export function ChipStack({ amount, columns }: ChipStackProps) {
+export function ChipStack({ amount, columns, centred }: ChipStackProps) {
   const slots = DENOMINATIONS.slice(0, columns ?? DENOMINATIONS.length);
   const look = useLook();
   const reduced = useReducedMotion();
   const counts = useTicked(amount, look === 'v2' && !reduced);
+  const style = centred
+    ? ({ '--shift': shiftOf(counts, slots) } as CSSProperties)
+    : undefined;
+  const cls = centred ? 'chips chips-centred' : 'chips';
 
   /* v2: the same columns and the same reserved slots, drawn as chips. Each is
      the sprite's three-quarter chip, and a column stacks them by the height
@@ -93,7 +116,7 @@ export function ChipStack({ amount, columns }: ChipStackProps) {
      mounts and takes the set-down animation. */
   if (look === 'v2') {
     return (
-      <span className="chips" aria-hidden="true">
+      <span className={cls} style={style} aria-hidden="true">
         {slots.map((value) => {
           const count = counts.get(value) ?? 0;
           const visible = Math.min(count, MAX_VISIBLE);
@@ -119,7 +142,7 @@ export function ChipStack({ amount, columns }: ChipStackProps) {
   }
 
   return (
-    <span className="chips" aria-hidden="true">
+    <span className={cls} style={style} aria-hidden="true">
       {slots.map((value) => {
         const count = counts.get(value) ?? 0;
         const visible = Math.min(count, MAX_VISIBLE);

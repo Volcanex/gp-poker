@@ -423,7 +423,11 @@ test('the wide band raises from six stack sizes over one button', async ({ page 
   await expect(page.locator('.hb-track')).toHaveCount(0);
   const sizes = page.locator('.hb-sizes .hb-size');
   const amount = (i: number) => sizes.nth(i).locator('.s-v');
-  await expect(sizes).toHaveCount(6);
+  /* Six sizes and the square that opens one of your own, which is the seventh
+     box and the `0` key rather than a seventh preset. */
+  await expect(sizes).toHaveCount(7);
+  await expect(page.locator('.hb-size-custom')).toHaveCount(1);
+  await expect(page.locator('.hb-size-custom .s-k')).toHaveText('0');
   /* Fractions of what this seat has, which is 186 all in: a half is 93 and
      three quarters is 140. The box says the amount and its key, and nothing
      about the pot or what the size is called. */
@@ -436,9 +440,9 @@ test('the wide band raises from six stack sizes over one button', async ({ page 
   /* One row, with a gap between neighbours rather than a shared edge. */
   const first = (await sizes.nth(0).boundingBox())!;
   const second = (await sizes.nth(1).boundingBox())!;
-  const last = (await sizes.nth(5).boundingBox())!;
+  const last = (await sizes.nth(6).boundingBox())!;
   expect(second.x, 'a gap between boxes').toBeGreaterThan(first.x + first.width + 2);
-  expect(Math.round(last.y), 'all six on one row').toBe(Math.round(first.y));
+  expect(Math.round(last.y), 'all seven on one row').toBe(Math.round(first.y));
 
   /* A tenth and a quarter of this stack are both under the minimum raise, so
      they say what Min says and go blank. */
@@ -482,13 +486,31 @@ test('the wide band takes a size of its own', async ({ page }) => {
   await page.goto('/m/mock?v2=1&step=9');
   await waitForBand(page, 'turn');
 
-  await page.keyboard.press('r');
+  /* The square, the `0` key and `r` are the same door: whichever opens it, the
+     field is focused on the same number and clamps the same way. */
+  await page.locator('.hb-size-custom').click();
   const field = page.locator('.hb-custom-field .input');
+  await expect(field).toBeFocused();
+  await expect(field).toHaveValue('93');
+  await page.keyboard.press('Escape');
+
+  await page.keyboard.press('0');
+  await expect(field).toBeFocused();
+  await expect(field).toHaveValue('93');
+  await page.keyboard.press('Escape');
+
+  await page.keyboard.press('r');
   await expect(field).toBeFocused();
   await expect(page.locator('.hb-sizes')).toHaveCount(0);
   /* A quarter of this stack is under the minimum, so the sizer starts from
      the first size above it that is its own number. */
   await expect(field).toHaveValue('93');
+
+  /* And `0` is a nought while the field has the cursor, not a shortcut: it
+     reaches the amount rather than being swallowed by the key that opened it. */
+  await field.fill('12');
+  await page.keyboard.press('0');
+  await expect(field).toHaveValue('120');
 
   await page.keyboard.press('Escape');
   await expect(page.locator('.hb-sizes')).toBeVisible();

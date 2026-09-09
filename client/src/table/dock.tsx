@@ -5,6 +5,7 @@ import type { ActionKind, LegalActions, TableView } from '@opentable/protocol';
 import { RUNOUT_TICKS, holdFor } from '@opentable/protocol';
 import { isTextEntry, useGInit } from '../ui/bits.tsx';
 import { clamp, presetsFor, raiseAction, raiseShape } from './sizing.ts';
+import { CUSTOM_KEY, PRESET_KEYS, turnKeyAction } from './keys.ts';
 import type { Preset } from './sizing.ts';
 import {
   PRE_ACTIONS, amountToCall, isLastHand, resolvePreAction, survivesRaise,
@@ -314,19 +315,9 @@ export function useCountdown(key: string, ms: number): number {
 
 /* ---------------------------------------------------------------- your turn */
 
-/* The table's keys, in one place. `r` reaches for wherever the size is chosen
-   (the dock's field, the band's sizer) and the number keys hand a preset to
-   it, so the two renderings differ only in what those two words mean.
-
-   `1` to `9` and then `0` address the presets by position, ten at most, which
-   is the wide band's row; the dock and the phone have six and the last four
-   keys do nothing there. `0` after `9` rather than before `1` because that is
-   the order the keys are printed in.
-
-   `r` works while typing, because it is how you get back to the field; every
-   other shortcut is blocked by `isTextEntry`, so typing 137 into the field
-   does not fold the hand. */
-export const PRESET_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
+/* Re-exported so the two controls can go on importing their keys from the file
+   that answers them; `keys.ts` is where the decision lives. */
+export { CUSTOM_KEY, PRESET_KEYS, turnKeyAction };
 
 export function useTurnKeys({
   legal, presets, sending, onAct, onRaiseKey, onPresetKey,
@@ -338,30 +329,20 @@ export function useTurnKeys({
   onRaiseKey: () => void;
   onPresetKey: (preset: Preset) => void;
 }) {
-  const { actions } = legal;
-  const { canRaise, checkOrCall } = raiseShape(legal);
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (sending || e.metaKey || e.ctrlKey || e.altKey) return;
-      const typing = isTextEntry(e.target);
-      const k = e.key.toLowerCase();
-      if (k === 'r' && canRaise && !typing) {
-        e.preventDefault();
-        onRaiseKey();
-        return;
-      }
-      if (typing) return;
-      if (k === 'f' && actions.includes('f')) { e.preventDefault(); onAct('f'); }
-      else if (k === 'c' && checkOrCall) { e.preventDefault(); onAct(checkOrCall); }
-      else if (PRESET_KEYS.includes(k)) {
-        const p = presets[PRESET_KEYS.indexOf(k)];
-        if (p) { e.preventDefault(); onPresetKey(p); }
-      }
+      const hit = turnKeyAction(e.key, { legal, presets, typing: isTextEntry(e.target) });
+      if (!hit) return;
+      e.preventDefault();
+      if (hit.do === 'fold') onAct('f');
+      else if (hit.do === 'checkOrCall') onAct(hit.kind);
+      else if (hit.do === 'custom') onRaiseKey();
+      else onPresetKey(presets[hit.at]);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [actions, canRaise, checkOrCall, onAct, presets, sending, onRaiseKey, onPresetKey]);
+  }, [legal, presets, sending, onAct, onRaiseKey, onPresetKey]);
 }
 
 
@@ -534,8 +515,8 @@ function TurnControls({
 /* One spaced line under the dock, desktop only, and the same line in every
    state: a legend that comes and goes is a legend that moves the felt. */
 export function KeyLegend(
-  { watching, className = 'dock-keys', sizes = 6 }:
-  { watching?: boolean; className?: string; sizes?: number } = {},
+  { watching, className = 'dock-keys', sizes = 6, custom = false }:
+  { watching?: boolean; className?: string; sizes?: number; custom?: boolean } = {},
 ) {
   /* A spectator has no keys to press, and a legend that offers three of them
      is a legend that lies. The row still renders, and holds its height, so the
@@ -546,13 +527,11 @@ export function KeyLegend(
       <span><span className="kbd">F</span> fold</span>
       <span><span className="kbd">C</span> check or call</span>
       <span><span className="kbd">R</span> raise</span>
-      {/* The dock has six presets and the wide band ten, and a legend that
-          offers keys a control does not answer is a legend that lies. */}
-      {sizes > 9 ? (
-        <span><span className="kbd">1</span> to <span className="kbd">9</span> and <span className="kbd">0</span> sizes</span>
-      ) : (
-        <span><span className="kbd">1</span> to <span className="kbd">{sizes}</span> sizes</span>
-      )}
+      {/* A legend that offers keys a control does not answer is a legend that
+          lies: the dock has six sizes and no square for a size of your own,
+          and the band has six and the `0` beside them. */}
+      <span><span className="kbd">1</span> to <span className="kbd">{sizes}</span> sizes</span>
+      {custom && <span><span className="kbd">0</span> your own size</span>}
       <span><span className="kbd">Enter</span> send</span>
     </div>
   );

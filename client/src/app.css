@@ -691,8 +691,11 @@
 /* The pot: its chips, standing on the same floor in every street, and the
    figure under them. No label. It stands in the middle under the board, and
    its width is fixed, so a figure changing length moves nothing beside it. */
+/* `min-height: 0` because this is a column flex item with a height of its own:
+   without it, content one pixel taller than the box wins and the box grows,
+   which is a felt that changes size because a figure changed type size. */
 .pot {
-  width: var(--pot-w); height: var(--board-h);
+  width: var(--pot-w); height: var(--board-h); min-height: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
   gap: 2px;
 }
@@ -701,9 +704,12 @@
   width: 100%;
   height: calc(var(--chip) + (var(--chip-rows) - 1) * 3px + 2px);
 }
+/* A step up the scale from the rest of the felt's figures, because it is the
+   number the whole table is playing for. Its box is `--pot-w` wide and the
+   line-height is fixed, so the bigger type costs nothing in footprint. */
 .pot .v {
   display: block; width: 100%; text-align: center;
-  font-size: 15px; line-height: 20px; font-weight: 500; letter-spacing: -0.015em;
+  font-size: 18px; line-height: 24px; font-weight: 500; letter-spacing: -0.015em;
   font-variant-numeric: tabular-nums;
 }
 .pot-side { font-size: 11px; line-height: 14px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
@@ -746,7 +752,20 @@
    the chart tokens and the greys, never raw hex, and each chip carries a thin
    rim and a darker line along its bottom edge so a stack reads as chips rather
    than as a column of dots. */
-.chips { display: inline-flex; align-items: flex-end; gap: 3px; }
+.chips { display: inline-flex; align-items: flex-end; gap: var(--chip-gap); --chip-gap: 3px; }
+/* **The pot's row stands over its own middle.** Every denomination keeps its
+   reserved slot inside the row, so a chip still appears where that
+   denomination has always been; the row itself is moved by however many
+   columns it takes to put the chips actually held over the figure under them.
+   A pot of 3 is one white chip in the last of five slots, which sat 44 px right
+   of the number it belongs to.
+
+   It is a transform, not a margin, and that is the whole trick: the browser's
+   layout-shift observer does not count a box that is transformed, so the row
+   can recentre as the pot changes denomination without breaking the rule that
+   nothing on this felt moves. `shiftOf` in `chip-stack.tsx` counts the
+   columns; the pitch is a column and the gap after it. */
+.chips-centred { transform: translateX(calc(var(--shift, 0) * (var(--chip) + var(--chip-gap)))); }
 .chip-col {
   position: relative; flex: none;
   width: var(--chip);
@@ -988,7 +1007,11 @@
   .btn-marker { position: absolute; top: 1px; left: 1px; z-index: 1; width: 13px; height: 13px; font-size: 8px; }
   .seat-act { font-size: 10px; line-height: 12px; }
   .seat-act .act-v, .seat-act .turn-secs { font-size: 11px; line-height: 14px; }
-  .pot .v { font-size: 13px; line-height: 16px; }
+  /* A step up on a phone too, but the line has to fit the pot's fixed box:
+     the chips, the gap and this line are exactly `--board-h` at 30 px cards,
+     and a 20 px line pushed the box 2 px taller than its own height, which a
+     column flex item is allowed to do and which grew the felt under it. */
+  .pot .v { font-size: 15px; line-height: 18px; }
   .award-zone { height: 20px; }
   .stats {
     display: flex; align-items: center; justify-content: center; gap: 4px;

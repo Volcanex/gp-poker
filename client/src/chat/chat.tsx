@@ -104,6 +104,13 @@ export function ChatPanel({ chat }: { chat: ChatController }) {
               <span className="chat-meta">
                 <Link className="chat-name" to={`/u/${line.from.name}`}>{line.from.name}</Link>
                 {line.from.seat == null && <span className="chat-rail">Watching</span>}
+                {/* A real space in the text, not only in the layout. The row
+                    separates the name from the time by pushing the time to the
+                    far end, which reads correctly and copies as "Gabrielnow":
+                    a flex row drops whitespace-only nodes between its items, so
+                    this costs no pixels and gives the line a word boundary for
+                    anything reading it as text. */}
+                {' '}
                 <span className="chat-at num">{relativeTime(line.at, now)}</span>
               </span>
               <span className="chat-text">{line.text}</span>

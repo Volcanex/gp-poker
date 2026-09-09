@@ -4,8 +4,8 @@ The felt. `table.tsx` renders one `TableView` and everything here is a part of
 it: `seat.tsx`, `playing-card.tsx`, `turn-clock.tsx`, `chip-stack.tsx` and
 `dock.tsx` on a live table, `result-panel.tsx` under a finished one and
 `match-summary.tsx` for a match opened cold from its URL. `sizing.ts`,
-`preactions.ts`, `best-five.ts`, `chips.ts`, `labels.ts`, `layout.ts`,
-`sitout.ts` and
+`preactions.ts`, `best-five.ts`, `chips.ts`, `keys.ts`, `labels.ts`,
+`layout.ts`, `sitout.ts` and
 `results.ts` are pure and unit tested from `../test/`. `sounds.ts` is the
 table's side of `../sound/`.
 
@@ -126,7 +126,7 @@ scoped to `.hero-band` and `.match[data-band]` so it cannot.
 | Card | 100 px at the default | 100 px at the default |
 | Hand column | the hand's own width | the hand's own width |
 | Action column | 176 px | the rest of the felt's column |
-| Sizes | six, two rows of three | six, one row |
+| Sizes | six, two rows of three | six and a custom square, one row |
 | Actions | three rows: bet, call, fold | two groups: fold and call, then bet |
 | A size of your own | the sweep sizer | a typed field, key `r` |
 | Key legend | none, there is no keyboard | one line under the controls |
@@ -261,6 +261,18 @@ own their numbers, so all in is always the last box and always says the stack),
 kept in place rather than dropped, because the keys address the boxes by
 position; a blank box is `aria-hidden` so it is not a button with no name.
 
+**The seventh square is a door, not a size.** `0` and the square at the end of
+the row open the same sizer `r` opens, through the same callback, so the field
+focuses and clamps identically however it was asked for; it is deliberately not
+a seventh preset, because a preset holds a number and this holds a way to one.
+It is drawn only under a mouse, where there is a keyboard to legend and a field
+to type in; the phone reaches its sweep through the Bet button. Under about
+800 px the word gives way to an ellipsis and the button's `aria-label` is what
+still says what it does. `keys.ts` is the pure decision behind all of this and
+is unit tested from `../test/`: `r` survives a focused field because it is how
+you get back to it, and **`0` does not**, because a nought while typing belongs
+in the amount.
+
 **A box loads the button, and the button sends.** Pressing a box, or its number
 key, puts that size into the Bet or Raise button under it ("Raise to 250",
 verb-first, the words keyed on themselves so a changing string is not a text
@@ -286,8 +298,11 @@ breakpoint, and on v1, the strip is still the strip. See `../analysis/CLAUDE.md`
 for what the column drops.
 
 **Two groups under a mouse, one stack under a thumb.** Wide, the controls split
-left and right: fold and check or call on the left in `--acts-w`, the six sizes
-directly over the button that sends one on the right. That is a row shorter
+left and right: fold and check or call on the left in `--acts-w`, which is a
+capped share (`min(312px, 34%)`) and not a fixed width, because a band 600 px
+wide is still the wide band and a fixed left group left the sizes forty pixels
+to divide between them; the six sizes and the custom square stand directly over
+the button that sends one, on the right. That is a row shorter
 than the two rows of five, which is where the band's 40 px came from: **the
 card size sets the band's height**, not the controls, so the cards came down
 with it and the felt took the difference back. Under a mouse that is still
@@ -597,6 +612,18 @@ five and three twenty fives into a hundred. A unit test walks every amount a
 table can hold and pins it, which is what lets the felt reserve five chips of
 height instead of the ten a stack will draw before it starts counting.
 
+**The pot's row stands over its own figure.** Every denomination keeps its
+slot inside the row, and the row itself is moved by however many columns it
+takes to put the chips actually held over the number under them: a pot of 3 is
+one white chip in the last of five slots, which sat 44 px right of the figure
+it belongs to. `shiftOf` counts the columns and `.chips-centred` draws it **as
+a transform**, which is the whole trick: the layout-shift observer does not
+count a box that is transformed, so the row can recentre as the pot changes
+denomination without breaking the rule that nothing here moves. The pot asks
+for it and nothing else does, because it is the one stack with a figure under
+it rather than beside it. Its figure is a step up the type scale from the rest
+of the felt's, at 18 px, in the same fixed box.
+
 `chip-stack.tsx` draws them, and the rule that matters is this: **every
 denomination keeps its slot whether or not there is a chip in it, and a column
 is a fixed height with its chips on the floor of it.** A chip appears where that
@@ -782,6 +809,7 @@ thing that happened. See `../sound/CLAUDE.md`.
 | `c` | your turn | check, or call |
 | `r` | your turn | focus the amount field, from anywhere (the band: open the typed size) |
 | `1` to `6` | your turn | v1's dock: write that preset into the field. The band: load that box into the button, or on a phone open the sweep on it |
+| `0` | your turn, wide band | open a size of your own, the same door `r` opens. Blocked while typing, where it is a nought |
 | Enter | your turn, wide band | send the size the button says, or show the clamp |
 
 The legend under the dock is desktop only, and it says the same thing in every
