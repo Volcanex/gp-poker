@@ -13,6 +13,8 @@ import { analyse, analyseName, analyseOuts, cancel, isCancelled, nextRequestId }
 import type { Card, HandNaming, Villain } from './index.ts';
 import type { EquityResult } from '@opentable/equity';
 import type { OutsRead } from './draw-outs.ts';
+import type { DrawName, HandCategory } from '@opentable/equity';
+import { STUDS, drawTargets, preflopWords, studOf } from './strength.ts';
 import './live-stats.css';
 
 export interface LiveStatsProps {
@@ -85,6 +87,28 @@ export function precisionLabel(result: EquityResult | null): string {
   return result.exact ? 'exact' : `sampled, ${result.samples.toLocaleString('en-GB')} deals`;
 }
 
+/* The draws' names at the strip's width: the package's names are the full
+   ones and the replay panel prints them, but a cell nine rem wide has room
+   for "flush draw, open-ender" and not for the open-ended straight draw. */
+const SHORT: Partial<Record<DrawName, string>> = {
+  'open-ended straight draw': 'open-ender',
+  'backdoor flush draw': 'backdoor flush',
+};
+
+export function drawWords(draws: readonly DrawName[]): string {
+  return draws.map((d) => SHORT[d] ?? d).join(', ');
+}
+
+/* What the strength meter says to a screen reader, the studs being pictures.
+   "High card, drawing to a straight and a flush". */
+export function studsLabel(category: HandCategory | null, targets: number[]): string {
+  const made = category ? category[0].toUpperCase() + category.slice(1) : 'No made hand yet';
+  if (targets.length === 0) return made;
+  const to = targets.map((i) => STUDS[i]);
+  const list = to.length === 1 ? to[0] : `${to.slice(0, -1).join(', ')} and ${to[to.length - 1]}`;
+  return `${made}, drawing to ${list}`;
+}
+
 export function LiveStats({ hole, board, opponents }: LiveStatsProps) {
   const [naming, setNaming] = useState<HandNaming | null>(null);
   const [outs, setOuts] = useState<OutsRead | null>(null);
@@ -137,43 +161,103 @@ export function LiveStats({ hole, board, opponents }: LiveStatsProps) {
   const shown = line?.cards.slice(0, MAX_OUTS_SHOWN) ?? [];
   const hidden = (line?.cards.length ?? 0) - shown.length;
 
+  /* Before the flop there is no made hand to light a stud for, so the row
+     stays dark and the holding is named in words instead. */
+  const category = reads.name ? naming?.category ?? null : null;
+  const handName = !reads.name
+    ? hole ? preflopWords(hole) : ''
+    : naming?.name ?? '';
+  const targets = line && !line.muted ? drawTargets(outs?.draws ?? [], category) : [];
+  const pct = equity ? percentLabel(equity.equity) : '';
+
   return (
     <div className="card live-stats" role="group" aria-label="Hand analysis" aria-busy={busy}>
-      <div className="ls-row">
-        <span className="ls-label">Hand</span>
-        <span className="ls-value">{naming?.name ?? (reads.name ? <Waiting /> : 'Preflop')}</span>
-      </div>
+      <StrengthMeter category={category} targets={targets} name={handName} waiting={reads.name && !naming} />
 
-      <div className="ls-row">
-        <span className="ls-label">Outs</span>
-        <span className="ls-value">
+      <div className="ls-cell ls-outs">
+        <div className="ls-line">
+          {/* Every branch is keyed so React never hands one branch's node to
+              the next: the observer counts a reused node that lands somewhere
+              else as a shift, and a fresh node as content arriving. */}
           {!reads.outs ? (
-            <span className="ls-note">{board.length >= 5 ? 'No cards to come' : 'From the flop on'}</span>
+            <span key="none" className="ls-v ls-v-wide ls-note">{board.length >= 5 ? 'No cards to come' : 'From the flop on'}</span>
           ) : line ? (
             <>
-              <span className={line.muted ? 'ls-note' : 'num'}>{line.label}</span>
-              {shown.length > 0 && <BoardText cards={shown} />}
-              {hidden > 0 && <span className="ls-note ls-more">and {hidden} more</span>}
-              {line.draws && <span className="ls-note ls-extra">{line.draws}</span>}
+              <span key={line.label} className={`ls-v ${line.muted ? 'ls-note' : 'num'}`}>{line.label}</span>
+              <span key="cards" className="ls-cards">
+                {shown.length > 0 && <BoardText cards={shown} />}
+                {hidden > 0 && <span className="ls-note ls-more">and {hidden} more</span>}
+              </span>
             </>
           ) : (
-            <Waiting />
+            <Waiting key="wait" />
           )}
-        </span>
+        </div>
+        <div className="ls-sub">
+          <span key={line?.draws ?? ''} className="ls-note">{drawWords(outs?.draws ?? [])}</span>
+        </div>
       </div>
 
-      <div className="ls-row">
-        <span className="ls-label">Equity</span>
-        <span className="ls-value">
-          {equity ? <span className="num ls-equity">{percentLabel(equity.equity)}</span> : <Waiting />}
-          <span className="ls-note ls-vs">{opponentsLabel(opponents)}</span>
+      <div className="ls-cell ls-eq">
+        <div className="ls-line">
+          {equity ? <span key={pct} className="ls-v num">{pct}</span> : <Waiting key="wait" />}
+          <span
+            className="g-meter ls-meter"
+            role="meter"
+            aria-label="Equity"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={equity ? Math.round(equity.equity * 100) : undefined}
+          >
+            <span className="g-meter-fill" style={{ width: equity ? `${equity.equity * 100}%` : 0 }} />
+          </span>
+        </div>
+        <div className="ls-sub">
+          <span className="ls-note">{opponentsLabel(opponents)}</span>
           {equity && <span className="ls-note ls-extra">{precisionLabel(equity)}</span>}
-        </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface StrengthMeterProps {
+  category: HandCategory | null;
+  targets: number[];
+  name: string;
+  waiting: boolean;
+}
+
+/* Nine studs, one per hand category, weakest on the left. Everything up to
+   the hand you hold is lit, the studs a live draw would land on are hollow,
+   and the rest are dark. Only the stud that has just lit is drawn in: it is
+   keyed on its category, so a better hand mounts a new top stud and the
+   masked reveal runs once on it, while the studs under it, already lit or
+   lit in the same step, snap. A hand that gets worse (the next deal) snaps
+   dark: nothing on this screen animates a loss of information. */
+function StrengthMeter({ category, targets, name, waiting }: StrengthMeterProps) {
+  const top = category ? studOf(category) : -1;
+  return (
+    <div className="ls-cell ls-str">
+      <div className="ls-line ls-studs" role="img" aria-label={studsLabel(category, targets)}>
+        {STUDS.map((cat, i) => (
+          <span
+            key={i === top ? `top-${cat}` : i}
+            className="stud"
+            data-lit={i <= top ? '' : undefined}
+            data-new={i === top ? '' : undefined}
+            data-aim={targets.includes(i) ? '' : undefined}
+            title={cat[0].toUpperCase() + cat.slice(1)}
+          />
+        ))}
+      </div>
+      <div className="ls-sub">
+        {waiting ? <Waiting key="wait" /> : <span key={name} className="ls-name">{name}</span>}
       </div>
     </div>
   );
 }
 
 function Waiting() {
-  return <span className="ls-note ls-waiting">Computing</span>;
+  return <span className="ls-v ls-note ls-waiting">Computing</span>;
 }

@@ -1,38 +1,80 @@
+/* The strip at a practice table: one bar, three cells, one height.
+
+   The bar is capped at the felt's width and centred, like the band under it,
+   so the studs start on the hero's cards' left edge and the equity ends on
+   the controls' right one: one column, one pair of edges.
+
+   Left to right it reads the way a player thinks: what you hold (the studs
+   and the hand's name), what would improve it (the outs and their cards), and
+   how often it wins (the equity meter). Every cell has a definite width and
+   every figure a reserved slot, so a longer hand name, a twelfth out or a
+   percentage landing from the worker cannot move the cell beside it: the
+   table screen's rule is that nothing in that column sizes to its content,
+   and a bar full of numbers that change every street is the easiest place in
+   the app to break it. Changing values are keyed on themselves in the markup,
+   so a new figure is a new node rather than ink moving in a box. */
+
+.practice-strip {
+  height: var(--stats-h);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--sp-4);
+  border-top: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+
 .live-stats {
+  display: grid;
+  grid-template-columns: 18rem minmax(0, 1fr) 13rem;
+  grid-template-areas: "str outs eq";
+  gap: var(--sp-4);
+  align-items: start;
+  width: 100%;
+  max-width: var(--felt-w);
+  min-width: 0;
+  margin: 0 auto;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  font-size: var(--font-size-ui);
+  color: var(--text-primary);
+}
+
+.ls-str { grid-area: str; }
+.ls-outs { grid-area: outs; }
+.ls-eq { grid-area: eq; }
+
+/* A cell is two lines: the reading, then a note under it. Both lines keep
+   their height whether or not there is anything to say in them. */
+.ls-cell {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-2);
-  padding: var(--sp-3);
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
-.ls-row {
-  display: grid;
-  grid-template-columns: 4.5rem 1fr;
-  align-items: baseline;
-  gap: var(--sp-3);
-  font-size: var(--font-size-ui);
-}
-
-.ls-row + .ls-row {
-  border-top: 1px solid var(--border);
-  padding-top: var(--sp-2);
-}
-
-.ls-label {
-  color: var(--text-secondary);
-}
-
-.ls-value {
+.ls-line {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: var(--sp-2);
-  color: var(--text-primary);
+  height: var(--lh-2);
   min-width: 0;
 }
 
-.ls-equity {
-  font-size: 1.1em;
+.ls-sub {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  height: var(--lh-1);
+  line-height: var(--lh-1);
+  min-width: 0;
+  overflow: hidden;
+}
+.ls-sub > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ls-note {
@@ -46,174 +88,146 @@
   opacity: 0.7;
 }
 
-/* The strip at a practice table.
-
-   The same three readings on one line, in a row of the table's grid with a
-   height of its own. Every reading has a definite width, so a longer hand name
-   or a ninth out cannot move the two beside it: the table screen's rule is that
-   nothing in that column sizes to its content, and a strip full of numbers that
-   change every street is the easiest place in the app to break it. */
-.practice-strip {
-  height: var(--stats-h);
-  display: flex;
-  align-items: center;
-  padding: 0 var(--sp-4);
-  border-top: 1px solid var(--border-subtle);
-  overflow: hidden;
-}
-
-.practice-strip .live-stats {
-  flex-direction: row;
-  align-items: center;
-  gap: var(--sp-4);
-  width: 100%;
-  max-width: 1100px;
-  min-width: 0;
-  margin: 0 auto;
-  padding: 0;
-  border: none;
-  border-radius: 0;
-  background: none;
-}
-
-.practice-strip .ls-row {
-  display: flex;
-  align-items: baseline;
-  gap: var(--sp-2);
-  padding: 0;
-  border: none;
-  min-width: 0;
-  white-space: nowrap;
-}
-
-.practice-strip .ls-row + .ls-row {
-  border-top: none;
-  padding-top: 0;
-}
-
-.practice-strip .ls-value {
-  flex-wrap: nowrap;
-  overflow: hidden;
-}
-
-/* The name takes what is left and is cut with an ellipsis; the two numbers hold
-   fixed boxes on the right. */
-.practice-strip .ls-row:nth-child(1) { flex: 1 1 0; overflow: hidden; }
-.practice-strip .ls-row:nth-child(1) .ls-value {
-  display: block;
+/* The headline figure of the outs and the equity, in a slot as wide as the
+   longest thing it can say: "12 outs", "42.3%", or the word Computing. A
+   street with no outs to count says so across the whole line instead. */
+.ls-v {
+  flex: 0 0 4.5rem;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.practice-strip .ls-row:nth-child(2) { flex: 0 0 auto; width: 32.5rem; }
-.practice-strip .ls-row:nth-child(3) { flex: 0 0 auto; width: 15rem; }
+.ls-v-wide { flex: 1 1 auto; }
 
-/* Both readings sit in fixed cells rather than flowing.
-
-   The value arrives from the worker after the note beside it is already on
-   screen, so in a flow the note slides sideways the moment the number lands.
-   That is a layout shift, on the one screen in the app whose rule is that
-   nothing moves. Cells make the number's box the same width whether it holds
-   a percentage, a count or the word Computing. */
-.practice-strip .ls-row:nth-child(2) .ls-value {
-  display: grid;
-  grid-template-columns: 7.5rem minmax(0, 16.5rem) 5.5rem;
+.ls-cards {
+  display: flex;
   align-items: baseline;
   gap: var(--sp-2);
+  min-width: 0;
+  overflow: hidden;
 }
-.practice-strip .ls-row:nth-child(3) .ls-value {
-  display: grid;
-  grid-template-columns: 4.5rem minmax(0, 1fr);
-  align-items: baseline;
-  gap: var(--sp-2);
+
+.ls-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.practice-strip .ls-value > * { overflow: hidden; }
 
-/* The strip is a glance, not the panel. The draw's name and how the equity was
-   arrived at are worth reading when you go looking; here they would cost the
-   hand name the width it needs to be read at all. */
-.practice-strip .ls-extra { display: none; }
+/* The strip is a glance, not the panel. How the equity was arrived at is
+   worth reading when you go looking; here it would crowd the count. */
+.ls-extra { display: none; }
 
-.practice-strip .ls-equity { font-size: 1em; }
+/* ------------------------------------------------------------- the meter */
 
-/* Narrower than a desktop, the card list goes first: the count is the reading,
-   the cards are the detail, and the hand name needs the width more. */
+/* g's meter, drawn without its width transition: every figure on the felt
+   snaps and the bar under this one is no different. */
+.ls-meter {
+  flex: 1 1 auto;
+  min-width: 0;
+  border-radius: 0;
+}
+.ls-meter .g-meter-fill {
+  transition: none;
+  border-radius: 0;
+}
+
+/* ------------------------------------------------------------- the studs */
+
+/* Nine squares, one per hand category, weakest on the left. Dark until the
+   hand reaches them, lit in the accent up to the hand you hold, and hollow
+   where a live draw would land. The stud size is the spacing scale's, so the
+   row is 140 px wide at every width and the name beside or under it has a
+   fixed place to start. */
+.ls-studs {
+  --stud: var(--sp-3);
+  gap: var(--sp-1);
+  flex: none;
+}
+
+.stud {
+  flex: none;
+  width: var(--stud);
+  height: var(--stud);
+  background: var(--fill-active);
+  box-sizing: border-box;
+}
+
+.stud[data-lit] {
+  background: var(--accent-fill);
+}
+
+.stud[data-aim] {
+  background: transparent;
+  border: 2px solid var(--accent-fill);
+}
+
+/* The one thing here that moves: the stud that has just lit is wiped in
+   from its left edge. It is keyed on its category, so it mounts once per
+   hand improvement and the animation runs once with it. */
+.stud[data-new] {
+  animation: stud-reveal var(--dur-base) var(--ease-out) both;
+}
+
+@keyframes stud-reveal {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+/* ---------------------------------------------------------- narrower */
+
+/* Under a desktop the out cards go: the count is the reading, the cards are
+   the detail, and the hand's name needs the width more. */
 @media (max-width: 1024px) {
-  .practice-strip .ctext,
-  .practice-strip .ls-more { display: none; }
-  .practice-strip .ls-row:nth-child(2) { width: 11rem; }
-  .practice-strip .ls-row:nth-child(2) .ls-value { grid-template-columns: minmax(0, 1fr); }
+  .ls-cards { display: none; }
 }
 
-/* One line on a phone: the name, the outs and the number. The three readings
-   are worth more than any one of them explained. */
+/* A phone stacks the meter under the two figures: the outs and the equity
+   share the first line, and the studs run along the second with the hand's
+   name beside them, so the bar is still one fixed height and three cells. */
 @media (max-width: 720px) {
   .practice-strip { padding: 0 var(--sp-3); }
-  .practice-strip .live-stats { gap: var(--sp-3); }
-  .practice-strip .ls-vs { display: none; }
-  /* Two labels go: the hand needs no introduction and the outs value already
-     says the word. The equity keeps its label, because a bare percentage
-     beside a count of outs could be either of them. */
-  .practice-strip .ls-row:nth-child(1) .ls-label,
-  .practice-strip .ls-row:nth-child(2) .ls-label { display: none; }
-  .practice-strip .ls-row:nth-child(2) { width: 8rem; }
-  .practice-strip .ls-row:nth-child(3) { width: 7rem; }
-  .practice-strip .ls-row:nth-child(3) .ls-value { grid-template-columns: minmax(0, 1fr); }
+  .live-stats {
+    grid-template-columns: minmax(0, 1fr) 9.5rem;
+    grid-template-rows: calc(var(--lh-2) + var(--lh-1)) var(--lh-2);
+    grid-template-areas:
+      "outs eq"
+      "str str";
+    gap: var(--sp-1) var(--sp-3);
+  }
+  .ls-str {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--sp-3);
+  }
+  .ls-str .ls-sub {
+    height: var(--lh-2);
+    line-height: var(--lh-2);
+    align-items: center;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+  .ls-str .ls-sub .ls-note { font-size: var(--font-size-ui); }
+  .ls-eq .ls-v { flex-basis: 3.5rem; }
 }
 
 /* ------------------------------------------------- the band's own section */
 
-/* The same three readings as a column on the right of the band, on a screen
-   wide enough for a third column (`../table/hero-band.css`). The strip's rule
-   holds here for the same reason and more sharply: this sits inside the one
-   box on the screen that may not change size, so every row is a fixed height,
-   every value is a cell, and nothing wraps.
+/* The same three cells as a column on the right of the band, on a screen wide
+   enough for a third column (`../table/hero-band.css`). The bar's rule holds
+   here for the same reason and more sharply: this sits inside the one box on
+   the screen that may not change size, so every cell is the same two fixed
+   lines and nothing wraps.
 
-   What the strip drops, this drops too, and one thing more: the outs cards and
-   the notes beside the numbers. A column 300 px wide cannot hold nine cards
-   and the reading they belong to, and a card list that clipped mid-card would
-   say less than the count already does. The count, the name and the percentage
-   are the glance; the cards are in the replay's analysis panel, whole. */
+   The out cards go: a column 248 px wide cannot hold nine cards and the reading
+   they belong to, and a card list that clipped mid-card would say less than the
+   count already does. The cards are in the replay's analysis panel, whole. */
 .hb-stats .live-stats {
-  gap: 4px;
-  padding: 0;
-  border: none;
-  border-radius: 0;
-  background: none;
-  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "str"
+    "outs"
+    "eq";
+  gap: var(--sp-2);
+  max-width: none;
+  margin: 0;
 }
 
-.hb-stats .ls-row {
-  display: grid;
-  grid-template-columns: 4rem minmax(0, 1fr);
-  align-items: baseline;
-  column-gap: var(--sp-2);
-  height: 20px;
-  padding: 0;
-  border: none;
-  font-size: 12px;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-.hb-stats .ls-row + .ls-row {
-  border-top: none;
-  padding-top: 0;
-}
-
-.hb-stats .ls-value {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-variant-numeric: tabular-nums;
-}
-
-.hb-stats .ls-equity { font-size: 1em; }
-
-/* The detail the column has no room for. The outs count and the equity stay;
-   the cards, the draw's name, how the equity was sampled and who it was
-   against are the panel's, not the band's. */
-.hb-stats .ls-extra,
-.hb-stats .ls-vs,
-.hb-stats .ls-more,
-.hb-stats .ctext { display: none; }
+.hb-stats .ls-cards { display: none; }
