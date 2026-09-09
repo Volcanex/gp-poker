@@ -59,9 +59,9 @@
    numeral is set larger than the tab's own text so there is a side to run up,
    and **the word is never taller than the numeral it leans on**: three
    lowercase letters, all of them x-height, stacked in the digit's own cap
-   height. Lowercase because the site is sentence case throughout and because
-   m, a and x have neither an ascender nor a descender between them, which is
-   what lets three of them fit in the height of one digit. */
+   height. Sentence case, like every other label on the site; the two letters
+   after the M have neither an ascender nor a descender, which is what lets
+   the word fit in the height of one digit. */
 .mode-6max { display: inline-flex; align-items: center; gap: 2px; line-height: 1; }
 .mode-6max-n { font-size: 18px; line-height: 1; font-weight: 500; }
 .mode-6max-suffix {
@@ -626,15 +626,21 @@
   padding: var(--sp-4);
   min-height: 0;
   overflow: auto;
-  --seat-h: 72px;
+  /* Everybody else's cards, from the Cards setting, and **the seat is built
+     round them**: the card is the thing being sized and the seat is the card
+     it is held in, so the panel grows with the setting rather than the cards
+     growing inside a panel that does not. */
+  --seat-card: 40px;
+  --seat-h: calc(var(--seat-card) * 1.4 + 16px);
   /* The whole of the column the felt gives a seat: the felt's width less the
      middle's and the two 16px gutters, halved. It used to stop short of that,
      which was width the name could have had. */
-  --seat-w: 400px;
-  /* Everybody else's cards, from the Cards setting. Regular is what the felt
-     shipped with; the seat is 60px and its border takes two, so huge is the
-     tallest card that clears it at the 1.4 the artwork is drawn at. */
-  --seat-card: 40px;
+  --seat-w: 412px;
+  /* The identity block: two rows and the gap between them. The avatar is cut
+     to it, so the picture is exactly as tall as the name and the rack it
+     stands beside. */
+  --seat-row: 16px;
+  --seat-id-h: calc(var(--seat-row) * 2 + 2px);
   --board-card: 40px;
   --board-h: calc(var(--board-card) * 1.4); /* the board's row, and the pot's box under it */
   --pot-w: 108px; /* five chips of the pot's size and their gaps */
@@ -642,7 +648,7 @@
   /* The middle column. The pot is 108 px wide and the stats box under it needs
      more than that, so the column is sized here rather than by its widest
      child: it used to be the split board's width, and the board has left it. */
-  --mid-w: 288px;
+  --mid-w: 264px;
 }
 /* Centred with auto margins rather than `justify-content`, because a centred
    flex item that overflows its container clips at the top and cannot be
@@ -890,11 +896,13 @@
   box-sizing: border-box;
   width: 100%; max-width: var(--seat-w); height: var(--seat-h);
   display: grid;
-  /* The action square is the seat's height, capped: past 64px it stops being
-     a square with a word in it and starts being width the name wanted. */
-  grid-template-columns: auto auto minmax(0, 1fr) min(calc(var(--seat-h) - 2px), 64px);
+  /* Cards, picture, identity, stack, action. The action square is the seat's
+     height, capped: past 64px it stops being a square with a word in it and
+     starts being width the name wanted. */
+  grid-template-columns:
+    auto auto minmax(0, 1fr) auto min(calc(var(--seat-h) - 2px), 64px);
   align-items: center;
-  column-gap: var(--sp-2);
+  column-gap: 6px;
   padding-left: var(--sp-2);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-card);
@@ -932,10 +940,21 @@
 
 .seat-cards { display: flex; gap: 4px; }
 .seat .pcard { --card-w: var(--seat-card); }
-.seat-id { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; min-width: 0; }
+/* Two rows on one edge: the name over the rack, both starting where the
+   picture ends. Left aligned, because a name and the chips under it are one
+   block and a block reads from its own edge. */
+.seat-id {
+  display: flex; flex-direction: column; align-items: flex-start;
+  gap: 2px; min-width: 0; height: var(--seat-id-h);
+}
 /* Both lines span the block, whatever is in them: a box that shrinks to its
    content is a box the observer sees move when the content does. */
-.seat-line { display: flex; align-items: center; justify-content: flex-end; gap: 6px; min-width: 0; width: 100%; }
+.seat-line {
+  display: flex; align-items: center; justify-content: flex-start;
+  gap: 6px; min-width: 0; width: 100%; height: var(--seat-row);
+}
+/* Cut to the two rows it stands beside. */
+.seat > .avatar { --avatar-size: var(--seat-id-h); }
 .seat-name {
   font-size: 13px; line-height: 16px; font-weight: 500; color: var(--text-primary);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
@@ -949,32 +968,44 @@
    into a five hundred, and a table holding 1200 never stacks three of those.
    So four is the tallest column the felt can produce, and reserving exactly
    it is what keeps a rack off the seat's `overflow: hidden` edge. */
-/* Beside a player's own number, on the one line with it: every denomination,
-   so a bet of any size is seen leaving. It is the same component as the pot's
-   stack and ticks on the same clock, which is what makes a bet read as chips
-   moving from one place to the other. Four rows and no more, because that is
-   the tallest column `denominate` can build. */
+/* The second row: the rack on the name's edge, and the seat's own marks
+   pushed to the far end of it. */
+.seat-sub {
+  display: flex; align-items: center; gap: 6px;
+  width: 100%; height: var(--seat-row); min-width: 0;
+}
+.seat-sub .btn-marker { margin-left: auto; }
+.seat-sub .seat-bot + .btn-marker { margin-left: 0; }
+.seat-sub .seat-bot { margin-left: auto; }
+
+/* The rack, under the name and on the same edge: every denomination, so a bet
+   of any size is seen leaving. It is the same component as the pot's stack and
+   ticks on the same clock, which is what makes a bet read as chips moving from
+   one place to the other. Four rows and no more, because that is the tallest
+   column `denominate` can build. */
 .seat-chips {
-  display: inline-flex; align-items: flex-end;
+  display: flex; align-items: flex-end; justify-content: flex-start;
+  height: var(--seat-row);
   --chip: 11px; --chip-rows: 4;
 }
 .seat-chips .chips { gap: 2px; }
-.seat-chips { margin-right: calc(5ch + 6px); }
 
-/* The figure and the chips beside it on one line, always. */
+/* The figure, in a column of its own and centred on the seat. Bigger than
+   anything else on the row: it is the one number read from across the table,
+   and beside the rack it is worth rather than under it. */
 .seat-stack {
-  display: flex; align-items: flex-end; justify-content: flex-end; gap: 6px; width: 100%;
-  font-size: 15px; line-height: 16px; font-weight: 500; letter-spacing: -0.015em;
+  position: relative;
+  display: flex; align-items: baseline; justify-content: flex-end; gap: 6px;
+  font-size: 22px; line-height: 24px; font-weight: 500; letter-spacing: -0.015em;
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }
-/* "all in" lands in a slot the chips always leave open, out of the flow, so
+/* "all in" lands in a slot the figure always leaves open, out of the flow, so
    nothing moves when it does. "out" takes the same slot in the flow, because
-   a busted seat's row is rebuilt anyway. */
-.seat-stack { position: relative; }
+   a busted seat's figure is rebuilt anyway. */
 .seat-stack .u { font-size: 11px; line-height: 16px; color: var(--text-secondary); font-weight: 400; }
-.seat-stack .u-allin { position: absolute; right: calc(4ch + 6px); bottom: 0; }
-/* Room for every stack a table can hold, so the chips beside the digits never
-   move when the figure gains one. */
+.seat-stack .u-allin { position: absolute; right: calc(4ch + 6px); bottom: 2px; }
+/* Room for every stack a table can hold, so nothing beside the digits moves
+   when the figure gains one. */
 .stack-v { display: inline-block; min-width: 4ch; text-align: right; }
 
 .btn-marker {
@@ -999,7 +1030,6 @@
   padding: 0 4px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
 }
 .seat-off { color: var(--danger-text); font-size: 11px; line-height: 16px; white-space: nowrap; }
-.seat-bot-stack { display: none; }
 
 /* The action square. Empty it is a quiet outline; with a word in it, the
    word's colour on a tint of the same, the three colours every action has
@@ -1007,9 +1037,9 @@
    clock's bar runs along its bottom edge. */
 .seat-act {
   position: relative;
-  /* The seat's inner height: its box less the two borders, so the square is
-     one. */
-  width: calc(var(--seat-h) - 2px); height: 100%; box-sizing: border-box;
+  /* The seat's inner height, so the square is one, capped where a square
+     stops being worth the width it costs the name beside it. */
+  width: min(calc(var(--seat-h) - 2px), 64px); height: 100%; box-sizing: border-box;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 1px;
   border-left: 1px solid var(--border-subtle);
@@ -1082,8 +1112,6 @@
   .seat-stack { font-size: 12px; line-height: 14px; gap: 4px; }
   .seat-chips { display: none; }
   .seat-bot { font-size: 9px; padding: 0 3px; line-height: 12px; }
-  .seat-bot-line { display: none; }
-  .seat-bot-stack { display: inline; }
   .seat-rating { display: none; }
   .btn-marker { position: absolute; top: 1px; left: 1px; z-index: 1; width: 13px; height: 13px; font-size: 8px; }
   .seat-act { font-size: 10px; line-height: 12px; }

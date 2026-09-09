@@ -27,14 +27,15 @@ export interface SeatProps {
   won?: boolean;
 }
 
-/* One card, one row, one edge. Left to right: the two cards, the avatar, the
-   identity block right-aligned against the action square, and the square
-   itself on the seat's right edge. The cards lead because they are the hand:
-   the seat is read across from what was dealt to who holds it.
+/* One card, one row, one edge. Left to right: the two cards, the picture, the
+   identity block, the stack, and the action square on the seat's right edge.
+   The cards lead because they are the hand: the seat is read across from what
+   was dealt, to who holds it, to what they are holding it with.
 
-   The identity block is two rows: the name line, then the rack and the figure
-   it is worth beside each other. The rack and its number are one reading and
-   they stay on one line.
+   The identity block is two left aligned rows, the name over the rack, and
+   the picture beside them is cut to their combined height. The figure the
+   rack is worth is a column of its own, set large and centred on the seat:
+   it is the one number on a seat that is read across the table.
 
    The square is the seat's height and always drawn, empty as a quiet outline,
    so a word arriving in it moves nothing. It holds what the player last did
@@ -89,6 +90,11 @@ export function Seat({
       <Avatar seed={seat.uid || seat.name} name={seat.name} size={28} avatarV={avatarVersion(seat.avatarV)} />
 
       <div className="seat-id">
+        {/* Who they are, and nothing else. **The badges are not on this line**:
+            a flag, a name, a rating, a button marker and a bot tag in one
+            140px row left the name about thirty pixels, which is three
+            letters and an ellipsis. They live on the row below, where the
+            rack leaves half the width empty. */}
         <span className="seat-line">
           {/* Always here, empty when the player has no flag: the same reserved
               slot the button marker keeps, and for the same reason. */}
@@ -96,45 +102,46 @@ export function Seat({
           <span className="seat-name" title={seat.name}>{shortName(seat.name, 16)}</span>
           <span className="seat-rating num">{int(seat.rating)}</span>
           {you && <span className="seat-you">You</span>}
+        </span>
+
+        {/* The rack, under the name and starting on the same edge, with what
+            is true of the seat rather than of the person on the end of it. An
+            empty stack still draws every denomination's empty slot, so a seat
+            busting out keeps this row's height exactly as a full one has it:
+            that reserved box is what held the last shift on the six-max
+            footprint. */}
+        <span className="seat-sub">
+          <span className="seat-chips">
+            <ChipStack amount={seat.out ? 0 : seat.stack} />
+          </span>
+          {!seat.connected && <span className="seat-off">Disconnected</span>}
+          {seat.bot && <span className="seat-bot">Bot</span>}
           {/* Always here, hidden when the button is elsewhere: a marker that
               comes and goes moves every badge after it once a hand. */}
           <span className="btn-marker" title="Button" data-off={seat.button ? undefined : ''}>D</span>
-          {seat.bot && <span className="seat-bot seat-bot-line">Bot</span>}
-          {!seat.connected && <span className="seat-off">Disconnected</span>}
         </span>
-        {seat.out ? (
-          <span className="seat-stack num" key="out">
-            {/* Keyed apart from the live row, so busting out remounts the
-                row rather than retyping a live figure into a placing; a
-                retyped node is one the layout-shift observer can measure.
-                The same row as a live seat's, chip slot included: an empty
-                stack is the height of a full one, so a seat busting out
-                keeps its box, which is what held the last shift on the
-                six-max footprint. */}
-            <span className="seat-chips"><ChipStack amount={0} /></span>
-            <span className="u u-allin">{seat.place == null ? '' : 'out'}</span>
-            {/* The same reserved slot the digits use, so a seat busting out
-                does not move the word beside it. */}
-            <span className="stack-v">{seat.place == null ? 'Out' : ordinal(seat.place)}</span>
-          </span>
-        ) : (
-          <span className="seat-stack num" key="live">
-            <span className="seat-chips"><ChipStack amount={seat.stack} /></span>
-            {/* The badge is drawn twice and CSS keeps one: on a phone the name
-                line has no room for it and the stack line has plenty. */}
-            {seat.bot && <span className="seat-bot seat-bot-stack">Bot</span>}
-            {/* Out of the flow, in a slot the chips leave open, and always
-                rendered: a node that mounts when the word arrives is a node
-                Chrome's layout-shift observer can give a stale rect, and it
-                did, on six-max at 1280. An empty box that was always there
-                has nothing to move from. */}
-            <span className="u u-allin">{seat.allin ? 'all in' : ''}</span>
-            {/* The digits get a fixed slot so the chips beside them do not
-                slide every time a stack changes size. */}
-            <span className="stack-v" key={seat.stack}>{seat.stack}</span>
-          </span>
-        )}
       </div>
+
+      {/* What they are holding, or where they finished. Keyed apart from each
+          other, so busting out remounts the figure rather than retyping a live
+          one into a placing; a retyped node is one the layout-shift observer
+          can measure. */}
+      {seat.out ? (
+        <span className="seat-stack num" key="out">
+          <span className="u u-allin">{seat.place == null ? '' : 'out'}</span>
+          <span className="stack-v">{seat.place == null ? 'Out' : ordinal(seat.place)}</span>
+        </span>
+      ) : (
+        <span className="seat-stack num" key="live">
+          {/* Out of the flow, in a slot the figure always leaves open, and
+              always rendered: a node that mounts when the word arrives is a
+              node Chrome's layout-shift observer can give a stale rect, and it
+              did, on six-max at 1280. An empty box that was always there has
+              nothing to move from. */}
+          <span className="u u-allin">{seat.allin ? 'all in' : ''}</span>
+          <span className="stack-v" key={seat.stack}>{seat.stack}</span>
+        </span>
+      )}
 
       <span
         className="seat-act"

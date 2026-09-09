@@ -35,7 +35,7 @@ export function modeTabLabel(m: Mode): React.ReactNode {
   return (
     <span className="mode-6max">
       <span className="mode-6max-n">6</span>
-      <span className="mode-6max-suffix">max</span>
+      <span className="mode-6max-suffix">Max</span>
     </span>
   );
 }
