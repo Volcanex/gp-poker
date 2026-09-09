@@ -38,11 +38,11 @@ describe('settings persistence', () => {
     const store = fakeStore();
     writePrefs({
       theme: 'light', palette: 'felt', accent: 'jade', fourColour: true, hand: 'left',
-      cards: 'ajar', cardSize: 'huge', seatCards: 'regular', tableInfo: 'seat',
+      cards: 'ajar', cardSize: 'huge', seatCards: 'regular', seatDetail: 'detailed', tableInfo: 'seat',
     }, store);
     expect(readPrefs(store)).toEqual({
       theme: 'light', palette: 'felt', accent: 'jade', fourColour: true, hand: 'left',
-      cards: 'ajar', cardSize: 'huge', seatCards: 'regular', tableInfo: 'seat',
+      cards: 'ajar', cardSize: 'huge', seatCards: 'regular', seatDetail: 'detailed', tableInfo: 'seat',
     });
   });
 
@@ -50,11 +50,11 @@ describe('settings persistence', () => {
     const store = fakeStore();
     writePrefs({
       theme: 'system', palette: 'sky', accent: 'clay', fourColour: false, hand: 'right',
-      cards: 'side', cardSize: 'regular', seatCards: 'huge', tableInfo: 'seat',
+      cards: 'side', cardSize: 'regular', seatCards: 'huge', seatDetail: 'normal', tableInfo: 'seat',
     }, store);
     expect(store.getItem(PREFS_KEY)).toBe(
       '{"theme":"system","palette":"sky","accent":"clay","fourColour":false,"hand":"right"'
-      + ',"cards":"side","cardSize":"regular","seatCards":"huge","tableInfo":"seat"}',
+      + ',"cards":"side","cardSize":"regular","seatCards":"huge","seatDetail":"normal","tableInfo":"seat"}',
     );
   });
 
@@ -70,7 +70,7 @@ describe('settings persistence', () => {
     });
     expect(readPrefs(store)).toEqual({
       theme: 'room', palette: 'slate', accent: 'violet', fourColour: false, hand: 'right',
-      cards: 'stacked', cardSize: 'large', seatCards: 'large', tableInfo: 'panel',
+      cards: 'stacked', cardSize: 'large', seatCards: 'large', seatDetail: 'normal', tableInfo: 'panel',
     });
   });
 
@@ -174,7 +174,7 @@ describe('applying settings', () => {
     applyPrefs(
       {
         theme: 'light', palette: 'felt', accent: 'ocean', fourColour: true, hand: 'left',
-        cards: 'side', cardSize: 'huge', seatCards: 'huge', tableInfo: 'seat',
+        cards: 'side', cardSize: 'huge', seatCards: 'huge', seatDetail: 'detailed', tableInfo: 'seat',
       },
       root, fakeStore(),
     );
@@ -183,6 +183,7 @@ describe('applying settings', () => {
     expect(root.getAttribute('data-accent')).toBe('ocean');
     expect(root.getAttribute('data-deck')).toBe('four');
     expect(root.getAttribute('data-hand')).toBe('left');
+    expect(root.getAttribute('data-seat-detail')).toBe('detailed');
     expect(root.getAttribute('data-cards')).toBe('side');
     expect(root.getAttribute('data-card-size')).toBe('huge');
     expect(root.getAttribute('data-table-info')).toBe('seat');

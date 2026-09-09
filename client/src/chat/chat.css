@@ -159,4 +159,9 @@
   box-shadow: var(--shadow-overlay);
 }
 .match[data-practice] .chat-fab { bottom: calc(var(--dock-h) + var(--strip-h) + var(--sp-3)); }
+/* A bigger table read as strips fills the felt to the band, and the last
+   strip's action square is exactly the corner this button stands in; there
+   it stands in the top right instead, beside the board, which is the one
+   corner that layout leaves clear. */
+.felt[data-rows][data-mode="ring"] ~ .chat-fab { top: var(--sp-3); bottom: auto; }
 .chat-fab .chat-unread { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; }

@@ -16,7 +16,7 @@ import { dealFrom, dealOrder, layoutMode, placeOf, seatOrder } from './layout.ts
 import { amountToCall } from './preactions.ts';
 import { readShowdown } from './best-five.ts';
 import { useTableSounds } from './sounds.ts';
-import { useMedia, useTableInfo, useGInit } from '../ui/bits.tsx';
+import { useMedia, useRootAttr, useTableInfo, useGInit } from '../ui/bits.tsx';
 import { LiveStats } from '../analysis/live-stats.tsx';
 import { ChatFab, ChatPanel, ChatToggle } from '../chat/chat.tsx';
 import { LeaveControl } from './leave-control.tsx';
@@ -121,6 +121,12 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
   const phone = useMedia(PHONE);
   const panelMode = info === 'panel' && !bare && !phone;
   const gameMenu = phone && !bare && topGame != null;
+  /* The phone felt as rows (`data-rows` on `.felt`, the geometry in
+     `../app.css`): a seated player's two seat table always, and a bigger
+     table when the Other seats setting says detailed. A spectator keeps the
+     column geometry, because the bottom seat is a player's and still has to
+     be placed; a bare replay keeps it because it is a document. */
+  const detailed = useRootAttr('data-seat-detail') === 'detailed';
 
   /* A live table on a phone locks the page: `data-table` on the root turns
      the document's own scrolling off (`../app.css`), because a page exactly
@@ -150,6 +156,7 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
      across the board and down the right one. */
   const order = seatOrder(view.seats, view.you);
   const mode = layoutMode(order.length);
+  const rows = phone && !bare && view.you != null && (mode === 'stack' || detailed);
   const button = view.seats.find((s) => s.button)?.i ?? 0;
   const deal = dealOrder(view.seats, button);
   const dealt = Math.max(1, deal.size);
@@ -284,7 +291,7 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
       )}
       {panelMode && <GamePanel stats={<StatsBox view={view} />} actions={headEl} />}
 
-      <div className="felt" data-mode={mode} data-seats={order.length}>
+      <div className="felt" data-mode={mode} data-seats={order.length} data-rows={rows ? '' : undefined}>
         <div className="felt-in">
           {order.map((s, k) => {
             const place = placeOf(k, order.length);

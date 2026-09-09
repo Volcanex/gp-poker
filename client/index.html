@@ -47,6 +47,8 @@
              frame late is a band that resizes under the player's thumb. */
           if (['side', 'ajar'].includes(p.cards)) el.setAttribute('data-cards', p.cards);
           if (['regular', 'huge'].includes(p.cardSize)) el.setAttribute('data-card-size', p.cardSize);
+          /* The phone felt's own grid hangs off this one. */
+          if (p.seatDetail === 'detailed') el.setAttribute('data-seat-detail', 'detailed');
         } catch {}
       })();
     </script>

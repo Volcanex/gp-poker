@@ -852,32 +852,49 @@ unit tested:
 `layoutMode` survives only because `../chat/chat.css` keys the chat panel's
 placement on `.felt[data-mode]`; the felt itself no longer has two shapes.
 
-### Heads-up on a phone
+### The phone felt as rows
 
 One exception to "one geometry", and it is the case the owner met first: a
-seated player at a two seat table on a phone (`.match[data-band]
-.felt[data-mode="stack"]` inside the felt's 560 px container query in
-`../app.css`). The geometry above reserves three seat rows in two columns, so
-on a 390 px screen the one opponent stood in a half-width card at the top of
-an empty left column with the board over it and two thirds of the felt bare
-green; his words for it were a bad version of the desktop. There the felt is
-read top to bottom the way the table is sat: the opponent across the top,
-full width and at the desktop seat's size (picture, 28 px cards, name at 13
-px, the rack beside a 20 px figure, the marker back in the flow; not the
-rating, which cost the name its last three letters), then the board at 56 px
-cards, the pot and the readings centred in the room left, with the slack
-split above and below them by two `1fr` rows. Every other track is fixed and
-the two slack rows divide what a given screen leaves over, so the footprint
-rule holds. `.felt-in` takes `flex: 1 0 auto` so those rows have a height to
-divide and a short screen scrolls the felt rather than squashing a row; under
-700 px tall (an iPhone SE) the board and the pot's box each give up ten so
-the readings stay above the fold. A spectator's felt keeps the geometry
-above, because the bottom seat is a player's and still has to be placed. The
-ended match keeps the shape (`data-ended` as well as `data-band`): the band
-leaves with the match, and without this the felt under the result panel fell
-back to the half-width opponent in an empty column; ended, the slack rows are
-nought and your own seat, drawn again once the band is gone, takes a last
-full-width row, so the finished table reads opponent, board, you.
+seated player on a phone. `table.tsx` stamps `data-rows` on `.felt` for a
+seated player under 560 (`PHONE`) at a two seat table always, and at a bigger
+one when the Other seats setting says detailed (`data-seat-detail` on the
+root, `../ui/prefs.ts`); the geometry is in `../app.css` inside the felt's
+560 px container query. The geometry above reserves three seat rows in two
+columns, so on a 390 px screen the one opponent stood in a half-width card at
+the top of an empty left column with the board over it and two thirds of the
+felt bare green; his words for it were a bad version of the desktop. With
+`data-rows` the felt is read top to bottom the way the table is sat: each
+opponent a full-width strip at the desktop seat's size (picture, cards, name
+at 13 px, the rack beside a 20 px figure, the marker back in the flow; not
+the rating, which cost the name its last three letters), the board, the pot
+and one quiet line of readings with no box round it. Heads-up puts the one
+opponent at the top and centres the board group in the room left, the slack
+split by two `1fr` rows; a bigger table (`p1` to `p5`, from your left round
+to your right) lists its five under the board group at 52 px on 26 px cards
+with 44 px board cards, because five strips and the board in 531 px is a
+tighter fit than one, and takes what is left at the bottom. Every other track
+is fixed and the slack rows divide what a given screen leaves over, so the
+footprint rule holds. `.felt-in` takes `flex: 1 0 auto` so those rows have a
+height to divide and a short screen scrolls the felt rather than squashing a
+row; under 700 px tall (an iPhone SE) the heads-up board and pot each give up
+ten so the readings stay above the fold. A spectator's felt keeps the
+geometry above, because the bottom seat is a player's and still has to be
+placed. The ended match keeps the shape: the band leaves with the match, and
+without this the felt under the result panel fell back to the half-width
+opponent in an empty column; ended, the slack rows are nought and your own
+seat, drawn again once the band is gone, takes a last full-width row, so the
+finished table reads opponents, board, you. The chat button moves to the top
+right corner for the listed table, the one corner that layout leaves clear.
+
+**The compact seat is three columns.** The seat on half a phone (`normal`,
+the default) is cards, the identity block and a 36 px action square; the
+figure, which has a column of its own on the desktop seat, stands out of the
+flow in the block's bottom right corner, because with its column the name
+was down to five letters. Before this the square was the fourth child of a
+three column grid and wrapped under the cards, where the seat's own overflow
+cut the word in half, which is what "Folds" under every seat was. The Other
+seats row in settings is that choice on a phone (normal or detailed) and the
+card size everywhere else: a size has no purchase where the felt sets it.
 
 **A phone table has no header row at all.** Under 560 the match's actions go
 into a "Game" menu (g's `.menu` on the Popover API, `GameMenu` in `table.tsx`)

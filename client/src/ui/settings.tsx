@@ -1,13 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { GearSix } from '@phosphor-icons/react';
-import { useGInit } from './bits.tsx';
-import {
-  ACCENTS, CARD_LAYOUTS, CARD_SIZES, PALETTES, TABLE_INFO, THEMES,
-  applyPrefs, defaultAccentFor, readPrefs, writePrefs,
-} from './prefs.ts';
-import type {
-  AccentId, CardLayout, CardSize, PaletteId, Prefs, TableInfo, ThemeChoice,
-} from './prefs.ts';
+import { useGInit, useMedia } from './bits.tsx';
+import { ACCENTS, CARD_LAYOUTS, CARD_SIZES, PALETTES, TABLE_INFO, THEMES, applyPrefs, defaultAccentFor, readPrefs, writePrefs, SEAT_DETAILS } from './prefs.ts';
+import type { AccentId, CardLayout, CardSize, PaletteId, Prefs, TableInfo, ThemeChoice, SeatDetail } from './prefs.ts';
 import { Segmented } from './segmented.tsx';
 import { useSoundSettings } from '../sound/react.ts';
 import { PictureDialog } from './picture-dialog.tsx';
@@ -27,6 +22,9 @@ export function SettingsMenu() {
   const pictureRef = useRef<HTMLDialogElement>(null);
   useGInit(wrapRef);
   const [prefs, setPrefs] = useState<Prefs>(() => readPrefs());
+  /* The same 560 the felt's narrow container query and `table/table.tsx`
+     use: the one width class where the other seats have a phone reading. */
+  const phone = useMedia('(max-width: 560px)');
 
   /* g-ui measures a tab strip's sliding indicator when it initialises the
      strip, and a popover that has never been open measures nought: the two
@@ -221,15 +219,30 @@ export function SettingsMenu() {
           />
         </div>
 
-        <div className="seg-row">
-          <span className="label">Other seats</span>
-          <Segmented
-            options={CARD_SIZES.map((c) => ({ value: c.id, label: c.label }))}
-            value={prefs.seatCards}
-            onPick={(v) => update({ seatCards: v as CardSize })}
-            label="Seat card size"
-          />
-        </div>
+        {/* On a phone the felt sets the other seats' size itself, so the
+            size row would be a control that answers nothing; what a phone
+            chooses is the compact row or the full-width strip. */}
+        {phone ? (
+          <div className="seg-row">
+            <span className="label">Other seats</span>
+            <Segmented
+              options={SEAT_DETAILS.map((c) => ({ value: c.id, label: c.label }))}
+              value={prefs.seatDetail}
+              onPick={(v) => update({ seatDetail: v as SeatDetail })}
+              label="Seat detail"
+            />
+          </div>
+        ) : (
+          <div className="seg-row">
+            <span className="label">Other seats</span>
+            <Segmented
+              options={CARD_SIZES.map((c) => ({ value: c.id, label: c.label }))}
+              value={prefs.seatCards}
+              onPick={(v) => update({ seatCards: v as CardSize })}
+              label="Seat card size"
+            />
+          </div>
+        )}
 
         <hr className="separator" />
 

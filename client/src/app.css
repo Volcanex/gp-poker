@@ -1238,13 +1238,32 @@
      (a seat's flag cannot change mid-match, so hiding the empty box moves
      nothing), the bot badge drops to the stack line and the button goes to
      the seat's corner, with the cards set in past it. */
-  .seat { grid-template-columns: auto minmax(0, 1fr) calc(var(--seat-h) - 2px); column-gap: 5px; padding-left: 15px; }
+  /* Cards, the identity block, the action square: three columns, and the
+     figure is not one of them. It has a column of its own on the desktop
+     seat, and with it the name on half a phone was down to five letters, so
+     here it stands out of the flow in the identity block's bottom right
+     corner, under the end of the name, on the line the bot badge and the
+     marker share. Before this the square was the fourth child of a three
+     column grid and wrapped under the cards, where the seat's own overflow
+     cut the word in half. */
+  .seat { grid-template-columns: auto minmax(0, 1fr) 36px; column-gap: 5px; padding-left: 15px; }
   .seat > .avatar { display: none; }
+  .seat-id { height: auto; align-self: start; padding-top: 6px; }
+  .seat-stack {
+    position: absolute; right: 41px; bottom: 5px;
+    padding: 0; font-size: 12px; line-height: 14px; gap: 4px;
+  }
+  /* The word stands to the figure's left, out of the flow: inline, it
+     widened a right-anchored box and the observer counted the left edge
+     moving. */
+  .seat-stack .u-allin {
+    position: absolute; left: auto; right: 100%; bottom: 0; margin-right: 4px;
+    font-size: 9px; line-height: 14px; white-space: nowrap;
+  }
   .seat-cards { gap: 3px; }
   .seat-name { font-size: 11px; line-height: 14px; }
   .seat-line { gap: 4px; }
   .seat-line .flag-empty { display: none; }
-  .seat-stack { font-size: 12px; line-height: 14px; gap: 4px; }
   .seat-chips { display: none; }
   /* The rack that padding lined up with the name is gone at this width, and
      the badges left in the row read from the block's own edge, not the
@@ -1255,8 +1274,8 @@
   /* The seat's own marker only: the band draws one on its name line too, and
      an absolute rule that reached it stood it in the corner of `.match`. */
   .seat .btn-marker { position: absolute; top: 1px; left: 1px; z-index: 1; width: 13px; height: 13px; font-size: 8px; }
-  .seat-act { font-size: 10px; line-height: 12px; }
-  .seat-act .act-v, .seat-act .turn-secs { font-size: 11px; line-height: 14px; }
+  .seat-act { width: 36px; font-size: 9px; line-height: 11px; }
+  .seat-act .act-v, .seat-act .turn-secs { font-size: 11px; line-height: 13px; min-height: 13px; }
   /* A step up on a phone too, but the line has to fit the pot's fixed box:
      the chips, the gap and this line are exactly `--board-h` at 30 px cards,
      and a 20 px line pushed the box 2 px taller than its own height, which a
@@ -1281,90 +1300,120 @@
   .stats .stats-next, .stats dt:last-of-type, .stats dd:last-of-type { display: none; }
 }
 
-/* ------------------------------------------------- heads-up on a phone */
+/* ------------------------------------------------ the phone felt as rows */
 
-/* One opponent and a phone is not six seats squeezed: the geometry above
-   reserves three seat rows in two columns, which left the one opponent in a
-   half-width card at the top of an empty left column with the board over it
-   and the felt's other two thirds green. So for a seated player at a two
-   seat table (`data-mode="stack"`, and the band drawn, so the felt has no
-   bottom seat to place) the felt is read top to bottom the way the table is
-   sat: the opponent across the top, full width and at the size the desktop
-   seat has, then the board, the pot and the readings centred in the room
-   left, with the slack split above and below them. The same seat markup and
-   the same middle, one track list different, and every track still fixed:
-   the two `1fr` rows divide what a given screen leaves over, which is the
-   footprint rule's own definition of settled before the first card. A
-   spectator's felt keeps the geometry above, because the bottom seat is a
-   player's and still has to be placed.
+/* A phone is not six seats squeezed. The geometry above reserves three seat
+   rows in two columns, which left one opponent in a half-width card at the
+   top of an empty left column with the board over it and two thirds of the
+   felt green. So for a seated player on a phone, `table.tsx` stamps
+   `data-rows` on the felt (always for a two seat table, and for a bigger
+   one when the Other seats setting says detailed) and the felt is read top
+   to bottom the way the table is sat: the opponents across the top, each a
+   full-width strip at the size the desktop seat has, then the board, the pot
+   and the readings, with the slack split by `1fr` rows so every other track
+   stays fixed, which is the footprint rule's own definition of settled
+   before the first card. Heads-up puts its one opponent at the top and
+   centres the board group in the room left; a bigger table lists its five
+   (`p1` to `p5`, from your left round to your right) under the board group
+   and takes what is left at the bottom. The same seat markup and the same
+   middle, one track list different. A spectator's felt keeps the geometry
+   above, because the bottom seat is a player's and still has to be placed.
 
-   The ended match keeps this shape too: the band leaves with the match and
-   `data-band` with it, and the felt fell back to the geometry above under
-   the result panel, the opponent half width at the top of an empty column
-   again. Ended, the felt is a document rather than a screen, so the slack
-   rows are nought and the rows pack; the hero's own seat, drawn again once
-   the band is gone, takes the last row, full width, so the finished table
-   reads opponent, board, you. */
+   The ended match keeps this shape too: the band leaves with the match, and
+   the felt fell back to the geometry above under the result panel, the
+   opponent half width at the top of an empty column again. Ended, the felt
+   is a document rather than a screen, so the slack rows are nought and the
+   rows pack; the hero's own seat, drawn again once the band is gone, takes
+   the last row, full width, so the finished table reads opponents, board,
+   you. */
 @container (max-width: 560px) {
-  .match:is([data-band], [data-ended]) .felt[data-mode="stack"] {
+  .felt[data-rows] {
     --seat-h: 56px; --seat-card: 28px; --board-card: 56px;
     --chip: 16px; --pot-w: 96px;
   }
-  .match:is([data-band], [data-ended]) .felt[data-mode="stack"] .felt-in {
+  .felt[data-rows] .felt-in {
     /* Fills the felt so the slack rows have something to divide; never
        shrinks under its own tracks, so a short screen scrolls the felt as
        the rule above says rather than squashing a row. */
     flex: 1 0 auto;
     grid-template-columns: [l] minmax(0, 1fr) [r] minmax(0, 1fr) [end];
+    row-gap: var(--sp-2);
+  }
+  .felt[data-rows][data-mode="stack"] .felt-in {
     grid-template-rows:
       [s1] var(--seat-h) [gap1] minmax(0, 1fr)
       [board] var(--board-h) [top] auto [topstats] auto
       [gap2] minmax(0, 1fr) [s2 s3 hero] auto [end];
-    row-gap: var(--sp-2);
   }
-  .match:is([data-band], [data-ended]) .felt[data-mode="stack"] .pos { grid-column: l / end; justify-content: stretch; }
-  .match:is([data-band], [data-ended]) .felt[data-mode="stack"] .seat { max-width: none; }
-  .match:is([data-band], [data-ended]) .felt[data-mode="stack"] .board { gap: var(--sp-2); }
-  .match:is([data-band], [data-ended]) .felt[data-mode="stack"] .middle { gap: var(--sp-2); }
-  .match:is([data-band], [data-ended]) .felt[data-mode="stack"] .pot .v { font-size: 18px; line-height: 24px; }
-  .match:is([data-band], [data-ended]) .felt[data-mode="stack"] .award-zone { height: 24px; }
+  /* Five strips and the board group in 531 px (a 390 by 844 phone under
+     the bar and the band) is a tighter fit than one, so the strip and the
+     board both come down a step: 52 px seats on 26 px cards and 44 px board
+     cards, 496 in all, which leaves the slack row a little and a 667 px
+     phone scrolling the felt by a strip or so. */
+  .felt[data-rows][data-mode="ring"] { --seat-h: 52px; --seat-card: 26px; --board-card: 44px; }
+  .felt[data-rows][data-mode="ring"] .felt-in {
+    grid-template-rows:
+      [board] var(--board-h) [top] auto [topstats] auto
+      [p1] var(--seat-h) [p2] var(--seat-h) [p3] var(--seat-h) [p4] var(--seat-h) [p5] var(--seat-h)
+      [gap1] minmax(0, 1fr) [s1 s2 s3 hero] auto [end];
+  }
+  .felt[data-rows][data-mode="ring"] .pos[data-k="1"] { grid-row: p1; }
+  .felt[data-rows][data-mode="ring"] .pos[data-k="2"] { grid-row: p2; }
+  .felt[data-rows][data-mode="ring"] .pos[data-k="3"] { grid-row: p3; }
+  .felt[data-rows][data-mode="ring"] .pos[data-k="4"] { grid-row: p4; }
+  .felt[data-rows][data-mode="ring"] .pos[data-k="5"] { grid-row: p5; }
+  .felt[data-rows] .pos { grid-column: l / end; justify-content: stretch; }
+  .felt[data-rows] .seat { max-width: none; }
+  .felt[data-rows] .board { gap: var(--sp-2); }
+  .felt[data-rows] .middle { gap: var(--sp-2); }
+  .felt[data-rows] .pot .v { font-size: 18px; line-height: 24px; }
+  .felt[data-rows] .award-zone { height: 24px; }
   /* The readings are one quiet line under the pot rather than a card: with
-     one opponent there is nothing on this felt for a box to hold its own
-     against, and the line is read after the board, not instead of it. */
-  .match:is([data-band], [data-ended]) .felt[data-mode="stack"] .stats {
+     the seats as strips there is nothing on this felt for a box to hold its
+     own against, and the line is read after the board, not instead of it. */
+  .felt[data-rows] .stats {
     border: none; background: none; margin-top: 0; max-width: none;
   }
 
-  /* The seat gets the desktop reading back: a full width row has the room
+  /* The strip gets the desktop reading back: a full width row has the room
      the half-a-phone rules above were paying for. Picture, name at its
      size, the rack beside the figure, and the marker back in the flow on
      the rack's line. Not the rating: on 366 px it cost the name its last
      three letters, and it is on the profile the name links to. */
-  .match:is([data-band], [data-ended]) .felt[data-mode="stack"] .seat {
+  .felt[data-rows] .seat {
     grid-template-columns: auto auto minmax(0, 1fr) auto calc(var(--seat-h) - 2px);
     column-gap: 8px; padding-left: var(--sp-3);
   }
-  .match:is([data-band], [data-ended]) .felt[data-mode="stack"] .seat > .avatar { display: block; }
-  .match:is([data-band], [data-ended]) .felt[data-mode="stack"] .seat-cards { gap: 4px; }
-  .match:is([data-band], [data-ended]) .felt[data-mode="stack"] .seat-name { font-size: 13px; line-height: 16px; }
-  .match:is([data-band], [data-ended]) .felt[data-mode="stack"] .seat-line { gap: 6px; }
-  .match:is([data-band], [data-ended]) .felt[data-mode="stack"] .seat-chips { display: flex; }
-  .match:is([data-band], [data-ended]) .felt[data-mode="stack"] .seat-stack { font-size: 20px; line-height: 24px; gap: 6px; }
-  .match:is([data-band], [data-ended]) .felt[data-mode="stack"] .seat-bot { font-size: 10px; padding: 0 4px; line-height: 14px; }
-  .match:is([data-band], [data-ended]) .felt[data-mode="stack"] .seat .btn-marker {
+  .felt[data-rows] .seat > .avatar { display: block; }
+  .felt[data-rows] .seat-cards { gap: 4px; }
+  .felt[data-rows] .seat-name { font-size: 13px; line-height: 16px; }
+  .felt[data-rows] .seat-line { gap: 6px; }
+  .felt[data-rows] .seat-chips { display: flex; }
+  .felt[data-rows] .seat-id { height: var(--seat-id-h); align-self: center; padding-top: 0; }
+  .felt[data-rows] .seat-stack {
+    position: relative; right: auto; bottom: auto;
+    padding: 0 var(--sp-2); font-size: 20px; line-height: 24px; gap: 6px;
+  }
+  .felt[data-rows] .seat-stack .u-allin {
+    position: absolute; left: 0; right: 0; bottom: -14px; font-size: 11px; line-height: 16px;
+  }
+  .felt[data-rows] .seat-bot { font-size: 10px; padding: 0 4px; line-height: 14px; }
+  .felt[data-rows] .seat .btn-marker {
     position: static; width: 16px; height: 16px; font-size: 10px;
   }
-  .match:is([data-band], [data-ended]) .felt[data-mode="stack"] .seat-act { font-size: 11px; line-height: 14px; }
-  .match:is([data-band], [data-ended]) .felt[data-mode="stack"] .seat-act .act-v,
-  .match:is([data-band], [data-ended]) .felt[data-mode="stack"] .seat-act .turn-secs { font-size: 13px; line-height: 16px; }
+  .felt[data-rows] .seat-act {
+    width: calc(var(--seat-h) - 2px); font-size: 11px; line-height: 14px;
+  }
+  .felt[data-rows] .seat-act .act-v,
+  .felt[data-rows] .seat-act .turn-secs { font-size: 13px; line-height: 16px; }
 }
 /* A short phone (an iPhone SE is 667 tall) has 284 px of felt under the
-   header and over the band, and the rows above want 300: the board and the
+   bar and over the band, and the heads-up rows want 300: the board and the
    pot's box each give up ten, so the readings stay above the fold rather
    than under it, and the slack rows go to nought. */
 @media (max-height: 700px) {
   @container (max-width: 560px) {
-    .match:is([data-band], [data-ended]) .felt[data-mode="stack"] { --board-card: 48px; }
+    .felt[data-rows][data-mode="stack"] { --board-card: 48px; }
   }
 }
 

@@ -40,6 +40,8 @@ export type CardSize = 'regular' | 'large' | 'huge';
    the site's top bar, as `table.tsx`'s `TOP_BAR_ACTS` already decided. */
 export type TableInfo = 'seat' | 'panel';
 
+export type SeatDetail = 'normal' | 'detailed';
+
 export interface Prefs {
   theme: ThemeChoice;
   palette: PaletteId;
@@ -54,6 +56,13 @@ export interface Prefs {
      watching, and somebody who wants their own hand huge does not
      necessarily want five more pairs that size on the felt. */
   seatCards: CardSize;
+  /* The phone's reading of everybody else's seat. A seat card size has no
+     purchase on a phone, where a six-max seat is 44 px on half a screen and
+     the felt sets the size itself; what a phone can choose is whether the
+     other seats are that compact row (`normal`), or a full-width strip each,
+     the desktop seat's reading stacked as a list (`detailed`). Read by
+     `table/table.tsx` off the root, since it changes the felt's own grid. */
+  seatDetail: SeatDetail;
   tableInfo: TableInfo;
 }
 
@@ -61,7 +70,7 @@ export const PREFS_KEY = 'ot.prefs';
 
 export const DEFAULT_PREFS: Prefs = {
   theme: 'room', palette: 'slate', accent: 'default', fourColour: false, hand: 'right',
-  cards: 'stacked', cardSize: 'large', seatCards: 'large', tableInfo: 'panel',
+  cards: 'stacked', cardSize: 'large', seatCards: 'large', seatDetail: 'normal', tableInfo: 'panel',
 };
 
 export const THEMES: { id: ThemeChoice; label: string }[] = [
@@ -123,6 +132,13 @@ const isCardLayout = (v: unknown): v is CardLayout =>
 const isCardSize = (v: unknown): v is CardSize =>
   typeof v === 'string' && CARD_SIZES.some((c) => c.id === v);
 
+export const SEAT_DETAILS: { id: SeatDetail; label: string }[] = [
+  { id: 'normal', label: 'Normal' },
+  { id: 'detailed', label: 'Detailed' },
+];
+
+const isSeatDetail = (v: unknown): v is SeatDetail => v === 'normal' || v === 'detailed';
+
 export const TABLE_INFO: { id: TableInfo; label: string }[] = [
   { id: 'panel', label: 'In a panel' },
   { id: 'seat', label: 'In the seat' },
@@ -155,6 +171,7 @@ export function readPrefs(store: Storage | null = safeStorage()): Prefs {
     cards: isCardLayout(r.cards) ? r.cards : DEFAULT_PREFS.cards,
     cardSize: isCardSize(r.cardSize) ? r.cardSize : DEFAULT_PREFS.cardSize,
     seatCards: isCardSize(r.seatCards) ? r.seatCards : DEFAULT_PREFS.seatCards,
+    seatDetail: isSeatDetail(r.seatDetail) ? r.seatDetail : DEFAULT_PREFS.seatDetail,
     tableInfo: isTableInfo(r.tableInfo) ? r.tableInfo : DEFAULT_PREFS.tableInfo,
   };
 }
@@ -213,6 +230,9 @@ export function applyPrefs(prefs: Prefs, root: HTMLElement, store: Storage | nul
 
   if (prefs.seatCards === 'large') root.removeAttribute('data-seat-cards');
   else root.setAttribute('data-seat-cards', prefs.seatCards);
+
+  if (prefs.seatDetail === 'normal') root.removeAttribute('data-seat-detail');
+  else root.setAttribute('data-seat-detail', prefs.seatDetail);
 
   /* Panel is the default: `table.tsx` reads this attribute itself, through
      `useTableInfo` (`ui/bits.tsx`), because which placement is on decides
