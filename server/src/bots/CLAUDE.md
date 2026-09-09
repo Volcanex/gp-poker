@@ -101,7 +101,7 @@ solver package has no business reaching into the server for the older tiers.
 
 A few things about them belong here rather than there.
 
-**It runs on the main thread, in slices, and not in a worker.** A worker was
+**They run on the main thread, in slices, and not in a worker.** A worker was
 the plan. The server ships as one esbuild bundle (`server/build.mjs`) because
 the workspace packages are TypeScript source with no build of their own, so a
 worker entry point needs a second bundle in production and a TypeScript loader
@@ -124,8 +124,9 @@ accounts meeting there at the full budget would keep a core busy around the
 clock on a box that runs everything else Gabriel has. Nobody is watching a
 ladder match, so it gets 250ms and a slightly worse bot.
 
-**It is not multiway.** The solver is heads-up. A six-max hand gets level 5
-until it is heads-up postflop, at which point it is solved like any other.
+**Neither is multiway.** The solver is heads-up. A six-max hand gets the sharp
+tier until it is heads-up postflop, at which point it is solved like any
+other.
 
 **The solver tier deviates from the solve in one place**, and without that
 deviation it loses. An equilibrium bluffs to make the opponent indifferent; every level below
