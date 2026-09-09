@@ -79,6 +79,12 @@ export function HeroBand({
   const legal = view.legal;
   const wide = useMedia(WIDE);
   const sittingOut = sittingOutNow(view, state === 'over');
+  /* On a practice table the way on from a held hand goes under the readings
+     rather than on the decision line: the readings are what is being read
+     while the hand sits there, so the button that ends the reading belongs at
+     the foot of the same column. Without a readings column it stays on the
+     line, which is the only other place it fits. */
+  const dealBelow = stats != null && isHeld(view, state, onNext);
 
   return (
     <div
@@ -88,7 +94,13 @@ export function HeroBand({
       data-sitout={sittingOut ? '' : undefined}
       data-stats={stats ? '' : undefined}
     >
-      <DecisionLine view={view} state={state} onNext={onNext} sittingOut={sittingOut} />
+      <DecisionLine
+        view={view}
+        state={state}
+        onNext={onNext}
+        sittingOut={sittingOut}
+        dealElsewhere={dealBelow}
+      />
 
       {/* The band's ground runs the width of the page and its content sits on
           the felt's column, so the cards start on the felt's left edge and the
@@ -105,7 +117,12 @@ export function HeroBand({
             controls, whole for the life of the table: they are the same three
             in every state of the band, so they are placed here rather than in
             the column that swaps. */}
-        {stats && <div className="hb-stats">{stats}</div>}
+        {stats && (
+          <div className="hb-stats">
+            {stats}
+            {dealBelow && onNext && <DealNext onNext={onNext} className="hb-stats-next" />}
+          </div>
+        )}
 
         <div className="hb-col">
           {sittingOut ? (
@@ -139,25 +156,27 @@ export function HeroBand({
    height, and the bar under it is drawn empty when nobody's clock is running
    so the floor is there in every state. */
 function DecisionLine({
-  view, state, onNext, sittingOut,
+  view, state, onNext, sittingOut, dealElsewhere,
 }: {
   view: TableView;
   state: DockState;
   onNext?: () => void;
   sittingOut?: boolean;
+  /* The readings column has the way on, so the line only carries the result. */
+  dealElsewhere?: boolean;
 }) {
   const clock = view.clock;
   const yours = clock != null && clock.seat === view.you;
   const mine = view.you == null ? null : view.seats.find((s) => s.i === view.you) ?? null;
   /* A practice table holds the hand for you: the end slot is the way on
-     rather than a countdown. */
-  const held = state === 'over' && (view as HeldView).hold === 'you' && onNext != null;
+     rather than a countdown, unless the readings column below has taken it. */
+  const held = isHeld(view, state, onNext);
 
   let text: string;
   let end: ReactNode = null;
   if (held) {
     text = resultText(view);
-    end = <DealNext onNext={onNext} />;
+    end = dealElsewhere || !onNext ? null : <DealNext onNext={onNext} />;
   } else if (state === 'over') {
     text = resultText(view);
     end = <HandCountdown view={view} />;
@@ -178,7 +197,7 @@ function DecisionLine({
     <div
       className="hb-line"
       data-whose={clock ? (yours ? 'you' : 'them') : undefined}
-      data-held={held ? '' : undefined}
+      data-held={held && !dealElsewhere ? '' : undefined}
     >
       <span className="hb-line-text">{text}</span>
       <span className="hb-line-end num">{end}</span>
@@ -229,12 +248,21 @@ function HandCountdown({ view }: { view: TableView }) {
   );
 }
 
-/* The way on from a held hand. It stands in the countdown's reserved slot,
-   out of the flow and anchored to its right end, because "Deal the next hand"
-   is wider than the slot and a slot that grew would move the line's words.
+/* Whether this table is sitting on a finished hand waiting to be told to deal
+   the next one, which only a practice table does. Shared, because two places
+   have to agree about it: the readings column draws the way on when there is
+   one, and the decision line draws it when there is not. */
+function isHeld(view: TableView, state: DockState, onNext?: (() => void) | null): boolean {
+  return state === 'over' && (view as HeldView).hold === 'you' && onNext != null;
+}
+
+/* The way on from a held hand. On the decision line it stands in the
+   countdown's reserved slot, out of the flow and anchored to its right end,
+   because "Deal the next hand" is wider than the slot and a slot that grew
+   would move the line's words.
    Enter and N press it, the way Enter sends a size, and neither fires while
    somebody is typing in the chat. */
-function DealNext({ onNext }: { onNext: () => void }) {
+function DealNext({ onNext, className }: { onNext: () => void; className?: string }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || isTextEntry(e.target)) return;
@@ -249,7 +277,7 @@ function DealNext({ onNext }: { onNext: () => void }) {
   return (
     <button
       type="button"
-      className="btn btn-primary hb-line-next"
+      className={className ? `btn btn-primary ${className}` : 'btn btn-primary hb-line-next'}
       title="Enter or N"
       onClick={() => { playClick(); onNext(); }}
     >

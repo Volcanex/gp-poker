@@ -198,6 +198,17 @@
      bottom of the band. */
   padding-bottom: calc(var(--hb-keys-h) + var(--keys-gap) + var(--hb-floor-lift, 0px));
 }
+/* The way on from a held hand, at the foot of the readings it ends. Full
+   width of the column and on the buttons' own height, so it reads as the
+   control it is rather than as a fifth reading: everything above it is text
+   and this is the only thing in the column that can be pressed. */
+.hb-stats-next {
+  width: 100%;
+  height: var(--act-h);
+  margin-top: var(--sp-3);
+  font-size: 13px; font-weight: 500;
+  white-space: nowrap;
+}
 
 /* A spectator has no hand to hold and no keys to press, so the band is one
    centred column rather than a hand sized hole beside an empty legend, and it
