@@ -25,7 +25,7 @@ explicitly in `../app.css`. **Nothing in that column may size to its content.**
 | Row | What |
 | --- | --- |
 | 1 | `.watch-bar`, the spectator's strip |
-| 2 | `.hand-head`, the hand header, below 900px only (see "Leaving a game") |
+| 2 | `.hand-head` below 900px, or `.game-panel` when the hand info is a panel (see "Leaving a game" and "Where the hand's own information stands") |
 | 3 | `.felt`, the only row that takes what is left |
 | 4 | `.practice-strip`, the practice table's live stats, unless the band has taken them |
 | 5 | `.dock` |
@@ -90,6 +90,37 @@ shift is a regression, and the usual cause is a box sized to a string:
 this screen it can be**: it is the group that already holds the things that
 are not the hand, and it is the one part of the table no decision is ever
 taken from. A control that ends a match must not be a fat finger from a fold.
+
+## Where the hand's own information stands
+
+Two placements, and the player picks: **Hand info** under Settings > Table,
+`data-table-info` on the root, the panel being the default and therefore the
+absent attribute.
+
+- **In a panel.** One card in row 2, top right under the account chip, holding
+  the hand, the street and the blinds over the four `head-acts` controls.
+- **In the seat.** The same three readings compacted onto one line in the
+  empty right-wing seat cell, which is empty in both modes: six-max seats its
+  hero in the band and heads-up has the whole column spare.
+
+**The panel takes row 2 rather than floating over the felt**, which is the
+whole of why it cannot overlap a seat. `.felt-in` centres its slack with auto
+margins, so the felt's distance from the top of `.match` is whatever a given
+viewport height and seat-card size leave over, and that slack goes to nothing
+in exactly the tight cases this file is measured against. A panel pinned at a
+fixed offset under the chip overlapped the top-right seat the moment the felt
+had less spare height than the panel was tall. A reserved row cannot: whatever
+is in it, the felt starts under it.
+
+Row 2 holds one thing at a time. `.hand-head` and `.game-panel` are never both
+rendered, so the row is theirs in turn and its height is whichever one is in
+it, nought when neither is.
+
+At Huge seat cards on a 1280x720 window in panel mode the felt falls back to
+scrolling its own overflow. That is the documented behaviour of the row above
+it ("a window too short for the felt shortens the felt"), not a new failure:
+the panel's row costs the felt more height than the header row it replaces
+gave back, and Huge was already the tightest case.
 
 `head-acts` itself stands in one of two places, decided in `table.tsx` by
 `TOP_BAR_ACTS` (`(min-width: 900px)`), never both: above it, portalled into
