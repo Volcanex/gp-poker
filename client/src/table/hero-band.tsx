@@ -11,6 +11,7 @@ import {
 } from './dock.tsx';
 import type { DockState } from './dock.tsx';
 import { isLastHand } from './preactions.ts';
+import { SITTING_OUT_TEXT, sittingOutNow } from './sitout.ts';
 import type { PreAction } from './preactions.ts';
 import {
   clamp, dupKeys, presetsFor, presetsWide, raiseAction, raiseLabel, raiseShape,
@@ -39,6 +40,9 @@ export interface HeroBandProps {
      `view.hold` is `'you'` the decision line's end is a button rather than a
      countdown, and this is what it calls. */
   onNext?: () => void;
+  /* Your seat is sitting out and this is the way back in. The band draws the
+     prompt and the button; the page sends the message. */
+  onBack?: () => void;
 }
 
 /* The hold is the server's to declare; the field lands with the protocol
@@ -61,15 +65,21 @@ type HeldView = TableView & { hold?: 'you' };
    sweep under a thumb. The same number the stylesheet's phone block uses. */
 const WIDE = '(min-width: 561px)';
 
-export function HeroBand({ view, onAct, sending, best, stack, onNext }: HeroBandProps) {
+export function HeroBand({ view, onAct, sending, best, stack, onNext, onBack }: HeroBandProps) {
   const { state, pre, setPre, canPre } = useDockLogic(view, onAct, sending);
   const mine = view.you == null ? null : view.seats.find((s) => s.i === view.you) ?? null;
   const legal = view.legal;
   const wide = useMedia(WIDE);
+  const sittingOut = sittingOutNow(view, state === 'over');
 
   return (
-    <div className="hero-band" data-state={state} data-seated={mine ? '' : undefined}>
-      <DecisionLine view={view} state={state} onNext={onNext} />
+    <div
+      className="hero-band"
+      data-state={state}
+      data-seated={mine ? '' : undefined}
+      data-sitout={sittingOut ? '' : undefined}
+    >
+      <DecisionLine view={view} state={state} onNext={onNext} sittingOut={sittingOut} />
 
       {/* The band's ground runs the width of the page and its content sits on
           the felt's column, so the cards start on the felt's left edge and the
@@ -83,7 +93,9 @@ export function HeroBand({ view, onAct, sending, best, stack, onNext }: HeroBand
         <KeyLegend className="hb-keys" watching={view.you == null} sizes={10} />
 
         <div className="hb-col">
-          {state === 'turn' && legal ? (
+          {sittingOut ? (
+            <SitOutColumn onBack={onBack} />
+          ) : state === 'turn' && legal ? (
             <TurnColumn view={view} legal={legal} sending={sending} onAct={onAct} wide={wide} />
           ) : state === 'over' ? (
             <OverColumn view={view} />
@@ -112,11 +124,12 @@ export function HeroBand({ view, onAct, sending, best, stack, onNext }: HeroBand
    height, and the bar under it is drawn empty when nobody's clock is running
    so the floor is there in every state. */
 function DecisionLine({
-  view, state, onNext,
+  view, state, onNext, sittingOut,
 }: {
   view: TableView;
   state: DockState;
   onNext?: () => void;
+  sittingOut?: boolean;
 }) {
   const clock = view.clock;
   const yours = clock != null && clock.seat === view.you;
@@ -134,7 +147,9 @@ function DecisionLine({
     text = resultText(view);
     end = <HandCountdown view={view} />;
   } else {
-    text = state === 'turn' && view.legal
+    text = sittingOut
+      ? SITTING_OUT_TEXT
+      : state === 'turn' && view.legal
       ? decisionText(view.legal, mine?.stack ?? 0)
       : state === 'watch'
         ? `Watching, ${actingText(view)}`
@@ -716,6 +731,33 @@ function OverColumn({ view }: { view: TableView }) {
         <span className="btn hb-act hb-act-fold ghost">Fold</span>
         <span className="btn hb-act hb-act-call ghost">Check</span>
         <span className="btn hb-act hb-act-bet ghost">Raise</span>
+      </div>
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------- sit out */
+
+/* Sitting out: the controls' own three rows, with one press where the three
+   actions were. The sizes keep their box the way they do in every other
+   state, so coming back does not move the band a pixel.
+
+   One button and not three disabled ones, because fold, check and raise are
+   not what is on offer here: the only decision a sat-out player has is
+   whether to be at the table at all, and three greyed controls beside a line
+   asking them to come back would read as the table refusing them. */
+function SitOutColumn({ onBack }: { onBack?: () => void }) {
+  return (
+    <div className="hb-turn">
+      <div className="hb-sizes" aria-hidden="true" />
+      <div className="hb-acts hb-back">
+        <button
+          type="button"
+          className="btn btn-primary hb-back-btn"
+          onClick={() => { playClick(); onBack?.(); }}
+        >
+          Come back
+        </button>
       </div>
     </div>
   );

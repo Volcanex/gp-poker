@@ -11,6 +11,10 @@ import { unwatchArena, watchArena } from '../arena.js';
 // `next` is the practice hold's un-hold: sent by the human seat once they
 // have looked at a finished hand, so the table deals the next one (or
 // finishes the match) instead of waiting out the safety timeout.
+//
+// `back` is the sit-out's un-sit, and it is a message rather than an action
+// for the same shape of reason: a sat-out player cannot say it by acting,
+// because their decision is folded before they can reach it.
 export function routeClientMessage(userId: string, msg: ClientMsg): void {
   switch (msg.t) {
     case 'queue': {
@@ -62,6 +66,15 @@ export function routeClientMessage(userId: string, msg: ClientMsg): void {
         return;
       }
       room.handleNext(userId, msg);
+      return;
+    }
+    case 'back': {
+      const room = getRoom(msg.m);
+      if (!room) {
+        hub.send(userId, { t: 'err', c: 'no_match', msg: 'No such match' });
+        return;
+      }
+      room.handleBack(userId, msg);
       return;
     }
     case 'chat': {

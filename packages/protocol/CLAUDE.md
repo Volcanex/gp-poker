@@ -25,6 +25,14 @@ the message: it would sit through the countdown, be dropped as a no-show and
 collect a cooldown for it. A client that cannot answer a question the server is
 about to ask is not a client that can be served unchanged.
 
+**Sitting out was additive inside v5.** `SeatView.sittingOut` is optional and
+absent rather than false, so an old client reads a seat it already understands.
+`ClientMsg.back` is the harder half of the pair, because a message an old
+server does not know is answered with `bad_msg` rather than ignored, and that
+looks like a break in the other direction. It is not one: the only thing that
+makes a client send `back` is a seat that says `sittingOut`, and a server old
+enough not to know the message is a server that never sets the field.
+
 ## Speed and the schedules
 
 `Speed` is `fast` or `standard`, and the four formats are spelled out in full with

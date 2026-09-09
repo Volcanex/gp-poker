@@ -142,6 +142,19 @@ The full-match files are the ones with the most to say about how they are built:
   by seating the timing-out player at BB behind an opponent who only ever checks
   or calls, so action reaches them, and only them, on every street without the
   hand ever resolving in between.
+- `sitout.test.ts` is the other half of the multiway timeout rule, and the
+  reason it needed one: three timeouts sit a seat out, the wire says so, and a
+  sat-out seat whose player is **still connected** takes the ordinary full
+  clock rather than being folded at nought milliseconds. Its own helper builds
+  a three-handed table where seat 0 watches and never acts, and every test that
+  carries on from there `drain`s that connection first, because `WsMessages`
+  matches the backlog before it waits and a clock assertion would otherwise be
+  made against a deadline that ran out three hands ago. The predicate for "it
+  is their turn" asks the engine (`seat.acting`) as well as the clock, since
+  the broadcast that reports a timeout still carries the deadline that has just
+  expired on the seat it expired on. Its last case is the practice table: the
+  human is away for ten grace windows and the hand does not move, which is what
+  says no forfeit, no sit-out and no grace expiry there.
 - `casual.test.ts` checks a casual match leaves both players' rating, rd and
   volatility in that mode's row exactly where they were, writes no
   `rating_history`, echoes before === after in the result, and still increments

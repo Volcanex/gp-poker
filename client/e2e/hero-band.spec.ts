@@ -70,6 +70,50 @@ for (const { name: where, size } of SIZES) {
   }
 }
 
+/* Sitting out is a state of the same box. The room sits a seat out for three
+   timeouts and then check-folds it on arrival while its player is away, and
+   before this the client said nothing about either: the owner sat looking at a
+   table that folded every hand for him in a millisecond or two. The band says
+   so and offers the one press that answers it, and neither may cost a pixel. */
+for (const { name: where, size } of SIZES) {
+  test(`sitting out says so and keeps one footprint on ${where}`, async ({ page }) => {
+    await page.setViewportSize(size);
+    await stubApi(page);
+    await watchLayoutShift(page);
+    await page.goto('/m/mock?v2=1&sitout=1');
+
+    const band = page.locator('.hero-band[data-sitout]');
+    await band.waitFor({ state: 'visible', timeout: 45_000 });
+    await expect(page.locator('.hb-line-text')).toHaveText('You are sitting out. Press to come back');
+    await expect(page.locator('.hb-back-btn')).toHaveText('Come back');
+    /* One press, not three disabled controls: the only decision a sat-out
+       player has is whether to be at the table at all. */
+    await expect(page.locator('.hb-act-fold')).toHaveCount(0);
+    await expect(page.locator('.hb-act-call')).toHaveCount(0);
+    await expect(page.locator('.hb-act-bet')).toHaveCount(0);
+
+    const settledAt = await markSettled(page);
+    const satOut = await boxes(page, BAND_FOOTPRINT);
+
+    /* The hand ends: the result takes the line back, because who won is worth
+       reading, and the prompt returns with the next hand. Neither move. */
+    await waitForBand(page, 'over');
+    await page.waitForTimeout(1200);
+    await expect(page.locator('.hb-back-btn')).toHaveCount(0);
+    expect(
+      diff(satOut, await boxes(page, BAND_FOOTPRINT)),
+      'boxes that moved between sitting out and the hand ending',
+    ).toEqual([]);
+
+    await band.waitFor({ state: 'visible', timeout: 45_000 });
+    expect(
+      diff(satOut, await boxes(page, BAND_FOOTPRINT)),
+      'boxes that moved over a whole hand sitting out',
+    ).toEqual([]);
+    expect(await shiftSince(page, settledAt)).toBe(0);
+  });
+}
+
 /* The band is your seat, drawn large, at every width: the wide felt drew the
    same cards, name, stack, last action and clock a hundred pixels above the
    band that was drawing them again. The felt must therefore stop drawing the

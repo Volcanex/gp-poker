@@ -696,6 +696,13 @@ export type ClientMsg =
   // Sent by the human seat only; a spectator's or a bot's is ignored too, and
   // so is one on a table that never holds for it in the first place.
   | { t: 'next'; m: string; h: number }
+  // Multiway only: I am back. Clears a sat-out seat and its timeout streak
+  // without acting, which is the whole point of it being its own message: a
+  // sat-out seat is auto check-folded the moment the action reaches it while
+  // its player is away, so acting is not a way back that can be timed. The
+  // room ignores one from a seat that is not sitting out, so it can neither
+  // reset a streak for free nor duck a heads-up forfeit.
+  | { t: 'back'; m: string }
   // Table chat. Anyone subscribed to the match may send one; where it lands is
   // the server's decision, not the sender's (see ChatFrom).
   | { t: 'chat'; m: string; text: string }
@@ -851,6 +858,12 @@ export interface SeatView {
   bot: boolean;
   out: boolean; // eliminated from a multiway match, seat stays visible with its place
   place: number | null; // finishing position once out (1 = winner), null while in
+  /* Sat out after three consecutive timeouts on a multiway table: still
+     dealt in and still posting blinds, but check-folded on arrival while
+     their player is away. Additive and absent rather than false, because
+     almost every seat in almost every hand is not sitting out. `back` (or
+     any action) clears it. */
+  sittingOut?: boolean;
   last: { a: ActionKind; v?: number } | null;
   /* Picture version, 0 for none. Frozen when the match was created, like the
      name and the rating beside it: a seat is what the table looked like when

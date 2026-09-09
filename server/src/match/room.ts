@@ -14,9 +14,9 @@ import { emitMatchFinished } from './finished.js';
 import { EngineHandRunner } from './handRunner.js';
 import { computeMatchRatings } from './rating.js';
 import { roundRatings } from '../userView.js';
-import type { HandRunner, MatchOutcome, RoomClock } from './types.js';
+import type { HandRunner, MatchOutcome, RoomClock, SeatPresence } from './types.js';
 
-export type { HandRunner, MatchOutcome, RoomClock } from './types.js';
+export type { HandRunner, MatchOutcome, RoomClock, SeatPresence } from './types.js';
 
 // How long a finished match's room stays addressable after it ends, so a
 // `join` that arrives moments after `end` (or a client that was mid-reconnect)
@@ -53,9 +53,12 @@ export class MatchRoom {
   private disconnected = new Set<string>();
   private graceTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private timeoutStreak = new Map<string, number>();
-  // Multiway only: a player who timed out three times running is sat out,
-  // auto check-folding every decision while still posting blinds, until they
-  // bust or act again. Heads-up forfeits instead, as it always has.
+  /* Multiway only, and never on a practice table: a player who timed out
+     three times running is sat out. They are still dealt in and still post
+     blinds, and their decision is check-folded on arrival while they are
+     away. It goes on the wire (`SeatView.sittingOut`) so the table can see
+     it and its own player can answer it with `back`. Heads-up forfeits
+     instead, as it always has. */
   private satOut = new Set<string>();
   private clockTimer: ReturnType<typeof setTimeout> | null = null;
   private clock: RoomClock | null = null;
@@ -78,6 +81,14 @@ export class MatchRoom {
     return this.match.format.rated;
   }
 
+  /* One person against bots. Nobody at a practice table is being kept
+     waiting by a player who has gone quiet, so nothing there counts a
+     timeout streak into a sit-out or a forfeit and a disconnect pauses the
+     clock for as long as it lasts rather than for `graceMs`. */
+  private get practice(): boolean {
+    return this.match.format.practice === true;
+  }
+
   constructor(match: MatchRow) {
     this.id = match.id;
     this.match = match;
@@ -93,15 +104,18 @@ export class MatchRoom {
       matchId: this.id,
       match: this.match,
       onChange: () => {
-        this.broadcast();
+        // Rearm first, always: `clock` is read by `viewFor`, so a broadcast
+        // sent before it is rearmed reports the clock of the seat that has
+        // just acted. See "Clock design" in CLAUDE.md.
         this.rearmClock();
+        this.broadcast();
         this.settleIfDone();
       },
       onFail: (err) => this.abandon(err),
     });
     await this.hand.startHand(1);
-    this.broadcast();
     this.rearmClock();
+    this.broadcast();
   }
 
   // Whether the match is still live. Matchmaking asks this before putting a
@@ -144,13 +158,16 @@ export class MatchRoom {
     return [...this.spectators];
   }
 
-  private connectedArray(): boolean[] {
-    return this.playerIds.map((id) => !this.disconnected.has(id));
+  private presence(): SeatPresence[] {
+    return this.playerIds.map((id) => ({
+      connected: !this.disconnected.has(id),
+      sittingOut: this.satOut.has(id),
+    }));
   }
 
   private sendViewTo(userId: string): void {
     if (!this.hand) return;
-    const view = this.hand.viewFor(userId, this.clock, this.connectedArray());
+    const view = this.hand.viewFor(userId, this.clock, this.presence());
     if (view) hub.send(userId, { t: 'state', s: view });
   }
 
@@ -236,15 +253,35 @@ export class MatchRoom {
       return;
     }
     // Any attempt to act un-sits a sat-out player, including one the room
-    // rejects: the auto check-fold fires the instant it becomes their turn,
-    // so a real player coming back always arrives too late to act cleanly.
+    // rejects. `back` is the way in that does not have to be timed, but a
+    // player who reaches the buttons first should not be folded for it.
     if (this.satOut.delete(userId)) this.timeoutStreak.set(userId, 0);
     const applied = this.hand.onAction(userId, msg);
     if (!applied) return; // the hand runner already sent the specific err
     this.timeoutStreak.set(userId, 0);
-    this.broadcast();
     this.rearmClock();
+    this.broadcast();
     this.settleIfDone();
+  }
+
+  /* I am back: a sat-out player saying so without acting. It is its own
+     message because acting is not a way back that can be timed. While they
+     are away their decision is check-folded the instant it reaches them, so
+     an `act` sent from a tab that has just woken up is answering a hand that
+     has already moved on.
+
+     A seat that is not sitting out is ignored rather than erred, and that is
+     the whole of the abuse surface: `back` cannot reset a streak for free,
+     and it cannot duck a heads-up forfeit, because heads-up never sits
+     anybody out in the first place. If the decision is already theirs they
+     get a fresh full clock, once, since a second `back` finds nothing to
+     clear. */
+  handleBack(userId: string, _msg: Extract<ClientMsg, { t: 'back' }>): void {
+    if (this.match.status !== 'playing') return;
+    if (!this.satOut.delete(userId)) return;
+    this.timeoutStreak.set(userId, 0);
+    if (this.clock && this.playerIds[this.clock.seat] === userId) this.rearmClock();
+    this.broadcast();
   }
 
   // Practice only: the human deciding to deal the next hand rather than wait
@@ -258,7 +295,12 @@ export class MatchRoom {
     this.hand.next(userId, msg);
   }
 
-  // The decision clock. A fresh clockMs window starts whenever toActSeat()
+  // The decision clock. It is rearmed BEFORE the broadcast that reports the
+  // state it belongs to, everywhere, because `viewFor` reads `this.clock`:
+  // rearming afterwards sent every client the deadline of the seat that had
+  // just acted, one decision behind, for the whole life of the table.
+  //
+  // A fresh clockMs window starts whenever toActSeat()
   // changes; it is armed with a real setTimeout to the deadline, and the
   // deadline is also mirrored into `clock` so viewFor can report it. While
   // the acting player is disconnected the timer itself is not running
@@ -275,18 +317,25 @@ export class MatchRoom {
       return;
     }
     const userId = this.playerIds[seat];
-    if (userId !== undefined && this.satOut.has(userId)) {
-      // Sat out: fold (or check) immediately rather than burning the clock.
-      // Deferred by a timer so a whole street of sat-out seats unwinds as
-      // separate turns instead of recursing through rearmClock.
+    const away = userId !== undefined && this.disconnected.has(userId);
+    if (userId !== undefined && this.satOut.has(userId) && away) {
+      // Sat out AND away: fold (or check) immediately rather than burn a
+      // clock nobody is watching. Deferred by a timer so a whole street of
+      // sat-out seats unwinds as separate turns instead of recursing through
+      // rearmClock. A sat-out player who is connected falls through to the
+      // ordinary clock below: they can see they are sitting out and they are
+      // being asked to come back, and folding them at nought milliseconds is
+      // what left the owner unable to play his own hands.
       this.clock = { seat, deadline: Date.now(), paused: false };
       this.clockTimer = setTimeout(() => this.autoActSatOut(seat), 0);
       return;
     }
     // Paused only while the grace window is still open. Once grace has
     // expired the clock runs against a disconnected player, otherwise a
-    // player who never comes back would freeze the match on their turn.
-    const paused = userId !== undefined && this.disconnected.has(userId) && this.graceTimers.has(userId);
+    // player who never comes back would freeze the match on their turn. A
+    // practice table has no grace window and pauses for as long as the human
+    // is away: the bots waiting on them do not mind.
+    const paused = away && (this.practice || this.graceTimers.has(userId!));
     const deadline = Date.now() + this.match.format.clockMs;
     this.clock = { seat, deadline, paused };
     if (!paused) this.armTimer(deadline, seat);
@@ -310,18 +359,22 @@ export class MatchRoom {
     this.hand.onTimeout(seat);
     const streak = (this.timeoutStreak.get(userId) ?? 0) + 1;
     this.timeoutStreak.set(userId, streak);
-    this.broadcast();
-    if (streak >= TIMEOUT_STREAK_LIMIT) {
-      if (this.playerIds.length === 2) {
-        const opponent = this.playerIds.find((id) => id !== userId) ?? null;
-        this.forfeit(opponent).catch((err) => this.abandon(err));
-        return;
-      }
-      // Multiway: forfeiting one seat would hand the rest of the table a
-      // free elimination, so the player is sat out and blinded off instead.
-      this.satOut.add(userId);
+    // A practice table spends nothing: losing a match to a phone that went to
+    // sleep is not a result, and there is nobody at that table to protect.
+    const spent = streak >= TIMEOUT_STREAK_LIMIT && !this.practice;
+    // Multiway: forfeiting one seat would hand the rest of the table a free
+    // elimination, so the player is sat out and blinded off instead. Added
+    // before the broadcast, so the message that reports the fold is also the
+    // one that reports the sit-out.
+    if (spent && this.playerIds.length > 2) this.satOut.add(userId);
+    if (spent && this.playerIds.length === 2) {
+      this.broadcast();
+      const opponent = this.playerIds.find((id) => id !== userId) ?? null;
+      this.forfeit(opponent).catch((err) => this.abandon(err));
+      return;
     }
     this.rearmClock();
+    this.broadcast();
     this.settleIfDone();
   }
 
@@ -329,8 +382,8 @@ export class MatchRoom {
     this.clockTimer = null;
     if (!this.hand || this.match.status !== 'playing') return;
     this.hand.onTimeout(seat);
-    this.broadcast();
     this.rearmClock();
+    this.broadcast();
     this.settleIfDone();
   }
 
@@ -367,6 +420,11 @@ export class MatchRoom {
       this.clock = { ...this.clock, paused: true };
     }
     this.broadcast(); // let the opponent see connected:false / paused right away
+    // A practice table has no grace window: the clock stays paused until the
+    // human comes back, however long that is. `rearmClock` reads `practice`
+    // for the same reason, so a decision that arrives while they are away
+    // waits rather than being folded.
+    if (this.practice) return;
     const timer = setTimeout(() => this.handleGraceExpiry(userId), this.match.format.graceMs);
     this.graceTimers.set(userId, timer);
   }

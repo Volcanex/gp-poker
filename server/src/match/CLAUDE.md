@@ -58,11 +58,14 @@ choices in `types.ts` are worth knowing about rather than reading past:
 - **`onAction` returns a boolean**, not void. `MatchRoom.handleAct` only
   rebroadcasts and rearms the clock when something actually changed, otherwise a
   client spamming illegal actions could keep resetting their own clock for free.
-- **`viewFor` takes the room's clock and per-seat connectivity as parameters**
+- **`viewFor` takes the room's clock and per-seat presence as parameters**
   rather than the hand runner tracking either itself. Masking hole cards is the
   engine's job (`visibleCards(state, viewerSeat)`), but whose turn it is on the
-  wall clock and who is currently connected are orchestration concerns the hand
-  runner should not need to know about.
+  wall clock, who is currently connected and who is sitting out are
+  orchestration concerns the hand runner should not need to know about.
+  `SeatPresence` is one object per seat rather than a boolean array per fact,
+  because there are now two of them and a third would be a third array to keep
+  in step.
 
 `isDone()` is true once the whole MATCH is decided, not just the current hand.
 
@@ -146,18 +149,75 @@ position per user id, 1 = best.
   order, and everyone knocked out in the same hand shares the block of places
   just below whoever is left, ordered by the stack they **started** that hand
   with, since the bigger stack outlasted the smaller one.
-- **forfeit**: heads-up only, `MatchRoom`'s per-player consecutive-timeout
-  counter hit 3. It can fire mid-hand, before the hand runner ever reaches
-  `isDone()`, so `MatchRoom.buildForfeitOutcome` computes the outcome itself
-  rather than asking the hand runner for one.
+- **forfeit**: heads-up only and never on a practice table, `MatchRoom`'s
+  per-player consecutive-timeout counter hit 3. It can fire mid-hand, before
+  the hand runner ever reaches `isDone()`, so `MatchRoom.buildForfeitOutcome`
+  computes the outcome itself rather than asking the hand runner for one.
+
+## Sitting out
 
 **Multiway never forfeits.** Handing the rest of the table a free elimination
-because one seat went quiet is worse than the alternative. After three timeouts
-that player is **sat out** instead: every decision is auto check-folded the
-instant it reaches them (no clock burnt), blinds keep being posted, and they play
-down to a bust like anyone else. Any `act` message un-sits them, **including one
-the room rejects**, because the auto check-fold fires the moment it becomes their
-turn and a returning player is always too late to act cleanly.
+because one seat went quiet is worse than the alternative. After three
+consecutive timeouts that player is **sat out** instead: they are still dealt
+in, still post blinds, and play down to a bust like anyone else.
+
+The rule for what a sat-out seat's decision costs, in full:
+
+| | Sat out | Not sat out |
+| --- | --- | --- |
+| Player connected | the ordinary full `clockMs` | the ordinary full `clockMs` |
+| Player away | check-folded on arrival, nought ms | `clockMs`, paused while grace runs |
+
+**Sitting out only bites while the player is away.** A sat-out seat whose
+player has a socket open gets the same clock everybody else gets, and a clock
+that runs out there is an ordinary timeout: it folds, the streak grows, and
+they stay sat out. This is the defect the whole mechanism was built out of.
+The owner's phone browser suspended in the background three hands running,
+which read as three timeouts and sat him out; from then on every hand folded
+him at one or two milliseconds while he sat looking at the table, and there
+was nothing on screen that said why or how to stop it.
+
+Two things fix that. `SeatView.sittingOut` puts it on the wire, so the table
+can see it and the player's own client can react. And `{t:'back', m}` is a way
+in that does not have to be timed:
+
+- It clears `satOut` and resets the streak **without acting**. An `act` cannot
+  do that job on its own, because while they are away the auto check-fold
+  fires the instant it becomes their turn and the action they send is always
+  answering a hand that has moved on. An `act` still un-sits them, **including
+  one the room rejects**, so a player who reaches the buttons first is not
+  folded for it.
+- If the decision is already theirs, `back` re-arms a **fresh full clock**, so
+  coming back mid-turn is not coming back to two seconds.
+- `back` from a seat that is **not** sitting out is ignored. That is the whole
+  of its abuse surface: it cannot reset a streak for free, and it cannot duck a
+  heads-up forfeit, since heads-up never sits anybody out.
+
+The client sends it by itself when it holds a sat-out seat and the socket
+reconnects or the tab becomes visible, which is exactly the shape of the
+failure that caused this, and offers a button for the rest.
+
+## Practice tables never sit the human out
+
+A practice table is one person against bots (`format.practice`), and nobody
+there is being kept waiting. So:
+
+- **A timeout streak is never spent.** No sit-out, no forfeit, at either table
+  size. `MatchRoom.handleClockExpiry` still counts the streak, it just never
+  acts on it. Losing a match to a phone that went to sleep is not a result.
+- **A disconnect has no grace window.** `handleDisconnect` starts no grace
+  timer, and `rearmClock` reads `practice` as a reason to pause, so a decision
+  that arrives while the human is away waits indefinitely instead of being
+  folded `graceMs` later. `handleReconnect` grants a fresh full clock the same
+  way it always did.
+- **The practice hold is left alone, and that is consistent rather than an
+  oversight.** `practiceHoldTimeoutFor` (120s) can still expire while the
+  human is away, and the table deals the next hand. That costs them nothing:
+  the decision on that hand is theirs, and it pauses. The hold's timeout
+  exists so bots at a table whose human walked away are not stuck forever, and
+  it cannot end a match on its own, so there is nothing to pause it for. The
+  only path that could ever lose a practice match to a disconnect was grace
+  expiry into a forfeit, and that path is gone.
 
 ## One rating period per match
 
@@ -185,13 +245,26 @@ first place counts as a win and every other place as a loss.
 
 ## Clock design
 
+**`rearmClock` runs before the broadcast that reports the state it belongs
+to.** `viewFor` reads `MatchRoom.clock`, so a room that broadcast first and
+rearmed after sent every client the deadline of the seat that had **just
+acted**, one decision behind, for as long as the table ran: on your own turn
+the band drew somebody else's clock, already expired, and `clock.seat` never
+matched the seat the same view marked `acting`. It lined up only when the same
+seat acted twice running, which is what a street change does, which is why it
+survived. Every path does it in that order now (`start`, `handleAct`,
+`handleClockExpiry`, `autoActSatOut` and the hand runner's `onChange`), and
+`clock.test.ts` holds them to it.
+
 A fresh `clockMs`-long deadline starts (`rearmClock`) whenever `hand.toActSeat()`
 changes to a new non-null seat, tracked in `MatchRoom.clock` (`{ seat, deadline,
 paused }`) and armed with a real `setTimeout`. On expiry (`handleClockExpiry`)
 the room calls `hand.onTimeout(seat)`, then bumps that player's
-consecutive-timeout counter. A sat-out seat is never given a clock: `rearmClock`
-queues its auto check-fold on a zero-delay timer instead, so a whole street of
-sat-out seats unwinds as separate turns rather than recursing.
+consecutive-timeout counter. A seat that is **both sat out and disconnected**
+is given no clock: `rearmClock` queues its auto check-fold on a zero-delay
+timer instead, so a whole street of them unwinds as separate turns rather than
+recursing. A sat-out seat whose player is connected takes the ordinary clock
+(see "Sitting out" above).
 
 Disconnects: `handleDisconnect` marks the player disconnected, freezes the clock
 (`paused: true`, timer cleared) if it was their turn, and starts a `graceMs`

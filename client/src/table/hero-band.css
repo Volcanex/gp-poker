@@ -534,6 +534,23 @@
   border-style: dashed; box-shadow: none; pointer-events: none;
 }
 
+/* ----------------------------------------------------------------- sit out */
+
+/* One press in the actions' own box. It spans the whole box at both sizes,
+   which is what keeps the band one shape: the three actions are a row of
+   three under a mouse and a column of three under a thumb, and a button that
+   spanned neither would have to be placed twice. It stands at the actions'
+   own height in the middle of that box rather than filling it, because a
+   button three rows tall on a phone reads as a panel. */
+.hb-back > .hb-back-btn {
+  grid-area: 1 / 1 / -1 / -1;
+  align-self: center;
+  width: 100%;
+  height: var(--act-h);
+  font-size: 15px;
+  font-weight: 500;
+}
+
 /* ------------------------------------------------------------------ watch */
 
 /* A spectator has one control, the way out, in a box built for a hand. It
