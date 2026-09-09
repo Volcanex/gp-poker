@@ -113,7 +113,7 @@
    0.72 + (n - 1) * 0.14 widths high. The reserved rows are the same five as
    before; the column is shorter than the flat one was, because a rim is
    thinner than the three pixels the discs overlapped by. */
-.match[data-look="v2"] .chips { gap: 2px; }
+.match[data-look="v2"] .chips { --chip-gap: 2px; }
 .match[data-look="v2"] .chip-col {
   height: calc(var(--chip) * (0.72 + (var(--chip-rows) - 1) * 0.14));
 }

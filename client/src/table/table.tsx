@@ -242,7 +242,7 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
                 of a table is the pot. */}
             <div className="pot">
               <span className="pot-chips">
-                <ChipStack amount={potShown} />
+                <ChipStack amount={potShown} centred />
               </span>
               {/* Keyed on the value: a figure that changes in place is a
                   text node the layout-shift observer sees move when its

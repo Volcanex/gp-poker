@@ -26,6 +26,12 @@ stuff" with a chat line circled, and this file was the one part of the table
 screen sitting half a step off the 4 px grid, which reads as unfinished beside
 a felt that is not.
 
+The name and the time are separated by the row, which pushes the time to the
+far end, **and by a real space in the text**: a flex row drops a whitespace-only
+node between its items, so `{' '}` costs nothing on screen and stops the line
+copying and reading aloud as "Gabrielnow", which is how it reached the ticket.
+No glyph does that job here, and no middle dot ever will.
+
 **The newest line is scrolled to, not jumped to.** Opening the panel lands on
 the bottom of the log outright, because a panel that animated its way down a
 conversation you have not read is a panel you cannot read; a line arriving
