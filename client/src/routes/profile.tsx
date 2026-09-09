@@ -13,7 +13,7 @@ import {
   modeRating, modeStanding, modeWinRate, profileAccuracy, profileBadges, ratingHistoryFor,
   totalMatches,
 } from '../net/adapt.ts';
-import { MODES, MODE_NAME, ModeTabs } from '../ui/mode-tabs.tsx';
+import { MODES, MODE_NAME, ModeTabs, modeInline } from '../ui/mode-tabs.tsx';
 import { ordinal } from '../table/labels.ts';
 import { deltaTone } from '../ui/bits.tsx';
 import { ClaimCard } from '../ui/auth.tsx';
@@ -73,6 +73,8 @@ export function Profile() {
   const standings = MODES.map((mode) => ({ mode, r: modeRating(data.summary, mode) }));
   const accuracy = profileAccuracy(data);
   const flag = isMe ? (me?.country ?? null) : (data.summary.country ?? null);
+  const headMode = mainMode(data);
+  const headRating = modeRating(data.summary, headMode);
 
   return (
     <main className="page wide stack">
@@ -97,6 +99,14 @@ export function Profile() {
               you had just replaced. */}
           {flag && <Flag code={flag} size={24} />}
           <h1 className="h1">{data.summary.name}</h1>
+          {/* The rating reads beside the name, the way the home page's own
+              player row does: the mode this player actually plays, so the
+              number here is never a mode they have not touched. The fuller
+              picture (peak, standing) is still the card below. */}
+          {headRating.matches > 0 && (
+            <span className="profile-rating num">{int(headRating.rating)}</span>
+          )}
+          <span className="muted">{MODE_NAME[headMode]}</span>
           {/* Level is how much poker has been played on this account and
               nothing else. It sits beside the name because that is what it
               describes; the rating, which is the skill claim, is the number
@@ -253,7 +263,7 @@ export function Profile() {
               <Tile k="Accuracy" v={fmtPct(accuracy)} d="Against the baseline charts" />
             </div>
             <span className="muted">
-              Over {data.stats.hands} hands. Six-max hands are not scored: the charts are heads-up.
+              Over {data.stats.hands} hands. 6X hands are not scored: the charts are heads-up.
             </span>
           </>
         ) : (
@@ -416,7 +426,7 @@ function RatingSection({ profile }: { profile: ProfileData }) {
       {points.length === 0 ? (
         <div className="card">
           <div className="empty">
-            <span className="e-title">No {MODE_NAME[mode].toLowerCase()} matches yet</span>
+            <span className="e-title">No {modeInline(mode)} matches yet</span>
             <span className="e-desc">The line starts at the first rated match in this mode.</span>
           </div>
         </div>
@@ -437,7 +447,7 @@ function RatingSection({ profile }: { profile: ProfileData }) {
 function HeroRating({ profile, mode }: { profile: ProfileData; mode: Mode }) {
   const r = modeRating(profile.summary, mode);
   const standing = modeStanding(profile, mode);
-  const modeName = MODE_NAME[mode].toLowerCase();
+  const modeName = modeInline(mode);
 
   if (r.matches === 0) {
     return (
@@ -606,7 +616,7 @@ function InsightsBody({ data, error, mode }: { data: Insights | null; error: str
           <span className="e-title">Insights appear after {data.minHands} hands in this mode</span>
           <span className="e-desc">
             {sample.hands === 0
-              ? `No ${MODE_NAME[mode].toLowerCase()} hands played yet.`
+              ? `No ${modeInline(mode)} hands played yet.`
               : `${sample.hands} of ${data.minHands} so far.`}
           </span>
         </div>

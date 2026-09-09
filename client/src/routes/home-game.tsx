@@ -10,6 +10,7 @@ import { Avatar } from '../ui/avatar.tsx';
 import { Flag, FlagSlot } from '../ui/flag.tsx';
 import { ShareLink } from '../ui/share-link.tsx';
 import { int } from '../ui/format.ts';
+import { MODE_NAME } from '../ui/mode-tabs.tsx';
 import { useTitle } from '../ui/title.ts';
 import { modeBlurb } from './home.tsx';
 import { expiryLine, lobbyLayout, startBlurb } from './home-game-seats.ts';
@@ -179,7 +180,7 @@ export function HomeGame() {
         </span>
       </div>
       <span className="tags">
-        <span className="badge badge-plain">Six-max</span>
+        <span className="badge badge-plain">{MODE_NAME['six-max']}</span>
         <span className="badge badge-plain">{game.rated ? 'Rated' : 'Casual'}</span>
         <span className="badge badge-plain">{botLevelInfo(game.botLevel).name} bots</span>
       </span>

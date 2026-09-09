@@ -212,9 +212,10 @@ main.page.home-page { max-width: 1180px; }
   gap: var(--sp-3);
   min-height: 44px;
 }
-/* The name and the mode it opens on, one line: two facts about the same
-   player read as one line faster than a name over a caption does. */
-.pb-who { display: flex; align-items: baseline; gap: var(--sp-2); min-width: 0; }
+/* The name, the rating and the mode, one line: three facts about the same
+   player read faster together than a name over a caption with a number
+   pinned to the far edge of the row. */
+.pb-who { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-2); min-width: 0; }
 .pb-name {
   display: flex;
   align-items: center;
@@ -224,9 +225,9 @@ main.page.home-page { max-width: 1180px; }
   letter-spacing: -0.01em;
 }
 .pb-who .muted { font-size: 12px; }
-.pb-rating { margin-left: auto; display: flex; align-items: baseline; gap: var(--sp-2); }
-/* The one number on this page worth reading from across the room. */
-.pb-rating .v { font-size: 32px; font-weight: 500; letter-spacing: -0.02em; line-height: 1; }
+/* Beside the name, not a display number of its own: the name is what a
+   reader looks for first, and the rating is the second fact about it. */
+.pb-rating { font-size: 19px; font-weight: 500; letter-spacing: -0.01em; }
 
 .home-top {
   display: grid;
@@ -297,5 +298,4 @@ main.page.home-page { max-width: 1180px; }
 @media (max-width: 620px) {
   .home-side { grid-template-columns: 1fr; }
   .player-bar { flex-wrap: wrap; }
-  .pb-rating { margin-left: 0; width: 100%; }
 }

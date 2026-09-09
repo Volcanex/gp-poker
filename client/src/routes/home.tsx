@@ -11,7 +11,7 @@ import { api, ApiError } from '../net/api.ts';
 import { avatarSeed, avatarVersion, mainModeOf, modeRating } from '../net/adapt.ts';
 import type { ArenaListing, CreatedChallenge, LeaderboardRow, LiveMatch, Me } from '../net/types.ts';
 import { readPlayChoice, useSession } from '../net/session.tsx';
-import { MODES, MODE_NAME } from '../ui/mode-tabs.tsx';
+import { MODES, MODE_NAME, modeInline } from '../ui/mode-tabs.tsx';
 import { Segmented } from '../ui/segmented.tsx';
 import { elapsed, useNow } from '../ui/bits.tsx';
 import { arenaCardLine } from './arena-bits.ts';
@@ -115,7 +115,7 @@ export function Home() {
   const seats = formatFor(queue.mode, queue.rated, queue.speed).players;
   const searchingFor = queue.practice
     ? 'Dealing you in against the bots'
-    : `Searching for a ${SPEED_NAME[queue.speed].toLowerCase()} ${MODE_NAME[queue.mode].toLowerCase()} table`;
+    : `Searching for a ${SPEED_NAME[queue.speed].toLowerCase()} ${modeInline(queue.mode)} table`;
 
   return (
     <main className="page wide stack home-page">
@@ -297,17 +297,18 @@ function PlayerBar({ me, mode }: { me: Me | null; mode: Mode }) {
           {me.country && <Flag code={me.country} size={20} />}
           {me.name}
         </h1>
-        <span className="muted">{MODE_NAME[mode]}</span>
-      </div>
-      <div className="pb-rating">
+        {/* The rating reads beside the name it belongs to, not off on its own
+            at the far edge of the row: the one number that matters here is
+            "Gabriel 1567", not a name and then a number a foot away from it. */}
         {r.matches === 0 ? (
           <span className="muted">No ranked matches yet</span>
         ) : (
           <>
-            <span className="v num">{int(r.rating)}</span>
+            <span className="pb-rating num">{int(r.rating)}</span>
             {r.provisional && <span className="badge badge-warn">Provisional</span>}
           </>
         )}
+        <span className="muted">{MODE_NAME[mode]}</span>
       </div>
     </div>
   );
@@ -729,7 +730,7 @@ function Leaderboard({ mode }: { mode: Mode }) {
   return (
     <section className="stack" id="leaderboard" style={{ gap: 'var(--sp-3)' }} data-enter-ready={list ? 'yes' : 'no'}>
       <div className="lb-head">
-        <span className="h2">Top ten, {MODE_NAME[mode].toLowerCase()}</span>
+        <span className="h2">Top ten, {modeInline(mode)}</span>
         <span className="muted">Rating, with the deviation beside it</span>
         <span style={{ flex: 1 }} />
         <Link className="btn btn-tertiary btn-sm" to="/leaderboard">See all</Link>

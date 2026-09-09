@@ -4,7 +4,17 @@ import { Segmented } from './segmented.tsx';
 /* Six handed first, everywhere a pair of modes is offered: it is the main
    game now, and a tab strip that opens on the sideshow says otherwise. */
 export const MODES: Mode[] = ['six-max', 'heads-up'];
-export const MODE_NAME: Record<Mode, string> = { 'six-max': 'Six-max', 'heads-up': 'Heads-up' };
+/* Six-max reads as "6X" everywhere the site names it, own request: short for
+   six max and "sounds cooler". The URL slug and the protocol id are
+   unaffected, this is display text only. */
+export const MODE_NAME: Record<Mode, string> = { 'six-max': '6X', 'heads-up': 'Heads-up' };
+
+/* The name mid-sentence. Every other label here is sentence case, so folding
+   it into a lowercase sentence is just `.toLowerCase()`; 6X is a short form,
+   not a capitalised word, and lowercasing it spells something else. */
+export function modeInline(mode: Mode): string {
+  return mode === 'six-max' ? MODE_NAME[mode] : MODE_NAME[mode].toLowerCase();
+}
 
 export interface ModeTabsProps {
   mode: Mode;
