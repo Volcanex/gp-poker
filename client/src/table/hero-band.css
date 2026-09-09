@@ -183,8 +183,15 @@
   padding-left: var(--stats-gap);
   margin-left: calc(var(--stats-gap) - var(--band-gap));
   /* A rule, because a section needs an edge to be a section: without it the
-     readings read as three more controls that happen to have words. */
+     readings read as three more controls that happen to have words. It runs
+     the height of the band's content, which is why this stretches and the
+     readings are placed inside it rather than by the grid. */
   border-left: 1px solid var(--border-subtle);
+  /* **The last reading sits on the buttons' floor.** The column spans the key
+     legend's row as well, so without this the readings ran twenty pixels below
+     the row of controls beside them and the section read as hanging off the
+     bottom of the band. */
+  padding-bottom: calc(var(--hb-keys-h) + var(--keys-gap));
 }
 
 /* A spectator has no hand to hold and no keys to press, so the band is one

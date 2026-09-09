@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_PRESET, clamp, dupKeys, openAt, presetsFor, presetsStack } from '../table/sizing.ts';
 import { CUSTOM_KEY, turnKeyAction } from '../table/keys.ts';
-import { shiftOf } from '../table/chip-stack.tsx';
+import { packOffsets } from '../table/chip-stack.tsx';
 import { actionText, faceUp, shortHash, streetText } from '../table/labels.ts';
 import { bestFive, handCategory, readShowdown } from '../table/best-five.ts';
 import { amountToCall, isLastHand, resolvePreAction, survivesRaise } from '../table/preactions.ts';
@@ -141,30 +141,32 @@ describe('the turn keys', () => {
   });
 });
 
-describe('the pot\'s chips stand over its figure', () => {
+describe('the pot\'s rack packs under its figure', () => {
   const slots = [500, 100, 25, 5, 1];
   const counts = (...on: number[]) => new Map(on.map((d) => [d, 1]));
 
-  it('moves a small pot back to the middle of its reserved row', () => {
-    // A pot of 3 is three ones, in the last of five slots: two columns right
-    // of the middle, so the row moves two columns left and the count is
-    // negative, which is the direction the transform takes.
-    expect(shiftOf(counts(1), slots)).toBe(-2);
-    // A pot holding both ends is already centred.
-    expect(shiftOf(counts(500, 1), slots)).toBe(0);
-    // 25s and 5s straddle the middle by half a column, to the right.
-    expect(shiftOf(counts(25, 5), slots)).toBe(-0.5);
-    // And a pot of hundreds alone leans the other way.
-    expect(shiftOf(counts(500, 100), slots)).toBe(1.5);
+  it('closes the gaps and stands the group in the middle', () => {
+    // A pot of 3 is three ones, alone in the last of five slots: it moves two
+    // columns left, which is the middle. The count is what the transform takes,
+    // so left is negative.
+    expect(packOffsets(counts(1), slots)).toEqual([0, 0, 0, 0, -2]);
+    // A 25 and a one are two columns apart with an empty slot between them:
+    // they close up to one column apart and straddle the middle.
+    expect(packOffsets(counts(25, 5), slots)).toEqual([0, 0, -0.5, -0.5, 0]);
+    expect(packOffsets(counts(25, 1), slots)).toEqual([0, 0, -0.5, 0, -1.5]);
   });
 
-  it('leaves an empty row where it is', () => {
-    expect(shiftOf(new Map(), slots)).toBe(0);
+  it('leaves a full rack exactly where it was dealt', () => {
+    expect(packOffsets(counts(500, 100, 25, 5, 1), slots)).toEqual([0, 0, 0, 0, 0]);
   });
 
-  it('counts against the row it is given, not the whole set', () => {
+  it('leaves an empty rack alone', () => {
+    expect(packOffsets(new Map(), slots)).toEqual([0, 0, 0, 0, 0]);
+  });
+
+  it('counts against the rack it is given, not the whole set', () => {
     // The seat's mini stack draws three denominations, not five.
-    expect(shiftOf(counts(25), [500, 100, 25])).toBe(-1);
+    expect(packOffsets(counts(25), [500, 100, 25])).toEqual([0, 0, -1]);
   });
 });
 

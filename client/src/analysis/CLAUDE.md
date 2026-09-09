@@ -29,7 +29,9 @@ the hand's name, the outs count and its draws, the equity meter and its
 percentage, each cell the same fixed two lines, and the out cards dropped,
 because a 248 px column cannot hold nine cards and the reading they belong to.
 
-Narrower than that, and on v1, it is the strip below.
+Narrower than that, and on v1, it is the strip below, on the felt's own column
+(see the cap below: it used to be a number close to `--felt-w` rather than the
+token, which is why the two rows did not line up).
 
 A practice table carries one more fixed row between the felt and the band, row 4
 of the table's grid (`../table/CLAUDE.md`): one bar, three cells, reading left

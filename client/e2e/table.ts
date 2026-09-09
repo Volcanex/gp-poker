@@ -420,15 +420,22 @@ export function masks(page: Page): Locator[] {
   ];
 }
 
-/* The regions whose boxes must not move between dock states. The felt and the
+/* **The pot's figure is measured, not its chips.** The rack packs and centres
+   itself under the figure as the pot changes denomination, which is paint
+   rather than layout; the figure's box is the thing that must hold still, and
+   it is the one a player reads.
+
+   The regions whose boxes must not move between dock states. The felt and the
    dock are the whole point; the board, the pot and your own seat are there
    because a felt that keeps its box can still shuffle its contents. */
-export const FOOTPRINT = ['.hand-head', '.felt', '.board', '.pot', '.seat:has(.seat-you)', '.dock'];
+export const FOOTPRINT = [
+  '.hand-head', '.felt', '.board', '.pot', '.pot .v', '.seat:has(.seat-you)', '.dock',
+];
 
 /* The same regions for somebody with no seat of their own: the bottom row is
    seat 0's when nobody is sitting in it for you. */
 export const WATCHING_FOOTPRINT = [
-  '.hand-head', '.felt', '.board', '.pot', '.pos[data-k="0"] .seat', '.dock',
+  '.hand-head', '.felt', '.board', '.pot', '.pot .v', '.pos[data-k="0"] .seat', '.dock',
 ];
 
 export interface Box { x: number; y: number; width: number; height: number }
