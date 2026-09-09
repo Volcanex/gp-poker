@@ -973,6 +973,10 @@
 .seat-sub {
   display: flex; align-items: center; gap: 6px;
   width: 100%; height: var(--seat-row); min-width: 0;
+  /* The rack starts on the name's own left edge, not the block's: the line
+     above reserves 16px for the flag slot and a 6px gap before the name, and
+     the rack has to clear the same 22px or the chips hang left of it. */
+  padding-left: 22px;
 }
 .seat-sub .btn-marker { margin-left: auto; }
 .seat-sub .seat-bot + .btn-marker { margin-left: 0; }
@@ -1111,6 +1115,10 @@
   .seat-line .flag-empty { display: none; }
   .seat-stack { font-size: 12px; line-height: 14px; gap: 4px; }
   .seat-chips { display: none; }
+  /* The rack that padding lined up with the name is gone at this width, and
+     the badges left in the row read from the block's own edge, not the
+     rack's. */
+  .seat-sub { padding-left: 0; }
   .seat-bot { font-size: 9px; padding: 0 3px; line-height: 12px; }
   .seat-rating { display: none; }
   .btn-marker { position: absolute; top: 1px; left: 1px; z-index: 1; width: 13px; height: 13px; font-size: 8px; }
