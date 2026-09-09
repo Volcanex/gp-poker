@@ -147,6 +147,22 @@ blinds per hundred hands with a standard error, plus the decision latency. The
 ordering test does not include them: they think for a real fraction of a second
 per decision, which is a benchmark script and not a unit test.
 
+**The two rows involving the regular tier are not measured yet.** It was built
+on 2026-09-09 on a box already saturated by other work, which gave the
+benchmark about a quarter of one core, and a run at the bar the other rows were
+held to needs roughly ten minutes of processor per matchup. Produce them on a
+quiet box with:
+
+```
+BOT_BENCH_DEALS=120 BOT_BENCH_STACKS=100,30 BOT_BENCH_PAIRS=6v5,7v6 \
+  npx tsx server/scripts/bench-bots.ts
+```
+
+Until then the honest statement about the regular tier is that it plays legal
+poker at every stack depth, solves the river and nothing else (measured: three
+decisions in four never reach a solve), and deviates from the sharp tier only
+where a statistic says to. Whether that is worth big blinds is unmeasured.
+
 Where the solver tier stands, measured 2026-09-09 on h with a 500ms budget of
 processor time (the live budget is 1500ms of wall clock, so these are a floor).
 It was level 6 when these were taken and is level 7 now; the tier is what the
