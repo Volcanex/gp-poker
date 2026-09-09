@@ -461,6 +461,8 @@
   text-decoration: none;
   color: inherit;
 }
+.tool-card .card-title { display: flex; align-items: center; gap: var(--sp-2); }
+.tool-card .card-title > svg { color: var(--text-secondary); flex: none; }
 
 .tool-card:hover {
   border-color: var(--accent-edge);

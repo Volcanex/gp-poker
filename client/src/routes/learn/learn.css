@@ -15,7 +15,14 @@
 }
 .learn-index .lesson-card:hover { border-color: var(--border); }
 .learn-index .lesson-card .n { font-size: 12px; color: var(--text-placeholder); font-variant-numeric: tabular-nums; }
-.learn-index .lesson-card .t { font-size: var(--font-size-ui); font-weight: 500; }
+.learn-index .lesson-card .t {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--font-size-ui);
+  font-weight: 500;
+}
+.learn-index .lesson-card .t > svg { color: var(--text-secondary); flex: none; }
 .learn-index .lesson-card a.stretch { position: absolute; inset: 0; border-radius: var(--radius-card); }
 .learn-index .lesson-card a.stretch:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 

@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { Link, Route } from 'react-router-dom';
+import { PuzzlePiece } from '@phosphor-icons/react';
 import { useTitle } from '../../ui/title.ts';
 import { LESSONS } from './lessons.ts';
 import { Rules } from './rules.tsx';
@@ -52,7 +53,10 @@ export function LearnIndex() {
           <div className="card lesson-card" key={l.slug}>
             <Link className="stretch" to={`/learn/${l.slug}`} aria-label={l.title} />
             <span className="n">{i + 1}</span>
-            <span className="t">{l.title}</span>
+            <span className="t">
+              <l.Icon size={16} aria-hidden="true" />
+              {l.title}
+            </span>
             <span className="muted">{l.blurb}</span>
           </div>
         ))}
@@ -62,7 +66,10 @@ export function LearnIndex() {
         <div className="card lesson-card">
           <Link className="stretch" to="/puzzles" aria-label="Puzzles" />
           <span className="n">Practice</span>
-          <span className="t">Puzzles</span>
+          <span className="t">
+            <PuzzlePiece size={16} aria-hidden="true" />
+            Puzzles
+          </span>
           <span className="muted">
             Four questions a day: who wins a showdown, what to do before the flop, the price the pot
             is offering, and a decision somebody actually faced here.
