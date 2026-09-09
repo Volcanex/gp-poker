@@ -15,15 +15,20 @@ import { leaveWarning } from './labels.ts';
    dialog first, because leaving costs a rated loss and a place on the
    walkout ladder, and a consequence nobody was told about is not one they
    agreed to. The sentence it warns with comes out of `leaveWarning`, which
-   reads the same ladder the server charges from. */
-export function LeaveControl({ format, ended, onLeave }: {
+   reads the same ladder the server charges from.
+
+   Somebody already out has no stack left to forfeit and nothing left to
+   lose by leaving, so the dialog is skipped for them too even at a ranked
+   table. */
+export function LeaveControl({ format, ended, out, onLeave }: {
   format: MatchFormat;
   ended: boolean;
+  out: boolean;
   onLeave: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const { me } = useSession();
-  const warns = format.rated && !format.practice;
+  const warns = format.rated && !format.practice && !out;
 
   const press = () => {
     if (warns) ref.current?.showModal();

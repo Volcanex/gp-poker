@@ -197,7 +197,7 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
               have one cannot change mid-match, which is what makes this safe
               to leave out of a spectator's header rather than disable. */}
           {onLeave && view.you != null && (
-            <LeaveControl format={view.format} ended={Boolean(ended)} onLeave={onLeave} />
+            <LeaveControl format={view.format} ended={Boolean(ended)} out={mySeat?.out ?? false} onLeave={onLeave} />
           )}
         </span>
         {chat && <ChatToggle chat={chat} />}

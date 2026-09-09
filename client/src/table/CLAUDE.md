@@ -103,6 +103,12 @@ not the one applied. The dialog closes on Escape and on the backdrop, unlike
 the ready check's, because nothing is running against the player while it is
 open and dismissing it means the same as keeping playing.
 
+Somebody already out of a multiway match leaves on the press even at a ranked
+table: they have no stack left to forfeit and the server does not charge a
+walkout for a seat that already has a place (`handleResign` in
+`match/room.ts`), so a dialog warning them about a punishment that will not
+land would be lying to them.
+
 **The header's row has a width budget, and the leave control spent most of
 it.** `.hand-head .bar-in` may not wrap and may not scroll, so four controls
 plus the chat toggle have to fit at 360, and they do not while the copy
