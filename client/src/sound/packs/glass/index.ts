@@ -34,6 +34,7 @@ export const glass: {
     chipsCollect: impactGlassLight002Sound,
     yourTurn: glass005Sound,
     clockWarning: glass006Sound,
+    tick: impactGlassLight004Sound,
     handWon: jinglesPizzi00Sound,
     handLost: impactGlassLight003Sound,
     matchWon: impactBellHeavy000Sound,

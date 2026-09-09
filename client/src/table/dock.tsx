@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import type { ActionKind, LegalActions, TableView } from '@opentable/protocol';
-import { holdFor } from '@opentable/protocol';
+import { RUNOUT_TICKS, holdFor } from '@opentable/protocol';
 import { isTextEntry, useGInit } from '../ui/bits.tsx';
 import { clamp, presetsFor, raiseAction, raiseShape } from './sizing.ts';
 import type { Preset } from './sizing.ts';
@@ -12,7 +12,7 @@ import {
 import type { PreAction } from './preactions.ts';
 import { ordinal } from './labels.ts';
 import { Link } from 'react-router-dom';
-import { playClick } from './sounds.ts';
+import { playClick, playTick } from './sounds.ts';
 
 export interface DockProps {
   view: TableView;
@@ -286,14 +286,26 @@ function HandOver({ view }: { view: TableView }) {
 /* The hold the server keeps a finished hand on screen for. Counted from the
    moment this hand's result arrived, so a reconnecting client is late rather
    than wrong. Exported for the band's decision line, which counts the same
-   hold down at the end of its one sentence. */
+   hold down at the end of its one sentence.
+
+   The last three numbers tick, the way a run-out's do, so the two countdowns
+   on this table sound like one thing. The tick lives here rather than beside
+   the view because this is the number the countdown is: a hand held for a
+   person to deal on (`hold`) never renders one of these, so it never ticks. */
 export function useCountdown(key: string, ms: number): number {
   const [left, setLeft] = useState(() => Math.ceil(ms / 1000));
   useEffect(() => {
     const until = Date.now() + ms;
-    setLeft(Math.ceil(ms / 1000));
+    const start = Math.ceil(ms / 1000);
+    setLeft(start);
+    let last = start;
     const id = setInterval(() => {
-      setLeft(Math.max(0, Math.ceil((until - Date.now()) / 1000)));
+      const now = Math.max(0, Math.ceil((until - Date.now()) / 1000));
+      if (now !== last) {
+        last = now;
+        if (now >= 1 && now <= RUNOUT_TICKS) playTick();
+      }
+      setLeft(now);
     }, 250);
     return () => clearInterval(id);
   }, [key, ms]);

@@ -29,6 +29,7 @@ export const arcade: {
     chipsCollect: select004Sound,
     yourTurn: confirmation001Sound,
     clockWarning: jump8bitSound,
+    tick: click8bitSound,
     handWon: jinglesNes01Sound,
     handLost: click8bitSound,
     matchWon: jinglesNes02Sound,

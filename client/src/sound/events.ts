@@ -8,6 +8,7 @@ export type SoundEvent =
   | 'chipsCollect'
   | 'yourTurn'
   | 'clockWarning'
+  | 'tick'
   | 'handWon'
   | 'handLost'
   | 'matchWon'
@@ -25,6 +26,7 @@ export const soundEvents: readonly SoundEvent[] = [
   'chipsCollect',
   'yourTurn',
   'clockWarning',
+  'tick',
   'handWon',
   'handLost',
   'matchWon',

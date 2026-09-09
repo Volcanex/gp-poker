@@ -239,7 +239,7 @@ function wav(pcm) {
   return bytes;
 }
 
-/* The fifteen sounds. Waveform and length carry the character: ticks are
+/* The sixteen sounds. Waveform and length carry the character: ticks are
    filtered noise, actions are square and triangle blips, and the chimes and
    fanfares are sines with a little FM so the pack does not sound like one
    instrument playing everything. */
@@ -348,6 +348,15 @@ const SOUNDS = {
     addNote(buf, { start: 130, length: 90, kind: 'square', freq: 1245, gain: 0.8, tau: 0.09, attackMs: 2 });
     return { buf, ms: 220 };
   },
+  /* The run-out and hand-hold count: one dry click a second, filtered
+     tighter and shorter than a card landing so three of them in a row read
+     as counting rather than as dealing. Quieter than the rest of the pack for
+     the same reason the turn chime is: it fires three times a hand. */
+  tick: () => {
+    const buf = buffer(70);
+    addNoise(buf, { length: 70, seed: 909, tau: 0.006, gain: 1, filter: () => bandpass(2400, 1.8) });
+    return { buf, ms: 70, dbfs: -5.5 };
+  },
   /* Hand won: four notes up an E chord, ringing into each other. */
   handWon: () => {
     const buf = buffer(320);
@@ -452,6 +461,7 @@ const FILE_NAMES = {
   chipsCollect: 'chips-collect',
   yourTurn: 'your-turn',
   clockWarning: 'clock-warning',
+  tick: 'tick',
   handWon: 'hand-won',
   handLost: 'hand-lost',
   matchWon: 'match-won',

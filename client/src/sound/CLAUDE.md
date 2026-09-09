@@ -80,7 +80,7 @@ Warcraft/Blizzard patterns. "Source pack" is the actual Kenney itch.io
 pack the file matched by name in soundcn's assets mirror; five sounds
 (marked `Kenney (unmirrored)`) aren't present in that mirror by filename
 but are independently verified via soundcn's registry metadata (author,
-licence, category all clean). The `web` pack's 15 sounds are not vendored at
+licence, category all clean). The `web` pack's 16 sounds are not vendored at
 all: they are synthesised in this repo and carry `author: "Open Table"`,
 which is why the provenance test checks the author per pack rather than
 expecting Kenney everywhere.
@@ -95,13 +95,13 @@ expecting Kenney everywhere.
 | chip-lay-2 | call | felt | Kenney Casino Audio | CC0 |
 | chips-collide-1 | chipsCollect | felt | Kenney Casino Audio | CC0 |
 | notification-pop | yourTurn | felt | Kenney (unmirrored) | CC0 |
-| tick-001 | clockWarning | felt | Kenney Interface Sounds | CC0 |
+| tick-001 | clockWarning, tick | felt | Kenney Interface Sounds | CC0 |
 | success-chime | handWon | felt | Kenney (unmirrored) | CC0 |
 | drop-001 | handLost | felt | Kenney Interface Sounds | CC0 |
 | drop-004 | matchLost | felt | Kenney Interface Sounds | CC0 |
 | jingles-hit-01 | matchWon | felt | Kenney Music Jingles (Hit) | CC0 |
 | click-soft | chat, click | felt | Kenney (unmirrored) | CC0 |
-| click-8bit | deal, cardPlace, check, handLost, matchLost, chat, click | arcade | Kenney (unmirrored) | CC0 |
+| click-8bit | deal, cardPlace, check, tick, handLost, matchLost, chat, click | arcade | Kenney (unmirrored) | CC0 |
 | select-001 | bet | arcade | Kenney Interface Sounds | CC0 |
 | select-002 | call | arcade | Kenney Interface Sounds | CC0 |
 | select-003 | fold | arcade | Kenney Interface Sounds | CC0 |
@@ -120,7 +120,7 @@ expecting Kenney everywhere.
 | impact-glass-light-001 | check | glass | Kenney Impact Sounds | CC0 |
 | impact-glass-light-002 | chipsCollect | glass | Kenney Impact Sounds | CC0 |
 | impact-glass-light-003 | handLost | glass | Kenney Impact Sounds | CC0 |
-| impact-glass-light-004 | chat, click | glass | Kenney Impact Sounds | CC0 |
+| impact-glass-light-004 | tick, chat, click | glass | Kenney Impact Sounds | CC0 |
 | jingles-pizzi-00 | handWon | glass | Kenney Music Jingles (Pizzicato) | CC0 |
 | impact-bell-heavy-000 | matchWon | glass | Kenney Impact Sounds | CC0 |
 | jingles-steel-05 | matchLost | glass | Kenney Music Jingles (Steel) | CC0 |
@@ -133,6 +133,7 @@ expecting Kenney everywhere.
 | chips-collect | chipsCollect | web | Generated, client/scripts/sound-web.mjs | CC0 |
 | your-turn | yourTurn | web | Generated, client/scripts/sound-web.mjs | CC0 |
 | clock-warning | clockWarning | web | Generated, client/scripts/sound-web.mjs | CC0 |
+| tick | tick | web | Generated, client/scripts/sound-web.mjs | CC0 |
 | hand-won | handWon | web | Generated, client/scripts/sound-web.mjs | CC0 |
 | hand-lost | handLost | web | Generated, client/scripts/sound-web.mjs | CC0 |
 | match-won | matchWon | web | Generated, client/scripts/sound-web.mjs | CC0 |
@@ -145,7 +146,7 @@ expecting Kenney everywhere.
 `web` evokes early-2000s desktop and messenger audio, and every sound people
 remember from that era, the nudge, the door, the mail chime, the dial-up
 handshake, is a copyrighted recording. None of them may be copied, sampled or
-rebuilt note for note. So the pack contains no recording at all: fifteen
+rebuilt note for note. So the pack contains no recording at all: sixteen
 original sounds built from oscillators and filtered noise by
 `client/scripts/sound-web.mjs`, which anyone can rerun to get the same bytes
 back. That makes the whole pack CC0 with the repo as its author, and it makes
@@ -183,7 +184,7 @@ these three the moment a verified CC0 notification sound can be vendored.
 | felt | ~69 KB |
 | arcade | ~36 KB |
 | glass | ~72 KB |
-| web | ~169 KB |
+| web | ~173 KB |
 
 All under the 250 KB per-pack budget; `web` is the big one because uncompressed
 WAV costs about 59 KB of base64 per second of audio, and the script prints the
@@ -201,10 +202,20 @@ them itself, which is what keeps the module free of table knowledge:
    dealing (`'deal'`), each seat's own action landing (`'cardPlace'`,
    `'bet'`, `'call'`, `'check'`, `'fold'`), chips sweeping to the winner
    (`'chipsCollect'`), it becoming the local player's turn (`'yourTurn'`),
-   the action clock dropping under 5s (`'clockWarning'`), a hand ending
-   (`'handWon'`/`'handLost'`), and a match ending
-   (`'matchWon'`/`'matchLost'`). Use `'click'` for generic UI taps if
-   wanted.
+   the action clock dropping under 5s (`'clockWarning'`), each count of a
+   countdown (`'tick'`), a hand ending (`'handWon'`/`'handLost'`), and a
+   match ending (`'matchWon'`/`'matchLost'`). Use `'click'` for generic UI
+   taps if wanted.
+
+   **`tick` has two callers and one rule: a tick is a number changing.**
+   `../table/sounds.ts` plays it off `view.runout`, the count the server
+   sends before each street of an all-in run-out, keyed on the number so a
+   re-render cannot repeat one. `useCountdown` in `../table/dock.tsx` plays
+   it for the last three seconds of the hold before the next hand, because
+   that number is counted down by the client and there is no view to key
+   on. Putting it inside the hook rather than beside the view is what keeps
+   a practice table silent: a hand held for a person to deal on renders no
+   countdown, so it never ticks.
 3. **Settings section**: bind a toggle, a volume slider, and a pack
    picker to `useSoundSettings()` (`enabled`, `volume`, `pack`, `packs`,
    `setEnabled`, `setVolume`, `setPack`). Add a "Preview" button next to
