@@ -117,8 +117,36 @@ hands with a standard error, plus the decision latency. The ordering test does
 not include level 6: it thinks for a real fraction of a second per decision,
 which is a benchmark script and not a unit test.
 
-The ordering is proved, not asserted by hand. `levels.test.ts` plays a seeded
-round robin through the engine and reads chips won. It is worth knowing why it
+Where level 6 stands, measured 2026-09-09 on h with a 500ms budget of
+processor time (the live budget is 1500ms of wall clock, so these are a floor):
+
+| matchup | stack | hands | bb/100 |
+|---|---|---|---|
+| level 6 vs level 5 | 30bb | 480 | -9 ± 27 |
+| level 6 vs level 5 | 100bb | 320 | -6 ± 92 |
+| level 6 vs level 4 | 100bb | 400 | +176 ± 76 |
+| level 5 vs level 4 | 100bb | 400 | +205 ± 43 |
+
+**So level 6 is level 5's equal and clearly ahead of level 4, and the ordering
+6 > 5 is not demonstrated.** It is worth knowing how it got there, because the
+distance travelled is all range modelling and none of it is the solver: against
+level 5 at a hundred big blinds the first working version lost 455 bb/100, and
+fixing the population blend, then the bet size read, then tracking our own
+range by the strategy we actually played, then judging a hand against the
+opponent's range rather than our own, took it to 455, 143, 90, 57 and 6. Every
+one of those was a wrong range rather than a wrong solve.
+
+Latency at that budget, wall clock, on a box that was busy: p50 563ms, p95
+1410ms. At a 150ms budget it is p50 154ms, p95 205ms.
+
+Against Slumbot over its public API (`../../scripts/bench-slumbot.ts`), 400
+hands with the seats alternating: -20 bb/100 with a standard error of 104, and
+not one action rejected. Four hundred hands says nothing about a win rate and
+everything about whether the thing plays legal poker against a bot that was
+not built here.
+
+The ordering of 1 to 5 is proved, not asserted by hand. `levels.test.ts` plays
+a seeded round robin through the engine and reads chips won. It is worth knowing why it
 is shaped the way it is before changing its numbers:
 
 - **Short stacks (30bb, not the product's 100).** The biggest pot a hand can

@@ -21,9 +21,10 @@ runs unchanged on the server, in a script and in a browser worker.
   and the place is documented below. An unmodified solve loses badly to level 5,
   because equilibrium bluffs are made to keep a balanced opponent indifferent
   and none of this site's other bots is balanced.
-- **Not yet demonstrably better than level 5.** With every correction below it
-  is level with it and clear of level 4, which is not the same claim as beating
-  it. What is left to buy is written down at the bottom.
+- **Not yet demonstrably better than level 5.** Measured, it is level 5's equal
+  and clearly ahead of level 4, which is not the same claim as beating level 5.
+  The numbers are in `server/src/bots/CLAUDE.md` and what would buy the
+  difference is at the bottom of this file.
 
 ## The pieces
 
