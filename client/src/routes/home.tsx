@@ -26,7 +26,7 @@ import { arenaCardLine } from './arena-bits.ts';
 import { int } from '../ui/format.ts';
 import { useTitle } from '../ui/title.ts';
 import { Avatar } from '../ui/avatar.tsx';
-import { Flag } from '../ui/flag.tsx';
+import { Flag, FlagSlot } from '../ui/flag.tsx';
 import { LESSONS } from './learn/lessons.ts';
 import { readPuzzles } from '../puzzles/store.ts';
 import { RecentMatches, StatsStrip } from './feed.tsx';
@@ -805,6 +805,13 @@ function Leaderboard({ mode }: { mode: Mode }) {
                             size={24}
                             avatarV={avatarVersion(r.avatarV)}
                           />
+                          {/* Reserved, like the full board's: this is a column
+                              of names and a flag on some rows would leave the
+                              rest of them out of line. The board itself has
+                              had one since flags existed and this preview of
+                              it never did, which read as the flag failing to
+                              show rather than as a preview that omits it. */}
+                          <FlagSlot code={r.country} size={16} />
                           <Link to={`/u/${encodeURIComponent(r.name)}`}>{r.name}</Link>
                         </span>
                       ) : (
