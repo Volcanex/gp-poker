@@ -400,6 +400,10 @@ function TurnColumn({
     if (!wide || !canRaise) return undefined;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Enter' || sending || e.metaKey || e.ctrlKey || e.altKey) return;
+      /* The field owns its own Enter, and it is the same call: without this
+         the key runs the send twice on one press, once on the way out of the
+         field and once here. */
+      if (isTextEntry(e.target)) return;
       e.preventDefault();
       confirm();
     };
@@ -517,6 +521,10 @@ function SizeGrid({
             type="button"
             className="hb-size"
             data-blank={blank ? '' : undefined}
+            /* A blank box says nothing and cannot be pressed, so it is out of
+               the accessibility tree rather than in it as a button with no
+               name. Disabled, it is not focusable either. */
+            aria-hidden={blank ? true : undefined}
             disabled={sending || blank}
             aria-pressed={p.key === selected}
             data-on={p.key === selected ? '' : undefined}
