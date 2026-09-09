@@ -647,12 +647,17 @@ export function registerRoutes(app: FastifyInstance): void {
       },
     },
     async (request, reply) => {
+      // A mock table asks for pictures by made-up ids; Postgres would reject
+      // the cast with a 500, and no picture is a 404 whatever the id is.
+      if (!UUID_RE.test(request.params.id)) return err(reply, 404, 'No picture');
       const row = await getUserAvatar(request.params.id);
       if (!row) return err(reply, 404, 'No picture');
       return reply.type(row.avatarType).send(row.avatar);
     }
   );
 }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /* What /api/me answers, from the GET and from a PATCH alike, so the two can
    never disagree about a field one of them forgot. The flat peak, peakAt,

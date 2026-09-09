@@ -204,6 +204,11 @@ describe('profile pictures', () => {
     expect((await app.inject({ method: 'GET', url: `/api/avatars/${me.id}` })).statusCode).toBe(404);
   });
 
+  it('404s an id that is not a uuid rather than letting Postgres 500 it', async () => {
+    const got = await app.inject({ method: 'GET', url: '/api/avatars/u-opp?v=1' });
+    expect(got.statusCode).toBe(404);
+  });
+
   it('puts the version on the seat at the table', async () => {
     const a = await guest();
     const b = await guest();
