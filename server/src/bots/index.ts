@@ -40,10 +40,12 @@ import { generatePopulation, levelForIndex, type PopulationBot } from './populat
    always the exception and is never rated, because its whole point is to be
    a place to lose.
 
-   Every bot plays at one of the five levels (see BOT_LEVELS in the
-   protocol). The level is a property of the account, not of the match: a
-   level 2 bot is a level 2 bot in the rated queue as well, and its rating is
-   the honest consequence of that. */
+   Every bot plays at one of the levels in BOT_LEVELS, and what it plays is
+   the tier that level maps to. The level is a property of the account, not of
+   the match: a level 2 bot is a level 2 bot in the rated queue as well, and
+   its rating is the honest consequence of that. Nearly all of them cycle
+   through the five tiers that answer instantly; `THINKING_SEATS` in
+   `population-roster.ts` is the short list of indexes that do not. */
 
 // The original fifteen-bot roster's CamelCase names, kept only as the source
 // half of the one-time rename onto the population's realistic handles

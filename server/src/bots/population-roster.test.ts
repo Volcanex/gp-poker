@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { generatePopulation, isOnlineAt, levelForIndex, weeklySessions, type Session } from './population-roster.js';
+import {
+  generatePopulation,
+  isOnlineAt,
+  levelForIndex,
+  weeklySessions,
+  THINKING_SEATS,
+  type Session,
+} from './population-roster.js';
 import { seededRng } from '@opentable/identity';
 
 describe('generatePopulation', () => {
@@ -29,6 +36,36 @@ describe('generatePopulation', () => {
     }
     const bots = generatePopulation(20);
     expect(bots.map((b) => b.level)).toEqual(bots.map((b) => levelForIndex(b.index)));
+  });
+
+  /* The seats that think. Rare on purpose, at the end of the default
+     population so a smaller one has none, and index-keyed so that growing the
+     population cannot move them onto somebody else. */
+  it('gives a few late seats a tier that thinks, and moves nobody else', () => {
+    const thinking = Object.entries(THINKING_SEATS);
+    expect(thinking.length).toBeLessThanOrEqual(3);
+    expect(Object.values(THINKING_SEATS).filter((l) => l === 7)).toHaveLength(1);
+    for (const [index, level] of thinking) {
+      expect(levelForIndex(Number(index))).toBe(level);
+      expect(Number(index)).toBeGreaterThanOrEqual(100);
+    }
+    const bots = generatePopulation(120);
+    expect(bots.filter((b) => b.level >= 6)).toHaveLength(thinking.length);
+    // Every other seat is on the cycle it was on before they existed.
+    for (const bot of bots) {
+      if (bot.index in THINKING_SEATS) continue;
+      expect(bot.level).toBe(((bot.index % 5) + 1) as 1 | 2 | 3 | 4 | 5);
+    }
+  });
+
+  /* Names and schedules are drawn before the level is read, so which seats
+     think cannot move anybody's identity. */
+  it('leaves every identity where it was', () => {
+    const bots = generatePopulation(120);
+    for (const bot of bots) {
+      expect(bot.name.length).toBeGreaterThan(0);
+      expect(bot.schedule.length).toBeGreaterThan(0);
+    }
   });
 
   it('every bot has a country, a timezone and a persona', () => {

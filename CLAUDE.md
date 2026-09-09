@@ -121,13 +121,15 @@ files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
   `regular` plays the sharp tier everywhere except the river, which it solves
   exactly on a 400ms budget, and leans on measured reads of the particular
   opponent throughout; `solver` solves every postflop street on 1500ms. The
-  roster is 19, three each at the instant tiers and two each at the thinking
-  ones, generated from the same seed so the first eight names never moved. The
-  ordering of the instant tiers is proved by a seeded round robin through the
-  engine (`server/src/bots/levels.test.ts`), not asserted by hand; a thinking
-  tier's margin is measured by `server/scripts/bench-bots.ts`, because "beats
-  the tier below" is a number with an interval rather than a test that passes.
-  See `server/src/bots/CLAUDE.md` for why both are shaped the way they are.
+  population cycles the instant tiers by roster index; `THINKING_SEATS` gives
+  three of its hundred and twenty a tier that thinks (two regular, one solver),
+  so a ranked table sometimes seats a hard bot without the box paying for a
+  hundred of them. The ordering of the instant tiers is proved by a seeded
+  round robin through the engine (`server/src/bots/levels.test.ts`), not
+  asserted by hand; a thinking tier's margin is measured by
+  `server/scripts/bench-bots.ts`, because "beats the tier below" is a number
+  with an interval rather than a test that passes. See
+  `server/src/bots/CLAUDE.md` for why both are shaped the way they are.
 - Practice mode is a `queue` message carrying `bots: {level}`. It skips the
   human queue, builds the table on the spot from bots at that level and
   outwards, and is **always unrated** (`format.practice`, persisted like every

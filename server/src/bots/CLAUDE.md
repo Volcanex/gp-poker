@@ -6,15 +6,23 @@ decision function.
 ## A bot plays a tier, not a number
 
 `BotTier` and `LEVEL_TIER` live in the protocol. **Nothing in this directory
-branches on a level number**: `decide` dispatches on the tier, the roster
-derives which levels think from the tier, and the budget table is keyed by
-tier. That is what makes the coming renumbering a one-table edit rather than a
+branches on a level number**: `decide` dispatches on the tier, the
+budget table is keyed by tier, and `THINKING_SEATS` in `population-roster.ts`
+is the one place that says which roster indexes get one. That is what makes
+the coming renumbering an edit to `LEVEL_TIER` and three numbers rather than a
 search through five files for integer comparisons.
+
+Not to be confused with `ActivityTier` in `population-roster.ts`, which is how
+much a bot plays (grinder, regular, casual) and has nothing to do with how well
+it plays. The word `regular` means different things in the two, which is worth
+knowing before grepping for it.
 
 ## Shape
 - `strategy.ts` - `decide(view, rng, level, persona)`. Pure: same `TableView`
   a browser gets in, one legal action out. No socket, no room, no database,
-  so every branch is reachable from a synthetic view.
+  so every branch is reachable from a synthetic view. The five instant tiers
+  only, and it maps a thinking tier onto `sharp` so a view that reaches it
+  cannot play the default tier by accident.
 - `persona.ts` - `Persona`: a handful of multipliers (`looseness`,
   `aggression`, `bluffChance`, `callCap`) nudging a level's baseline, and the
   seven named `Archetype`s (`nit`, `station`, `maniac`, `tag`, `lag`,
@@ -27,6 +35,14 @@ search through five files for integer comparisons.
   beyond the `Date` a caller passes in.
 - `population.ts` - the live scheduler: every 30s, decides which loaded bots
   are online right now and sends the ones that are to queue.
+- `solver.ts` - the two tiers that cannot be a pure function, because they
+  need state across a hand and a clock. `decideSolver(userId, view, rng,
+  level)` returns an action, or null when this process is already thinking as
+  hard as it is willing to.
+- `simulate.ts` - bots against each other through the engine, with no
+  database, room or socket. The level ordering test and
+  `../../scripts/bench-bots.ts` both run on it, so they measure the same thing
+  the same way.
 - `player.ts` - `BotPlayer`. Holds a level and a persona, thinks on a timer
   capped against the decision clock, answers through the ordinary client
   router, and says the odd line through the same path.
@@ -233,6 +249,17 @@ and history under a bigger population. Roster index `i` plays at
 `(i % 5) + 1` (`levelForIndex`, unchanged from the original roster), so
 levels cycle rather than sitting in blocks.
 
+**Except for three seats.** `THINKING_SEATS` puts indexes 117 and 118 on the
+regular tier and 119 on the solver tier, so a ranked six-max table sometimes
+seats a bot that thinks. Three out of a hundred and twenty, because a solver
+decision is a second of processor and this box has four cores that are not
+only ours: one solver seat, two regulars. They are keyed by index rather than
+derived so that they stay rare and countable, leave every other index on the
+cycle it has always been on, and survive the population growing. They sit at
+the end of the default population, so a smaller one (a test's fifteen) has
+none at all and pays nothing for them. A level is read after every other field
+is drawn, so which seats think moves nobody's name, country or schedule.
+
 Each bot also gets, from the same rng sequence: a realistic name and a
 country (`@opentable/identity`'s `generateRealisticIdentity`, see its
 `CLAUDE.md`), a timezone consistent with that country (`geography.ts`), a
@@ -276,7 +303,7 @@ call-size caps (`preflopProfile`'s `callCap`, `postflopStation`'s
 one divided rather than multiplied) are scaled by `persona.callCap`. See
 `persona.test.ts` for what actually moves.
 
-The seven archetypes are flavour on top of the five levels, not a sixth
+The seven archetypes are flavour on top of the instant tiers, not another
 dimension of skill: `ARCHETYPE_DESCRIPTIONS` is the one line each translates
 to, and `jitteredPersona` blurs each archetype's numbers by +/-15% per bot so
 two bots sharing an archetype and a level still play a little differently.
