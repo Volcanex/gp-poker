@@ -67,7 +67,11 @@
   align-items: center;
   gap: var(--sp-4);
   width: 100%;
-  max-width: 1100px;
+  /* The felt's own width, not a number chosen to look about right: the strip
+     centres in the same column the band does, and a max-width 20px narrower
+     than --felt-w was the whole of why the hero's cards and this row's first
+     label sat 10px apart instead of sharing one left edge. */
+  max-width: var(--felt-w, 1100px);
   min-width: 0;
   margin: 0 auto;
   padding: 0;
