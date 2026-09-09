@@ -1,14 +1,29 @@
 # bots
 
-The bot roster, one bot's message loop, and the pure decision function.
+The bot population, one bot's message loop, the persona layer, and the pure
+decision function.
 
 ## Shape
-- `strategy.ts` - `decide(view, rng, level)`. Pure: same `TableView` a browser
-  gets in, one legal action out. No socket, no room, no database, so every
-  branch is reachable from a synthetic view.
-- `player.ts` - `BotPlayer`. Holds a level, thinks on a timer capped against
-  the decision clock, and answers through the ordinary client router.
-- `index.ts` - the roster: names, levels, who is free, and the summary
+- `strategy.ts` - `decide(view, rng, level, persona)`. Pure: same `TableView`
+  a browser gets in, one legal action out. No socket, no room, no database,
+  so every branch is reachable from a synthetic view.
+- `persona.ts` - `Persona`: a handful of multipliers (`looseness`,
+  `aggression`, `bluffChance`, `callCap`) nudging a level's baseline, and the
+  seven named `Archetype`s (`nit`, `station`, `maniac`, `tag`, `lag`,
+  `tilter`, `tourist`) that `population-roster.ts` draws them from.
+- `geography.ts` - one representative IANA timezone per country a bot can be
+  assigned, and `localTimeAt`, the `Intl`-based local-hour/weekday reader
+  every schedule check runs through.
+- `population-roster.ts` - pure: who each bot is (`generatePopulation`) and
+  when it plays (`weeklySessions`, `isOnlineAt`). No database, no clock
+  beyond the `Date` a caller passes in.
+- `population.ts` - the live scheduler: every 30s, decides which loaded bots
+  are online right now and sends the ones that are to queue.
+- `player.ts` - `BotPlayer`. Holds a level and a persona, thinks on a timer
+  capped against the decision clock, answers through the ordinary client
+  router, and says the odd line through the same path.
+- `index.ts` - turns the population into database rows and live
+  `BotPlayer`s, and answers who is free, who is queued, and the summary
   `/api/bots` serves.
 
 ## Thinking time is a function of the format, not of the bot
@@ -60,36 +75,157 @@ Without all three the variance is around ±1500 chips and neighbouring levels
 swap places from one seed to the next. `handStrength` is memoised, which is
 what makes a sample this size run in about twelve seconds.
 
-## The roster
-Fifteen bots, three per level, generated from the fixed seed `opentable-bots`.
-The generator walks the same sequence every time, so **growing the roster only
-appends**: the eight bots that existed before levels kept their names, ratings
-and match histories. Roster index `i` plays at `(i % 5) + 1`, so levels cycle
-rather than sitting in blocks and the first accounts ever created are spread
-across all five.
+## The roster is the population
 
-`users.bot_level` is re-asserted from the roster on every boot (`ensureBots` →
-`ensureBotUser`), which keeps the code the source of truth for who plays how
-rather than whichever row was written first. `config.botCount` must stay at 15
-or a level ends up with nobody loaded and cannot be practised against.
+`config.botCount` (`POPULATION_SIZE`, default 120, 15 under vitest so a test
+file's boot does not pay to upsert 120 rows) named accounts, generated once
+from the fixed seed `opentable-population` by `population-roster.ts`'s
+`generatePopulation`. The generator walks the same sequence every time, so
+**growing the roster only appends**: bot 0 is always bot 0 no matter how large
+`count` grows, which is what lets the original fifteen keep their id, rating
+and history under a bigger population. Roster index `i` plays at
+`(i % 5) + 1` (`levelForIndex`, unchanged from the original roster), so
+levels cycle rather than sitting in blocks.
+
+Each bot also gets, from the same rng sequence: a realistic name and a
+country (`@opentable/identity`'s `generateRealisticIdentity`, see its
+`CLAUDE.md`), a timezone consistent with that country (`geography.ts`), a
+`Persona` (an `Archetype` plus jittered multipliers, `persona.ts`), a weekly
+hours budget in one of three tiers (5% grinders, 25% regulars, the rest
+casual, `WeeklyBudget`), preferred hours and days shaped into a fixed
+recurring weekly `schedule` (`weeklySessions`), a preferred mode and speed, a
+`ChatProfile` (see below), and a `createdOffsetDays` backdating its join date
+over the previous 18 months so profiles do not all say "joined today",
+skewed so a grinder is more likely to be an early account than a weekend
+tourist is.
+
+**Migrating the original fifteen.** Two migrations run at every boot,
+in order: `migrateBotRoster` (unchanged) renames any surviving pre-identity
+`bot-otter` style row onto the CamelCase roster, then
+`migrateBotNamesToRealistic` renames that CamelCase roster, positionally by
+index, onto the population's realistic handles. Both are idempotent locked
+migrations (`db.ts`'s `migrateLegacyBotNames` / `migrateBotNamesToRealistic`):
+a database with no rows left to rename does nothing.
+
+`users.bot_level` and `users.country` are re-asserted from the roster on
+every boot (`ensureBots` → `ensureBotUser`), which keeps the code the source
+of truth for who plays how rather than whichever row was written first.
+`created_at` is the one field that is **not** re-asserted: it is only ever
+set at insertion, the same way a real account's join date would never move.
+
+## Personas
+
+`strategy.ts`'s `decide` takes an optional fourth argument, defaulting to
+`NEUTRAL_PERSONA` (every multiplier exactly 1, which is why passing nothing
+is still byte-for-byte identical to the old three-argument call:
+`server/test/strategy.test.ts`'s level-4 pin does not know personas exist).
+A persona nudges four things, each at one chokepoint rather than scattered
+through the file: `aggressive()` scales every bet and raise's target size by
+`persona.aggression`; the preflop percentile is divided by `persona.looseness`
+before any threshold reads it (percentile 0 is the best hand, so dividing by
+a looseness above 1 makes more hands read as playable); a handful of named
+bluff-chance constants are scaled by `persona.bluffChance`; and the handful of
+call-size caps (`preflopProfile`'s `callCap`, `postflopStation`'s
+`STATION_FOLD_POT_FRACTION`, `postflopSharp`'s `SHARP_CALL_MARGIN`, the last
+one divided rather than multiplied) are scaled by `persona.callCap`. See
+`persona.test.ts` for what actually moves.
+
+The seven archetypes are flavour on top of the five levels, not a sixth
+dimension of skill: `ARCHETYPE_DESCRIPTIONS` is the one line each translates
+to, and `jitteredPersona` blurs each archetype's numbers by +/-15% per bot so
+two bots sharing an archetype and a level still play a little differently.
+
+## Chat
+
+`ChatProfile` (`chattiness`, a `greeting`, a `farewell`) is drawn per bot by
+activity tier: grinders speak the most, casual bots almost never, and even a
+chatty bot rolls the chance fresh for the greeting and for the farewell, so
+having something configured is not the same as saying it every match.
+`BotPlayer` sends a greeting a few seconds after joining a found match and a
+farewell a moment after `end`, both through the same `dispatch` its own
+actions go through: the `chat` `ClientMsg`, exactly what a person's client
+would send. `match/room.ts`'s `deliverChat` no longer refuses a sender with
+`user.bot = true`; the sparing chance in `ChatProfile` is what keeps a table
+quiet rather than a blanket rejection at the room.
+
+## The population scheduler
+
+`population.ts` ticks every 30 seconds. For each loaded bot it asks
+`isOnlineAt(bot.schedule, bot.timezone, now)` (pure, from
+`population-roster.ts`), and:
+
+- **online, not busy, not already queued** → sends `{ t: 'queue', mode,
+  rated, speed }` through `sendBotMessage`, the same `dispatch` a socket
+  message drives. `rated` is `rankedUnlocked(userId) && Math.random() <
+  0.75`: a bot clears the same one-casual-match gate a human does before it
+  can play rated, which is also what makes the ladder's fallback path (below)
+  still exercise something real for a brand new population.
+- **online, already queued or busy** → left alone; a match in progress is
+  never interrupted, even if the bot's session has technically ended
+  (`isBotBusy` is checked before `isOnlineAt`).
+- **not online, still queued (not yet seated)** → sent `{ t: 'dequeue' }`,
+  the way a person would close the tab rather than let a stale search run.
+
+`config.populationMaxTables` is a soft cap on bot-only tables (`liveRooms()`
+filtered to every seat having a `levelOf`), checked before each new dispatch;
+existing tables past the cap are left to finish rather than torn down.
+`config.populationEnabled` (`POPULATION_ENABLED`, off under vitest like the
+ladder and the arena unless a test calls `configurePopulation({enabled:
+true})`) gates the whole scheduler; `populationTick` is the seam a test
+drives directly instead of waiting on the interval.
+
+**Bots now sit in the ordinary matchmaking queue, which they never did
+before.** Two things had to change for that to be safe:
+
+- `player.ts` answers a `{ t: 'ready', s: 'pending' }` prompt by accepting
+  after a short random delay. Bots used to reach a match only after a
+  human's ready check had already passed (pulled in afterwards by
+  `availableBots`), so nothing needed to answer one before.
+- `index.ts` tracks `isBotQueued` (a timestamped map, self-healing after
+  three minutes so a bot whose enqueue silently failed does not stay
+  unavailable forever) and `isFree`/`availableBots`/`availableBotsAtLevel`
+  all exclude a queued bot. Without this, a bot searching the ordinary queue
+  on its own could also be pulled into a practice table or the ladder and end
+  up seated at two tables at once.
 
 ## Availability
 `availableBots` fills the ordinary rated and casual queues, nearest in rating
 first, and is untouched by levels. `availableBotsAtLevel` fills a practice
 table: the level asked for first, then outwards a level at a time (L-1, L+1,
-L-2, ...). Three bots per level cannot seat a six-max table from one level, so
-**spreading is the normal case, not the fallback**. Both ask the room whether
-it is still `active` rather than whether it exists, because a finished room
-lingers for a minute.
+L-2, ...). Both exclude a bot that is busy in a live match or already
+searching the queue on its own (`isBotQueued`, above), and both ask the room
+whether it is still `active` rather than whether it exists, because a
+finished room lingers for a minute.
 
-Bots are excluded from the leaderboard but their rated matches move their
-ratings, which is what `/api/bots` reports. Practice matches never do.
+Bots are excluded from the leaderboard, from `/api/live`, from `/api/recent`
+and from the online/playing counts by default; `config.populationPublic`
+(`POPULATION_PUBLIC`, default on whenever there is a population at all) puts
+them on all four, because a population nobody can see is not what it is
+for. Off, every one of those behaves exactly as it did before the population
+existed: see `routes.ts`'s `isVisibleLive` and `getLeaderboard`'s
+`includeBots` argument. `/api/bots` always lists the whole roster regardless
+of the flag; it is the practice picker's own page, not a public-visibility
+surface.
 
-## The ladder
-`../ladder.ts` is the one sanctioned bot-only table. Bots play each other,
-rated, one match at a time, in the gaps when nobody is here, because without
-it every bot reads 1500 and the practice picker's per-level average says
-nothing at launch. The human queues still never seat a bot-only table.
+## Resetting the population
+
+`../../scripts/population-reset.sql` deletes every `users.bot = true` account
+and any match played entirely between them, clearing a bot's `matches.winner`
+pointer first where it won a mixed match against a human so the row can stay.
+Never run against the live database without checking with Gabriel first; see
+that file and `scripts/CLAUDE.md`. `users.bot` staying `true` forever
+(nothing ever flips it back) is what makes a reset possible at all: the
+population can always be told apart from anyone who has claimed a name.
+
+## The ladder: now the fallback
+
+`../ladder.ts` is unchanged in every way except when it runs.
+`server/src/index.ts` starts the population scheduler **or** the ladder,
+never both: the population already produces rated bot-vs-bot matches in
+public once it is on, which is everything the ladder existed for and more,
+so the ladder is what a box running with the population off (or with
+`POPULATION_SIZE=0`) falls back to instead. `config.ladderEnabled` and
+`LADDER_PAUSE_MS` are unchanged; so is every one of its own tests.
 
 - **Humans first.** A ladder match starts only when the queue is empty and no
   person is at a live table (`liveRooms()` plus `levelOf(id) === null`). One
@@ -110,8 +246,10 @@ nothing at launch. The human queues still never seat a bot-only table.
 - **Off under vitest** unless a test calls `configureLadder({enabled: true})`.
   `LADDER_ENABLED` and `LADDER_PAUSE_MS` are the knobs on the box.
 
-Ladder matches are excluded from `/api/live` (the existing "has a human seat"
-filter) and from `/api/recent` unless `?ladder=1`. `/api/bots` reports
+Ladder matches are excluded from `/api/live` and from `/api/recent` unless
+`?ladder=1`, **regardless of `POPULATION_PUBLIC`**: turning the population's
+own visibility on does not put the backstage ladder on display, since it
+exists to make ratings real rather than to be watched. `/api/bots` reports
 `ladderMatches` per bot beside the per-mode ratings.
 
 Proof that it does what it is for: `../../test/ladder.test.ts`'s skipped

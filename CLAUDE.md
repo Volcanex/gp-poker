@@ -117,14 +117,30 @@ files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
   outwards, and is **always unrated** (`format.practice`, persisted like every
   other format field). Casual and practice are both unrated, so only that flag
   tells them apart on a finished match.
-- The bot ladder (`server/src/ladder.ts`, `format.ladder`) is the one bot-only
-  table there is: bots play each other, rated, one match at a time, only while
-  nobody is queued or playing, so the levels spread out on their own and the
-  practice picker's per-level average is a number somebody earned instead of
-  fifteen bots reading 1500. Off under vitest, `LADDER_ENABLED` and
-  `LADDER_PAUSE_MS` on the box. Kept off `/api/live` and off `/api/recent`
-  (unless `?ladder=1`): nobody played them, but they are stored and replayable
-  like any other match.
+- The bot population (`config.botCount`/`POPULATION_SIZE`, default 120,
+  `server/src/bots/population.ts`) is a full roster of realistic-handled bots
+  with countries, timezones, personas and a weekly schedule
+  (`server/src/bots/population-roster.ts`), so the site reads as populated
+  for testing. A scheduled-online bot joins the ordinary rated or casual
+  queue through the exact dispatch path a socket message would, so it pairs
+  with a human or another bot through the one pairing algorithm this site
+  has — a human is never crowded out, since bot-fill timers and the ranked
+  gate are untouched. `config.populationPublic`/`POPULATION_PUBLIC` (on
+  whenever there is a population, off under vitest) is what puts the
+  population's own matches, counts and ratings on `/api/live`, `/api/recent`,
+  the leaderboard and profiles; off, the site behaves exactly as it did
+  before the population existed. `scripts/population-reset.sql` is the
+  documented, never-automatically-run way to wipe it back to nothing.
+- The bot ladder (`server/src/ladder.ts`, `format.ladder`) is the one
+  bot-only table there was before the population: bots play each other,
+  rated, one match at a time, only while nobody is queued or playing.
+  `server/src/index.ts` starts the population **or** the ladder, never both:
+  the population does everything the ladder did (and does it in public), so
+  the ladder is now the fallback for a box running with the population off.
+  Off under vitest either way, `LADDER_ENABLED` and `LADDER_PAUSE_MS` on the
+  box. Kept off `/api/live` and off `/api/recent` (unless `?ladder=1`)
+  regardless of `POPULATION_PUBLIC`: it exists to make ratings real, not to
+  be watched.
 - Play a friend is a link, not a queue (`challenges` table,
   `server/src/challenges.ts`, `/c/:id` on the client). A link is capped at five
   open per player and lives 24 hours; accepting it is what creates the match,
