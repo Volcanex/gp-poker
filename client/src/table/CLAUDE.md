@@ -139,11 +139,15 @@ right one. `--felt-w` is declared on `.match` (as well as on `.felt`) for exactl
 this, and `table.tsx` stamps `data-mode` on both.
 
 **The line stands off the divider.** `--hb-line-top` is 4 px of padding at the
-top of the band and it comes out of the gap under the line, so the band is the
-height it was and nothing under it moves. Flush against the band's own top
-border the words and the deal button were touching it, which is what the owner
-reported: a 22 px button centred in a 24 px line leaves one pixel, and one pixel
-from a hairline reads as nought.
+top of the band and it comes out of the gap under the line, so the two cancel,
+the band is the height it would be without either, and `--band-chrome` does not
+carry it. Flush against the band's own top border the words and the deal button
+were touching it, which is what the owner reported: one pixel from a hairline
+reads as nought. Since the line came down to 24 px the 22 px button is a pixel
+taller than the 20 px the line has left inside its own padding, so it overhangs
+into that 4 px and sits three pixels clear of the border. It is anchored out of
+the flow, so the overhang costs no layout; it is why the padding may not go
+below three.
 
 **One line says the decision.** `DecisionLine` is the band's top row: one
 sentence, the clock or the countdown at its right end, and the clock's bar as
