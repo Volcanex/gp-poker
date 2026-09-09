@@ -6,3 +6,4 @@ data/
 release/
 !packages/preflop/data/
 client/test-results/
+client/playwright.local.ts
