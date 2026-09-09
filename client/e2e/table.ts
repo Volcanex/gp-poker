@@ -388,6 +388,23 @@ export async function setTheme(page: Page, theme: 'room' | 'dark' | 'light') {
   }, theme);
 }
 
+/* Any other setting, in the same key and on the same terms as setTheme above:
+   `ot.prefs` is what the pre-paint script reads and what applyPrefs re-applies
+   on mount, so a setting stamped anywhere else is gone by the first render.
+   Whatever is already stored is kept, so a test can stamp a theme and a card
+   layout in either order. */
+export async function setPrefs(page: Page, patch: Record<string, unknown>) {
+  await page.addInitScript((p) => {
+    let prefs: Record<string, unknown> = {};
+    try {
+      prefs = JSON.parse(localStorage.getItem('ot.prefs') ?? '{}') ?? {};
+    } catch {
+      prefs = {};
+    }
+    localStorage.setItem('ot.prefs', JSON.stringify({ ...prefs, ...(p as object) }));
+  }, patch);
+}
+
 /* What cannot be pinned to a pixel: a clock that depletes, a countdown, a pot
    mid-count, and the dev caption under the mock. Everything else is compared. */
 export function masks(page: Page): Locator[] {

@@ -1,7 +1,9 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import type { Box } from './table.ts';
-import { boxes, markSettled, shiftSince, stubApi, watchLayoutShift } from './table.ts';
+import {
+  boxes, markSettled, masks, setPrefs, setTheme, shiftSince, stubApi, watchLayoutShift,
+} from './table.ts';
 
 /* The v2 band, which replaces the dock at every width. The footprint rule is
    the same rule the dock lives under and the reason this file exists: the band
@@ -572,4 +574,124 @@ test('the key legend moves into the band and out of the table grid', async ({ pa
   const col = (await page.locator('.hb-col').boundingBox())!;
   expect(legend.height, 'one line, not a column').toBeLessThan(20);
   expect(Math.round(legend.x), 'under the controls').toBe(Math.round(col.x));
+});
+
+/* ------------------------------------------------------- the hand's layout */
+
+/* **Three layouts and three sizes, and the pair of cards is the one thing on
+   this screen you have to be able to read.** Stacked is the default: one card
+   in front read whole, the other behind it out by a bit over a third so its
+   index shows and nothing else, which is how a player holds two cards. Side by
+   side is two whole cards, ajar is the fan that was here before.
+
+   A picture each, because what these settings change is geometry and a
+   geometry regression is a thing you see rather than a thing you assert. The
+   sizes are pictured stacked and the layouts at the default size: nine shots
+   would say the same as five. */
+const HANDS = [
+  { name: 'stacked-large', prefs: { cards: 'stacked', cardSize: 'large' } },
+  { name: 'side-large', prefs: { cards: 'side', cardSize: 'large' } },
+  { name: 'ajar-large', prefs: { cards: 'ajar', cardSize: 'large' } },
+  { name: 'stacked-regular', prefs: { cards: 'stacked', cardSize: 'regular' } },
+  { name: 'stacked-huge', prefs: { cards: 'stacked', cardSize: 'huge' } },
+];
+
+test.describe('hand layouts', () => {
+  /* Reduced motion, so a card still being dealt cannot decide a baseline. */
+  test.use({ reducedMotion: 'reduce' });
+
+  for (const { name: where, size } of SIZES) {
+    for (const hand of HANDS) {
+      test(`the ${hand.name} hand on ${where}`, async ({ page }) => {
+        await page.setViewportSize(size);
+        await stubApi(page);
+        await setTheme(page, 'dark');
+        await setPrefs(page, hand.prefs);
+        await page.goto('/m/mock?v2=1&step=9');
+        await waitForBand(page, 'turn');
+        await page.evaluate(() => document.fonts.ready);
+        await page.waitForTimeout(600);
+
+        await expect(page.locator('.hero-band')).toHaveScreenshot(
+          `${hand.name}-${where}.png`,
+          { mask: masks(page) },
+        );
+      });
+    }
+  }
+});
+
+/* The geometry the pictures above are of, asserted rather than looked at: a
+   card the setting asked for, a pair of cards whose box is the pair's real
+   bounds, and a band that is as tall as the hand inside it and no taller. The
+   sizes are the whole point of the setting, so they are named here: 80, 100
+   and 120 across, and a card is 1.4 times its own width tall. */
+const WANTED = { regular: 80, large: 100, huge: 120 };
+
+for (const size of ['regular', 'large', 'huge'] as const) {
+  test(`a ${size} card is the size it says under a mouse`, async ({ page }) => {
+    await page.setViewportSize(DESKTOP);
+    await stubApi(page);
+    await setPrefs(page, { cards: 'stacked', cardSize: size });
+    await page.goto('/m/mock?v2=1&step=9');
+    await waitForBand(page, 'turn');
+    await page.waitForTimeout(600);
+
+    const card = (await page.locator('.hb-card[data-i="0"] .pcard').boundingBox())!;
+    expect(Math.round(card.width), 'the card is the width the setting names')
+      .toBe(WANTED[size]);
+    expect(Math.round(card.height), 'and 1.4 times that tall')
+      .toBe(Math.round(WANTED[size] * 1.4));
+
+    /* The band is the hand's height plus its own chrome, so a bigger card is a
+       taller band and the felt above pays for it. Nothing else may. */
+    const box = (await page.locator('.hb-cards').boundingBox())!;
+    const band = (await page.locator('.hero-band').boundingBox())!;
+    expect(Math.round(box.height)).toBe(Math.round(WANTED[size] * 1.4));
+    expect(Math.round(band.height)).toBe(Math.round(WANTED[size] * 1.4 + 103));
+  });
+}
+
+/* **The card gives way to the controls, never the other way round.** A layout
+   that is wider per card takes a smaller card rather than reaching over the
+   raise button, which is what the old "below 380 the fan crosses it" rule was
+   for; the clamp does it at every width and for all three layouts. */
+for (const { name: where, size } of SIZES) {
+  for (const cards of ['stacked', 'side', 'ajar'] as const) {
+    test(`the ${cards} hand stays clear of the controls on ${where}`, async ({ page }) => {
+      await page.setViewportSize(size);
+      await stubApi(page);
+      await setPrefs(page, { cards, cardSize: 'huge' });
+      await page.goto('/m/mock?v2=1&step=9');
+      await waitForBand(page, 'turn');
+      await page.waitForTimeout(600);
+
+      const box = (await page.locator('.hb-cards').boundingBox())!;
+      const col = (await page.locator('.hb-col').boundingBox())!;
+      expect(box.x + box.width, 'the cards end before the controls start')
+        .toBeLessThanOrEqual(col.x);
+
+      /* And the tilted card does not cross the band's own top edge either. */
+      const band = (await page.locator('.hero-band').boundingBox())!;
+      expect(box.y).toBeGreaterThanOrEqual(band.y);
+      expect(box.y + box.height).toBeLessThanOrEqual(band.y + band.height);
+    });
+  }
+}
+
+/* Two overlapping cards are the same paper, so the one in front draws a seam
+   against the one behind. Side by side needs none: the gap is the layout. */
+test('the card in front is separated from the one behind it', async ({ page }) => {
+  await page.setViewportSize(DESKTOP);
+  await stubApi(page);
+  await page.goto('/m/mock?v2=1&step=9');
+  await waitForBand(page, 'turn');
+
+  const front = page.locator('.hb-card[data-i="1"]');
+  await expect(front).toHaveCSS('filter', /drop-shadow/);
+
+  await setPrefs(page, { cards: 'side' });
+  await page.goto('/m/mock?v2=1&step=9');
+  await waitForBand(page, 'turn');
+  await expect(page.locator('.hb-card[data-i="1"]')).toHaveCSS('filter', 'none');
 });
