@@ -12,6 +12,7 @@ file covers the flat files and the subsystems that live in exactly one of them.
 | `routes.ts` | all REST endpoints |
 | `matchmaking.ts` | the in-memory queues, their tick, the ranked gate and match creation |
 | `ready.ts` | the ready check: pending tables, who has accepted, and no-show cooldowns |
+| `walkouts.ts` | leaving a ranked match: the strike ladder, its decay and the ban every ranked door asks about |
 | `challenges.ts` | play a friend: a link instead of a queue |
 | `home-games.ts` | the six-max version of that link, as a lobby |
 | `arena.ts` | the hourly competitive event |
@@ -266,10 +267,12 @@ stranger.
 ## Walkouts and ranked bans
 
 `walkouts.ts` owns them, and is `ready.ts`'s opposite number in every way but
-one. A **walkout** is a ranked match ended early by the player it was ended
-for: `resign` from the table's leave control, or the heads-up forfeit the
-clock takes after three timeouts, which is also where a connection that never
-came back lands (`handleGraceExpiry` becomes a clock expiry). Casual and
+one. A **walkout** is a player taking themselves out of a ranked match
+before it was decided: `resign` from the table's leave control, or the
+heads-up forfeit the clock takes after three timeouts, which is also where a
+connection that never came back lands (`handleGraceExpiry` becomes a clock
+expiry). Three timeouts on a multiway table are a sit-out and not a walkout,
+because the player is still in the match. Casual and
 practice are never walkouts and a bot is never charged one.
 
 The one difference from the ready check is **where the state lives**. A
