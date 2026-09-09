@@ -52,6 +52,17 @@
 .stat .k { font-size: 12px; color: var(--text-secondary); }
 .stat .d { font-size: 12px; color: var(--text-secondary); }
 
+/* The six-max tab's label: a 6 with MAX running up its right side, own
+   request. `writing-mode` turns the word without a transform, which keeps
+   its baseline where a screen reader and the layout both expect it. */
+.mode-6max { display: inline-flex; align-items: center; gap: 3px; line-height: 1; }
+.mode-6max-suffix {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 9px;
+  letter-spacing: 0.02em;
+}
+
 /* ------------------------------------------------------------------ shell */
 
 #root { min-height: 100dvh; display: flex; flex-direction: column; }

@@ -225,6 +225,10 @@ main.page.home-page { max-width: 1180px; }
   letter-spacing: -0.01em;
 }
 .pb-who .muted { font-size: 12px; }
+/* Baseline-aligned against the 19px name and rating beside it, the mode text
+   sits noticeably high; centering just this item reads truer against the
+   row's own height. */
+.pb-mode { align-self: center; }
 /* Beside the name, not a display number of its own: the name is what a
    reader looks for first, and the rating is the second fact about it. */
 .pb-rating { font-size: 19px; font-weight: 500; letter-spacing: -0.01em; }
@@ -292,6 +296,7 @@ main.page.home-page { max-width: 1180px; }
 .side-card > .t > svg { color: var(--text-secondary); flex: none; }
 .side-card .muted { flex: 1; }
 .side-card b { color: var(--text-primary); font-weight: 500; }
+.side-card b.num-lg { font-size: 20px; }
 
 @media (max-width: 900px) {
   .home-top { grid-template-columns: 1fr; }

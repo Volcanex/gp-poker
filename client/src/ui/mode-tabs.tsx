@@ -22,6 +22,18 @@ export interface ModeTabsProps {
   label: string; // what this pair of tabs switches, for a screen reader
 }
 
+/* The six-max tab reads as a 6 with MAX running up its side, smaller and
+   turned on end rather than sitting next to it as a second word: the tab is
+   the one place this gets room to be a wordmark rather than short text. */
+function tabLabel(m: Mode): React.ReactNode {
+  if (m !== 'six-max') return MODE_NAME[m];
+  return (
+    <span className="mode-6max">
+      6<span className="mode-6max-suffix">MAX</span>
+    </span>
+  );
+}
+
 /* The mode switcher, which is `Segmented` with the modes in it. It used to
    hold its own copy of the tab wiring; there are two switchers on this site
    now and one copy of that wiring is enough, so the co-ownership rules with
@@ -29,7 +41,7 @@ export interface ModeTabsProps {
 export function ModeTabs({ mode, onPick, label }: ModeTabsProps) {
   return (
     <Segmented
-      options={MODES.map((m) => ({ value: m, label: MODE_NAME[m] }))}
+      options={MODES.map((m) => ({ value: m, label: tabLabel(m) }))}
       value={mode}
       onPick={onPick}
       label={label}

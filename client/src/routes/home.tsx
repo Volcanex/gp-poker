@@ -323,7 +323,7 @@ function PlayerBar({ me, mode }: { me: Me | null; mode: Mode }) {
             {r.provisional && <span className="badge badge-warn">Provisional</span>}
           </>
         )}
-        <span className="muted">{MODE_NAME[mode]}</span>
+        <span className="muted pb-mode">{MODE_NAME[mode]}</span>
       </div>
     </div>
   );
@@ -661,8 +661,7 @@ function PuzzlesCard() {
       <span className="t"><PuzzlePiece size={16} aria-hidden="true" />Puzzles</span>
       {totals.total > 0 ? (
         <span className="muted">
-          <b className="num">{Math.round((totals.right / totals.total) * 100)}%</b> right, over{' '}
-          <b className="num">{totals.total}</b> {totals.total === 1 ? 'puzzle' : 'puzzles'}
+          <b className="num num-lg">{totals.right}/{totals.total}</b> right
         </span>
       ) : (
         <span className="muted">Three kinds, all built from real hands played here.</span>
