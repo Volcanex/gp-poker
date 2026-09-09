@@ -19,7 +19,17 @@
    The practice hold was additive inside v5: `ClientMsg.next` and
    `TableView.hold` are both new and both optional, and a client that never
    sends `next` simply never un-holds a practice table beyond the safety
-   timeout, which is exactly the behaviour it had before either existed. */
+   timeout, which is exactly the behaviour it had before either existed.
+
+   The all-in run-out is additive inside v5 for the same reason: `TableView
+   .runout` and `format.runoutTickMs` are both new and both optional, and a
+   client that has never heard of either draws a board arriving a street at a
+   time with the hole cards already face up, which is what it drew before,
+   with no countdown over it. What changed underneath it is not a shape but a
+   meaning: on a run-out `street` and `board` say how much of it the table has
+   been shown rather than how much the engine has resolved, and `result`
+   arrives when the river does. Nothing reads those fields in a way that
+   change breaks. */
 
 export const PROTOCOL_VERSION = 5;
 
@@ -73,6 +83,12 @@ export interface MatchFormat {
   // Overrides HAND_HOLD_MS for this format. A ladder hand has no one
   // watching it, so it does not pause four seconds to be watched.
   holdMs?: number;
+  // Overrides RUNOUT_TICK_MS: how long one tick of an all-in run-out's
+  // countdown lasts. Zero turns the pacing off altogether and the whole board
+  // arrives at once, which is what a ladder table wants for the same reason
+  // it wants no hold, and what a test wants rather than sitting through nine
+  // real seconds of countdown.
+  runoutTickMs?: number;
   // Overrides PRACTICE_HOLD_TIMEOUT_MS: how long a practice table waits for
   // the human to send `next` before dealing on by itself. Only meaningful
   // with `practice: true`; a test shrinks it rather than actually waiting
@@ -363,6 +379,29 @@ export const HAND_HOLD_MS = 4_000;
    server sleeps this and the client counts it down, so both ask here. */
 export function holdFor(format: MatchFormat): number {
   return Math.min(format.holdMs ?? HAND_HOLD_MS, format.clockMs);
+}
+
+/* An all-in run-out: everybody still in the hand is all in, nobody has a
+   decision left, and the streets that remain are dealt on their own beats
+   with every live hand face up. Three ticks of a second each before the flop,
+   the turn and the river, which is long enough to read two hole cards
+   against a board and short enough that a table does not stall on a hand
+   nobody can act in.
+
+   One number, here, for the same reason HAND_HOLD_MS is: the server sleeps
+   it and the client prints the count it produces. The count itself is on the
+   wire (`TableView.runout`) rather than counted down twice. */
+export const RUNOUT_TICKS = 3;
+export const RUNOUT_TICK_MS = 1_000;
+
+/* The tick one format actually uses: its own `runoutTickMs` if it set one,
+   the shared default otherwise, and never long enough that one street's
+   countdown outlasts a whole decision. That ceiling is the same bargain
+   `holdFor` makes with `clockMs`: a table played on a 400 ms clock is a test
+   or a ladder, and neither should spend nine seconds watching a board it has
+   already dealt. Zero means no pacing at all. */
+export function runoutTickFor(format: MatchFormat): number {
+  return Math.min(format.runoutTickMs ?? RUNOUT_TICK_MS, Math.floor(format.clockMs / RUNOUT_TICKS));
 }
 
 /* A practice table does not deal on by itself the way `holdFor` above does:
@@ -895,6 +934,14 @@ export interface TableView {
      `next` rather than dealing on by itself. Additive and optional, absent
      everywhere else (a non-practice table, a spectator, mid-hand). */
   hold?: 'you';
+  /* The countdown to the next street of an all-in run-out: which street is
+     coming and how many ticks are left before it lands. Present on every
+     viewer's view, only while a run-out is being paced and only between the
+     streets, never on the beat one arrives. While it is here the hand is
+     decided but not shown: `street` and `board` say how much of the run-out
+     the table has seen, the live hands are already face up in `seats`, and
+     `result` is still null. Additive and optional. */
+  runout?: { next: Street; in: number };
 }
 
 export interface HandResult {
