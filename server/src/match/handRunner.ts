@@ -11,7 +11,9 @@ import {
   type HandState,
 } from '@opentable/engine';
 import { extractDecisions, handStats, summarise } from '@opentable/preflop';
-import { HAND_HOLD_MS, blindsAt, holdFor, levelAt, practiceHoldTimeoutFor } from '@opentable/protocol';
+import {
+  HAND_HOLD_MS, RUNOUT_TICKS, blindsAt, holdFor, levelAt, practiceHoldTimeoutFor, runoutTickFor,
+} from '@opentable/protocol';
 import type {
   ActionKind,
   Card,
@@ -21,6 +23,7 @@ import type {
   LegalActions,
   LoggedAction,
   SeatView,
+  Street,
   TableView,
 } from '@opentable/protocol';
 import { getRatingsForUsers, insertHand, updateHand, updateMatchHandsPlayed, type HandStudy, type MatchRow, type MatchSeat } from '../db.js';
@@ -33,6 +36,37 @@ import type { HandRunner, MatchOutcome, RoomClock } from './types.js';
 // copies of it drift. `holdFor` is the one that reads a format's own `holdMs`,
 // which is how a ladder hand runs without a four-second pause nobody watches.
 export { HAND_HOLD_MS };
+
+/* Which street a board of this many cards is, and how long the next one makes
+   it. The engine deals the board and never has to ask, but a paced run-out
+   shows less of it than the engine holds, so the view has to name the street
+   the table is actually looking at. */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function streetAt(boardLen: number): Street {
+  if (boardLen >= 5) return 'river';
+  if (boardLen === 4) return 'turn';
+  if (boardLen === 3) return 'flop';
+  return 'pre';
+}
+
+function nextBoardLen(boardLen: number): number {
+  return boardLen < 3 ? 3 : boardLen + 1;
+}
+
+/* A paced all-in run-out, held beside the resolved hand it is revealing.
+   `board` is how many cards the table has been shown, `stacks` the engine
+   seats' chips before the pot was paid, `ticks` the count still to run before
+   the next street, and `end` the showdown event to print when the river
+   finally lands. */
+interface Runout {
+  board: number;
+  stacks: number[];
+  ticks: number;
+  end: LastEvent;
+}
 
 export interface HandRunnerDeps {
   matchId: string;
@@ -91,6 +125,12 @@ export class EngineHandRunner implements HandRunner {
   private state!: HandState;
   private lastEvent: LastEvent | null = null;
   private matchOutcome: MatchOutcome | null = null;
+
+  /* An all-in run-out in progress. The engine resolved the whole hand the
+     moment the betting closed, so what is paced is the reveal, not the
+     dealing: this holds back the board, the paid stacks and the result until
+     each street has had its beat. Null on every ordinary hand. */
+  private runout: Runout | null = null;
 
   // Practice hold. `practice` and `humanSeat` are fixed for the life of the
   // match; `pendingNextHand` is non-null only while a hand's result is being
@@ -200,11 +240,16 @@ export class EngineHandRunner implements HandRunner {
     this.handStartStacks = [...this.stacks];
     this.state = createHand(config);
     this.lastEvent = { k: number === 1 ? 'deal' : 'newhand' };
+    this.closeDeadBetting();
 
     // Everyone left could already be all-in from the blinds alone (extreme
     // short stacks): the engine resolves straight to showdown inside
-    // createHand, with nothing for anyone to act on.
-    if (this.state.street === 'done') this.complete();
+    // createHand, with nothing for anyone to act on. That is a run-out like
+    // any other, paced from the deal, with no closing action to name.
+    if (this.state.street === 'done') {
+      this.openRunout(0, null);
+      this.complete();
+    }
   }
 
   onAction(userId: string, msg: Extract<ClientMsg, { t: 'act' }>): boolean {
@@ -230,10 +275,16 @@ export class EngineHandRunner implements HandRunner {
       return false;
     }
 
+    const before = this.state;
+    const shownBoard = before.board.length;
     this.stampLastAction(next);
-    this.lastEvent = this.classifyTransition(this.state, next, false);
+    const acted = this.plainEvent(next, false);
     this.state = next;
-    if (next.street === 'done') this.complete();
+    this.closeDeadBetting();
+    this.lastEvent = this.state.street === 'done' && this.openRunout(shownBoard, acted)
+      ? acted
+      : this.classifyTransition(before, this.state, false);
+    if (this.state.street === 'done') this.complete();
     return true;
   }
 
@@ -242,17 +293,110 @@ export class EngineHandRunner implements HandRunner {
     if (seat === null || this.state.street === 'done' || this.state.toAct !== seat) return;
     const leg = legal(this.state, seat);
     const action = leg.actions.includes('x') ? { a: 'x' as ActionKind } : { a: 'f' as ActionKind };
-    const next = apply(this.state, seat, action);
+    const before = this.state;
+    const shownBoard = before.board.length;
+    const next = apply(before, seat, action);
     this.stampLastAction(next, true);
-    this.lastEvent = this.classifyTransition(this.state, next, true);
+    const acted = this.plainEvent(next, true);
     this.state = next;
-    if (next.street === 'done') this.complete();
+    this.closeDeadBetting();
+    this.lastEvent = this.state.street === 'done' && this.openRunout(shownBoard, acted)
+      ? acted
+      : this.classifyTransition(before, this.state, true);
+    if (this.state.street === 'done') this.complete();
   }
 
   // The one place hand completion is kicked off from, so its failure has
-  // exactly one route out.
+  // exactly one route out. A paced run-out is revealed first: nothing is
+  // persisted, settled or paid until the table has been shown the river.
   private complete(): void {
-    this.completeHand().catch(this.onFail);
+    this.revealRunout()
+      .then(() => this.completeHand())
+      .catch(this.onFail);
+  }
+
+  /* ------------------------------------------------------------ run-out */
+
+  /* No decision is left that can change anything: everybody still in the hand
+     is all in, or all but one and that one has nobody left to bet against.
+     The engine still offers that lone player a check on every remaining
+     street, and a bet there is money it can only win back off itself (the pot
+     builder refunds it), so the runner takes the checks for them. A run-out
+     is dealt, not played, and it burns nobody's clock.
+
+     Taken here rather than in the engine on purpose: an engine that stopped
+     logging those checks could no longer replay the hands that logged them,
+     and there are hands in the database that did. */
+  private deadBetting(state: HandState): boolean {
+    if (state.street === 'done' || state.toAct === null) return false;
+    const live = state.seats.filter((s) => !s.folded);
+    if (live.length < 2) return false;
+    const canAct = live.filter((s) => !s.allin);
+    if (canAct.length > 1) return false;
+    // Still owing a call is a real decision: fold and the all-in seat takes
+    // the pot uncalled.
+    if (canAct.length === 1 && canAct[0].bet < state.currentBet) return false;
+    return true;
+  }
+
+  private closeDeadBetting(): void {
+    while (this.deadBetting(this.state)) {
+      const seat = this.state.toAct as number;
+      const next = apply(this.state, seat, { a: 'x' });
+      this.stampLastAction(next);
+      this.state = next;
+    }
+  }
+
+  /* Opens a paced reveal of an all-in run-out, and says whether one is now in
+     progress. There is nothing to pace when the pot was uncontested (nothing
+     was shown), when the betting closed on the river (nothing left to deal),
+     or when the format asks for no pacing at all, which is what a ladder
+     table nobody is watching asks for. */
+  private openRunout(shownBoard: number, closing: LastEvent | null): boolean {
+    const result = this.state.result;
+    if (!result || Object.keys(result.shown).length === 0) return false;
+    if (this.state.board.length <= shownBoard) return false;
+    if (runoutTickFor(this.match.format) <= 0) return false;
+
+    const paid = new Map<number, number>();
+    for (const a of result.awards) paid.set(a.seat, (paid.get(a.seat) ?? 0) + a.amount);
+    this.runout = {
+      board: shownBoard,
+      ticks: 0,
+      /* The showdown pays the pot into the winning stacks the moment it
+         resolves, so the stacks to show while the board is still coming are
+         the resolved ones with the award taken back off. */
+      stacks: this.state.seats.map((s, e) => s.stack - (paid.get(e) ?? 0)),
+      end: { k: 'showdown', ...(closing ? { seat: closing.seat, a: closing.a, v: closing.v } : {}) },
+    };
+    return true;
+  }
+
+  /* One street a beat, each behind a countdown of its own. Every tick is
+     broadcast rather than counted down twice, so the number on the felt and
+     the number the server is sleeping on are the same number. Resolves once
+     the river is on the table and the result has been sent. */
+  private async revealRunout(): Promise<void> {
+    const run = this.runout;
+    if (!run) return;
+    const tick = runoutTickFor(this.match.format);
+    const full = this.state.board.length;
+    while (run.board < full) {
+      for (let left = RUNOUT_TICKS; left >= 1; left--) {
+        run.ticks = left;
+        this.onChange();
+        await sleep(tick);
+      }
+      const from = run.board;
+      run.board = nextBoardLen(from);
+      run.ticks = 0;
+      this.lastEvent = { k: 'street', cards: this.state.board.slice(from, run.board) };
+      this.onChange();
+    }
+    this.lastEvent = run.end;
+    this.runout = null;
+    this.onChange();
   }
 
   // The human asking to deal the next hand rather than wait out the hold.
@@ -310,6 +454,14 @@ export class EngineHandRunner implements HandRunner {
     state.actions[idx] = { ...state.actions[idx], t, ...(timedOut ? { to: true } : {}) };
   }
 
+  // The action that just landed, as itself: what `last` says when nothing
+  // else happened, and what a paced run-out says about the action that closed
+  // the betting, since the streets it dealt are announced on their own beats.
+  private plainEvent(state: HandState, forcedTimeout: boolean): LastEvent {
+    const a = state.actions[state.actions.length - 1];
+    return { k: forcedTimeout ? 'timeout' : 'act', seat: this.tableSeat(a.s), a: a.a, v: a.v };
+  }
+
   private classifyTransition(prev: HandState, next: HandState, forcedTimeout: boolean): LastEvent {
     const lastAction = next.actions[next.actions.length - 1];
     const base = { seat: this.tableSeat(lastAction.s), a: lastAction.a, v: lastAction.v };
@@ -321,8 +473,7 @@ export class EngineHandRunner implements HandRunner {
     if (next.board.length > prev.board.length) {
       return { k: 'street', cards: next.board.slice(prev.board.length) };
     }
-    if (forcedTimeout) return { k: 'timeout', ...base };
-    return { k: 'act', ...base };
+    return this.plainEvent(next, forcedTimeout);
   }
 
   toActSeat(): number | null {
@@ -356,6 +507,14 @@ export class EngineHandRunner implements HandRunner {
 
   viewFor(userId: string | null, clock: RoomClock | null, connected: boolean[]): TableView | null {
     const state = this.state;
+    /* While a run-out is being paced the engine's hand is over and the
+       table's is not: the board, the street, the stacks and the result are
+       all held back to what has actually been shown. The hole cards are the
+       one thing that is not, and that is the point of the whole mechanism:
+       `visibleCards` reads `result.shown`, which is already set, so every
+       live hand is face up from the moment the betting closed and everyone
+       who folded stays hidden. */
+    const run = this.runout;
     const viewerTableSeat = userId !== null ? this.seatOf(userId) : null;
     const viewerEngineSeat = viewerTableSeat === null ? null : this.engineSeat(viewerTableSeat);
     const cardsPerSeat = visibleCards(state, viewerEngineSeat);
@@ -389,6 +548,7 @@ export class EngineHandRunner implements HandRunner {
         };
       }
       const s = state.seats[e];
+      const stack = run ? run.stacks[e] : s.stack;
       let lastForSeat: { a: ActionKind; v?: number } | null = null;
       for (let j = state.actions.length - 1; j >= 0; j--) {
         if (state.actions[j].s === e) {
@@ -398,7 +558,7 @@ export class EngineHandRunner implements HandRunner {
       }
       return {
         ...base,
-        stack: s.stack,
+        stack,
         bet: s.bet,
         cards: cardsPerSeat[e],
         folded: s.folded,
@@ -416,26 +576,33 @@ export class EngineHandRunner implements HandRunner {
     }
 
     const pot = state.seats.reduce((sum, s) => sum + s.committed, 0);
-    const pots = state.result
+    const pots = state.result && !run
       ? state.result.pots.map((p) => ({ amount: p.amount, seats: p.eligible.map((e) => this.tableSeat(e)) }))
       : [];
-    const tableResult = state.result ? this.toTableSeats(state.result) : null;
+    const tableResult = state.result && !run ? this.toTableSeats(state.result) : null;
     const result: HandResult | null = tableResult ? { awards: tableResult.awards, shown: tableResult.shown } : null;
 
     return {
       m: this.matchId,
       h: this.handNumber,
       n: state.seq,
-      street: state.street,
-      board: state.board,
+      street: run ? streetAt(run.board) : state.street,
+      board: run ? state.board.slice(0, run.board) : state.board,
       pot,
       pots,
       seats,
       you: viewerTableSeat,
       legal: legalActions,
-      clock,
+      /* No clock runs during a run-out. The room clears its own on the next
+         `rearmClock`, but the reveal's first beat is broadcast from inside
+         the action that closed the betting, before the room has got there,
+         and one frame of a live clock over a hand nobody can act in is a
+         frame that says the wrong thing. */
+      clock: run ? null : clock,
       seedHash: this.currentSeedHash,
-      seed: state.street === 'done' ? state.config.seed : null,
+      // Published when the hand completes, and a run-out has not completed
+      // yet however done the engine's copy of it is.
+      seed: state.street === 'done' && !run ? state.config.seed : null,
       format: this.match.format,
       blinds: { sb: state.config.sb, bb: state.config.bb },
       level: this.currentLevel,
@@ -443,6 +610,9 @@ export class EngineHandRunner implements HandRunner {
       last: this.lastEvent,
       result,
       ...(this.pendingNextHand !== null && viewerTableSeat === this.humanSeat ? { hold: 'you' as const } : {}),
+      ...(run && run.ticks > 0
+        ? { runout: { next: streetAt(nextBoardLen(run.board)), in: run.ticks } }
+        : {}),
     };
   }
 

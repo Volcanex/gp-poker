@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { replay, seedHash, type HandConfig } from '@opentable/engine';
-import { blindsAt, type MatchFormat, type MatchResult, type TableView } from '@opentable/protocol';
+import { blindsAt, type MatchFormat, type MatchResult, type SeatView, type TableView } from '@opentable/protocol';
 import {
   makeApp,
   mintGuestSession,
@@ -162,10 +162,17 @@ describe('a six-max match', () => {
         expect(row.study).toBeNull();
       }
 
-      // Nobody ever saw anyone else's hole cards in a live frame.
+      /* Nobody ever saw anyone else's hole cards while somebody was being
+         asked to act. Keyed on a seat acting rather than on the street,
+         because an all-in run-out turns every live hand over before the
+         board is finished (see `runout.test.ts`): a hand is hidden for as
+         long as anybody can still act on it, which is the rule that
+         matters. Not keyed on `clock`, which the room only clears after the
+         broadcast that carries a result, so it is stale on exactly the frame
+         a showdown arrives in. */
       frames.forEach((mine, viewer) => {
         for (const frame of mine) {
-          if (frame.t !== 'state' || frame.s.street === 'done') continue;
+          if (frame.t !== 'state' || !frame.s.seats.some((s: SeatView) => s.acting)) continue;
           const view: TableView = frame.s;
           for (const seat of view.seats) {
             if (seat.i === viewer) continue;

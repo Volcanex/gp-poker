@@ -236,6 +236,58 @@ me", not "a hand just ended": every other viewer (the bots, a spectator) sees
 the same held board with no `hold` key at all, since only the human can answer
 it.
 
+## The all-in run-out
+
+Once every player still in the hand is all in, nobody has a decision left and
+the hand is decided the instant the last chip goes in. The engine says so at
+once: `runOutAndShowdown` deals what is left of the board and resolves the
+showdown inside the same `apply`. What the table gets shown is paced instead,
+and the pacing lives entirely in the hand runner.
+
+**The engine is not touched, deliberately.** Two things follow from that. The
+hand row, the action log and the replay are identical to what they were, so
+nothing in the database had to be migrated and no stored hand replays
+differently. And the reveal is free: `visibleCards` already reads
+`state.result.shown`, which is already set, so every live hand is face up from
+the moment the betting closes and every seat that folded stays hidden, with no
+second view path to keep in step.
+
+What the runner holds back, in `viewFor`, for as long as `this.runout` is
+non-null:
+
+| Field | While a run-out is being shown |
+| --- | --- |
+| `board` | only the cards the table has been shown |
+| `street` | the street that board length is, so `pre` until the flop lands |
+| `seats[].stack` | the resolved stack with the award taken back off |
+| `result`, `pots`, `seed` | held until the river is on the table |
+| `clock` | always null, whatever the room's own clock still says |
+| `runout` | `{ next, in }` between the streets, absent on the beat one lands |
+
+`clock` is masked rather than left to the room because the reveal's first beat
+is broadcast from inside the action that closed the betting, before
+`MatchRoom.handleAct` has reached its own `rearmClock`. One frame of a live
+clock over a hand nobody can act in is a frame that says the wrong thing.
+
+`revealRunout` is the loop: `RUNOUT_TICKS` beats of `runoutTickFor(format)`
+before each remaining street, every one of them broadcast, then the street,
+then the next count, and finally the showdown event and the result. Only when
+it resolves does `completeHand` run, so nothing is persisted, paid or settled
+until the table has seen the river. `runoutTickFor` caps a tick at a third of
+the decision clock, the same bargain `holdFor` makes with it, and a tick of
+zero turns the pacing off altogether: that is what a ladder table asks for
+(nobody is watching it) and what `testFormat` asks for by default.
+
+**Dead betting is closed here too.** When one player still has chips behind
+and everybody else is all in, the engine keeps offering that player a check on
+every street, because betting alone is legal even though the pot builder just
+refunds it. `closeDeadBetting` takes those checks for them, which is what
+makes "all in bar one, with no further action possible" a run-out rather than
+three lonely decisions on a clock. It is done in the runner rather than in the
+engine for the reason above: an engine that stopped logging those checks could
+no longer replay the hands that logged them, and there are such hands in the
+database.
+
 ## Spectating
 
 A `join` for a match you have no seat in makes you a spectator. `MatchRoom` keeps

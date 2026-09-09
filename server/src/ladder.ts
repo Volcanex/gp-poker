@@ -23,10 +23,13 @@ import { getRoom, liveRooms } from './match/rooms.js';
    under a rating that was half computed. */
 
 // Bots do not need to be watched, so a ladder table runs on a short clock
-// and a short hold. They still think on their own timer, which is capped at
-// a quarter of the clock, so this is what sets their pace.
+// and a short hold, and does not pace an all-in run-out at all: the pacing
+// exists to be looked at and nobody is looking. They still think on their own
+// timer, which is capped at a quarter of the clock, so this is what sets
+// their pace.
 const LADDER_CLOCK_MS = 5_000;
 const LADDER_HOLD_MS = 1_000;
+const LADDER_RUNOUT_TICK_MS = 0;
 
 // One six-max for every four heads-up. Heads-up is where the rating signal
 // is cleanest and six-max is where a level has to hold up against five
@@ -52,7 +55,13 @@ export interface LadderOptions {
 }
 
 function defaultLadderFormat(mode: Mode): MatchFormat {
-  return { ...formatFor(mode, true), ladder: true, clockMs: LADDER_CLOCK_MS, holdMs: LADDER_HOLD_MS };
+  return {
+    ...formatFor(mode, true),
+    ladder: true,
+    clockMs: LADDER_CLOCK_MS,
+    holdMs: LADDER_HOLD_MS,
+    runoutTickMs: LADDER_RUNOUT_TICK_MS,
+  };
 }
 
 let enabled = config.ladderEnabled;
