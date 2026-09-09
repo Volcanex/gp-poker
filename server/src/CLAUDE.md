@@ -272,6 +272,19 @@ Challenge links and home games are **not** gated. Those are two people who
 have arranged a game, and the point of the gate is a first hand against a
 stranger.
 
+## A friend's table outranks a bot's
+
+`vacate.ts`: before a challenge link or a home game creates its match,
+everybody it seats is pulled out of the queue (`dequeue`) and out of any
+table where nobody else is a person (`MatchRoom.vacate`, a resign that
+charges no walkout, since no person is left waiting). Two people trying to
+meet at a table kept missing each other: one would be searching, or already
+dealt in against a bot by the queue's own fill, and the accept answered "in a
+match right now" until that table was over, by which time the other had
+started something too. A table with another person at it is still theirs to
+finish: the refusal names who, and the link keeps working.
+`challenge.test.ts` pins the pull for a practice table and a search.
+
 ## Walkouts and ranked bans
 
 `walkouts.ts` owns them, and is `ready.ts`'s opposite number in every way but

@@ -393,6 +393,39 @@ export class MatchRoom {
     this.broadcast();
   }
 
+  /* Whether anybody else at this table is a person. A table of bots is
+     nobody's to keep waiting, which is what lets a friend's link pull a
+     player out of one (`vacate`). */
+  otherHumans(userId: string): boolean {
+    return this.match.seats.some((s) => s.userId !== userId && !s.bot);
+  }
+
+  /* Leaving for a table a friend has opened: a resign in every respect but
+     one, there is no walkout to charge, because the only seats this leaves
+     waiting are bots'. Refused, and false, when another person is at the
+     table: their game is not the caller's to end. True when the seat has
+     been given up, whether the table ends with it (practice, heads-up) or
+     plays on without it (multiway, where the seat is placed last among those
+     still in, exactly as a resign is). */
+  vacate(userId: string): boolean {
+    if (!this.playerIds.includes(userId) || this.otherHumans(userId)) return false;
+    if (!this.hand || this.match.status !== 'playing') return true;
+    if (this.resigned.has(userId)) return true;
+    if (this.hand.isDone()) return true;
+    const placed = this.hand.currentPlaces()[userId] !== undefined;
+    if (placed && !this.practice) return true;
+    if (!placed && !this.match.format.practice && this.playerIds.length > 2) this.pinLeavingPlace(userId);
+    this.resigned.add(userId);
+    if (this.practice || this.playerIds.length === 2) {
+      this.finishOnLeave(userId).catch((err) => this.abandon(err));
+      return true;
+    }
+    this.satOut.add(userId);
+    this.rearmClock();
+    this.broadcast();
+    return true;
+  }
+
   /* Where somebody who is leaving a multiway table finishes: last among the
      seats that are still in and have not already left. Computed now rather
      than at the end, because "still in" is a fact about this moment and the

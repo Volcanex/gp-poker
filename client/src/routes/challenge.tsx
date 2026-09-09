@@ -167,17 +167,36 @@ export function Challenge() {
     );
   }
 
+  /* The creator's waiting room. The page keeps asking (above) and walks to
+     the table the moment the friend is in, so this is where a creator sits
+     rather than the home page's row, and it says so. */
   if (mine) {
     return (
       <Shell>
         <div className="mode-head">
-          <h1 className="t">This is your own link</h1>
+          <h1 className="t">Waiting for your friend</h1>
         </div>
         <span className="muted">
-          Send it to the friend you want to play. The match starts the moment they open it.
+          Send them this link. The match starts the moment they open it, and this page will take
+          you to the table.
         </span>
         <ShareLink url={`${location.origin}/c/${link.id}`} />
-        <span className="muted">Waiting for your friend. The link works for 24 hours.</span>
+        <div className="searching">
+          <span className="spinner" aria-hidden="true" />
+          <span className="muted">Waiting for your friend. The link works for 24 hours.</span>
+        </div>
+        <span className="tags">
+          <button
+            type="button"
+            className="btn btn-tertiary btn-sm"
+            onClick={() => {
+              api.cancelChallenge(id).catch(() => {});
+              nav('/');
+            }}
+          >
+            Cancel link
+          </button>
+        </span>
       </Shell>
     );
   }

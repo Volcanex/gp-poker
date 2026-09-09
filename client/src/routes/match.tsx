@@ -67,7 +67,7 @@ function scrollToHands() {
 /* ----------------------------------------------------------------- live */
 
 function LiveMatch({ id }: { id: string }) {
-  const { send, me, offline, conn, startQueue } = useSession();
+  const { send, me, offline, conn, startQueue, queue, clearFound } = useSession();
   const nav = useNavigate();
   const [view, setView] = useState<TableView | null>(null);
   /* Two different endings. `ended` is the match finishing while you are at the
@@ -201,6 +201,17 @@ function LiveMatch({ id }: { id: string }) {
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [comeBack]);
+
+  /* A table found while this one is on screen is a table the player asked
+     for somewhere else (a friend's link taken while they were dealt in
+     against a bot, a home game starting), and the server has already pulled
+     them out of this one. Walk there, the way the home page does. */
+  useEffect(() => {
+    if (queue.s !== 'found' || !queue.m || queue.m === id) return;
+    const m = queue.m;
+    clearFound();
+    nav(`/m/${m}`);
+  }, [queue.s, queue.m, id, nav, clearFound]);
 
   /* Leaving the game, which is not the same message as leaving the page: the
      unmount above sends `leave` on every route change and must never end a

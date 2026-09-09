@@ -667,7 +667,14 @@ function LinkWay({ kind, disabled }: { kind: LinkKind; disabled: boolean }) {
               </Link>
             </>
           ) : (
-            <span className="muted">Waiting for your friend. The link works for 24 hours.</span>
+            <>
+              <span className="muted">Waiting for your friend. The link works for 24 hours.</span>
+              {/* A page to wait on, rather than this row: it polls the link
+                  and walks to the table the moment the friend is in. */}
+              <Link className="btn btn-primary" to={`/c/${link.id}`}>
+                Wait for your friend
+              </Link>
+            </>
           )}
           <button type="button" className="btn btn-tertiary btn-sm" onClick={drop}>
             Cancel link

@@ -134,6 +134,44 @@ describe('challenge links', () => {
     bobWs.ws.close();
   });
 
+  it('pulls both players out of the queue and out of bot tables to seat them', async () => {
+    const alice = await guest();
+    const bob = await guest();
+    const aliceWs = await connectWs(wsUrl, alice.token);
+    const bobWs = await connectWs(wsUrl, bob.token);
+    await aliceWs.messages.wait((m) => m.t === 'hi');
+    await bobWs.messages.wait((m) => m.t === 'hi');
+
+    // Alice is dealt in against a bot; Bob is searching. Both are the things
+    // a person does while waiting for a friend to turn up.
+    aliceWs.ws.send(JSON.stringify({ t: 'queue', mode: 'heads-up', bots: { level: 2 } }));
+    const practice = await aliceWs.messages.wait((m) => m.t === 'q' && m.s === 'found');
+    createdMatchIds.push(practice.m as string);
+    bobWs.ws.send(JSON.stringify({ t: 'queue', mode: 'heads-up', rated: false }));
+    await bobWs.messages.wait((m) => m.t === 'q' && m.s === 'searching');
+
+    const { id } = (await create(alice, { rated: false })).json();
+    const res = await accept(bob, id);
+    expect(res.statusCode, res.body).toBe(200);
+    const { matchId } = res.json() as { matchId: string };
+    createdMatchIds.push(matchId);
+
+    await bobWs.messages.wait((m) => m.t === 'q' && m.s === 'left');
+    await Promise.all([
+      aliceWs.messages.wait((m) => m.t === 'q' && m.s === 'found' && m.m === matchId),
+      bobWs.messages.wait((m) => m.t === 'q' && m.s === 'found' && m.m === matchId),
+    ]);
+    const old = await getMatchById(practice.m as string);
+    expect(old!.status).not.toBe('playing');
+    // No walkout for leaving a bot: that table had nobody to keep waiting.
+    const me = (await app.inject({ method: 'GET', url: '/api/me', headers: auth(alice) })).json();
+    expect(me.walkoutStrikes ?? 0).toBe(0);
+    expect(me.playing).toBe(matchId);
+
+    aliceWs.ws.close();
+    bobWs.ws.close();
+  });
+
   it('refuses a second accept once the link is spent', async () => {
     const alice = await guest();
     const bob = await guest();

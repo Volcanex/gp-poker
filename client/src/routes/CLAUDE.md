@@ -164,6 +164,17 @@ instead: the host holds a seat like everybody else and says when it starts, and
 everyone seated is pushed a `lobby` message on every change so the page fills in
 without polling. A page whose socket is not open asks again every five seconds.
 
+**The creator has a room to wait in.** `/c/:id` for its own creator is a
+waiting room (the link, a spinner, cancel) rather than a notice, and the home
+page's "Link waiting" row offers it as "Wait for your friend": the row was
+where a creator sat before, on a page with everything else on it, and the two
+people never seemed to be at the door at the same time. The server pulls both
+out of the queue and out of bot tables when the link is taken
+(`server/src/CLAUDE.md`, "A friend's table outranks a bot's"), and the match
+page walks to the new table on a `q found` for a match that is not the one it
+is showing, so a creator dealt in against a bot while they waited still lands
+at the friend's table.
+
 **The creator of a challenge is not left to the push.** The thing a creator
 does after making a link is leave the tab to send it, and a phone drops the
 socket while they are away, so the `q found` that answers the accept reaches

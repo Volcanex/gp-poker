@@ -281,7 +281,10 @@ main.page.home-page { max-width: 1180px; }
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
 }
-.way-body .btn { width: 100%; }
+/* Every control in a way's body runs the full width, except the copy button
+   beside the link's address: full width it squeezed the address to nothing,
+   which read as an empty button standing in front of "Copy link". */
+.way-body .btn:not(.copy-btn) { width: 100%; }
 
 /* The three practice presets sit in a row, sharing it evenly, with the link
    to the setup page the same height and taking whatever is left over. */

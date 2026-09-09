@@ -12,7 +12,7 @@ import {
   type ChallengeRow,
 } from './db.js';
 import { createMatchForPlayers, matchFormat, randomMatchId } from './matchmaking.js';
-import { roomForPlayer } from './match/rooms.js';
+import { vacateFor } from './vacate.js';
 import { rankedBanMessage, rankedBanUntil } from './walkouts.js';
 import { toUserSummary } from './userView.js';
 import { isUniqueViolation } from './pgError.js';
@@ -127,19 +127,11 @@ export async function acceptChallenge(
   if (state === 'cancelled') return { ok: false, status: 409, error: 'This challenge was cancelled' };
   if (state === 'expired') return { ok: false, status: 410, error: 'This link has expired' };
 
-  // A person can only be at one table at a time, and a link that seated
-  // somebody twice would abandon the match they are already playing.
-  if (roomForPlayer(userId)) {
-    return { ok: false, status: 409, error: 'You are already in a match. Finish it before starting another.' };
-  }
-  if (roomForPlayer(row.creatorId)) {
-    const creator = await getUserById(row.creatorId);
-    return {
-      ok: false,
-      status: 409,
-      error: `${creator?.name ?? 'that player'} is in a match right now. The link still works once it is over.`,
-    };
-  }
+  // A person can only be at one table at a time. A table of bots, or a
+  // search still running, gives way to the friend (`vacate.ts`); a table
+  // with another person at it does not, and the refusal says whose it is.
+  const vacated = await vacateFor([userId, row.creatorId], userId);
+  if (!vacated.ok) return vacated;
 
   /* A rated link is a ranked door, so a walkout ban closes it. Both seats
      are asked, not only the person clicking: a banned player who sent the

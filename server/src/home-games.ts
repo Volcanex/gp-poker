@@ -18,7 +18,7 @@ import {
 } from './db.js';
 import { createMatchForPlayers, matchFormat, randomMatchId } from './matchmaking.js';
 import { availableBotsAtLevel } from './bots/index.js';
-import { roomForPlayer } from './match/rooms.js';
+import { vacateFor } from './vacate.js';
 import { rankedBanUntil } from './walkouts.js';
 import { toUserSummary } from './userView.js';
 import { hub } from './ws/hub.js';
@@ -174,11 +174,11 @@ export async function joinHomeGame(id: string, userId: string): Promise<{ ok: tr
   const seats = await getHomeGameSeats(id);
   if (seats.some((s) => s.userId === userId)) return { ok: true }; // already sitting here
 
-  // A person can only be at one table at a time, and taking a seat here while
-  // a match is running would abandon the one they are playing.
-  if (roomForPlayer(userId)?.active) {
-    return { ok: false, status: 409, error: 'You are already in a match. Finish it before joining a table.' };
-  }
+  // A person can only be at one table at a time. A table of bots or a search
+  // gives way to this one (`vacate.ts`); a table with another person at it
+  // is theirs to finish first.
+  const vacated = await vacateFor([userId], userId);
+  if (!vacated.ok) return vacated;
 
   const seated = await insertHomeGameSeat(id, userId, homeGameSeats());
   if (!seated) return { ok: false, status: 409, error: FULL };
@@ -233,14 +233,11 @@ export async function startHomeGame(id: string, userId: string): Promise<HomeGam
   const humans = seats.map((s) => s.userId);
   if (humans.length === 0) return { ok: false, status: 409, error: 'There is nobody at this table' };
 
-  // Somebody who wandered off to another table cannot be dealt into this one.
-  // The link keeps working, so the answer is to wait rather than to lose them.
-  for (const seat of seats) {
-    if (roomForPlayer(seat.userId)?.active) {
-      const who = seat.userId === userId ? 'You are' : `${seat.name} is`;
-      return { ok: false, status: 409, error: `${who} in a match right now. This table still works once it is over.` };
-    }
-  }
+  // Somebody who wandered off to a table with other people cannot be dealt
+  // into this one, and the answer is to wait rather than to lose them; a
+  // table of bots, or a search, gives way (`vacate.ts`).
+  const vacated = await vacateFor(humans, userId);
+  if (!vacated.ok) return vacated;
 
   const players = homeGameSeats();
   const needed = players - humans.length;
