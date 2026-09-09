@@ -132,6 +132,7 @@ export function registerRoutes(app: FastifyInstance): void {
       rating: Math.round(r.rating),
       rd: Math.round(r.rd),
       matches: r.matches,
+      wins: r.wins,
       peak: Math.round(r.peakRating),
       country: r.country,
     }));

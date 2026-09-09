@@ -811,5 +811,6 @@ const placeholder: LeaderboardRow[] = Array.from({ length: 5 }, (_, i) => ({
   rating: 0,
   rd: 0,
   matches: 0,
+  wins: 0,
   peak: 0,
 }));

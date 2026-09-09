@@ -69,6 +69,7 @@ export function Leaderboard() {
                   <th>Player</th>
                   <th className="r">Rating</th>
                   <th className="r">Matches</th>
+                  <th className="r">Wins</th>
                   <th className="r">Peak</th>
                 </tr>
               </thead>
@@ -108,6 +109,7 @@ export function Leaderboard() {
                         )}
                       </td>
                       <td className="r">{list ? r.matches : ''}</td>
+                      <td className="r">{list ? r.wins : ''}</td>
                       <td className="r">{list ? int(r.peak) : ''}</td>
                     </tr>
                   );
@@ -126,5 +128,6 @@ const PLACEHOLDER: LeaderboardRow[] = Array.from({ length: 8 }, (_, i) => ({
   rating: 0,
   rd: 0,
   matches: 0,
+  wins: 0,
   peak: 0,
 }));

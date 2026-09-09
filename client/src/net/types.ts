@@ -94,6 +94,7 @@ export interface LeaderboardRow {
   rating: number;
   rd: number;
   matches: number;
+  wins: number;
   peak: number;
   avatarV?: number;
   /* Null for a player with no flag, absent on a server that predates them.

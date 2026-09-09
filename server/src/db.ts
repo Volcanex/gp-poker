@@ -394,6 +394,18 @@ export async function ensureBotUser(
     update users set bot_level = ${level}
     where name_lower = ${name.toLowerCase()} and bot = true and bot_level is distinct from ${level}
   `;
+  // Backfills the fifteen bots the CamelCase-to-realistic rename (see
+  // `migrateBotNamesToRealistic`) carried a null country into: that
+  // migration only ever touched name/name_lower, so ensureBots's own call
+  // here is the one place left that knows the roster's country for them.
+  // Never overwrites a country already set, in case a real user's row ever
+  // reached this function with bot backfilled onto it.
+  if (country) {
+    await sql`
+      update users set country = ${country}
+      where name_lower = ${name.toLowerCase()} and bot = true and country is null
+    `;
+  }
   const [row] = await sql<UserRow[]>`select ${USER_COLS} from users where name_lower = ${name.toLowerCase()}`;
   return row;
 }
@@ -503,6 +515,7 @@ export interface LeaderboardRow {
   rating: number;
   rd: number;
   matches: number;
+  wins: number;
   peakRating: number;
   avatarV: number;
   country: string | null;
@@ -515,7 +528,7 @@ export async function getLeaderboard(mode: Mode, limit = 100, includeBots = fals
   // 110 mirrors @opentable/rating's isProvisional threshold (see userView.ts);
   // it's duplicated here only because SQL can't call into that package.
   return sql<LeaderboardRow[]>`
-    select u.id, u.name, u.country, r.rating, r.rd, r.matches, r.peak_rating, u.avatar_v
+    select u.id, u.name, u.country, r.rating, r.rd, r.matches, r.wins, r.peak_rating, u.avatar_v
     from ratings r
     join users u on u.id = r.user_id
     where r.mode = ${mode} and r.rd <= 110 ${includeBots ? sql`` : sql`and u.bot = false`}
