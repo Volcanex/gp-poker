@@ -23,6 +23,10 @@ import { brainForLevel, mulberry32, playHand, seedFrom } from '../src/bots/simul
 const DEALS = Number(process.env.BOT_BENCH_DEALS ?? 200);
 const BUDGET_MS = Number(process.env.BOT_BENCH_BUDGET_MS ?? 250);
 const STACKS = (process.env.BOT_BENCH_STACKS ?? '30,100').split(',').map(Number);
+/* Measure the budget in processor time rather than wall clock. On by default,
+   because this box is shared and a wall clock budget under load measures the
+   load. Set BOT_BENCH_WALL_CLOCK=1 to see what a busy box does to the bot. */
+const BY_CPU_TIME = process.env.BOT_BENCH_WALL_CLOCK !== '1';
 // BOT_BENCH_PAIRS picks the matchups, as "6v5,6v4,5v4".
 const FORMAT = formatFor('heads-up', false);
 const SB = 1;
@@ -38,8 +42,8 @@ interface Result {
 async function matchup(a: BotLevel, b: BotLevel, stackBb: number, deals: number): Promise<Result> {
   const stack = stackBb * BB;
   const brains = new Map<BotLevel, ReturnType<typeof brainForLevel>>([
-    [a, brainForLevel(a, BUDGET_MS)],
-    [b, brainForLevel(b, BUDGET_MS)],
+    [a, brainForLevel(a, BUDGET_MS, BY_CPU_TIME)],
+    [b, brainForLevel(b, BUDGET_MS, BY_CPU_TIME)],
   ]);
   const rng = mulberry32(1000 * a + b + stackBb);
   const samples: number[] = [];
@@ -84,7 +88,9 @@ function percentile(values: number[], p: number): number {
 }
 
 async function main(): Promise<void> {
-  console.log(`deals per matchup ${DEALS}, solver budget ${BUDGET_MS}ms, blinds ${SB}/${BB}`);
+  console.log(
+    `deals per matchup ${DEALS}, solver budget ${BUDGET_MS}ms of ${BY_CPU_TIME ? 'processor time' : 'wall clock'}, blinds ${SB}/${BB}`
+  );
   console.log('matchup            stack   hands      bb/100      SE   p50ms   p95ms');
   const pairs: [BotLevel, BotLevel][] = (process.env.BOT_BENCH_PAIRS ?? '6v5,6v4,5v4')
     .split(',')

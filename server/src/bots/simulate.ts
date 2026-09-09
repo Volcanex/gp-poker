@@ -9,7 +9,7 @@
    stateless. */
 
 import { apply, createHand, legal, type HandState } from '@opentable/engine';
-import { runInline, SolverBot } from '@opentable/solver';
+import { runInline, SolverBot, type SolveRunner } from '@opentable/solver';
 import type { ActionKind, BotLevel, Card, MatchFormat, SeatView, TableView } from '@opentable/protocol';
 import { decide, type BotDecision, type Rng } from './strategy.js';
 import { SOLVER_LEVEL, budgetFor } from './solver.js';
@@ -98,16 +98,39 @@ export interface Brain {
   finish?(result: Pick<TableView, 'm' | 'h' | 'result'>): void;
 }
 
+/* Iterations until the process has burned `budgetMs` of processor, rather than
+   until that much wall clock has passed.
+
+   This box is shared. A benchmark that measures wall clock while three other
+   things are running measures the other three things: the solver gets a
+   quarter of the budget it was given and plays a quarter as well, and the
+   result looks like a worse bot rather than a busier machine. Live play is the
+   opposite way round, because there the decision clock is wall clock and being
+   busy really does mean thinking less, which is why this is the benchmark's
+   runner and not the server's. */
+export function cpuRunner(budgetMs: number): SolveRunner {
+  return async (prepared) => {
+    const start = process.cpuUsage();
+    for (;;) {
+      const used = process.cpuUsage(start);
+      const spent = (used.user + used.system) / 1000;
+      if (spent >= budgetMs) return;
+      prepared.cfr.run({ budgetMs: Math.min(25, budgetMs - spent), checkEvery: 1 });
+    }
+  };
+}
+
 /* A brain for one seat. Levels 1 to 5 are the pure function; level 6 gets its
    own SolverBot, because its whole point is the state it keeps across a hand.
    The solver runs inline here rather than in slices: a benchmark has no event
    loop to be polite to. */
-export function brainForLevel(level: BotLevel, budgetMs?: number): Brain {
+export function brainForLevel(level: BotLevel, budgetMs?: number, byCpuTime = false): Brain {
   if (level !== SOLVER_LEVEL) return (view, rng) => decide(view, rng, level);
   const bot = new SolverBot();
+  const runner = byCpuTime && budgetMs !== undefined ? cpuRunner(budgetMs) : runInline;
   const brain: Brain = async (view, rng) => {
     const budget = budgetMs ?? budgetFor(view.format.clockMs);
-    const solved = await bot.decide(view, rng, runInline, budget);
+    const solved = await bot.decide(view, rng, runner, budget);
     return solved ?? decide(view, rng, SOLVER_LEVEL);
   };
   brain.finish = (result) => bot.observeResult(result);

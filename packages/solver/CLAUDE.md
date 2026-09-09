@@ -40,7 +40,12 @@ runs unchanged on the server, in a script and in a browser worker.
   rather than seconds.
 - `tree.ts` - the public betting tree of one street. Check plus three bet sizes
   plus all-in when first in; fold, call, one raise size plus all-in when facing
-  one; two raises a street. A dozen to twenty decision nodes.
+  one; two raises a street. A dozen to twenty decision nodes. **All-in is only
+  offered on the flop and the turn while what is behind is at most four times
+  the pot**: deep on an early street the value of a stack-off comes almost
+  entirely from the depth limited leaf, which is the least trustworthy thing
+  here, and a solver that trusts it puts a hundred big blinds in with top pair.
+  On the river, where the solve is exact, the option is always there.
 - `cfr.ts` - CFR+ with linear averaging, one traversal per player per
   iteration, vectors from a bump allocator. `exploitability()` runs a best
   response for each player against the average strategy and is what the numbers
@@ -48,10 +53,12 @@ runs unchanged on the server, in a script and in a browser worker.
 - `solve.ts` - puts them together. The river is exact. The turn and the flop
   are **depth limited**: when the street closes without a fold the hand is
   worth its share of the pot at showdown, averaged over the cards still to
-  come, and no further betting is modelled. That leaf is then discounted,
-  because a medium hand does not realise its raw equity against further
-  betting and a solver that believes it does will get a hundred big blinds in
-  with top pair.
+  come, and no further betting is modelled. That leaf is then discounted (0.85
+  on the turn, 0.72 on the flop), because a medium hand does not realise its
+  raw equity against further betting: it pays off the top of a range and folds
+  to the rest. Discounting the leaf makes winning the pot now worth relatively
+  more than winning it at showdown, which is the shape of the error, and it
+  stays zero sum because both sides scale together.
 - `opponent.ts` - ranges through a hand. Preflop is a chart read of the line;
   postflop each of their actions leans the range by made hand strength on the
   board, sharpened by how big the wager was and sharpest for a raise, and
