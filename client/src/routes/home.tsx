@@ -129,7 +129,7 @@ export function Home() {
   const seats = formatFor(queue.mode, queue.rated, queue.speed).players;
   const searchingFor = queue.practice
     ? 'Dealing you in against the bots'
-    : `Searching for a ${SPEED_NAME[queue.speed].toLowerCase()} ${modeInline(queue.mode)} table`;
+    : `Searching for a ${SPEED_NAME[queue.speed]} ${modeInline(queue.mode)} table`;
 
   return (
     <main className="page wide stack home-page">
@@ -661,7 +661,7 @@ function PuzzlesCard() {
       <span className="t"><PuzzlePiece size={16} aria-hidden="true" />Puzzles</span>
       {totals.total > 0 ? (
         <span className="muted">
-          <b className="num num-lg">{totals.right}/{totals.total}</b> right
+          <b className="num num-lg">{totals.right}/{totals.total}</b>
         </span>
       ) : (
         <span className="muted">Three kinds, all built from real hands played here.</span>

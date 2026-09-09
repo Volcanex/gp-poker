@@ -74,7 +74,7 @@
 .feed-players .beat { color: var(--text-secondary); font-size: 12px; }
 /* The comma belongs to the name before it, not to the gap after it. */
 .feed-players .punct { color: var(--text-secondary); margin-left: -4px; }
-.feed-players .name { display: inline-flex; align-items: baseline; gap: 4px; }
+.feed-players .name { display: inline-flex; align-items: center; gap: 4px; }
 .feed-players .delta { font-size: 12px; font-variant-numeric: tabular-nums; }
 .feed-players .bot-tag {
   font-size: 11px;
@@ -296,7 +296,7 @@ main.page.home-page { max-width: 1180px; }
 .side-card > .t > svg { color: var(--text-secondary); flex: none; }
 .side-card .muted { flex: 1; }
 .side-card b { color: var(--text-primary); font-weight: 500; }
-.side-card b.num-lg { font-size: 20px; }
+.side-card b.num-lg { font-size: 28px; }
 
 @media (max-width: 900px) {
   .home-top { grid-template-columns: 1fr; }
