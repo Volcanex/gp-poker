@@ -72,7 +72,7 @@ subgame in front of it and runs CFR+ on it. `@opentable/solver` holds all of
 that; `packages/solver/CLAUDE.md` has the sizes, the budgets and what the solve
 is and is not.
 
-Three things about it belong here rather than there.
+A few things about it belong here rather than there.
 
 **It runs on the main thread, in slices, and not in a worker.** A worker was
 the plan. The server ships as one esbuild bundle (`server/build.mjs`) because
@@ -98,15 +98,15 @@ so it gets 250ms and a slightly worse bot.
 **It is not multiway.** The solver is heads-up. A six-max hand gets level 5
 until it is heads-up postflop, at which point it is solved like any other.
 
-**It deviates from the solve in exactly one place**, and that place is why it
-beats the levels below it rather than drawing with them. An equilibrium bluffs
-to make the opponent indifferent; every level below this one calls a bet down
-to about a quarter of the pot in equity, so those bluffs are pure donations.
-Level 6 measures how often an opponent has actually folded to its bets and cuts
-the bottom of its own betting range in proportion to how far short of the price
-that is. Seeing a fold at all needs plumbing: a fold ends the hand, so the bot
-is told when a hand finishes (`observeSolverResult`) and counts a bet nobody
-answered, unless somebody showed a hand.
+**It deviates from the solve in one place**, and without that deviation it
+loses. An equilibrium bluffs to make the opponent indifferent; every level below
+this one calls a bet down to about a quarter of the pot in equity, so those
+bluffs are pure donations. Level 6 measures how often an opponent has actually
+folded to its bets and cuts the bottom of its own betting range in proportion
+to how far short of the price that is. Seeing a fold at all needs plumbing: a
+fold ends the hand, so the bot is told when a hand finishes
+(`observeSolverResult`) and counts a bet nobody answered, unless somebody
+showed a hand.
 
 ## The benchmark
 

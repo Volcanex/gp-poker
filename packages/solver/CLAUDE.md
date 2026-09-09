@@ -18,9 +18,12 @@ runs unchanged on the server, in a script and in a browser worker.
   `@opentable/preflop`, read with mixed frequencies at the boundaries. Solving
   preflop properly means solving everything behind it.
 - **Not purely an equilibrium either.** It deviates in one place, deliberately,
-  and the place is documented below. An unmodified solve loses to level 5,
+  and the place is documented below. An unmodified solve loses badly to level 5,
   because equilibrium bluffs are made to keep a balanced opponent indifferent
   and none of this site's other bots is balanced.
+- **Not yet demonstrably better than level 5.** With every correction below it
+  is level with it and clear of level 4, which is not the same claim as beating
+  it. What is left to buy is written down at the bottom.
 
 ## The pieces
 
@@ -114,6 +117,25 @@ average strategy linearly.
 
 Anything added here has to keep that property or level 6 starts stalling
 websockets.
+
+## What is left to buy
+
+In the order the measurements say they are worth, if somebody picks this up:
+
+1. **Solve the river subgames underneath the turn** instead of valuing them by
+   equity. The depth limited leaf is the biggest remaining error and no amount
+   of extra iterations touches it. It costs about two orders of magnitude, so
+   it needs the tree pruned first.
+2. **Read the opponent's action off the solve** rather than off a strength
+   lean. Their response to our bet is a node in the tree we just solved, so
+   their strategy there is known; the lean is a hand tuned exponent standing in
+   for it. It was left alone because the levels here are nowhere near an
+   equilibrium and a hand tuned lean models them better, which stops being true
+   the moment a person sits down.
+3. **A wider bet size set on the flop.** Three sizes plus an all-in is thin,
+   and the flop is the street with the most money still behind it.
+4. **Preflop.** It is the heuristic charts, and the charts are the same ones
+   levels 4 and 5 read, so there is no edge in them at all.
 
 ## Rerunning the numbers
 
