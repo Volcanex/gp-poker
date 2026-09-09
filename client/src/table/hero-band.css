@@ -94,6 +94,24 @@
    turn is somebody else's, which is the same thing the bar does: yours is the
    accent, theirs is grey. The bar is drawn empty when no clock is running so
    the floor is there in every state. */
+/* The line starts where the hand ends. With the cards standing out of the
+   band's top they cross this row, and words or a bar running underneath them
+   would be words and a bar nobody can read. Its own gutter, not the band's
+   column gap, so the text lands on the controls' near edge. */
+.hero-band[data-seated] .hb-line {
+  padding-left: calc((var(--hero-card) * var(--card-span) + var(--band-gap)) * var(--card-poke-on));
+}
+.hero-band[data-seated] .hb-line > .turn-bar {
+  left: calc((var(--hero-card) * var(--card-span) + var(--band-gap)) * var(--card-poke-on));
+}
+:root[data-hand="left"] .hero-band[data-seated] .hb-line {
+  padding-left: 0;
+  padding-right: calc((var(--hero-card) * var(--card-span) + var(--band-gap)) * var(--card-poke-on));
+}
+:root[data-hand="left"] .hero-band[data-seated] .hb-line > .turn-bar {
+  left: 0;
+  right: calc((var(--hero-card) * var(--card-span) + var(--band-gap)) * var(--card-poke-on));
+}
 .hb-line {
   position: relative;
   display: flex; align-items: center; gap: var(--sp-3);
@@ -308,7 +326,14 @@
    than its own rule. */
 .hero-band .hb-card .pcard { --card-w: var(--hero-card); }
 
-.hb-cards { align-self: end; justify-self: start; }
+/* The poke comes out of the box's own height, not off its position: the pair
+   still rests on the meta line under it, and only its top goes anywhere. */
+.hb-cards {
+  align-self: end; justify-self: start;
+  margin-top: calc(-1 * var(--card-poke));
+  position: relative;
+  z-index: 3;
+}
 
 .hb-meta {
   display: grid;
@@ -890,8 +915,26 @@
      sizes over the send button, the two groups beside them and the legend's own
      row; under a mouse the hand always wants more, and under a thumb the column
      of three actions always does. */
+  /* **The hand is held over the edge of the table.** The band is built a
+     card-poke shorter than the hand actually is, and the cards give that back
+     by hanging out of the top of it: they cross the decision line and finish
+     on the felt, layered over both, the way two cards held at the rail sit
+     over the green rather than beside it. Everything below is unmoved,
+     because the band's own height is what shrank.
+
+     It is the hand that pays for it, so a hand too small to reach out of the
+     band simply does not: the controls are the taller column at that point
+     and the band is their height, which is the same bargain the max below has
+     always struck. */
+  --card-poke: 60px;
+  /* Nought or one: whether the hand is standing out of the band far enough to
+     cross the decision line, and therefore whether the line has to start clear
+     of it. On a phone the controls are always the taller column, so the cards
+     never reach the line and the line keeps its whole width. */
+  --card-poke-on: 1;
   --hb-hand-h: calc(
-    var(--hero-card) * var(--card-rise) + var(--hb-meta-gap) + var(--hb-meta-h)
+    var(--hero-card) * var(--card-rise) - var(--card-poke)
+    + var(--hb-meta-gap) + var(--hb-meta-h)
   );
   --hb-col-h: calc(var(--sizes-h) + var(--act-h) + 2 * var(--act-gap)
     + var(--hb-keys-h) + var(--keys-gap));
@@ -927,6 +970,10 @@
     --hero-card: min(var(--card-want), calc((100vw - 208px) / var(--card-span)));
     --hb-col-h: calc(var(--sizes-h) + var(--act-h)
       + calc(2 * var(--act-h) + var(--act-gap)) + 3 * var(--act-gap));
+    /* The thumb's column is the height here and the hand never reaches out of
+       it, so there is nothing to pay for and nothing to get out of the way of. */
+    --card-poke: 0px;
+    --card-poke-on: 0;
   }
 }
 
