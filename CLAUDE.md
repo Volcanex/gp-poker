@@ -180,6 +180,26 @@ files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
   bots whose strength the host picked is a rating anyone could dial in.
   `format.homeGame` marks the match for the feed, and everyone seated is
   pushed a `lobby` message so the page fills in without polling.
+- **Friends are claimed accounts on both sides** (`friendships`,
+  `server/src/friends.ts`, `/friends` on the client). A guest's name is
+  generated for a browser and handed out again, so a friendship with one names
+  somebody who may never be seen twice; a guest who presses a friend control is
+  offered the claim form instead, which costs them nothing since the rating and
+  the histories are already theirs. Bots are never friends. One row per
+  unordered pair with a unique index on it, so A asking B and B asking A are
+  one edge: an ask that crosses theirs is the accept. A decline, a cancel and
+  an unfriend all **delete** the row, because none of them is a state anybody
+  should be shown later and the person who asked can ask again. Caps are 200
+  friends and 20 requests waiting on an answer.
+- **Presence is the socket, and an invite is a link.** A friend is online while
+  `hub.isConnected` says so and playing while `roomForPlayer` does, the same
+  bargain the arena makes about who is pairable, with the offline push
+  debounced a few seconds so a reload does not flicker a list. Playing with a
+  friend makes an ordinary challenge link or home game and pushes it to them
+  (`friend_invites`), so there is exactly one path from two people to a table
+  and nothing has to sweep an invite: whether it is worth anything is the
+  link's own answer. A challenge link therefore carries a `speed` now, because
+  an invite promises the table the person sending it plays.
 - Arenas (`server/src/arena.ts`, `format.arena`) are the competitive loop: one
   half-hour heads-up event on every hour, created ahead of time by the
   scheduler and needing no admin. Join and you are paired again the moment your

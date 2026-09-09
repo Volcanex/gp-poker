@@ -3,6 +3,7 @@
 The furniture that is not the table: `shell.tsx` (the site's chrome),
 `auth.tsx` (claim, log in, account menu),
 `settings.tsx` with its pure half `prefs.ts`, `presence.tsx`,
+`friend-controls.tsx` and `friends-badge.tsx`,
 `ready-check.tsx`, `avatar.tsx`,
 `picture-dialog.tsx`, `flag.tsx` with `country-picker.tsx` and the generated
 `countries.ts`, `rating-graph.tsx`, `board-text.tsx`, `mode-tabs.tsx`,
@@ -36,7 +37,7 @@ moves both grids' entrance together.
 ## The shell
 
 `shell.tsx` is the site's persistent chrome and it is g-system's `.g-shell`:
-the seven sections in a sidebar on the left, the page beside it, and under
+the eight sections in a sidebar on the left, the page beside it, and under
 720px the same sidebar as the off-canvas sheet g ships, behind `.g-scrim` and
 opened by a `.g-nav-toggle` in the slim top bar. The sheet, the scrim, the
 slide and the hamburger's morph to an x are all g's; the icons are Phosphor at
@@ -62,6 +63,11 @@ end slot is `.top-game`, handed out by `useTopGameSlot` the same way
 `.top-acts` is, for the table's "Game" menu (`../table/CLAUDE.md`): the bar
 has no room for both a settings button and a game's own controls, and the
 felt has no row to spare for a header.
+
+**Two things sit in the bar for every route**: the playing pill and the
+friends badge, both of them a count of something waiting for you somewhere
+else, and both drawing nothing when there is nothing to say. See the friend
+controls below for what the badge counts and what it deliberately does not.
 
 **The top bar has a middle, for a page that has actions worth the extra
 prominence.** `.top-acts`, a `<span>` between the wordmark and the account
@@ -436,6 +442,41 @@ opens the table. Home still navigates by itself, as it always has, so the toast
 is deliberately suppressed there. The sound cue plays wherever you are, including
 home: `matchFound` is not a `SoundEvent`, so this reuses `yourTurn`, which is the
 packs' notification cue and the nearest honest thing to it.
+
+## The friend controls
+
+`friend-controls.tsx` is one component with four states (add, request sent,
+accept and decline, friends with a remove menu), used on the home card, the
+friends page, a profile, a match result and the list of people you have played.
+It is one file because all five ask the same question and a second copy of the
+answer is a second chance for two screens to disagree; `useStanding` reads it
+off the one list `../net/friends.tsx` holds rather than off whatever payload the
+page fetched.
+
+Three things about living with it:
+
+- **The remove menu is g's `.menu` popover**, on the same terms the account menu
+  uses it: the wrapper takes `useGInit`, the id comes from `useId` so several
+  rows can each have one, and the item calls `hidePopover()` itself so a
+  re-render cannot leave the popover open behind a button that has already
+  acted.
+- **`useClaimPrompt` renders nothing for somebody who has already claimed.**
+  Every control carries one, and a list of twenty rows would otherwise put
+  twenty copies of a form nobody can reach into the page, each with a name
+  field in it. The controls ask `useIsPlayer` before they ask, so the missing
+  dialog is never one somebody presses through.
+- **The prompt is rendered outside the add-by-name form.** `ClaimCard` is
+  itself a `<form>`, and a form inside a form is markup the browser reparents,
+  which is how the name field stopped being the only input in its own element.
+  That is also what `ClaimCard`'s `flat` is for: no card ground and no copy of
+  its own, because the dialog around it has already said what it is asking and
+  a card inside a dialog is a panel on a panel.
+
+`friends-badge.tsx` is the count in the top bar: requests waiting on an answer
+plus tables a friend has offered, and nothing else. An outgoing request is not
+in it, because there is nothing to do about one somebody else has yet to answer;
+a zero draws no badge rather than a nought; and it hides on `/friends`, where it
+would point at the page being read, which is the rule the playing pill follows.
 
 ## Promotion candidates for g-system
 

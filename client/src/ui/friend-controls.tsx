@@ -37,12 +37,19 @@ export function useStanding(userId: string | null): FriendStanding {
 
 /* The claim prompt, as a thing a control can raise. `ask` opens it and `node`
    is what has to be rendered somewhere; a dialog is in the top layer, so
-   where that is does not matter. */
+   where that is does not matter.
+
+   **Nothing is rendered for somebody who has already claimed.** Every friend
+   control carries one of these, and a list of twenty rows would otherwise
+   put twenty copies of a form nobody can reach into the page, with a name
+   field in each of them. The controls ask `useIsPlayer` before they ask, so
+   the missing dialog is never one somebody presses through. */
 export function useClaimPrompt(): { ask: () => void; node: ReactNode } {
   const ref = useRef<HTMLDialogElement>(null);
+  const isPlayer = useIsPlayer();
   return {
     ask: () => ref.current?.showModal(),
-    node: <ClaimPrompt ref={ref} />,
+    node: isPlayer ? null : <ClaimPrompt ref={ref} />,
   };
 }
 
@@ -220,28 +227,33 @@ export function AddFriendField({ label = 'Add a friend' }: { label?: string }) {
   };
 
   return (
-    <form className="add-friend" onSubmit={submit}>
-      <div className="field">
-        <label className="label" htmlFor={fieldId}>
-          {label}
-        </label>
-        <input
-          className="input"
-          id={fieldId}
-          value={name}
-          placeholder="Their name"
-          autoComplete="off"
-          onChange={(e) => setName(e.target.value)}
-          aria-invalid={error ? true : undefined}
-        />
-      </div>
-      <button type="submit" className="btn btn-secondary" disabled={busy || name.trim().length === 0}>
-        Send request
-      </button>
-      {error && <span className="error">{error}</span>}
-      {sent && !error && <span className="muted">Request sent to {sent}.</span>}
+    <>
+      <form className="add-friend" onSubmit={submit}>
+        <div className="field">
+          <label className="label" htmlFor={fieldId}>
+            {label}
+          </label>
+          <input
+            className="input"
+            id={fieldId}
+            value={name}
+            placeholder="Their name"
+            autoComplete="off"
+            onChange={(e) => setName(e.target.value)}
+            aria-invalid={error ? true : undefined}
+          />
+        </div>
+        <button type="submit" className="btn btn-secondary" disabled={busy || name.trim().length === 0}>
+          Send request
+        </button>
+        {error && <span className="error">{error}</span>}
+        {sent && !error && <span className="muted">Request sent to {sent}.</span>}
+      </form>
+      {/* Outside the form on purpose: the claim prompt is itself a form, and
+          a form inside a form is markup a browser reparents, which is how the
+          field above stopped being the only input in its own element. */}
       {claim.node}
-    </form>
+    </>
   );
 }
 

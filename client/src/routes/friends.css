@@ -22,13 +22,16 @@
 
 /* The name and what they are doing, stacked, because the second line is about
    the first and a row that put them side by side would read as two facts. */
-.fr-who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.fr-who { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow: hidden; }
 .fr-name {
   color: var(--text-primary); font-weight: 500; text-decoration: none;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .fr-name:hover { text-decoration: underline; }
-.fr-doing { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.fr-doing {
+  display: flex; align-items: center; gap: 6px; font-size: 12px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 
 /* The presence dot keeps its box whether or not it is lit, the same rule the
    flag slot follows: a friend arriving must not move the name beside it. */
@@ -55,8 +58,19 @@
    the profile controls are already gone (`compact`) and what is left gives up
    its side padding to the card's own. */
 .friends-card { gap: var(--sp-1); }
-.friends-card .friend-row { padding-inline: 0; gap: var(--sp-2); }
+.friends-card .friend-row {
+  padding-inline: 0; gap: var(--sp-2);
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+}
 .friends-card .t { margin-bottom: var(--sp-1); }
+
+/* A row with two answers on it (accept and decline) does not fit beside a
+   name in a card this narrow, so the answers take a line of their own,
+   aligned to the end. A row with one control keeps it inline, because one
+   button does fit and a second line for it would be a taller card saying the
+   same thing. */
+.fr-stacked { row-gap: var(--sp-2); }
+.fr-stacked > .friend-action { grid-column: 1 / -1; justify-self: end; }
 
 @media (max-width: 620px) {
   .friend-row { padding-inline: var(--sp-3); }

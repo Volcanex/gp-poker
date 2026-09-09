@@ -76,9 +76,15 @@ export function FriendsProvider({ children }: { children: ReactNode }) {
 
   /* The socket says something moved and this asks what. The message carries
      nothing on purpose (see `FriendEvent` in the protocol), so there is one
-     answer to read and it is the one the page opened with. */
+     answer to read and it is the one the page opened with.
+
+     `q found` is the other thing that moves this list, and it is not a friend
+     event: a table starting is the moment an invite's link is spent, for both
+     the person who took it and the person who sent it, and the badge in the
+     top bar would otherwise go on counting a table that has already dealt. */
   useServerMsg((m: ServerMsg) => {
     if (m.t === 'friend') refresh();
+    else if (m.t === 'q' && m.s === 'found') refresh();
   });
 
   const value = useMemo<FriendsState>(() => {
@@ -161,9 +167,10 @@ function InviteAlert({
        notification cue, which is what the match-found alert plays for the
        same reason: this is the nearest honest thing to it. */
     void sound.play('yourTurn');
+    /* No `kind`: g ships an icon for ok, danger and loading, and an invite is
+       none of the three. A plain toast is what the country picker's own is. */
     window.g?.toast({
       title: `${m.from.name} wants to play`,
-      kind: 'info',
       action: { label: 'Play', onClick: () => onOpen(m.url) },
     });
   });

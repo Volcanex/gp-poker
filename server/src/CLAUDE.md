@@ -15,6 +15,7 @@ file covers the flat files and the subsystems that live in exactly one of them.
 | `walkouts.ts` | leaving a ranked match: the strike ladder, its decay and the ban every ranked door asks about |
 | `challenges.ts` | play a friend: a link instead of a queue |
 | `home-games.ts` | the six-max version of that link, as a lobby |
+| `friends.ts` | the social graph: requests, presence and the invites that hand a friend a link |
 | `arena.ts` | the hourly competitive event |
 | `ladder.ts` | bots playing each other so their ratings spread out |
 | `chat.ts` | the pure half of table chat: `cleanChatText` and `ChatLimiter` |
@@ -514,6 +515,80 @@ quietly. `format.homeGame` marks it for the feed's badge.
 
 On both, `expired` is derived from `expires_at` at read time and never written,
 so neither table needs a sweeper.
+
+## Friends, presence and invites
+
+`friends.ts` owns all three, and three rules shape the file.
+
+**Both sides are claimed accounts.** A guest's name is generated for a browser
+and handed out again, so a friendship with one names somebody who may never be
+seen twice; bots are refused for the plainer reason. `refuseUnlessBothClaimed`
+is the one door and it asks in a fixed order: who you are first, so a guest
+pressing Add is told to claim rather than told something about the other
+player. The refusal for a guest carries the sentence the client prints beside
+the claim form. Nothing about this is a check constraint, because `users.guest`
+is the fact and the column could not read it.
+
+**One row per unordered pair.** `friendships` keeps `requester_id` and
+`addressee_id` so a pending row can say who asked, and a unique index on
+`(least, greatest)` makes A asking B and B asking A the same edge. That index
+is what makes the state machine small: an ask to somebody who has already asked
+you is the accept, and two people pressing Add on each other at the same moment
+is one row and one loser, which reads the winner's row and accepts it. A
+decline, a cancel and an unfriend are one statement (`deleteFriendship`),
+because none of them is a state to keep and the row's own status is the only
+thing that said which of the three it was. Caps: `MAX_FRIENDS` (200) and
+`MAX_OPEN_OUTGOING` (20), counted on the way in, and the friends cap is asked
+again at an accept.
+
+**Presence is the socket.** `hub.isConnected` is "online" and `roomForPlayer`
+is "playing", asked of the room rather than of a column because a finished room
+lingers a minute. `ws/router.ts` calls `friendsOnConnect` and
+`friendsOnDisconnect`; the connect side is immediate and the disconnect side
+waits `OFFLINE_DEBOUNCE_MS` (5s) and then asks the hub again, so a reload,
+which is a disconnect followed by a connect, pushes **nothing at all** rather
+than an offline and a correction. `announcedOnline` is what stops a second tab
+announcing a second arrival. It is process state like the ready check's, so a
+restart drops every pending push, which is right: a restart drops every socket
+with it. `configureFriends({offlineDebounceMs})` and `resetFriendPresence()`
+are the seams, and `tellFriends` swallows its own errors, because presence is
+background work on the same footing as an arena tick.
+
+**An invite is a link plus a name.** `friend_invites` is
+`(to_id, kind, link_id, from_id)` and carries no state about the game: a
+challenge invite is made by `createChallenge` and a home invite reuses the
+host's open lobby or opens one through `createHomeGame`, so every cap, every
+expiry and the whole accept flow are the ones the links already had. That is
+also why nothing sweeps the table: `invitesFor` reads each link's own
+`statusOf` and drops anything that is not open, and an invite whose link has
+gone reads as spent. `link_id` has no foreign key because it points at one of
+two tables, which is written at the table in `../db/schema.sql`. Unfriending
+deletes the invites between the two, since a table offered by somebody who is
+no longer a friend is not a table to still be offered.
+
+**Challenge links carry a speed now** (`challenges.speed`, null on every row
+written before it, which means the standard table it always was). The creator
+chooses it, not the accepter, because the link is the offer and `/c/:id` says
+what it will deal before anybody presses the button. `challengeSpeed` is what a
+body is read through, and an invite from a friends list passes the speed its
+sender plays at.
+
+Five routes, all through `requireUser` so a session exists, with the refusal
+made in `friends.ts`: `GET /api/friends` (the list, the requests both ways and
+the invites, with the origin passed in so each invite carries the whole url),
+`GET /api/friends/played` (the last twenty distinct human opponents, from
+`match_players`, with where you stand with each), `POST /api/friends/request`
+by name, `POST /api/friends/:userId/accept`, `DELETE /api/friends/:userId` and
+`POST /api/friends/:userId/invite`. Every mutation pushes `{t:'friend', kind}`
+to both parties and answers with nothing but ok: the page asks for the list
+again, so there is never a second shape of it to keep in step.
+
+**`MatchSeat.guest`** is the one thing outside this file that friends added. A
+seat records whether that player had claimed an account when the table was
+made, so a result panel can offer to add the person you just played without
+offering a name that might belong to a browser somebody has closed. Absent on
+every match stored before this, which is why the client reads it through
+`seatIsPlayer()` and treats absent as "not known".
 
 ## Arenas
 

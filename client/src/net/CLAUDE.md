@@ -2,8 +2,31 @@
 
 The wire. `types.ts` mirrors the REST payloads, `api.ts` is the fetch layer,
 `adapt.ts` reads the fields the server has not shipped yet, `socket.ts` is the
-single WebSocket, and `session.tsx` owns the session, the connection state, the
-queue and the match to return to.
+single WebSocket, `session.tsx` owns the session, the connection state, the
+queue and the match to return to, and `friends.tsx` owns the friends list.
+
+## The friends list
+
+`friends.tsx` holds one copy for the whole app, for the reason the ready check
+is session state: four things read it (the home card, the friends page, the top
+bar's badge and the controls on a profile and a result), and an invite has to
+reach whoever is looking at whatever they are looking at.
+
+**Refetched, never patched.** The server's `friend` message says only that
+something moved (see `FriendEvent` in the protocol), so this asks `/api/friends`
+again and there is one shape of the list. `q found` refetches too, and is the
+one push here that is not a friend event: a table starting is the moment an
+invite's link is spent, and the badge would otherwise go on counting a table
+that has already dealt. A link cancelled by its sender is the bound on that:
+the other side's list settles on its next visit rather than on a push.
+
+**A guest holds an empty list and asks for nothing.** Friends need a claimed
+account on both sides, so a fetch would be one refusal per page load.
+
+`InviteAlert` is the toast, mounted in the provider beside the list for the
+same reason `presence.tsx` is mounted in the app: it plays `yourTurn`, the
+packs' notification cue, exactly as the match-found alert does, and it is
+suppressed on the page the invite points at, which fills in by itself.
 
 ## Socket contract
 

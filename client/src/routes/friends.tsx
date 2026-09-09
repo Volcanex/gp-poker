@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { UsersThree } from '@phosphor-icons/react/dist/icons/UsersThree';
+import { Users } from '@phosphor-icons/react/dist/icons/Users';
 import { api } from '../net/api.ts';
 import { avatarSeed, avatarVersion } from '../net/adapt.ts';
 import { pathUnder, useFriends } from '../net/friends.tsx';
@@ -39,23 +39,35 @@ export function FriendsPage() {
 
   const friends = sortFriends(data?.friends ?? []);
 
+  const heading = (
+    <div className="stack" style={{ gap: 'var(--sp-3)' }}>
+      <h1 className="h1">Friends</h1>
+      <span className="muted">
+        Play the same people again. A friend has to have claimed their account, so there is a
+        name to look for rather than a guest who was here once.
+      </span>
+    </div>
+  );
+
+  if (!isPlayer) {
+    return (
+      <main className="page stack">
+        {heading}
+        <ClaimBlock />
+      </main>
+    );
+  }
+
   return (
     <main className="page stack">
-      <div className="stack" style={{ gap: 'var(--sp-3)' }}>
-        <h1 className="h1">Friends</h1>
-        <span className="muted">
-          Play the same people again. A friend has to have claimed their account, so there is a
-          name to look for rather than a guest who was here once.
-        </span>
-      </div>
+      {heading}
 
-      {!isPlayer ? (
-        <ClaimBlock />
-      ) : (
-        <div className="card">
-          <AddFriendField />
-        </div>
-      )}
+      {/* A guest is shown the one thing they can do about it and nothing
+          else: the list is empty by the rule the feature is built on, and
+          three empty sections under a claim prompt say nothing three times. */}
+      <div className="card">
+        <AddFriendField />
+      </div>
 
       {data && data.invites.length > 0 && (
         <section className="stack" style={{ gap: 'var(--sp-3)' }}>
@@ -220,7 +232,7 @@ function InviteRow({ invite }: { invite: FriendInvite }) {
       <span className="fr-who">
         <span className="fr-name">{invite.from.name}</span>
         <span className="fr-doing muted">
-          {invite.kind === 'home' ? 'Has a home game open' : 'Wants to play heads-up'}
+          {invite.kind === 'home' ? 'Has a table open' : 'Wants to play'}
         </span>
       </span>
       <Link className="btn btn-primary btn-sm" to={to}>
@@ -304,7 +316,9 @@ export function FriendsCard() {
   return (
     <div className="card side-card friends-card" data-enter-ready={loaded ? 'yes' : 'no'}>
       <span className="t">
-        <UsersThree size={16} aria-hidden="true" />
+        {/* The icon the sidebar gives the word, so the card and the nav item
+            read as one thing, the way every other teaser here does. */}
+        <Users size={16} aria-hidden="true" />
         Friends
       </span>
 
@@ -354,7 +368,7 @@ export function FriendsCard() {
    two controls that matter off the end. */
 function CardRequestRow({ request }: { request: FriendRequest }) {
   return (
-    <div className="friend-row">
+    <div className="friend-row fr-stacked">
       <Avatar
         seed={avatarSeed(request.id, request.name)}
         name={request.name}

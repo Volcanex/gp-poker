@@ -12,6 +12,7 @@ are `../tools/` and the puzzles are `../puzzles/`.
 | `/leaderboard` | top 100 (`leaderboard.tsx`) |
 | `/u/:name` | profile (`profile.tsx`) |
 | `/watch` | live tables, and the ones that just finished (`watch.tsx`) |
+| `/friends` | the list, the requests both ways, the tables friends have offered, an add-by-name field and the people you have played (`friends.tsx`) |
 | `/c/:id` | a friend's challenge link: who is challenging you, the format, one button that starts the match (`challenge.tsx`) |
 | `/g/:id` | a home game lobby: the chairs, the link to share, the host's start (`home-game.tsx`) |
 | `/m/:id` | live table while playing, spectator seat if you have none, result summary once finished (`match.tsx`) |
@@ -29,6 +30,10 @@ product name, so it is spelled in one place.
 
 `feed.tsx` is not a page. It is the live counts and the finished-match row, kept
 here because the home page and the watch page both draw it and neither owns it.
+`friends.tsx` is a page **and** the home page's `FriendsCard`, for the same
+reason: they are one feature drawn at two sizes, and the row is one component
+so the two cannot describe the same friend differently. `friend-bits.ts` is
+their pure half, the way `arena-bits.ts` is the arena's.
 
 ## The picker
 
@@ -85,6 +90,45 @@ into a select option is what made the old picker read as tacky.
 
 **No middle dot separators.** They are banned in this UI, so the counts strip
 and the site footer separate with space and the page carries none.
+
+## Friends
+
+`/friends` and the home card are both in `friends.tsx`, and the list they draw
+is held once for the whole app in `../net/friends.tsx`, refetched on every
+`friend` push rather than polled or patched. The controls (`Add friend`,
+`Request sent`, `Accept`, `Friends` with a remove menu) are one component in
+`../ui/friend-controls.tsx`, used here, on a profile, on a result and on the
+list of people you have played: they read where you stand off that one list
+rather than off whatever payload the page fetched, so a profile loaded a minute
+ago still knows about a request sent since.
+
+Three things the pages owe:
+
+- **The order is `sortFriends`**, online first, whoever is at a table before
+  whoever is idle, then everybody else by when they were last here. It is in
+  `friend-bits.ts` because the card and the page must not disagree, and names
+  break the last tie so two renders cannot either.
+- **"At your table" is a thing only the reader can know.** `presenceLine` takes
+  the match the person reading is sitting at, because a friend playing here and
+  a friend playing somewhere else are the same fact until you know which table
+  is yours.
+- **A guest is offered the account, not a control that answers no.** The page
+  is the claim prompt and nothing else, and the card offers the same. That
+  prompt is g's dialog around the profile's own `ClaimCard` in its `flat` form,
+  and it is rendered **only** for a guest: every friend control carries one, and
+  twenty rows would otherwise be twenty copies of a form nobody can reach.
+
+The card's request row (`fr-stacked`) puts Accept and Decline on a line of
+their own, because two answers do not fit beside a name in half a column and a
+truncated name is worse than a taller row. A row with one control keeps it
+inline.
+
+Pressing Play on a friend makes an ordinary challenge link and walks the person
+who pressed it to `/c/:id`, which is the room a creator already waits in: the
+table is created by the friend's accept exactly as it is for a link sent by
+hand. The invite reaches them as a toast wherever they are, and stays on their
+own card and page until the link is spent, so a dismissed toast is not a lost
+table.
 
 ## Leaving a match
 

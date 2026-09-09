@@ -25,6 +25,15 @@ the message: it would sit through the countdown, be dropped as a no-show and
 collect a cooldown for it. A client that cannot answer a question the server is
 about to ask is not a client that can be served unchanged.
 
+**v6 is friends**, and it is the one bump made on an argument rather than on a
+break. The two new pushes (`friend` and `invite`) and `challenges.speed`
+reaching `Challenge` are all additive by the rule above: a v5 client never
+subscribed to either message and never reads the field. The number moves
+anyway, because a client that cannot draw an invite leaves its player sent to a
+table nobody told them about, which is the same argument the ready check made.
+`FriendEvent` deliberately carries nothing beyond its kind: the page asks
+`/api/friends` again, so there is never a second shape of the list on the wire.
+
 **Sitting out was additive inside v5.** `SeatView.sittingOut` is optional and
 absent rather than false, so an old client reads a seat it already understands.
 `ClientMsg.back` is the harder half of the pair, because a message an old

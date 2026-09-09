@@ -49,6 +49,7 @@ the real path rather than a parallel one.
 | `setFormatResolver` | `../src/matchmaking.ts` | swap `formatFor` so the **real** queue path runs against a short clock and a small stack. Put `formatFor` back in `afterAll` |
 | `tick`, `ladderTick`, `arenaTick` | matchmaking, ladder, arena | run one pass directly instead of waiting on a real timer |
 | `configureArena` | `../src/arena.ts` | wider than the others because an arena has a clock: `now`, `format`, `everyMs`, `durationMs`, `botFillMs` and `lastPairingBeforeEndMs` are all injectable |
+| `configureFriends` | `../src/friends.ts` | the presence debounce, so a test does not wait five real seconds to watch somebody go offline. `resetFriendPresence()` is its cleanup, like `resetReadyChecks()` |
 
 Two more in `helpers.ts` for the two doors a queued table now has to get
 through:
@@ -180,7 +181,10 @@ back out byte for byte, a gif refused on its magic number whatever its header
 says, an oversized body refused by the route's own limit, the ten second gap,
 removal bumping the version, the cache header with and without `?v=`, and the
 version reaching a seat at the table), `challenge.test.ts`, `chat.test.ts`,
-`explorer.test.ts`, `feed.test.ts`, `health.test.ts`, `identity.test.ts`,
+`explorer.test.ts`, `feed.test.ts`, `friends.test.ts` (the request, accept,
+decline, cancel and unfriend state machine, the guest and bot refusals, both
+caps, presence and the table a friend is at, the pushes to both parties, and an
+invite's link and the speed it deals), `health.test.ts`, `identity.test.ts`,
 `insights.test.ts`, `ladder.test.ts`, `leaderboard.test.ts` (the board reads the
 `ratings` table, hides provisional players, and a six-max standing never shows on
 the heads-up board), `matchmaking.test.ts`, `meta.test.ts`, `practice.test.ts`,

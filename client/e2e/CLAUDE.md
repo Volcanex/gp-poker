@@ -143,6 +143,17 @@ The suite runs two workers, not one per core: eight states at 1920 in two themes
 is a lot of full-page rendering, and four browsers doing it at once on this box
 time out on each other rather than on anything real.
 
+## The one script that is not a spec
+
+`friends-flow.mjs` drives two browser contexts through the friends story end to
+end: claim, ask, accept, invite, the toast that reaches the second browser
+because of what the first one did, and both of them landing at one table. It
+needs a real server and a real database, which is exactly what every spec here
+avoids, and it is the only way to see a push arrive at one browser because of
+another's action, so it is a script run by hand rather than a spec. The default
+testMatch never picks up an `.mjs`, so `npm run e2e` does not see it. Its
+header says how to run it; point it at a test database, never the live one.
+
 ## What it does not cover
 
 The replay page draws a hand fetched from the API and the suite deliberately runs
