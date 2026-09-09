@@ -29,7 +29,13 @@
    meaning: on a run-out `street` and `board` say how much of it the table has
    been shown rather than how much the engine has resolved, and `result`
    arrives when the river does. Nothing reads those fields in a way that
-   change breaks. */
+   change breaks.
+
+   Leaving a match was additive inside v5 too: `ClientMsg.resign`, the
+   `ranked_ban` error code and the `left` match reason are all new, and a
+   client that never sends `resign` is served exactly as it was. An older
+   client reading a `left` result falls through to no reason line rather than
+   to a wrong one. */
 
 export const PROTOCOL_VERSION = 5;
 
@@ -601,6 +607,82 @@ export interface ReadyCheck {
   deadline: number; // epoch ms
 }
 
+/* --------------------------------------------------- walkouts and bans
+
+   Leaving a ranked match early is a walkout, whether it is chosen (the
+   table's leave control) or taken (three timeouts, or a connection that
+   never came back). It costs the other player their game, so it costs the
+   person who did it a spell out of ranked, and the spell grows with how
+   often they do it.
+
+   Unlike the ready check's cooldown, this one is persisted: a penalty that a
+   deploy wipes is not a penalty, and a walkout is a decision about a match
+   somebody was already in rather than a filter on a queue.
+
+   Strikes decay at one a day of real time. There is no sweep and no cron:
+   `walkoutStrikesNow` takes the count and the moment it was last written and
+   subtracts the days since, which is the same answer a nightly job would
+   reach and is true the instant it is asked.
+
+   The ladder is here rather than on the server because the modal that warns
+   somebody what leaving will cost has to name the same number the ban will
+   be, and two copies of it drift until the warning starts lying. */
+
+export const WALKOUT_DECAY_MS = 24 * 60 * 60 * 1000;
+
+/* How long a ban lasts, by the number of strikes the player is carrying once
+   this walkout has been counted. Index 0 and 1 are free: the first walkout is
+   a bad evening, not a pattern. Everything from the fifth on is eight hours. */
+export const WALKOUT_BAN_MS: readonly number[] = [
+  0,
+  0,
+  5 * 60_000,
+  30 * 60_000,
+  2 * 60 * 60_000,
+  8 * 60 * 60_000,
+];
+
+export function walkoutBanMs(strikes: number): number {
+  if (!Number.isFinite(strikes) || strikes < 1) return 0;
+  const i = Math.min(Math.floor(strikes), WALKOUT_BAN_MS.length - 1);
+  return WALKOUT_BAN_MS[i];
+}
+
+/* Strikes as they stand now: the stored count less one for every whole day
+   since it was written. `at` is null for somebody who has never walked out.
+   Never negative, which is what makes the stored count safe to leave alone
+   until the next walkout rewrites it. */
+export function walkoutStrikesNow(strikes: number, at: number | null, now = Date.now()): number {
+  if (!strikes || at === null) return 0;
+  const decayed = Math.floor(Math.max(0, now - at) / WALKOUT_DECAY_MS);
+  return Math.max(0, strikes - decayed);
+}
+
+/* A ban length in words, for the modal that warns about one and the refusal
+   that enforces it. Whole units only: every rung of the ladder is one. */
+export function banDurationText(ms: number): string {
+  if (ms <= 0) return 'no ban';
+  const minutes = Math.round(ms / 60_000);
+  if (minutes < 60) return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
+  const hours = Math.round(minutes / 60);
+  return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+}
+
+/* How long is left of a ban, in words, for a line that says when somebody can
+   play ranked again. Rounded up so it never reads "0 minutes" while the ban
+   is still running. */
+export function banRemainingText(until: number, now = Date.now()): string {
+  const left = Math.max(0, until - now);
+  if (left < 60_000) {
+    const seconds = Math.max(1, Math.ceil(left / 1000));
+    return `${seconds} ${seconds === 1 ? 'second' : 'seconds'}`;
+  }
+  const minutes = Math.ceil(left / 60_000);
+  if (minutes < 60) return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`;
+  const hours = Math.ceil(minutes / 60);
+  return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+}
+
 /* ------------------------------------------------------------ the gate
 
    Rated play opens after one finished casual or practice match. One, not
@@ -766,7 +848,15 @@ export type ClientMsg =
   // knows which.
   | { t: 'ready'; a: boolean }
   | { t: 'join'; m: string } // subscribe to a match as player or spectator
+  // Unsubscribe. This is the page going away, nothing more: a match is not
+  // abandoned by closing a tab, and the disconnect grace is what covers
+  // somebody who has actually gone. Leaving the GAME is `resign`.
   | { t: 'leave'; m: string }
+  // Leave the game on purpose, from the table's own control. Separate from
+  // `leave` because `leave` is sent on every unmount, and a route change
+  // must never forfeit a match somebody is still playing. What it costs
+  // depends on the table: see server/src/match/CLAUDE.md.
+  | { t: 'resign'; m: string }
   | { t: 'act'; m: string; h: number; n: number; a: ActionKind; v?: number } // n = action seq the client is acting at
   // Practice only: deal the next hand (or, on the last one, finish the
   // match) instead of waiting out the hold. `h` is the hand this is answering
@@ -851,7 +941,8 @@ export type ServerMsg =
       // `ranked_locked` is the one refusal that is not about this request
       // being wrong: rated play opens after one finished casual match, and
       // the message says so. `cooldown` is a ready check no-show serving out
-      // the wait they earned.
+      // the wait they earned, and `ranked_ban` is a walkout serving out
+      // theirs (see WALKOUT_BAN_MS below).
       c:
         | 'illegal'
         | 'stale'
@@ -862,7 +953,8 @@ export type ServerMsg =
         | 'bots_busy'
         | 'chat'
         | 'ranked_locked'
-        | 'cooldown';
+        | 'cooldown'
+        | 'ranked_ban';
       msg: string;
     }
   | { t: 'pong' };
@@ -1004,7 +1096,10 @@ export interface HandResult {
 
 export interface MatchResult {
   winner: string | null; // user id, null on draw
-  reason: 'bust' | 'hands' | 'forfeit' | 'draw' | 'abort';
+  /* `forfeit` is the clock taking a match off somebody who stopped
+     answering; `left` is the same ending chosen on purpose, and they are
+     told apart because the result panel reads differently for each. */
+  reason: 'bust' | 'hands' | 'forfeit' | 'draw' | 'abort' | 'left';
   stacks: Record<string, number>;
   places: Record<string, number>; // finishing position per user id, 1 = winner; heads-up draw gives both 1
   rated: boolean;
