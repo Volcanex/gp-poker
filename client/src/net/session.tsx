@@ -145,7 +145,7 @@ interface Session {
   answerReady: (accept: boolean) => void;
   send: (m: ClientMsg) => void;
   startQueue: (mode?: Mode, rated?: boolean, speed?: Speed) => void;
-  startPractice: (mode: Mode, level: number) => void;
+  startPractice: (mode: Mode, level: number, speed?: Speed) => void;
   cancelQueue: () => void;
   clearFound: () => void;
 }
@@ -318,10 +318,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   /* Practice skips the queue on the server: the table is built the moment the
      message lands, so this searching state lasts a round trip rather than the
      bot-fill wait a rated search has. It is deliberately not remembered as the
-     play choice, since "play again" should repeat a real match. */
-  const startPractice = useCallback((mode: Mode, level: number) => {
-    setQueue({ s: 'searching', since: Date.now(), mode, rated: false, speed: DEFAULT_SPEED, practice: true });
-    socket.send({ t: 'queue', mode, bots: { level } });
+     play choice, since "play again" should repeat a real match. Speed defaults
+     to the site's own default rather than to whatever the play panel is
+     pinned to, since the home page's own presets ask for nothing but a level. */
+  const startPractice = useCallback((mode: Mode, level: number, speed: Speed = DEFAULT_SPEED) => {
+    setQueue({ s: 'searching', since: Date.now(), mode, rated: false, speed, practice: true });
+    socket.send({ t: 'queue', mode, speed, bots: { level } });
   }, []);
 
   const cancelQueue = useCallback(() => {
