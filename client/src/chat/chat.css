@@ -63,9 +63,15 @@
 }
 .chat-title { font-size: var(--font-size-ui); font-weight: 500; color: var(--text-primary); }
 
-.chat-note { margin: 0; font-size: 12px; line-height: 1.45; }
+.chat-note { margin: 0; font-size: 12px; line-height: var(--lh-2); }
 
-/* The only thing on this screen that scrolls. A short conversation sits on the
+/* Every gap in this panel is off the spacing scale and every line-height is a
+   pixel token, which is the house rule and the whole of the owner's note about
+   the spacing here: this file had a 2, a 5 and three 6s in it, and a panel
+   whose rows sit half a step off the grid reads as unfinished beside a felt
+   that does not. Nothing here is bespoke but the pill and the unread count.
+
+   The only thing on this screen that scrolls. A short conversation sits on the
    floor of the box, next to the field it was typed in, rather than stranded at
    the top of it. The auto margin does that without `justify-content: flex-end`,
    which cuts the top off a list once it overflows. */
@@ -75,7 +81,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   display: flex; flex-direction: column; gap: var(--sp-3);
-  padding-right: 2px;
+  padding-right: var(--sp-1);
 }
 .chat-lines::before { content: ''; margin-top: auto; }
 .chat-empty { padding: var(--sp-4) 0; }
@@ -85,14 +91,14 @@
   grid-template-columns: 20px minmax(0, 1fr);
   grid-template-areas: "av meta" ". text";
   column-gap: var(--sp-2);
-  row-gap: 2px;
+  row-gap: var(--sp-1);
   align-items: center;
 }
 .chat-line .avatar { grid-area: av; }
-.chat-meta { grid-area: meta; display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.chat-meta { grid-area: meta; display: flex; align-items: baseline; gap: var(--sp-2); min-width: 0; }
 .chat-text {
   grid-area: text;
-  font-size: 13px; line-height: 1.45; color: var(--text-primary);
+  font-size: 13px; line-height: var(--lh-2); color: var(--text-primary);
   overflow-wrap: anywhere;
 }
 .chat-name {
@@ -108,11 +114,11 @@
 .chat-rail {
   font-size: 10px; color: var(--text-muted);
   border: 1px solid var(--border-subtle); border-radius: var(--radius-full);
-  padding: 0 6px; flex: none;
+  padding: 0 var(--sp-2); flex: none;
 }
 .chat-line[data-mine] .chat-name { color: var(--text-hot); }
 
-.chat-quick { display: flex; flex-wrap: wrap; gap: 5px; flex: none; }
+.chat-quick { display: flex; flex-wrap: wrap; gap: var(--sp-2); flex: none; }
 .chat-quick .btn { flex: 1 1 auto; }
 
 .chat-send { display: flex; gap: var(--sp-2); flex: none; }
@@ -130,6 +136,10 @@
 /* The toggle in the hand header. The count sits after the word so a number
    arriving cannot move anything that was already on the row, and its slot is
    held open whether or not there is one. */
+/* The toggle is the header's, not the panel's, and its 6px is the gap g's own
+   badge uses between a label and the thing after it. Widening it to a step of
+   the scale moved a button on every table baseline at every phone width, for a
+   button the spacing note was not about. */
 .chat-toggle { gap: 6px; }
 .chat-toggle .chat-unread {
   min-width: 16px; height: 16px;

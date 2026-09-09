@@ -43,6 +43,12 @@ export interface HeroBandProps {
   /* Your seat is sitting out and this is the way back in. The band draws the
      prompt and the button; the page sends the message. */
   onBack?: () => void;
+  /* A practice table's readings, as a section on the right of the band rather
+     than a bar of their own above it. `table.tsx` decides whether this band or
+     the strip hosts them, because the reading behind them runs a worker and
+     two of it would cancel each other's requests. Null on every other table
+     and on a screen too narrow to hold a third column. */
+  stats?: ReactNode;
 }
 
 /* The hold is the server's to declare; the field lands with the protocol
@@ -65,7 +71,9 @@ type HeldView = TableView & { hold?: 'you' };
    sweep under a thumb. The same number the stylesheet's phone block uses. */
 const WIDE = '(min-width: 561px)';
 
-export function HeroBand({ view, onAct, sending, best, stack, onNext, onBack }: HeroBandProps) {
+export function HeroBand({
+  view, onAct, sending, best, stack, onNext, onBack, stats,
+}: HeroBandProps) {
   const { state, pre, setPre, canPre } = useDockLogic(view, onAct, sending);
   const mine = view.you == null ? null : view.seats.find((s) => s.i === view.you) ?? null;
   const legal = view.legal;
@@ -78,6 +86,7 @@ export function HeroBand({ view, onAct, sending, best, stack, onNext, onBack }: 
       data-state={state}
       data-seated={mine ? '' : undefined}
       data-sitout={sittingOut ? '' : undefined}
+      data-stats={stats ? '' : undefined}
     >
       <DecisionLine view={view} state={state} onNext={onNext} sittingOut={sittingOut} />
 
@@ -91,6 +100,12 @@ export function HeroBand({ view, onAct, sending, best, stack, onNext, onBack }: 
             no keyboard to legend. It says the same thing in every state, so it
             is rendered outside the column that changes. */}
         <KeyLegend className="hb-keys" watching={view.you == null} sizes={6} />
+
+        {/* The readings stand in a column of their own on the far side of the
+            controls, whole for the life of the table: they are the same three
+            in every state of the band, so they are placed here rather than in
+            the column that swaps. */}
+        {stats && <div className="hb-stats">{stats}</div>}
 
         <div className="hb-col">
           {sittingOut ? (

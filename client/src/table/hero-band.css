@@ -27,8 +27,12 @@
   height: calc(var(--dock-h) + env(safe-area-inset-bottom));
   display: grid;
   grid-template-rows: var(--hb-line-h) minmax(0, 1fr);
-  row-gap: var(--band-pad);
-  padding: 0 var(--band-gut) calc(var(--band-pad) + env(safe-area-inset-bottom));
+  /* The line stands clear of the divider above it, and the gap under it gives
+     the room up, so the band is the same height it was and nothing below moves.
+     Flush against the border, the decision line's words and the deal button
+     were touching it, which is what the owner reported. */
+  row-gap: calc(var(--band-pad) - var(--hb-line-top));
+  padding: var(--hb-line-top) var(--band-gut) calc(var(--band-pad) + env(safe-area-inset-bottom));
   border-top: 1px solid var(--border-subtle);
   background: var(--surface-2);
 
@@ -38,8 +42,10 @@
      header and the dock this replaces all sit on it, and a band four pixels
      wider than the felt above it reads as a step in the edge. */
   --band-gut: var(--sp-4);
-  /* The decision line's row: one line of words with the clock's bar under it. */
+  /* The decision line's row: one line of words with the clock's bar under it,
+     and the air over it that keeps it off the divider. */
   --hb-line-h: 28px;
+  --hb-line-top: 4px;
   --hero-card: 76px;
   /* The meta under the cards: the name line, the figures line, and the gap. */
   --hb-who-h: 20px;
@@ -64,6 +70,11 @@
   --act-h: 48px;
   --act-gap: var(--sp-2);
   --acts-w: 312px;
+  /* A practice table's readings, when they are a section of the band rather
+     than a bar above it. The left group gives up the width for them, because
+     fold and call are two words and the sizes are six numbers. */
+  --stats-w: 248px;
+  --stats-gap: var(--sp-4);
   /* The legend's own row under the controls, and the gap over it. Named for
      this band: `--keys-h` is the table grid's own row for the v1 legend. */
   --hb-keys-h: 14px;
@@ -154,6 +165,38 @@
     "cards keys";
   column-gap: var(--band-gap);
   row-gap: var(--keys-gap);
+}
+
+/* **A practice table's readings are a section of the band, not a bar of their
+   own.** They take a column on the far side of the controls, whole for the
+   life of the table, so the hand, the outs and the equity are read where the
+   decision is made rather than in a strip of their own between the felt and
+   the band. The felt gets that strip's row back.
+
+   The left group gives up the width: fold and call are two words and the six
+   sizes are six numbers, so the numbers keep the room. `table.tsx` decides
+   whether this band or the strip draws them, and only above 1100 px, where
+   there is room for a third column at all. */
+.hero-band[data-stats] {
+  --acts-w: 240px;
+}
+.hero-band[data-stats] .hb-in {
+  grid-template-columns: auto minmax(0, 1fr) var(--stats-w);
+  grid-template-areas:
+    "cards acts stats"
+    "cards keys stats";
+  column-gap: var(--band-gap);
+}
+.hb-stats {
+  grid-area: stats;
+  align-self: stretch;
+  display: grid; align-content: end;
+  min-width: 0;
+  padding-left: var(--stats-gap);
+  margin-left: calc(var(--stats-gap) - var(--band-gap));
+  /* A rule, because a section needs an edge to be a section: without it the
+     readings read as three more controls that happen to have words. */
+  border-left: 1px solid var(--border-subtle);
 }
 
 /* A spectator has no hand to hold and no keys to press, so the band is one
@@ -635,6 +678,20 @@
     "acts cards"
     "keys cards";
 }
+:root[data-hand="left"] .hero-band[data-stats] .hb-in {
+  grid-template-columns: var(--stats-w) minmax(0, 1fr) auto;
+  grid-template-areas:
+    "stats acts cards"
+    "stats keys cards";
+}
+:root[data-hand="left"] .hb-stats {
+  margin-left: 0;
+  padding-left: 0;
+  border-left: none;
+  padding-right: var(--stats-gap);
+  margin-right: calc(var(--stats-gap) - var(--band-gap));
+  border-right: 1px solid var(--border-subtle);
+}
 :root[data-hand="left"] .hb-cards { justify-self: end; }
 :root[data-hand="left"] .hb-keys { justify-content: flex-end; }
 :root[data-hand="left"] .hb-card {
@@ -695,6 +752,13 @@
    drifts. `.match` reads the root's. */
 :root { --band-h: 224px; --band-watch-h: 176px; }
 @media (max-width: 560px) { :root { --band-h: 264px; } }
+/* Whether a practice table still has a strip above the band, as a height the
+   mock's caption can add up (`../routes/match.tsx`). **The number is the one
+   `BAND_STATS` uses in `table.tsx`**, which is what decides the same thing in
+   the markup: above it the readings are the band's own section and the strip's
+   row is gone. */
+:root { --strip-gap: var(--strip-h); }
+@media (min-width: 1100px) { :root { --strip-gap: 0px; } }
 .match[data-look="v2"] { --dock-h: var(--band-h); }
 .match[data-look="v2"] .dock-error {
   bottom: calc(var(--dock-h) + 8px + env(safe-area-inset-bottom));

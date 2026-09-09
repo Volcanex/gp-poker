@@ -27,7 +27,7 @@ explicitly in `../app.css`. **Nothing in that column may size to its content.**
 | 1 | `.watch-bar`, the spectator's strip |
 | 2 | `.hand-head`, the hand header |
 | 3 | `.felt`, the only row that takes what is left |
-| 4 | `.practice-strip`, the practice table's live stats |
+| 4 | `.practice-strip`, the practice table's live stats, unless the band has taken them |
 | 5 | `.dock` |
 | 6 | `.dock-keys`, the key legend, desktop only |
 
@@ -122,6 +122,7 @@ scoped to `.hero-band` and `.match[data-band]` so it cannot.
 | --- | --- | --- |
 | Band height (`--band-h`) | 264 px | 224 px |
 | Decision line (`--hb-line-h`) | 28 px | 28 px |
+| Practice readings | the strip, in the table's row 4 | a section on the right, above 1100 px |
 | Card | 104 px | 76 px |
 | Hand column | the fan's own width | the fan's own width |
 | Action column | 176 px | the rest of the felt's column |
@@ -136,6 +137,13 @@ floating panel; `.hb-line` and `.hb-in` inside it are capped at `--felt-w` and
 centred, so the cards start on the felt's left edge and the controls end on its
 right one. `--felt-w` is declared on `.match` (as well as on `.felt`) for exactly
 this, and `table.tsx` stamps `data-mode` on both.
+
+**The line stands off the divider.** `--hb-line-top` is 4 px of padding at the
+top of the band and it comes out of the gap under the line, so the band is the
+height it was and nothing under it moves. Flush against the band's own top
+border the words and the deal button were touching it, which is what the owner
+reported: a 22 px button centred in a 24 px line leaves one pixel, and one pixel
+from a hairline reads as nought.
 
 **One line says the decision.** `DecisionLine` is the band's top row: one
 sentence, the clock or the countdown at its right end, and the clock's bar as
@@ -261,6 +269,17 @@ and **that** starts from the quarter (`DEFAULT_PRESET`, stepped up past a blank
 box by `openAt`). The typed field clamps into itself and does not send, exactly
 as the dock's does. There is no mouse-only way to the typed field: the button
 had to become the send, so `r` and the legend are how it is found.
+
+**A practice table's readings are a section of the band above 1100 px.** They
+were a bar of their own between the felt and the band, and the owner's note was
+that they should not be: they take a third column on the far side of the
+controls, ruled off with a hairline, and the felt takes the strip's row back.
+The left group gives up the width for them (`--acts-w` drops to 240), because
+fold and call are two words and the six sizes are six numbers. `table.tsx`
+decides the host and renders `LiveStats` once either way, because it drives the
+analysis worker and two of it would cancel each other's requests; below the
+breakpoint, and on v1, the strip is still the strip. See `../analysis/CLAUDE.md`
+for what the column drops.
 
 **Two groups under a mouse, one stack under a thumb.** Wide, the controls split
 left and right: fold and check or call on the left in `--acts-w`, the six sizes

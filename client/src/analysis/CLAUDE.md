@@ -13,7 +13,21 @@ here that touches the package root (see `../puzzles/CLAUDE.md`).
 Two panels are drawn from all that: `live-stats.tsx`, the strip on a practice
 table, and `replay-panel.tsx` with its pure half `replay-analysis.ts`.
 
-## The practice strip
+## The practice strip, and the band's section
+
+**Above 1100 px on a v2 table the readings are not a strip at all**: they are a
+section on the right of the hero band, ruled off from the controls, and the
+strip's row is gone from the table's grid. The owner's note was that the whole
+info bar should not be its own bar, and it was the only thing on that screen
+that was a bar rather than a part of something. `table.tsx` picks the host and
+renders `LiveStats` **once**, because this component drives the worker and two
+of it would cancel each other's requests through the module-level request id.
+The band's own rules (`.hb-stats` at the foot of `live-stats.css`) are the
+strip's rules again, tighter: fixed rows, one value a row, nothing wrapping, and
+the card list, the draw's name and both notes dropped, because a 248 px column
+cannot hold nine cards and the reading they belong to.
+
+Narrower than that, and on v1, it is the strip below.
 
 A practice table carries one more fixed row between the felt and the dock, row 4
 of the table's grid (`../table/CLAUDE.md`), reading the hand you hold, the outs
@@ -22,7 +36,10 @@ match rather than only while you hold cards, and `.practice-strip` holds
 `--stats-h` whether or not a number has arrived. The felt gives up the height;
 the dock never does. `--stats-h` is `.match`'s, and it comes off `--strip-h` at
 the root, because the mock's caption stands above this strip and is fixed to the
-page rather than inside the table (`../app.css`).
+page rather than inside the table (`../app.css`). The caption adds `--strip-gap`
+rather than `--strip-h`, which is the same height until the readings move into
+the band and nought after that; the breakpoint is declared once in
+`../table/hero-band.css` beside the number `BAND_STATS` uses in `table.tsx`.
 
 Every reading sits in a fixed cell. The numbers arrive from the worker after the
 labels beside them are already painted, so in a flow the note next to a number

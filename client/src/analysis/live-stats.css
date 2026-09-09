@@ -159,3 +159,61 @@
   .practice-strip .ls-row:nth-child(3) { width: 7rem; }
   .practice-strip .ls-row:nth-child(3) .ls-value { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ------------------------------------------------- the band's own section */
+
+/* The same three readings as a column on the right of the band, on a screen
+   wide enough for a third column (`../table/hero-band.css`). The strip's rule
+   holds here for the same reason and more sharply: this sits inside the one
+   box on the screen that may not change size, so every row is a fixed height,
+   every value is a cell, and nothing wraps.
+
+   What the strip drops, this drops too, and one thing more: the outs cards and
+   the notes beside the numbers. A column 300 px wide cannot hold nine cards
+   and the reading they belong to, and a card list that clipped mid-card would
+   say less than the count already does. The count, the name and the percentage
+   are the glance; the cards are in the replay's analysis panel, whole. */
+.hb-stats .live-stats {
+  gap: 4px;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  min-width: 0;
+}
+
+.hb-stats .ls-row {
+  display: grid;
+  grid-template-columns: 4rem minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: var(--sp-2);
+  height: 20px;
+  padding: 0;
+  border: none;
+  font-size: 12px;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.hb-stats .ls-row + .ls-row {
+  border-top: none;
+  padding-top: 0;
+}
+
+.hb-stats .ls-value {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+.hb-stats .ls-equity { font-size: 1em; }
+
+/* The detail the column has no room for. The outs count and the equity stay;
+   the cards, the draw's name, how the equity was sampled and who it was
+   against are the panel's, not the band's. */
+.hb-stats .ls-extra,
+.hb-stats .ls-vs,
+.hb-stats .ls-more,
+.hb-stats .ctext { display: none; }
