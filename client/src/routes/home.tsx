@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { BOT_LEVELS, SPEEDS, SPEED_NAME, botLevelInfo, ceilingFor, formatFor, speedOf } from '@opentable/protocol';
 import type { MatchFormat, Mode, Speed } from '@opentable/protocol';
-import { Robot } from '@phosphor-icons/react/dist/icons/Robot';
+import { Cpu } from '@phosphor-icons/react/dist/icons/Cpu';
+import { Lightning } from '@phosphor-icons/react/dist/icons/Lightning';
 import { Trophy } from '@phosphor-icons/react/dist/icons/Trophy';
 import { Link as LinkIcon } from '@phosphor-icons/react/dist/icons/Link';
 import { UsersThree } from '@phosphor-icons/react/dist/icons/UsersThree';
@@ -141,7 +142,18 @@ export function Home() {
             <div className="play-toggles">
               <Segmented
                 label="Speed"
-                options={SPEEDS.map((sp) => ({ value: sp, label: SPEED_NAME[sp] }))}
+                options={SPEEDS.map((sp) => ({
+                  value: sp,
+                  label:
+                    sp === 'fast' ? (
+                      <>
+                        <Lightning size={14} weight="fill" aria-hidden="true" />
+                        {SPEED_NAME[sp]}
+                      </>
+                    ) : (
+                      SPEED_NAME[sp]
+                    ),
+                }))}
                 value={speed}
                 onPick={setSpeed}
               />
@@ -208,7 +220,6 @@ export function Home() {
                 </span>
               )}
               {queue.range != null && <span className="badge badge-plain num">Within {Math.round(queue.range)} rating</span>}
-              {queue.w != null && queue.w > 0 && <span className="badge badge-plain num">{queue.w} waiting</span>}
               <button type="button" className="btn btn-tertiary btn-sm" onClick={cancelQueue}>
                 Cancel search
               </button>
@@ -443,7 +454,7 @@ function PracticeWay({
 
   return (
     <Way
-      icon={<Robot size={16} />}
+      icon={<Cpu size={16} />}
       label="Practice against bots"
       open={open}
       onToggle={() => setOpen((v) => !v)}
