@@ -67,6 +67,12 @@ export class MatchRoom {
   // moment they act, and this is one who said they were done, so nothing
   // un-sits them and no action of theirs is accepted again.
   private resigned = new Set<string>();
+  /* Where a multiway leaver finishes, fixed at the moment they leave: last
+     among the seats still in at the time. The chips do not care that
+     somebody has gone, so blinding them off leaves them able to outlast the
+     two seats that busted each other, which would hand the match to the
+     person who walked out of it. See `applyLeftPlaces`. */
+  private leftPlaces = new Map<string, number>();
   private clockTimer: ReturnType<typeof setTimeout> | null = null;
   private clock: RoomClock | null = null;
   private lastResult: MatchResult | null = null;
@@ -334,6 +340,7 @@ export class MatchRoom {
       return;
     }
     if (this.resigned.has(userId)) return; // said twice, costs once
+    if (!this.match.format.practice && this.playerIds.length > 2) this.pinLeavingPlace(userId);
     this.resigned.add(userId);
     this.chargeWalkoutIfRanked(userId);
 
@@ -357,6 +364,76 @@ export class MatchRoom {
     // sit-out has to carry the clock that goes with it.
     this.rearmClock();
     this.broadcast();
+  }
+
+  /* Where somebody who is leaving a multiway table finishes: last among the
+     seats that are still in and have not already left. Computed now rather
+     than at the end, because "still in" is a fact about this moment and the
+     table will have emptied by the time it is used.
+
+     Two people leaving the same table take different places: the second one
+     is not measured against the first, who is already out of the reckoning,
+     so leaving later finishes higher. That is the same order the chips would
+     have produced and it needs no tie to break. */
+  private pinLeavingPlace(userId: string): void {
+    const settled = this.hand?.currentPlaces() ?? {};
+    const stillIn = this.playerIds.filter(
+      (id) => settled[id] === undefined && (id === userId || !this.resigned.has(id))
+    );
+    this.leftPlaces.set(userId, stillIn.length);
+  }
+
+  /* The finishing order with the leavers put back where they belong. The
+     seats that played on keep the order they actually finished in and are
+     ranked around the fixed places rather than through them, so nothing
+     about a real elimination is rewritten: what changes is only that a
+     match somebody walked out of cannot be won by them.
+
+     Ratings are recomputed rather than carried over, because a rating is a
+     function of the places and these are not the places the hand runner
+     rated. Untouched, and free, on the matches nobody left. */
+  private async applyLeftPlaces(outcome: MatchOutcome): Promise<MatchOutcome> {
+    if (this.leftPlaces.size === 0) return outcome;
+
+    const fixed = new Map<number, string>();
+    for (const [uid, place] of this.leftPlaces) fixed.set(place, uid);
+    const rest = this.playerIds
+      .filter((id) => !this.leftPlaces.has(id))
+      .sort((a, b) => (outcome.places[a] ?? this.playerIds.length) - (outcome.places[b] ?? this.playerIds.length));
+
+    const places: Record<string, number> = {};
+    let next = 0;
+    for (let place = 1; place <= this.playerIds.length; place++) {
+      const leaver = fixed.get(place);
+      if (leaver !== undefined) {
+        places[leaver] = place;
+        continue;
+      }
+      const id = rest[next];
+      if (id === undefined) continue;
+      next += 1;
+      places[id] = place;
+    }
+    // Anything the walk could not seat (two leavers pinned to one place, if
+    // that ever became possible) keeps what it had rather than losing a place
+    // altogether.
+    for (const id of this.playerIds) if (places[id] === undefined) places[id] = outcome.places[id] ?? this.playerIds.length;
+
+    const winner = Object.entries(places).find(([, place]) => place === 1)?.[0] ?? null;
+    return { ...outcome, winner, places, ratings: await this.rate(places) };
+  }
+
+  /* One rating period for this match's mode, from a finishing order. The
+     three endings that build an outcome outside the hand runner all go
+     through here: a rating is a function of the places, and three copies of
+     what feeds it would drift the moment one of them gained a field. */
+  private async rate(places: Record<string, number>): Promise<MatchOutcome['ratings']> {
+    const standings = await getRatingsForUsers(this.playerIds, this.match.format.mode);
+    const inputs = this.playerIds.map((uid) => {
+      const r = standings.get(uid)!;
+      return { userId: uid, rating: r.rating, rd: r.rd, volatility: r.volatility, ratingAt: r.ratingAt };
+    });
+    return computeMatchRatings(inputs, places, this.rated);
   }
 
   /* Only a rated match has a walkout to charge. Casual and practice are the
@@ -400,13 +477,7 @@ export class MatchRoom {
     });
     if (settled[leaverId] === undefined) places[leaverId] = stillIn.length;
 
-    const standings = await getRatingsForUsers(this.playerIds, this.match.format.mode);
-    const inputs = this.playerIds.map((uid) => {
-      const r = standings.get(uid)!;
-      return { userId: uid, rating: r.rating, rd: r.rd, volatility: r.volatility, ratingAt: r.ratingAt };
-    });
-    const ratings = computeMatchRatings(inputs, places, this.rated);
-    return { winner: others[0] ?? null, reason: 'left', stacks, places, ratings };
+    return { winner: others[0] ?? null, reason: 'left', stacks, places, ratings: await this.rate(places) };
   }
 
   // The decision clock. It is rearmed BEFORE the broadcast that reports the
@@ -513,7 +584,10 @@ export class MatchRoom {
   private settleIfDone(): void {
     if (!this.hand?.isDone()) return;
     const outcome = this.hand.matchResult();
-    if (outcome) this.finishMatch(outcome).catch((err) => this.abandon(err));
+    if (!outcome) return;
+    this.applyLeftPlaces(outcome)
+      .then((settled) => this.finishMatch(settled))
+      .catch((err) => this.abandon(err));
   }
 
   // Last resort for a room that cannot continue: the match row is gone, or
@@ -588,13 +662,7 @@ export class MatchRoom {
     const places: Record<string, number> = {};
     for (const uid of this.playerIds) places[uid] = winnerId === null ? 1 : uid === winnerId ? 1 : 2;
 
-    const standings = await getRatingsForUsers(this.playerIds, this.match.format.mode);
-    const inputs = this.playerIds.map((uid) => {
-      const r = standings.get(uid)!;
-      return { userId: uid, rating: r.rating, rd: r.rd, volatility: r.volatility, ratingAt: r.ratingAt };
-    });
-    const ratings = computeMatchRatings(inputs, places, this.rated);
-    return { winner: winnerId, reason: 'forfeit', stacks, places, ratings };
+    return { winner: winnerId, reason: 'forfeit', stacks, places, ratings: await this.rate(places) };
   }
 
   async finishMatch(outcome: MatchOutcome): Promise<void> {
