@@ -23,6 +23,7 @@ import { brainForLevel, mulberry32, playHand, seedFrom } from '../src/bots/simul
 const DEALS = Number(process.env.BOT_BENCH_DEALS ?? 200);
 const BUDGET_MS = Number(process.env.BOT_BENCH_BUDGET_MS ?? 250);
 const STACKS = (process.env.BOT_BENCH_STACKS ?? '30,100').split(',').map(Number);
+// BOT_BENCH_PAIRS picks the matchups, as "6v5,6v4,5v4".
 const FORMAT = formatFor('heads-up', false);
 const SB = 1;
 const BB = 2;
@@ -85,11 +86,9 @@ function percentile(values: number[], p: number): number {
 async function main(): Promise<void> {
   console.log(`deals per matchup ${DEALS}, solver budget ${BUDGET_MS}ms, blinds ${SB}/${BB}`);
   console.log('matchup            stack   hands      bb/100      SE   p50ms   p95ms');
-  const pairs: [BotLevel, BotLevel][] = [
-    [6, 5],
-    [6, 4],
-    [5, 4],
-  ];
+  const pairs: [BotLevel, BotLevel][] = (process.env.BOT_BENCH_PAIRS ?? '6v5,6v4,5v4')
+    .split(',')
+    .map((p) => p.split('v').map(Number) as [BotLevel, BotLevel]);
   for (const stackBb of STACKS) {
     for (const [a, b] of pairs) {
       const started = Date.now();

@@ -76,10 +76,28 @@ export const runInline: SolveRunner = async (prepared, budgetMs) => {
 // Iterations below which a solve is not worth acting on.
 const MIN_ITERATIONS = 40;
 
+/* Purification. An average strategy is full of low frequency branches that
+   exist to keep an equilibrium opponent honest: a two percent jam with air, a
+   five percent check with the nuts. Against an opponent who is not looking for
+   the pattern they buy nothing and cost variance, and against ours they cost
+   real money, because the branches that survive at two percent are the ones
+   the model is least sure about. So anything under the threshold is dropped
+   and what is left is sharpened a little. This is the standard purification
+   and thresholding pair, and it is known to help against opponents who are not
+   playing the equilibrium, which is every opponent this bot has. */
+const PURIFY_THRESHOLD = 0.08;
+const PURIFY_EXPONENT = 1.3;
+
 const BLUFF_RANK = 0.6; // the part of our range whose bets are mostly bluffs
 const CATCH_RANK = 0.75; // the part that is calling rather than raising for value
+const VALUE_RANK = 0.8; // the part that wants to be paid rather than to fold anybody
 const MAX_BLUFF_CUT = 0.9;
 const MAX_CATCH_CUT = 0.7;
+// The same read that says a bluff will not get through says a value bet will.
+// Sizing chosen against somebody who folds correctly is too small against
+// somebody who does not, so the top of the range leans on the larger sizes by
+// as much again as the frequency the solve gave them.
+const MAX_VALUE_TILT = 1.5;
 
 // Preflop sizings, in the units each is naturally read in: an open is a
 // multiple of the big blind, a re-raise a multiple of what it faces.
@@ -370,13 +388,16 @@ export class SolverBot {
       const potNow = view.pot;
       for (const f of frequencies) {
         const aggressive = f.act.label === 'b' || f.act.label === 'r' || f.act.label === 'a';
-        if (aggressive && rank < BLUFF_RANK && sticky !== null) {
+        if (aggressive && sticky !== null) {
           // What this particular size needs them to fold, against what they
-          // actually fold. A bet that is already priced in never gets cut.
+          // actually fold. A bet that is already priced in is left alone.
           const wager = Math.max(1, f.act.to - me.bet);
           const breakeven = wager / (potNow + wager);
           const shortfall = Math.max(0, (breakeven - sticky) / breakeven);
-          f.frequency *= 1 - MAX_BLUFF_CUT * shortfall * (1 - rank / BLUFF_RANK);
+          if (rank < BLUFF_RANK) f.frequency *= 1 - MAX_BLUFF_CUT * shortfall * (1 - rank / BLUFF_RANK);
+          else if (rank > VALUE_RANK) {
+            f.frequency *= 1 + MAX_VALUE_TILT * shortfall * ((rank - VALUE_RANK) / (1 - VALUE_RANK));
+          }
         }
         if (facing && f.act.label === 'c' && rank < CATCH_RANK && read > 0) {
           f.frequency *= 1 - MAX_CATCH_CUT * read * (1 - rank / CATCH_RANK);
@@ -388,6 +409,14 @@ export class SolverBot {
       if (passiveAct) {
         const left = frequencies.reduce((sum, f) => sum + f.frequency, 0);
         passiveAct.frequency += Math.max(0, 1 - left);
+      }
+    }
+
+    const before = frequencies.reduce((sum, f) => sum + f.frequency, 0);
+    if (before > 0) {
+      for (const f of frequencies) {
+        const share = f.frequency / before;
+        f.frequency = share < PURIFY_THRESHOLD ? 0 : Math.pow(share, PURIFY_EXPONENT);
       }
     }
 
