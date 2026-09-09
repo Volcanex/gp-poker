@@ -1,6 +1,6 @@
 import { DEFAULT_BOT_LEVEL, type BotLevel, type ClientMsg, type MatchFormat, type ServerMsg, type TableView } from '@opentable/protocol';
 import { decide, type BotDecision, type Rng } from './strategy.js';
-import { SOLVER_LEVEL, decideSolver, observeSolverResult } from './solver.js';
+import { decideSolver, observeSolverResult, thinkingTier } from './solver.js';
 import { NEUTRAL_PERSONA, type Persona } from './persona.js';
 import type { ChatProfile } from './population-roster.js';
 
@@ -21,11 +21,11 @@ import type { ChatProfile } from './population-roster.js';
    practice table and a ladder match across its lifetime, one after another,
    and a practice table alone is paced for a person to follow.
 
-   Level 6 is the one level whose decision takes real time, so the decision is
-   awaited and whatever it spent comes off the pause afterwards: a bot that
-   solved for a second and then waited its usual two would read as broken. It
-   still cannot run out of time, because the pause is capped against the clock
-   and the solve's own budget is a quarter of it. */
+   The thinking tiers are the ones whose decision takes real time, so every
+   decision is awaited and whatever it spent comes off the pause afterwards: a
+   bot that solved for a second and then waited its usual two would read as
+   broken. It still cannot run out of time, because the pause is capped against
+   the clock and the solve's own budget is a quarter of it. */
 
 const THINK_MIN_MS = 600;
 const THINK_MAX_MS = 1800;
@@ -132,7 +132,7 @@ export class BotPlayer {
   private onView(view: TableView): void {
     // A finished hand carries no legal actions and is not a decision, but it
     // is the only place a level 6 bot can see that somebody folded to it.
-    if (view.result && this.level === SOLVER_LEVEL) observeSolverResult(this.userId, view);
+    if (view.result && thinkingTier(this.level)) observeSolverResult(this.userId, view);
     if (!view.legal || view.you === null) return;
     // A view can be rebroadcast without the action moving on (an opponent
     // disconnecting, say); key on the exact decision point so the bot does
@@ -174,11 +174,12 @@ export class BotPlayer {
   }
 
   private async choose(view: TableView): Promise<BotDecision> {
-    if (this.level !== SOLVER_LEVEL) return decide(view, this.rng, this.level, this.persona);
-    const solved = await decideSolver(this.userId, view, this.rng);
-    // A persona nudges the constants the older levels read; the solver has no
-    // constants to nudge, so it gets one only when it hands a spot back.
-    return solved ?? decide(view, this.rng, SOLVER_LEVEL, this.persona);
+    // A persona nudges the constants the instant tiers read; a thinking tier
+    // has no constants to nudge, so it gets one only for the streets it hands
+    // back.
+    if (!thinkingTier(this.level)) return decide(view, this.rng, this.level, this.persona);
+    const solved = await decideSolver(this.userId, view, this.rng, this.level);
+    return solved ?? decide(view, this.rng, this.level, this.persona);
   }
 
   clear(): void {

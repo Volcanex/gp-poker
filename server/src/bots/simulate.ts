@@ -12,7 +12,7 @@ import { apply, createHand, legal, type HandState } from '@opentable/engine';
 import { runInline, SolverBot, type SolveRunner } from '@opentable/solver';
 import type { ActionKind, BotLevel, Card, MatchFormat, SeatView, TableView } from '@opentable/protocol';
 import { decide, type BotDecision, type Rng } from './strategy.js';
-import { SOLVER_LEVEL, budgetFor } from './solver.js';
+import { budgetFor, thinkingTier } from './solver.js';
 
 export function mulberry32(seed: number): Rng {
   let a = seed;
@@ -125,14 +125,11 @@ export function cpuRunner(budgetMs: number): SolveRunner {
    The solver runs inline here rather than in slices: a benchmark has no event
    loop to be polite to. */
 export function brainForLevel(level: BotLevel, budgetMs?: number, byCpuTime = false): Brain {
-  if (level !== SOLVER_LEVEL) return (view, rng) => decide(view, rng, level);
-  const bot = new SolverBot();
+  const tier = thinkingTier(level);
+  if (!tier) return (view, rng) => decide(view, rng, level);
+  const bot = new SolverBot({ tier, fallback: (view, rng) => decide(view, rng, level) });
   const runner = byCpuTime && budgetMs !== undefined ? cpuRunner(budgetMs) : runInline;
-  const brain: Brain = async (view, rng) => {
-    const budget = budgetMs ?? budgetFor(view.format.clockMs);
-    const solved = await bot.decide(view, rng, runner, budget);
-    return solved ?? decide(view, rng, SOLVER_LEVEL);
-  };
+  const brain: Brain = async (view, rng) => bot.decide(view, rng, runner, budgetMs ?? budgetFor(view.format.clockMs, tier));
   brain.finish = (result) => bot.observeResult(result);
   return brain;
 }

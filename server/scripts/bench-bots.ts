@@ -27,7 +27,10 @@ const STACKS = (process.env.BOT_BENCH_STACKS ?? '30,100').split(',').map(Number)
    because this box is shared and a wall clock budget under load measures the
    load. Set BOT_BENCH_WALL_CLOCK=1 to see what a busy box does to the bot. */
 const BY_CPU_TIME = process.env.BOT_BENCH_WALL_CLOCK !== '1';
-// BOT_BENCH_PAIRS picks the matchups, as "6v5,6v4,5v4".
+/* BOT_BENCH_PAIRS picks the matchups, as "7v6,6v5". The default is the ladder
+   read upwards a rung at a time (solver against regular, regular against
+   sharp), plus the two rungs skipped (solver against sharp) and the control
+   that costs nothing to run (sharp against solid). */
 const FORMAT = formatFor('heads-up', false);
 const SB = 1;
 const BB = 2;
@@ -92,7 +95,7 @@ async function main(): Promise<void> {
     `deals per matchup ${DEALS}, solver budget ${BUDGET_MS}ms of ${BY_CPU_TIME ? 'processor time' : 'wall clock'}, blinds ${SB}/${BB}`
   );
   console.log('matchup            stack   hands      bb/100      SE   p50ms   p95ms');
-  const pairs: [BotLevel, BotLevel][] = (process.env.BOT_BENCH_PAIRS ?? '6v5,6v4,5v4')
+  const pairs: [BotLevel, BotLevel][] = (process.env.BOT_BENCH_PAIRS ?? '7v6,6v5,7v5,5v4')
     .split(',')
     .map((p) => p.split('v').map(Number) as [BotLevel, BotLevel]);
   for (const stackBb of STACKS) {

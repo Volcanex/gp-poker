@@ -1,12 +1,12 @@
-/* Level 6 against Slumbot, over its public HTTP API. A yardstick, never a
+/* A thinking tier against Slumbot, over its public HTTP API. A yardstick, never a
    dependency: nothing in the product talks to it, and this script is expected
    to stop working the day they change the protocol.
 
    Slumbot is a heads-up no-limit hold'em research bot, two hundred big blinds
    deep at 50/100 with twenty thousand chip stacks. It is a full game solve
-   rather than a street at a time, so the honest expectation is that level 6
-   loses to it; the number is worth having because it says by how much, in the
-   same units everything else here is measured in.
+   rather than a street at a time, so the honest expectation is that these
+   tiers lose to it; the number is worth having because it says by how much, in
+   the same units everything else here is measured in.
 
      npx tsx server/scripts/bench-slumbot.ts
      SLUMBOT_HANDS=200 SLUMBOT_BUDGET_MS=800 npx tsx server/scripts/bench-slumbot.ts
@@ -21,14 +21,20 @@
    what this codebase calls a raise-to. A response carrying `winnings` is a
    finished hand, in chips, from our side. */
 
-import { formatFor, type ActionKind, type Card, type SeatView, type TableView } from '@opentable/protocol';
+import { formatFor, type ActionKind, type BotLevel, type Card, type SeatView, type TableView } from '@opentable/protocol';
 import { SolverBot, runInline } from '@opentable/solver';
 import { decide, type Rng } from '../src/bots/strategy.js';
 import { mulberry32 } from '../src/bots/simulate.js';
+import { thinkingTier } from '../src/bots/solver.js';
 
 const HANDS = Number(process.env.SLUMBOT_HANDS ?? 200);
 const BUDGET_MS = Number(process.env.SLUMBOT_BUDGET_MS ?? 600);
 const HOST = process.env.SLUMBOT_HOST ?? 'https://slumbot.com';
+// Which tier to send. Slumbot is two hundred big blinds deep, which is where
+// the solver tier's depth limited leaf is under the most strain, so it is the
+// interesting one by default.
+const LEVEL = (Number(process.env.SLUMBOT_LEVEL ?? 7) || 7) as BotLevel;
+const TIER = thinkingTier(LEVEL) ?? 'solver';
 
 const STACK = 20_000;
 const SB = 50;
@@ -222,7 +228,7 @@ function encode(decision: { a: ActionKind; v?: number }, view: TableView, positi
 }
 
 async function main(): Promise<void> {
-  const bot = new SolverBot();
+  const bot = new SolverBot({ tier: TIER, fallback: (view, rng) => decide(view, rng, LEVEL) });
   const rng: Rng = mulberry32(20260909);
   let token: string | undefined;
   const results: number[] = [];
@@ -243,7 +249,7 @@ async function main(): Promise<void> {
       const parsedFrom = reply.action;
       if (position.done) break;
       const view = viewFor(reply, position, hand);
-      const decision = (await bot.decide(view, rng, runInline, BUDGET_MS)) ?? decide(view, rng, 5);
+      const decision = await bot.decide(view, rng, runInline, BUDGET_MS);
       const incr = encode(decision, view, position);
       reply = await post('act', { token, incr });
       if (reply.error_msg) console.error(`  hand ${hand}: ${reply.error_msg} sending ${incr} after ${JSON.stringify(view.legal)} on "${parsedFrom}"`);

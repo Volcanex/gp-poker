@@ -96,6 +96,11 @@ export interface OpponentStats {
   // starts and the answer never came. See SolverBot.
   betsFaced: number;
   foldsToOurBets: number;
+  // The same pair restricted to the flop, which is the read that decides
+  // whether firing the flop at all is worth it and the one that separates a
+  // player who folds a lot from one who folds only when it is cheap.
+  cbetsFaced: number;
+  foldsToOurCbets: number;
 }
 
 /* Postflop actions before the passivity read is allowed to change anything. */
@@ -123,7 +128,17 @@ export function passivity(stats: OpponentStats): number {
 }
 
 export function emptyStats(): OpponentStats {
-  return { hands: 0, vpip: 0, pfr: 0, aggressive: 0, passive: 0, betsFaced: 0, foldsToOurBets: 0 };
+  return {
+    hands: 0,
+    vpip: 0,
+    pfr: 0,
+    aggressive: 0,
+    passive: 0,
+    betsFaced: 0,
+    foldsToOurBets: 0,
+    cbetsFaced: 0,
+    foldsToOurCbets: 0,
+  };
 }
 
 /* Bets of ours they have had to answer before the fold rate is allowed to
@@ -140,6 +155,35 @@ export function foldToBet(stats: OpponentStats): number | null {
   if (stats.betsFaced < MIN_BET_SAMPLE) return null;
   return stats.foldsToOurBets / stats.betsFaced;
 }
+
+/* How often they fold to a bet on the flop, or null while the sample is too
+   small. Kept apart from the overall rate because the flop is the street where
+   a bet is cheapest and most of the fold equity in a hand lives. */
+export function foldToCbet(stats: OpponentStats): number | null {
+  if (stats.cbetsFaced < MIN_BET_SAMPLE) return null;
+  return stats.foldsToOurCbets / stats.cbetsFaced;
+}
+
+/* How often they take the aggressive side of a postflop decision, or null
+   while the sample is too small. Low means their bets and raises mean
+   something, which is what makes calling one down with a bluffcatcher a
+   losing proposition. */
+export function aggressionFrequency(stats: OpponentStats): number | null {
+  const actions = stats.aggressive + stats.passive;
+  if (actions < MIN_POSTFLOP_SAMPLE) return null;
+  return stats.aggressive / actions;
+}
+
+/* How many hands they voluntarily put money in preflop, or null while the
+   sample is too small. Wide means their range is weak by the flop, which is
+   what makes a thin value bet a value bet. */
+export function vpipRate(stats: OpponentStats): number | null {
+  if (stats.hands < MIN_HAND_SAMPLE) return null;
+  return stats.vpip / stats.hands;
+}
+
+// Hands before the preflop frequencies mean anything.
+export const MIN_HAND_SAMPLE = 20;
 
 /* How far the ranges we read off the charts should be widened for this
    opponent. Someone playing eighty percent of hands is not in any chart's

@@ -426,31 +426,67 @@ export const DEFAULT_FORMAT = SIX_MAX_STANDARD;
 export const DEFAULT_MODE: Mode = 'six-max';
 export const DEFAULT_SPEED: Speed = 'standard';
 
-/* The six bot levels, one table shared by the server (which plays them and
+/* A bot's strategy is a **tier**, and a level is only where that tier currently
+   sits on the ladder. The distinction earns its keep the moment the ladder is
+   renumbered: everything that decides how a bot plays reads `LEVEL_TIER`, so
+   moving a tier up or down the scale is an edit to one table and not a search
+   for integer comparisons.
+
+   Nothing may branch on the number. `LEVEL_TIER` is one-to-one on purpose:
+   two levels sharing a tier is two levels playing identically, which the
+   ordering test would rightly fail. */
+export type BotTier = 'station' | 'loose' | 'tight' | 'solid' | 'sharp' | 'regular' | 'solver';
+
+/* The seven bot levels, one table shared by the server (which plays them and
    labels the roster) and the client (which offers them in the practice
    picker). Level 4 is the bot that existed before levels did; 1 to 3 are
-   progressively looser or more passive, 5 is sharper. Level 6 is a different
-   animal: it tracks both ranges through the hand and solves the board it is
-   looking at, which costs real processor time, so there are only two of them
-   on the roster. Monotonic: a higher level beats a lower one over a long
-   enough sample. */
-export type BotLevel = 1 | 2 | 3 | 4 | 5 | 6;
+   progressively looser or more passive, 5 is sharper. 6 and 7 are a different
+   animal: they track both ranges through the hand and solve the board in front
+   of them, which costs real processor time, so there are two accounts each.
+   Monotonic: a higher level beats a lower one over a long enough sample. */
+export type BotLevel = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+export const LEVEL_TIER: Record<BotLevel, BotTier> = {
+  1: 'station',
+  2: 'loose',
+  3: 'tight',
+  4: 'solid',
+  5: 'sharp',
+  6: 'regular',
+  7: 'solver',
+};
+
+export function tierOf(level: BotLevel): BotTier {
+  return LEVEL_TIER[level];
+}
 
 export const DEFAULT_BOT_LEVEL: BotLevel = 4;
 
 export interface BotLevelInfo {
   level: BotLevel;
+  tier: BotTier;
   name: string; // short label for a picker option
   description: string; // the one line shown beside a bot's name
 }
 
 export const BOT_LEVELS: BotLevelInfo[] = [
-  { level: 1, name: 'Loose and passive', description: 'Level 1: loose and passive, calls almost everything' },
-  { level: 2, name: 'Loose', description: 'Level 2: loose, raises only with strong hands' },
-  { level: 3, name: 'Tight and passive', description: 'Level 3: tight but rarely raises' },
-  { level: 4, name: 'Solid', description: 'Level 4: solid, plays the charts and pot odds' },
-  { level: 5, name: 'Sharp', description: 'Level 5: sharp, semi-bluffs and sizes bets by the board' },
-  { level: 6, name: 'Solver', description: 'Level 6: tracks both ranges and solves the board while you wait' },
+  { level: 1, tier: 'station', name: 'Loose and passive', description: 'Level 1: loose and passive, calls almost everything' },
+  { level: 2, tier: 'loose', name: 'Loose', description: 'Level 2: loose, raises only with strong hands' },
+  { level: 3, tier: 'tight', name: 'Tight and passive', description: 'Level 3: tight but rarely raises' },
+  { level: 4, tier: 'solid', name: 'Solid', description: 'Level 4: solid, plays the charts and pot odds' },
+  { level: 5, tier: 'sharp', name: 'Sharp', description: 'Level 5: sharp, semi-bluffs and sizes bets by the board' },
+  {
+    level: 6,
+    tier: 'regular',
+    name: 'Regular',
+    description: 'Level 6: reads how you play and solves the river against it',
+  },
+  {
+    level: 7,
+    tier: 'solver',
+    name: 'Solver',
+    description: 'Level 7: tracks both ranges and solves the board while you wait',
+  },
 ];
 
 export function isBotLevel(n: unknown): n is BotLevel {
@@ -851,7 +887,7 @@ export interface UserSummary {
   name: string;
   guest: boolean;
   bot: boolean;
-  botLevel?: number; // 1..6, present only on a bot
+  botLevel?: number; // 1..7, present only on a bot
   /* The flag beside their name, as SeatView.country, except that this one is
      sent as `null` rather than left off when there is none: a summary is
      merged over the one a client already holds, and a key that goes absent

@@ -44,7 +44,7 @@ export interface UserRow {
   passwordHash: string | null;
   guest: boolean;
   bot: boolean;
-  botLevel: number | null; // 1..6 on a bot, null on a person
+  botLevel: number | null; // 1..7 on a bot, null on a person
   admin: boolean; // the annotation layer and the tickets it writes, nothing else
   // The flag beside their name: lowercase ISO 3166-1 alpha-2, or null for
   // none, which is what everyone starts as. See ./countries.ts.

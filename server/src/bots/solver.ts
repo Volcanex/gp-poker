@@ -1,10 +1,10 @@
-/* Level 6: the decision that has to think.
+/* The tiers that have to think.
 
-   Levels 1 to 5 are one pure function and answer in microseconds. Level 6
-   tracks both ranges through the hand and runs CFR+ on the street in front of
-   it, which is a second of processor time, so it needs three things the others
-   do not: state that lives across a hand, a clock, and somewhere to run that
-   is not "all of it, right now".
+   The five instant tiers are one pure function and answer in microseconds.
+   `regular` and `solver` track both ranges through the hand and run CFR+ on a
+   street in front of them, which is hundreds of milliseconds of processor
+   time, so they need three things the others do not: state that lives across a
+   hand, a clock, and somewhere to run that is not "all of it, right now".
 
    **It runs on the main thread, in slices.** The obvious answer is a worker
    thread, and it was the plan. The server ships as a single esbuild bundle
@@ -23,25 +23,34 @@
    loop, and goes again until the budget is spent. A websocket sitting behind a
    solving bot waits about ten milliseconds, not a second.
 
-   Two solves at a time. A third falls back to level 5 rather than making all
-   three slow: a bot that answers in time with a worse decision beats a bot
-   that answers late. */
+   Two solves at a time. A third falls back to the sharp tier rather than
+   making all three slow: a bot that answers in time with a worse decision
+   beats a bot that answers late. */
 
 import { SolverBot, type PreparedSubgame } from '@opentable/solver';
-import type { BotLevel, TableView } from '@opentable/protocol';
+import { LEVEL_TIER, type BotLevel, type BotTier, type TableView } from '@opentable/protocol';
+import { decide, ensureLegal, type BotDecision, type Rng } from './strategy.js';
 
-import { ensureLegal, type BotDecision, type Rng } from './strategy.js';
+export type ThinkingTier = Extract<BotTier, 'regular' | 'solver'>;
 
-export const SOLVER_LEVEL: BotLevel = 6;
+/* Which of the thinking tiers a level plays, or null for the five that answer
+   instantly. Everything here reads the tier and never the number, so moving a
+   tier up or down the ladder is an edit to LEVEL_TIER alone. */
+export function thinkingTier(level: BotLevel): ThinkingTier | null {
+  const tier = LEVEL_TIER[level];
+  return tier === 'regular' || tier === 'solver' ? tier : null;
+}
 
-// Never think for longer than this, whatever the clock allows. Past about a
-// second the curve is flat (see packages/solver/CLAUDE.md) and the rest is
-// processor nobody gets anything for.
-const MAX_BUDGET_MS = 1500;
+/* Never think for longer than this, whatever the clock allows. Past about a
+   second the solver tier's curve is flat (see packages/solver/CLAUDE.md) and
+   the rest is processor nobody gets anything for. The regular tier solves only
+   the river, which converges in a fraction of that, and spends what it saves
+   on being a bot that can sit at more tables. */
+const MAX_BUDGET_MS: Record<ThinkingTier, number> = { regular: 400, solver: 1500 };
 const CLOCK_FRACTION = 4;
 
 /* The ladder plays bots against each other in the gaps when nobody is here,
-   one match after another, forever. Two level 6 accounts meeting on it at the
+   one match after another, forever. Two thinking accounts meeting on it at the
    full budget would keep a core busy around the clock on a four core box that
    also runs everything else Gabriel has. Nobody is watching a ladder match, so
    it gets a fraction of the thinking time and a slightly worse bot. */
@@ -56,8 +65,20 @@ let running = 0;
 
 const bots = new Map<string, SolverBot>();
 
-export function budgetFor(clockMs: number, ladder = false): number {
-  const ceiling = ladder ? LADDER_BUDGET_MS : MAX_BUDGET_MS;
+function botFor(userId: string, tier: ThinkingTier, level: BotLevel): SolverBot {
+  let bot = bots.get(userId);
+  if (!bot) {
+    // The fallback is the same pure function every other tier uses, asked for
+    // this level: `decide` maps a thinking tier onto the sharp one, so the
+    // streets this tier does not solve are played by the tier below it.
+    bot = new SolverBot({ tier, fallback: (v, r) => decide(v, r, level) });
+    bots.set(userId, bot);
+  }
+  return bot;
+}
+
+export function budgetFor(clockMs: number, tier: ThinkingTier = 'solver', ladder = false): number {
+  const ceiling = Math.min(MAX_BUDGET_MS[tier], ladder ? LADDER_BUDGET_MS : Infinity);
   return Math.max(1, Math.min(ceiling, Math.floor(clockMs / CLOCK_FRACTION)));
 }
 
@@ -73,29 +94,33 @@ async function slicedRunner(prepared: PreparedSubgame, budgetMs: number): Promis
   }
 }
 
-/* One action, or null when the spot is not one the solver plays (more than two
-   players in the hand, a preflop line the charts do not name, the queue being
-   full). Null means the caller should ask level 5, which is what player.ts
-   does. */
-export async function decideSolver(userId: string, view: TableView, rng: Rng): Promise<BotDecision | null> {
+/* One action, or null when this process is already thinking as hard as it is
+   willing to. Null means the caller should ask the pure function instead,
+   which is what player.ts does. The bot itself never returns null: it owns the
+   whole hand and asks its own fallback for the streets it does not solve. */
+export async function decideSolver(
+  userId: string,
+  view: TableView,
+  rng: Rng,
+  level: BotLevel
+): Promise<BotDecision | null> {
+  const tier = thinkingTier(level);
+  if (!tier) return null;
   if (running >= MAX_CONCURRENT) return null;
-  let bot = bots.get(userId);
-  if (!bot) {
-    bot = new SolverBot();
-    bots.set(userId, bot);
-  }
+  const bot = botFor(userId, tier, level);
   running += 1;
   try {
-    const decision = await bot.decide(view, rng, slicedRunner, budgetFor(view.format.clockMs, view.format.ladder === true));
-    // Same gate every other level leaves through. The solver clamps against
+    const budget = budgetFor(view.format.clockMs, tier, view.format.ladder === true);
+    const decision = await bot.decide(view, rng, slicedRunner, budget);
+    // Same gate every other tier leaves through. The solver clamps against
     // the legal window itself, so this is a guarantee rather than a fix, and
     // it is the sort of guarantee that should not depend on a package outside
     // this directory continuing to be careful.
-    return decision === null ? null : ensureLegal(decision, view.legal!);
+    return ensureLegal(decision, view.legal!);
   } catch (err) {
-    // A bot that throws must not take the table with it. Level 5 answers
-    // instead, and the reason is on the record.
-    console.error(`level 6 decision failed: ${err instanceof Error ? err.message : String(err)}`);
+    // A bot that throws must not take the table with it. The sharp tier
+    // answers instead, and the reason is on the record.
+    console.error(`${tier} tier decision failed: ${err instanceof Error ? err.message : String(err)}`);
     return null;
   } finally {
     running -= 1;

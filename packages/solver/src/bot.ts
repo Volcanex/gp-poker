@@ -1,19 +1,31 @@
-/* One heads-up hand, played by solving it.
+/* One heads-up hand, played by a tier that thinks.
 
    `SolverBot.decide` takes the same `TableView` a browser gets and answers
-   with a legal action, or with null when the spot is not one it plays: more
-   than two players in the hand, a view with no cards in it, or a solve that
-   ran out of budget. Null means "ask the older levels", never "do nothing".
+   with a legal action, always. Where it does not solve, it asks the fallback
+   it was given, which is how the older tiers play the streets this one leaves
+   alone. Owning the whole hand rather than returning null for the parts it
+   skips is what keeps the range tracking honest: a hand where somebody else
+   made half our decisions is a hand where our own range is a guess.
 
-   Preflop is a chart read with mixed frequencies at the boundaries rather than
-   a solve: the charts are heuristic, but a heads-up preflop range is the one
-   part of this game that is already written down, and solving it properly
-   needs the whole tree behind it rather than one street.
+   Two tiers live here.
 
-   Postflop it builds a subgame rooted at the decision in front of it and hands
-   it to CFR+. The flop and the turn are depth limited (see solve.ts); the
-   river is exact. Running the iterations is the caller's job, because whether
-   this can block a thread is the caller's problem and not this package's. */
+   **`solver`** solves every postflop street. Preflop is a chart read with
+   mixed frequencies at the boundaries rather than a solve: the charts are
+   heuristic, but a heads-up preflop range is the one part of this game that is
+   already written down, and solving it properly needs the whole tree behind it
+   rather than one street. Postflop it builds a subgame rooted at the decision
+   in front of it and hands it to CFR+; the flop and the turn are depth limited
+   (see solve.ts) and the river is exact.
+
+   **`regular`** is the tier in between. It plays the sharp tier's poker
+   everywhere except the river, where it runs the exact solve on a shorter
+   budget, and it leans on what it has measured about this particular opponent
+   the whole way through. It is not a worse solver: it is a different bet about
+   where the money is, that a read on a person is worth more than a depth
+   limited guess at two streets of play.
+
+   Running the iterations is the caller's job, because whether this can block a
+   thread is the caller's problem and not this package's. */
 
 import {
   bucketFor,
@@ -22,16 +34,19 @@ import {
   chartFor,
   regionsOf,
 } from '@opentable/preflop';
-import type { ActionKind, Card, LegalActions, SeatView, TableView } from '@opentable/protocol';
+import type { ActionKind, BotTier, Card, LegalActions, SeatView, TableView } from '@opentable/protocol';
 import { NUM_COMBOS, cardIndex, comboIndex } from './cards.js';
 import {
   RangeTracker,
+  aggressionFrequency,
   emptyStats,
   foldToBet,
+  foldToCbet,
   passivity,
   positionRange,
   priorWeight,
   ranksWithinRange,
+  vpipRate,
   type Aggression,
   type AggressionKind,
   type OpponentStats,
@@ -110,6 +125,19 @@ const MAX_CATCH_CUT = 0.7;
 // as much again as the frequency the solve gave them.
 const MAX_VALUE_TILT = 1.5;
 
+/* The regular tier's four moves, in the order they appear in `exploit`. Each
+   is bounded so that a strong read moves the strategy a long way and a weak
+   one barely moves it at all. */
+const WIDE_VPIP = 0.7; // above this their preflop range is not a chart's
+const THIN_VALUE_PERCENTILE = 35; // the part of ours worth raising for value against it
+const MAX_THIN_RAISE = 0.5;
+const EXTRA_BLUFF_FRACTION = 0.5; // of the pot
+const EXTRA_BLUFF_GAIN = 2;
+const MAX_EXTRA_BLUFF = 0.45;
+const MAX_VALUE_STRETCH = 0.6; // how much bigger a value bet gets against somebody who calls
+const PASSIVE_AGGRESSION = 0.3; // below this their bets mean something
+const MAX_EXTRA_FOLD = 0.5;
+
 // Preflop sizings, in the units each is naturally read in: an open is a
 // multiple of the big blind, a re-raise a multiple of what it faces.
 const OPEN_BB = 2.5;
@@ -130,12 +158,41 @@ interface HandState {
   // True while a postflop bet or raise of ours is still unanswered. If the
   // hand ends with it still set and nobody showed a hand, they folded to it.
   pendingBet: boolean;
+  // Whether that unanswered bet was on the flop, so a fold can be counted
+  // against the street it happened on rather than only in the total.
+  pendingBetOnFlop: boolean;
+}
+
+/* What plays the streets a tier does not solve, and what answers when a solve
+   declines. Injected rather than imported: the older tiers are a pure function
+   in the server and this package has no business reaching for it. */
+export type Fallback = (view: TableView, rng: Rng) => Decision;
+
+export interface SolverBotOptions {
+  tier: Extract<BotTier, 'regular' | 'solver'>;
+  fallback: Fallback;
 }
 
 export class SolverBot {
   private hand: HandState | null = null;
   private matchId = '';
   private stats: OpponentStats = emptyStats();
+  private readonly tier: Extract<BotTier, 'regular' | 'solver'>;
+  private readonly fallback: Fallback;
+
+  constructor(options: SolverBotOptions) {
+    this.tier = options.tier;
+    this.fallback = options.fallback;
+  }
+
+  /* Which streets this tier solves for itself. The regular tier solves only
+     the river, where the answer is exact; everywhere else it plays the sharp
+     tier's poker with a read on top. */
+  private solvesStreet(street: TableView['street']): boolean {
+    if (street === 'pre') return this.tier === 'solver';
+    if (this.tier === 'solver') return true;
+    return street === 'river';
+  }
 
   /* Match scoped, deliberately. A read on somebody is worth having inside a
      best of twenty five and is worth nothing at all across two different
@@ -159,6 +216,7 @@ export class SolverBot {
       // sees a slightly high fold rate.
       if (this.hand?.pendingBet) {
         this.stats.foldsToOurBets += 1;
+        if (this.hand.pendingBetOnFlop) this.stats.foldsToOurCbets += 1;
         this.hand.pendingBet = false;
       }
       const effective = Math.min(...inHand.map((s) => s.stack + s.bet)) / view.blinds.bb;
@@ -171,6 +229,7 @@ export class SolverBot {
         lastWagerFraction: 0,
         exactlyTracked: false,
         pendingBet: false,
+        pendingBetOnFlop: false,
       };
       this.stats.hands += 1;
     }
@@ -221,6 +280,8 @@ export class SolverBot {
     if (aggressive) {
       this.stats.betsFaced += 1;
       state.pendingBet = true;
+      state.pendingBetOnFlop = view.board.length === 3;
+      if (state.pendingBetOnFlop) this.stats.cbetsFaced += 1;
     }
 
     const opponent = view.seats.find((s) => s.i !== me.i && !s.folded && s.cards !== null);
@@ -256,26 +317,32 @@ export class SolverBot {
     if (shown > 0) this.hand.pendingBet = false;
   }
 
-  async decide(view: TableView, rng: Rng, runner: SolveRunner, budgetMs: number): Promise<Decision | null> {
+  async decide(view: TableView, rng: Rng, runner: SolveRunner, budgetMs: number): Promise<Decision> {
     const legal = view.legal;
-    if (!legal || view.you === null) return null;
+    if (!legal || view.you === null) return this.fallback(view, rng);
     const me = view.seats[view.you];
     const hole = me.cards;
-    if (!hole || hole.length !== 2 || hole.includes('?')) return null;
+    if (!hole || hole.length !== 2 || hole.includes('?')) return this.fallback(view, rng);
 
     const state = this.stateFor(view);
-    if (!state) return null;
+    if (!state) return this.fallback(view, rng);
     const inHand = view.seats.filter((s) => !s.out && !s.folded && s.cards !== null);
     const opponent = inHand.find((s) => s.i !== me.i);
-    if (!opponent || inHand.length !== 2) return null;
+    // More than two in the hand is not a game this package plays. A six-max
+    // hand that has become heads-up postflop is, and arrives here as one.
+    if (!opponent || inHand.length !== 2) return this.fallback(view, rng);
 
     this.observe(state, view, me, opponent);
 
-    const decision =
-      view.street === 'pre'
-        ? this.preflop(state, view, me, opponent, [hole[0], hole[1]], rng)
-        : await this.postflop(state, view, me, opponent, [hole[0], hole[1]], rng, runner, budgetMs);
-    if (!decision) return null;
+    const cards: [Card, Card] = [hole[0], hole[1]];
+    let decision: Decision | null = null;
+    if (this.solvesStreet(view.street)) {
+      decision =
+        view.street === 'pre'
+          ? this.preflop(state, view, me, opponent, cards, rng)
+          : await this.postflop(state, view, me, opponent, cards, rng, runner, budgetMs);
+    }
+    if (!decision) decision = this.exploit(state, view, me, opponent, cards, this.fallback(view, rng), rng);
     this.record(state, view, me, decision);
     return decision;
   }
@@ -465,6 +532,89 @@ export class SolverBot {
     state.exactlyTracked = true;
 
     return toDecision(result.acts[chosen], legal);
+  }
+
+  /* The read, applied to a decision one of the older tiers made.
+
+     This is the whole of what makes `regular` a tier rather than "the solver
+     with the turn switched off". The sharp tier plays a fixed strategy against
+     everybody; this one has measured how a particular person folds, how often
+     they bet, and how many hands they play, and moves in the four places where
+     those numbers say the fixed strategy is leaving money behind. Every rule
+     is a no-op until its sample is there, so a bot with no read on somebody
+     plays exactly the sharp tier.
+
+     It does not touch the solver tier: that one's deviation lives inside the
+     solve, where it can be applied per combo rather than to one action. */
+  private exploit(
+    state: HandState,
+    view: TableView,
+    me: SeatView,
+    opponent: SeatView,
+    hole: [Card, Card],
+    decision: Decision,
+    rng: Rng
+  ): Decision {
+    if (this.tier !== 'regular') return decision;
+    const legal = view.legal;
+    if (!legal) return decision;
+    const board = view.board.map(cardIndex);
+
+    // Wide preflop is a weak range by the flop, so the hands the charts say to
+    // call with are worth raising for value instead.
+    if (view.street === 'pre') {
+      const vpip = vpipRate(this.stats);
+      if (decision.a !== 'c' || vpip === null || vpip <= WIDE_VPIP) return decision;
+      if (percentileOf(handClass(hole)) > THIN_VALUE_PERCENTILE) return decision;
+      const wideness = (vpip - WIDE_VPIP) / (1 - WIDE_VPIP);
+      if (rng() >= Math.min(MAX_THIN_RAISE, wideness)) return decision;
+      const bb = view.blinds.bb;
+      const facing = Math.max(me.bet, opponent.bet);
+      return raiseTo(legal, facing > bb ? Math.round(THREE_BET_MULTIPLE * facing) : Math.round(OPEN_BB * bb));
+    }
+
+    if (board.length < 3) return decision;
+    const villain = state.tracker.rangeFor(opponent.button ? 'sb' : 'bb', board, []);
+    const rank = ranksWithinRange(villain, board)[comboIndex(cardIndex(hole[0]), cardIndex(hole[1]))];
+
+    // Somebody who folds more than the price of a bet is somebody to bet at
+    // with the hands that cannot win a showdown.
+    if (decision.a === 'x' && legal.call === 0 && rank < BLUFF_RANK) {
+      const fold = (board.length === 3 ? foldToCbet(this.stats) : null) ?? foldToBet(this.stats);
+      const wager = Math.max(view.blinds.bb, Math.round(EXTRA_BLUFF_FRACTION * view.pot));
+      const breakeven = wager / (view.pot + wager);
+      const edge = fold === null ? 0 : (fold - breakeven) / Math.max(0.05, 1 - breakeven);
+      if (edge > 0 && rng() < Math.min(MAX_EXTRA_BLUFF, edge * EXTRA_BLUFF_GAIN)) {
+        return raiseTo(legal, me.bet + wager);
+      }
+      return decision;
+    }
+
+    // Somebody who folds less than the price is somebody to bet bigger at with
+    // the hands that beat their range.
+    if ((decision.a === 'b' || decision.a === 'r') && decision.v !== undefined && rank > VALUE_RANK) {
+      const fold = foldToBet(this.stats);
+      const wager = decision.v - me.bet;
+      const breakeven = wager / (view.pot + wager);
+      if (fold !== null && wager > 0 && fold < breakeven) {
+        const shortfall = (breakeven - fold) / breakeven;
+        return raiseTo(legal, me.bet + Math.round(wager * (1 + MAX_VALUE_STRETCH * shortfall)));
+      }
+      return decision;
+    }
+
+    // Somebody who rarely bets is somebody whose bets mean something, and
+    // calling one down with a hand that beats nothing they are betting is the
+    // most expensive habit there is.
+    if (decision.a === 'c' && legal.call > 0 && rank < CATCH_RANK) {
+      const aggression = aggressionFrequency(this.stats);
+      if (aggression !== null && aggression < PASSIVE_AGGRESSION) {
+        const timidity = (PASSIVE_AGGRESSION - aggression) / PASSIVE_AGGRESSION;
+        if (rng() < MAX_EXTRA_FOLD * timidity * (1 - rank / CATCH_RANK)) return giveUp(legal);
+      }
+    }
+
+    return decision;
   }
 
   /* Our own range in this spot, tracked the same way the opponent's is. It is
