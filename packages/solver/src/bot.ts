@@ -21,7 +21,6 @@ import {
   percentileOf,
   chartFor,
   regionsOf,
-  type StackBucket,
 } from '@opentable/preflop';
 import type { ActionKind, Card, LegalActions, SeatView, TableView } from '@opentable/protocol';
 import { NUM_COMBOS, cardIndex, comboIndex } from './cards.js';
@@ -38,7 +37,7 @@ import {
   type OpponentStats,
   type Position,
 } from './opponent.js';
-import { regionWeight, removeBlocked, type Range } from './range.js';
+import { headsUpSpot, regionWeight, removeBlocked, type Range } from './range.js';
 import { finishSubgame, frequenciesFor, prepareSubgame, type PreparedSubgame, type SubgameSpec } from './solve.js';
 import type { Act } from './tree.js';
 
@@ -307,7 +306,9 @@ export class SolverBot {
     else raiseCount = opponent.bet > bb ? 1 : null;
     if (raiseCount === null) return null;
 
-    const spot = spotOrNull(bucket, position, raiseCount);
+    // The same (position, raises) to spot map the accuracy scorer uses, so a
+    // chart the bot plays and a chart a person is graded against cannot drift.
+    const spot = headsUpSpot(bucket, position, raiseCount);
     if (!spot) return null;
     const chart = regionsOf(chartFor(bucket, spot));
     const percentile = percentileOf(handClass(hole));
@@ -499,19 +500,6 @@ function observedAction(
     return { kind: 'call', potFraction: called };
   }
   return { kind: 'check', potFraction: 0 };
-}
-
-function spotOrNull(bucket: StackBucket, position: Position, raiseCount: number) {
-  if (bucket === 'push') {
-    if (position === 'sb' && raiseCount === 0) return 'sb_push' as const;
-    if (position === 'bb' && raiseCount === 1) return 'bb_vs_push' as const;
-    return null;
-  }
-  if (position === 'sb' && raiseCount === 0) return 'sb_open' as const;
-  if (position === 'bb' && raiseCount === 1) return 'bb_vs_open' as const;
-  if (position === 'sb' && raiseCount === 2) return 'sb_vs_3bet' as const;
-  if (position === 'bb' && raiseCount === 3) return 'bb_vs_4bet' as const;
-  return null;
 }
 
 function giveUp(legal: LegalActions): Decision {
