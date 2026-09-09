@@ -43,6 +43,67 @@ test('the strip reads the hand, the outs and the equity', async ({ page }) => {
   await expect(rows.nth(2)).toContainText(/\d+\.\d%/);
 });
 
+/* **On a wide v2 table the readings are a section of the band, not a bar.**
+   The owner's note was that the strip should not be its own bar; the felt gets
+   that row back and the readings stand on the right of the band, where the
+   decision is made. */
+test('the readings are a section of the band on a wide v2 table', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await stubApi(page);
+  await page.goto(`${PRACTICE}&v2=1&step=5`);
+
+  await page.locator('.hero-band[data-stats]').waitFor({ timeout: 20_000 });
+  await expect(page.locator(STRIP)).toHaveCount(0);
+
+  const rows = page.locator('.hb-stats .ls-row');
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(0)).toContainText('King high');
+  await expect(rows.nth(1)).toContainText('9 outs');
+  await expect(rows.nth(2)).toContainText(/\d+\.\d%/);
+
+  /* The count and the percentage are the glance. The cards that make the outs
+     and the notes beside the numbers are the analysis panel's: a 248 px column
+     cannot hold nine cards and the reading they belong to. */
+  await expect(page.locator('.hb-stats .ctext')).toBeHidden();
+  await expect(page.locator('.hb-stats .ls-vs')).toBeHidden();
+});
+
+/* Narrower than a third column, it is still the strip: a band split three ways
+   leaves the six sizes too narrow to read. */
+test('a v2 table too narrow for a third column keeps the strip', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 800 });
+  await stubApi(page);
+  await page.goto(`${PRACTICE}&v2=1&step=5`);
+
+  await expect(page.locator(STRIP)).toBeVisible();
+  await expect(page.locator('.hb-stats')).toHaveCount(0);
+  await expect(page.locator('.hero-band[data-stats]')).toHaveCount(0);
+});
+
+/* And the section obeys the band's own rule: the readings change every street
+   inside a box that may not change size. */
+test('the band keeps one footprint with the readings in it', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await stubApi(page);
+  await watchLayoutShift(page);
+  await page.goto(`${PRACTICE}&v2=1`);
+
+  const FOOTPRINT = ['.hand-head', '.felt', '.board', '.pot', '.hero-band', '.hb-stats'];
+  await page.locator('.hero-band[data-state="turn"]').waitFor({ timeout: 30_000 });
+  await expect(page.locator('.hb-stats .ls-row').nth(2)).toContainText(/\d+\.\d%/);
+  const settledAt = await markSettled(page);
+  const onTurn = await boxes(page, FOOTPRINT);
+
+  await page.locator('.hero-band[data-state="wait"]').waitFor({ timeout: 30_000 });
+  expect(diff(onTurn, await boxes(page, FOOTPRINT)), 'boxes that moved while waiting').toEqual([]);
+
+  await page.locator('.hero-band[data-state="over"]').waitFor({ timeout: 45_000 });
+  await page.waitForTimeout(1200);
+  expect(diff(onTurn, await boxes(page, FOOTPRINT)), 'boxes that moved at hand end').toEqual([]);
+
+  expect(await shiftSince(page, settledAt)).toBe(0);
+});
+
 test('a practice table keeps one footprint through a hand', async ({ page }) => {
   await stubApi(page);
   await watchLayoutShift(page);

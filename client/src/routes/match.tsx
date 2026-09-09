@@ -391,7 +391,7 @@ function MockMatch(
             padding: '4px var(--sp-4)',
             bottom: v2
               ? `calc(${watch ? 'var(--band-watch-h)' : 'var(--band-h)'}`
-                + `${practice ? ' + var(--strip-h)' : ''} + 6px)`
+                + `${practice ? ' + var(--strip-gap)' : ''} + 6px)`
               : undefined,
           }}
         >

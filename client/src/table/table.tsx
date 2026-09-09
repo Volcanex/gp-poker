@@ -15,7 +15,7 @@ import { dealFrom, dealOrder, layoutMode, placeOf, seatOrder } from './layout.ts
 import { amountToCall } from './preactions.ts';
 import { readShowdown } from './best-five.ts';
 import { useTableSounds } from './sounds.ts';
-import { useGInit } from '../ui/bits.tsx';
+import { useGInit, useMedia } from '../ui/bits.tsx';
 import { LiveStats } from '../analysis/live-stats.tsx';
 import { ChatPanel, ChatToggle } from '../chat/chat.tsx';
 import type { ChatController } from '../chat/use-chat.ts';
@@ -46,6 +46,10 @@ export interface TableProps {
 }
 
 const BOARD_SLOTS = 5;
+
+/* Wide enough for the band to hold the hand, the controls and a practice
+   table's readings side by side. Under it the readings keep their own row. */
+const BAND_STATS = '(min-width: 1100px)';
 
 /* The hand-end sequence, in the order the eye needs it: the cards turn over,
    then the five that count are outlined and the rest of the board goes quiet,
@@ -98,6 +102,19 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
      large in one corner and the controls under the thumb in the other, with
      the key legend between them on a screen wide enough to hold one. */
   const band = look === 'v2' && !bare && !ended;
+
+  /* **A practice table's readings are a section of the band, not a bar of
+     their own**, on a screen wide enough to hold a third column. The owner's
+     note was that the strip should not be its own bar, and it was the only
+     thing on this screen that was a bar rather than a part of something; the
+     felt takes its row back. Narrower than that it is still the strip, because
+     a band split three ways leaves the sizes too narrow to read.
+
+     One reading in one place: `LiveStats` drives the analysis worker and two
+     of them would cancel each other's requests, so this picks the host rather
+     than rendering it twice and hiding one. */
+  const wideStats = useMedia(BAND_STATS);
+  const inBand = band && strip && wideStats && hole != null;
 
   const result = view.street === 'done' ? view.result : null;
   const phase = useHandEnd(result ? `${view.m}:${view.h}` : null, reduced);
@@ -260,7 +277,7 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
         </div>
       </div>
 
-      {strip && (
+      {strip && !inBand && (
         <div className="practice-strip">
           {hole && <LiveStats hole={hole} board={view.board} opponents={opponents} />}
         </div>
@@ -279,6 +296,9 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
               stack={heroStack}
               onNext={onNext}
               onBack={onBack}
+              stats={inBand && hole
+                ? <LiveStats hole={hole} board={view.board} opponents={opponents} />
+                : null}
             />
           ) : (
             <>
