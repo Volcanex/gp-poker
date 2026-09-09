@@ -112,10 +112,13 @@ because the server already knows and ignores anything that does not match.
 Anything both sides have to agree a number for, so two copies of it cannot
 drift: `HAND_HOLD_MS` and `holdFor` (the server sleeps it, the client counts it
 down), `BOT_LEVELS` (the server plays them, the client offers them),
-`CHAT_MAX_LENGTH` and the cooldowns (the server enforces them, the client counts
-them down), `arenaPoints` with `ARENA_FIRE_FROM` (the server scores, the
-client draws the flame promising the next win is worth three), `READY_CHECK_MS`
-and `readyCooldownMs` (the server runs the window and sets the wait, the client
+`PRACTICE_PRESETS` (the home page's Easy/Medium/Hard buttons and the `/bots`
+setup page both read the same level for each name, so a rename or the level 6
+bot landing cannot move one without the other), `CHAT_MAX_LENGTH` and the
+cooldowns (the server enforces them, the client counts them down),
+`arenaPoints` with `ARENA_FIRE_FROM` (the server scores, the client draws the
+flame promising the next win is worth three), `READY_CHECK_MS` and
+`readyCooldownMs` (the server runs the window and sets the wait, the client
 counts both down), and the level curve (the server tests it, the profile and
 the top bar print it).
 
