@@ -129,7 +129,12 @@
 .hb-line-end { position: relative; }
 .hb-line-next {
   position: absolute; right: 0; top: 50%; translate: 0 -50%;
-  height: 22px; padding: 0 var(--sp-3);
+  /* **It has to fit inside the line, not fill it.** The line is 24 px with a
+     4 px floor for the bar, so its words have 20 px; a 22 px button overflowed
+     that by a pixel at each end and came back within three of the divider,
+     which is what the owner reported twice. At 18 it sits inside the words'
+     own box and on their centre line. */
+  height: 18px; padding: 0 var(--sp-3);
   font-size: 12px; font-weight: 500;
   white-space: nowrap;
 }
