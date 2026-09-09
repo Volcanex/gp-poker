@@ -203,46 +203,37 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
             );
           })}
 
+          {/* The board: five slots in one row across the top of the felt, above
+              the seats and the pot. All five are always drawn, empty before
+              the flop, so a street arriving moves nothing. It used to be split
+              round the pot, which read as two boards rather than one hand. */}
+          <div className="board">
+            {board.map((c, i) => (
+              <PlayingCard
+                key={`${view.h}-b${i}`}
+                card={c}
+                index={0}
+                best={c != null && show.best.size > 0 && show.best.has(c)}
+                dim={c != null && show.best.size > 0 && !show.best.has(c)}
+              />
+            ))}
+          </div>
+
           <div className="middle">
-            {/* The board is split round the pot: the flop on the left, the
-                turn and the river on the right, and between them the pot's
-                chips with its figure under them. No label: a stack of chips
-                in the middle of a table is the pot. */}
-            <div className="board">
-              <span className="board-flop">
-                {board.slice(0, 3).map((c, i) => (
-                  <PlayingCard
-                    key={`${view.h}-b${i}`}
-                    card={c}
-                    index={0}
-                    best={c != null && show.best.size > 0 && show.best.has(c)}
-                    dim={c != null && show.best.size > 0 && !show.best.has(c)}
-                  />
-                ))}
+            {/* The pot sits between the wings, under the board: its chips with
+                its figure under them. No label: a stack of chips in the middle
+                of a table is the pot. */}
+            <div className="pot">
+              <span className="pot-chips">
+                <ChipStack amount={potShown} />
               </span>
-              <div className="pot">
-                <span className="pot-chips">
-                  <ChipStack amount={potShown} />
-                </span>
-                {/* Keyed on the value: a figure that changes in place is a
-                    text node the layout-shift observer sees move when its
-                    box is centred, and a fresh node is new content. */}
-                <span className="v num" key={potShown}>{potShown}</span>
-                {view.pots.length > 1 && (
-                  <span className="pot-side num">{view.pots.map((p) => p.amount).join(' + ')}</span>
-                )}
-              </div>
-              <span className="board-turn">
-                {board.slice(3).map((c, i) => (
-                  <PlayingCard
-                    key={`${view.h}-b${i + 3}`}
-                    card={c}
-                    index={0}
-                    best={c != null && show.best.size > 0 && show.best.has(c)}
-                    dim={c != null && show.best.size > 0 && !show.best.has(c)}
-                  />
-                ))}
-              </span>
+              {/* Keyed on the value: a figure that changes in place is a
+                  text node the layout-shift observer sees move when its
+                  box is centred, and a fresh node is new content. */}
+              <span className="v num" key={potShown}>{potShown}</span>
+              {view.pots.length > 1 && (
+                <span className="pot-side num">{view.pots.map((p) => p.amount).join(' + ')}</span>
+              )}
             </div>
 
             {/* The award line. The zone holds its height in every street so

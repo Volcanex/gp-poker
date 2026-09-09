@@ -120,13 +120,14 @@ scoped to `.hero-band` and `.match[data-band]` so it cannot.
 
 | | Phone | Wide |
 | --- | --- | --- |
-| Band height (`--band-h`) | 264 px | 264 px |
+| Band height (`--band-h`) | 264 px | 224 px |
 | Decision line (`--hb-line-h`) | 28 px | 28 px |
-| Card | 104 px | 104 px |
+| Card | 104 px | 76 px |
 | Hand column | the fan's own width | the fan's own width |
 | Action column | 176 px | the rest of the felt's column |
-| Actions | three rows: raise, call, fold | one row: fold, call, raise |
-| Raise control | the sweep sizer | ten sizes in two rows, and a typed size |
+| Sizes | six, two rows of three | six, one row |
+| Actions | three rows: bet, call, fold | two groups: fold and call, then bet |
+| A size of your own | the sweep sizer | a typed field, key `r` |
 | Key legend | none, there is no keyboard | one line under the controls |
 
 **The band's ground is the page's and its content is the felt's.** The ground
@@ -229,30 +230,52 @@ band; it does not send, because a raise needs a number and the sizes are where
 the number comes from. Fold was a slide; the owner cut it, and a slide's
 pointer capture, handle, hatched track and threshold went with it.
 
-**Ten sizes, not a sweep, under a mouse.** The wide band's raise control is
-`presetsWide`'s ten as two rows of five with a gap off the spacing scale
-between them, each printing its name over the number it will send, and one
-press sends. Postflop they are Min, 25%, 33%, 50%, 60%, 75%, 100%, 125%, 150%
-and All in of the pot after the call; preflop, Min, 2× to 6× the bet, Pot and
-All in. Six was too few: every postflop size was about the pot and nobody could
-bet sixty percent of it. The number keys do what pressing their segment does,
-so on a wide band `1` to `9` and `0` **send**; `r` opens the typed size, which
-is a g input in the grid's own box with Enter to send and Escape to close, and
-it clamps into the field like the dock's rather than sending a number nobody
-chose. **A segment that says a number another one already says is disabled
-rather than dropped** (`dupKeys` in `sizing.ts`: the ends own their numbers, so
-a size that clamps to the stack is the all in segment's and one that clamps to
-the minimum is Min's), because the keys address the segments by position and a
-preset that moves is a preset nobody learns; its key does nothing either. When
-raising is not on the table the grid is empty and keeps its box. The phone
-keeps the sweep and `presetsFor`'s six, which is why `useMedia` in
-`../ui/bits.tsx` exists: the two controls cannot both be rendered and hidden
-with CSS, because they would both answer the same keyboard.
+**Six sizes, and they are fractions of the stack.** The band's raise control
+is `presetsStack`'s six at both widths: Min, a tenth, a quarter, a half, three
+quarters and all in **of what the player has**, which is `legal.max`, the
+engine's own `seat.bet + seat.stack`. The same six before the flop and after
+it, so the key under a finger means the same thing on every street. The old set
+was ten pot fractions in two rows that changed shape at the flop, and the
+owner's note on it was three separate complaints in one breath: too many
+buttons, too many numbers, and every size about the pot rather than about the
+stack.
+
+**A box says its amount and nothing else**, in the table's tabular numerals,
+with its key drawn faintly in the top left corner (`--act-bet-text` mixed to
+55%, which is a reminder for a hand already on the keyboard rather than a
+label). What the size is called is in the title. A box that would say a number
+another box already says is **drawn blank and disabled** (`dupKeys`: the ends
+own their numbers, so all in is always the last box and always says the stack),
+kept in place rather than dropped, because the keys address the boxes by
+position; a blank box is `aria-hidden` so it is not a button with no name.
+
+**A box loads the button, and the button sends.** Pressing a box, or its number
+key, puts that size into the Bet or Raise button under it ("Raise to 250",
+verb-first, the words keyed on themselves so a changing string is not a text
+node moving in a centred box); the button and Enter are the only things that
+send. The old grid sent on one press of a number key, which is a stack in the
+middle on a mistyped digit. **A decision opens on Min**, not on the quarter: the
+loaded size is what Enter sends. `r` opens a size of your own, which is a
+typed field in the sizes' own box under a mouse and the sweep under a thumb,
+and **that** starts from the quarter (`DEFAULT_PRESET`, stepped up past a blank
+box by `openAt`). The typed field clamps into itself and does not send, exactly
+as the dock's does. There is no mouse-only way to the typed field: the button
+had to become the send, so `r` and the legend are how it is found.
+
+**Two groups under a mouse, one stack under a thumb.** Wide, the controls split
+left and right: fold and check or call on the left in `--acts-w`, the six sizes
+directly over the button that sends one on the right. That is a row shorter
+than the two rows of five, which is where the band's 40 px came from: **the
+card size sets the band's height**, not the controls, so the cards came down to
+76 px with it and the felt took the difference back. On a phone the same pieces
+stack: the six as two rows of three, then bet, then call, then fold on the
+bottom edge under the thumb, and a box there opens the sweep on itself rather
+than sending, because a box that small under a thumb is worth confirming.
 
 g-system ships no segmented control, so `.hb-sizes` is composed from `.btn`'s
 own tokens. **It is a g-system candidate and belongs there**, not here.
 
-**A spectator's band is 176 px, not 264.** The height a band is is the height
+**A spectator's band is 176 px at every width.** The height a band is is the height
 two giant cards and a thumb's column need, and a spectator has neither; the felt
 still draws the bottom seat, because it belongs to a player. Whether you are
 watching is settled before the first card, the way a practice strip is, so this
@@ -304,6 +327,11 @@ shapes still fit without a page scrollbar (the spec pins it).
 | Felt | 521 | 410 |
 | Band | 260 | 236 |
 
+The board's own row cost the felt 64 px, and the wide band gave 40 of them back
+by dropping to 224. Measured on the mock at 1366 by 768: the band went 264 to
+224, the felt row 416 to 456, and the felt's content 196 to 260. Neither shape
+scrolls and there is still no page scrollbar.
+
 **The mock's caption stands above the band, and the mock places it.** It printed
 over the hero's cards, which are the one thing on this screen you have to be
 able to read. It stays fixed and out of the flow, so it is still no part of the
@@ -327,15 +355,17 @@ column and draws nothing. Min is at the bottom and all in at the top, the way a
 stack reads. The `input type=range` under it is invisible and carries no pointer
 events: it is there for a keyboard and a screen reader, and the hit area owns
 the gesture. Only three marks are drawn, and one that lands within 8% of another
-is dropped, because a pot sized raise is often all in and two labels three
-pixels apart say less than one.
+is dropped, because half a short stack is often all in or nearly it and two
+labels three pixels apart say less than one.
 
 **The keys are the dock's keys**, not a second copy: `useTurnKeys` in
 `dock.tsx` owns them and takes two callbacks, one for `r` and one for the number
 keys, which hand over the whole preset so the band can refuse a disabled one.
-In the dock they focus the field and write into it; here they open the sizer
-and move it, or send. Enter sends, and lives in the sizer because it only means
-anything while a size is open. The clamp and all-in semantics come from
+In the dock they focus the field and write into it; here they load a box into
+the button, or open the sweep on it. Enter sends what the button says: on a
+phone it lives in the sizer, because there a size is only open while the sweep
+is, and on a wide band it is a window listener that stands aside for the typed
+field's own Enter. The clamp and all-in semantics come from
 `raiseAction` and `raiseLabel` in `sizing.ts`, which the dock's `submitRaise`
 also calls.
 
@@ -367,22 +397,21 @@ range is clamped **into the field** and not sent: the next press sends the
 clamped number, so a size nobody chose never reaches the server. The primary
 button always prints the number it will send.
 
-`presetsFor` gives six slots, always the same six in the same order, because the
-number keys address them and a preset that moves is a preset nobody learns.
-Postflop they are min, a third, a half, two thirds, pot and all in; preflop the
-middle three become 2x, 2.5x and 3x the current bet, which is how people size a
-raise before a flop. The dock and the phone's sweep use these. `presetsWide`
-gives the wide band ten in the same shape (see above), and `dupKeys` says which
-of them repeat a number, because there a preset sends rather than writes into a
-field. Duplicates in the six are not collapsed: a preset there only writes.
+`presetsFor` is **v1's dock only** now: six slots off the pot, min, a third, a
+half, two thirds, pot and all in, with the middle three becoming 2x, 2.5x and
+3x the current bet preflop. It depends on `TableView.pot` **including the
+current street's bets**, so a pot-sized raise is `myBet + call + (pot + call)`;
+the unit test pins it. `presetsStack` is the band's six and depends on nothing
+but `legal` (see the band, above), which is why it is the same six on every
+street.
+
+`dupKeys` says which boxes repeat a number. It matters on the band, where a box
+is a choice rather than a write, and not in the dock, where a preset only fills
+a field.
 
 The slider is secondary and desktop only, and it carries no `data-output` bubble
 because the field beside it already prints the number. g still owns its fill
 (see `../ui/CLAUDE.md`).
-
-`TableView.pot` **includes the current street's bets**, which both preset
-functions depend on: a pot-sized raise is `myBet + call + (pot + call)`. The
-unit test pins it.
 
 ## Hand end
 
@@ -507,28 +536,35 @@ unit tested:
   order after them. Watching (a spectator, or a replay) seat 0 takes the
   bottom, so the same match reads the same way round every time it is opened.
   Only a real `view.you` gets an action bar.
-- **Two columns and a split board.** Opponents sit in two columns either side
-  of the board, going round the table from your left: k=1 is the bottom of the
+- **The board is one row across the top.** Five slots, always all five, centred
+  on a `--board-h` row of its own above everything: the wings start under it
+  and the pot sits between them where the board used to be. It was split round
+  the pot, the flop on one side and the turn and river on the other, which read
+  as two boards rather than one hand; the owner's word for that was no.
+- **Two columns under it.** Opponents sit in two columns either side of the
+  middle, going round the table from your left: k=1 is the bottom of the
   left column, the column is climbed, then the right column is descended back
   towards you. `columnSizes` puts the odd one on the left (heads-up: one
   opponent, top left; six-max: three and two) and a column is packed to its
-  top, level with the board. `placeOf(k, n)` is the whole rule and returns
+  top, level with the middle. `placeOf(k, n)` is the whole rule and returns
   `null` for k=0, because the band is your seat. Each seat is placed by two
   custom idents from it (`--r` is `s1`, `s2` or `s3`; `--c` is `l` or `r`)
   against named grid lines in `../app.css`, so the two arrangements below only
   redefine the tracks.
-- **Every track is fixed.** Three seat rows of `--seat-h` whether or not there
-  is a seat in them, and a middle that is the board (the flop, the pot in a
-  `--pot-w` box, the turn and river), the 24 px award line and the `--box-h`
-  stats box, each a fixed height. So the felt's footprint is settled before
-  the first card, and a heads-up felt is the same height as a six-max one.
+- **Every track is fixed.** The board's row, then three seat rows of `--seat-h`
+  whether or not there is a seat in them, and a middle that is the pot in a
+  `--pot-w` box, the 24 px award line and the `--box-h` stats box, each a fixed
+  height. The middle column carries its own width (`--mid-w`) because the board
+  used to be its widest child and no longer stands in it. So the felt's
+  footprint is settled before the first card, and a heads-up felt is the same
+  height as a six-max one.
 - **The bottom row is v1's and a spectator's.** `.pos[data-k="0"]` spans the
   columns under everything, drawn at the seat's usual size; `.match[data-band]`
   drops it and its track, because there the band is that seat.
 - **Two arrangements, one markup.** Wide, the middle sits between the columns
-  and the top seats are level with the board. Below a 1060 px container the
+  and the top seats are level with it. Below a 1060 px container the
   middle cannot fit between two seats that hold a name, so it goes across the
-  top and the columns start under it. Below 560 the seat shrinks to what half
+  top under the board and the columns start under both. Below 560 the seat shrinks to what half
   a phone can hold (above, "A reserved slot has to be paid for somewhere").
   Container queries rather than media queries, because the replay draws this
   felt in a column of its own.
@@ -614,15 +650,15 @@ thing that happened. See `../sound/CLAUDE.md`.
 | `f` | your turn | fold |
 | `c` | your turn | check, or call |
 | `r` | your turn | focus the amount field, from anywhere (the band: open the typed size) |
-| `1` to `6` | your turn | write that preset into the field (the phone band: into the sweep) |
-| `1` to `9`, `0` | your turn, wide band | send that size outright |
-| Enter | the field | send the raise, or show the clamp |
+| `1` to `6` | your turn | v1's dock: write that preset into the field. The band: load that box into the button, or on a phone open the sweep on it |
+| Enter | your turn, wide band | send the size the button says, or show the clamp |
 
 The legend under the dock is desktop only, and it says the same thing in every
 state: a line that comes and goes is a line that moves the felt. `r` works while
 typing (it is how you get back to the field); every other shortcut is blocked by
 `isTextEntry` in `../ui/bits.tsx`, so typing 137 into the field does not fold the
-hand.
+hand. **Enter is blocked there too**, on the band: the field has its own Enter
+and the two together ran the send twice on one press.
 
 ## Promotion candidates for g-system
 

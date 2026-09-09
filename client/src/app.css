@@ -568,17 +568,22 @@
    It used to appear at hand end, which moved the header on every hand. */
 .hand-head .head-acts [aria-disabled="true"] { opacity: 0.45; pointer-events: none; }
 
-/* One felt, one geometry. The opponents sit in two columns either side of the
-   board, going round the table from your left: up the left column, across the
-   top and down the right one. The board is split round the pot, the flop on
-   the left and the turn and river on the right, and the stats box sits under
-   it between the columns. The band along the bottom is your seat; v1, a
-   replay and a spectator draw the bottom seat as a row of its own instead.
+/* One felt, one geometry. **The board is one row of five slots across the top
+   of the felt, above everything**, and the opponents sit in two columns under
+   it either side of the middle, going round the table from your left: up the
+   left column, across and down the right one. The middle holds the pot with
+   the award line and the stats box under it. The band along the bottom is
+   your seat; v1, a replay and a spectator draw the bottom seat as a row of
+   its own instead.
+
+   The board used to be split round the pot, the flop on one side of it and
+   the turn and river on the other, which read as two boards rather than one
+   hand: the owner's word for it was no. One row, and the pot under it.
 
    Every row and column is a fixed track, so the felt's footprint is settled
-   before the first card: three seat rows a column whether or not there is a
-   seat in them, and a middle that is the board, the award line and the box,
-   each a fixed height. */
+   before the first card: the board's own row, then three seat rows a column
+   whether or not there is a seat in them, and a middle that is the pot, the
+   award line and the box, each a fixed height. */
 .felt {
   display: flex; flex-direction: column; justify-content: flex-start;
   padding: var(--sp-4);
@@ -588,8 +593,13 @@
   --seat-w: 372px;
   --seat-card: 28px;
   --board-card: 40px;
+  --board-h: calc(var(--board-card) * 1.4); /* the board's row, and the pot's box under it */
   --pot-w: 108px; /* five chips of the pot's size and their gaps */
   --box-h: 100px; /* the stats box: five rows of 16 px, their gaps, the padding */
+  /* The middle column. The pot is 108 px wide and the stats box under it needs
+     more than that, so the column is sized here rather than by its widest
+     child: it used to be the split board's width, and the board has left it. */
+  --mid-w: 320px;
 }
 /* Centred with auto margins rather than `justify-content`, because a centred
    flex item that overflows its container clips at the top and cannot be
@@ -607,7 +617,9 @@
 .felt-in {
   display: grid;
   grid-template-columns: [l] minmax(0, 1fr) [m] auto [r] minmax(0, 1fr) [end];
-  grid-template-rows: [s1] var(--seat-h) [s2] var(--seat-h) [s3] var(--seat-h) [hero] auto [end];
+  grid-template-rows:
+    [board] var(--board-h)
+    [s1] var(--seat-h) [s2] var(--seat-h) [s3] var(--seat-h) [hero] auto [end];
   column-gap: var(--sp-4); row-gap: var(--sp-2);
   align-items: start;
 }
@@ -621,13 +633,18 @@
 .pos[data-k="0"] { grid-column: l / end; justify-content: center; }
 .match[data-band] .pos[data-k="0"] { display: none; }
 .match[data-band] .felt-in {
-  grid-template-rows: [s1] var(--seat-h) [s2] var(--seat-h) [s3] var(--seat-h) [hero end];
+  grid-template-rows:
+    [board] var(--board-h)
+    [s1] var(--seat-h) [s2] var(--seat-h) [s3] var(--seat-h) [hero end];
 }
+/* The board's row spans the felt and the cards are centred in it, so the board
+   sits at the middle top with the wings starting under it. */
+.board { grid-column: l / end; grid-row: board; justify-self: center; }
 .middle {
   grid-column: m; grid-row: s1 / hero;
   display: flex; flex-direction: column; align-items: center;
   gap: var(--sp-2);
-  min-width: 0;
+  width: var(--mid-w); min-width: 0;
 }
 
 /* Below 1060 the middle cannot fit between two seats that hold a name, so it
@@ -636,25 +653,33 @@
 @container (max-width: 1060px) {
   .felt-in {
     grid-template-columns: [l] minmax(0, 1fr) [r] minmax(0, 1fr) [end];
-    grid-template-rows: [top] auto [s1] var(--seat-h) [s2] var(--seat-h) [s3] var(--seat-h) [hero] auto [end];
+    grid-template-rows:
+      [board] var(--board-h) [top] auto
+      [s1] var(--seat-h) [s2] var(--seat-h) [s3] var(--seat-h) [hero] auto [end];
   }
   .match[data-band] .felt-in {
-    grid-template-rows: [top] auto [s1] var(--seat-h) [s2] var(--seat-h) [s3] var(--seat-h) [hero end];
+    grid-template-rows:
+      [board] var(--board-h) [top] auto
+      [s1] var(--seat-h) [s2] var(--seat-h) [s3] var(--seat-h) [hero end];
   }
   .middle { grid-column: l / end; grid-row: top; width: 100%; max-width: 440px; justify-self: center; }
 }
 
 /* ----------------------------------------------------------------- board */
 
-.board { display: flex; align-items: center; gap: var(--sp-3); height: calc(var(--board-card) * 1.4); }
-.board-flop, .board-turn { display: flex; gap: 4px; }
+/* Five slots in one row, always all five, so the flop arriving moves nothing
+   and the turn and the river land where the empty slots already were. */
+.board {
+  display: flex; align-items: center; justify-content: center;
+  gap: var(--sp-2); height: var(--board-h);
+}
 .board .pcard { --card-w: var(--board-card); }
 
 /* The pot: its chips, standing on the same floor in every street, and the
-   figure under them. No label. A fixed width, so a figure changing length
-   moves neither half of the board. */
+   figure under them. No label. It stands in the middle under the board, and
+   its width is fixed, so a figure changing length moves nothing beside it. */
 .pot {
-  width: var(--pot-w); height: 100%;
+  width: var(--pot-w); height: var(--board-h);
   display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
   gap: 2px;
 }
@@ -918,7 +943,7 @@
 .turn-secs { font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
 .turn-secs[data-tone="low"] { color: var(--danger-text); }
 
-/* The phone: the same two columns under the same split board, at the sizes a
+/* The phone: the same two columns under the same board, at the sizes a
    half of a phone can hold. The avatar goes, the button goes to the seat's
    corner, the stats box becomes one row. Container queries rather than media
    queries, because the replay draws this felt in a column of its own. */
@@ -930,7 +955,7 @@
   }
   .felt-in { column-gap: var(--sp-2); row-gap: 6px; }
   .middle { gap: 4px; }
-  .board { gap: var(--sp-2); }
+  .board { gap: 4px; }
   /* Half a phone is 179 px, and a name is what a seat is read by, so the
      line gives everything else up: the avatar goes, the empty flag slot goes
      (a seat's flag cannot change mid-match, so hiding the empty box moves

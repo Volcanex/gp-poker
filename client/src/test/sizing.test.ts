@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clamp, dupKeys, presetsFor, presetsWide } from '../table/sizing.ts';
+import { DEFAULT_PRESET, clamp, dupKeys, openAt, presetsFor, presetsStack } from '../table/sizing.ts';
 import { actionText, shortHash, streetText } from '../table/labels.ts';
 import { bestFive, handCategory, readShowdown } from '../table/best-five.ts';
 import { amountToCall, isLastHand, resolvePreAction, survivesRaise } from '../table/preactions.ts';
@@ -37,53 +37,72 @@ describe('bet sizes', () => {
   });
 });
 
-describe('the wide band\'s ten sizes', () => {
-  it('spaces the postflop sizes from a quarter of the pot to one and a half', () => {
-    // The same spot as above: pot after the call is 132, on top of the 52 in.
-    const p = presetsWide({ actions: ['f', 'c', 'r'], call: 34, min: 86, max: 400 }, 98, 18, 'turn');
-    expect(p.map((x) => x.label)).toEqual(
-      ['Min', '25%', '33%', '50%', '60%', '75%', '100%', '125%', '150%', 'All in'],
-    );
-    // A quarter of the pot is a raise to 85 here, under the minimum, so it
-    // clamps up to 86 and the min segment owns that number (see below).
-    expect(p.map((x) => x.value)).toEqual([86, 86, 96, 118, 131, 151, 184, 217, 250, 400]);
+describe('the band\'s six sizes', () => {
+  it('spreads them up the stack, not up the pot', () => {
+    // The hero has 400 in front of them all told (`legal.max` is the raise-to
+    // that puts the lot in), so the ladder is a tenth of that, a quarter, a
+    // half, three quarters and all of it. The pot does not come into it: the
+    // same six are the same six on every street.
+    const p = presetsStack({ actions: ['f', 'c', 'r'], call: 34, min: 86, max: 400 });
+    expect(p.map((x) => x.label)).toEqual(['Min', '10%', '25%', '50%', '75%', 'All in']);
+    // A tenth of 400 is 40, under the minimum, so it clamps up to 86 and the
+    // min box owns that number (see below).
+    expect(p.map((x) => x.value)).toEqual([86, 86, 100, 200, 300, 400]);
   });
 
-  it('thinks in multiples of the bet before the flop, up to six', () => {
-    const p = presetsWide({ actions: ['f', 'c', 'r'], call: 1, min: 4, max: 200 }, 3, 1, 'pre');
-    expect(p.map((x) => x.label)).toEqual(
-      ['Min', '2×', '2.5×', '3×', '3.5×', '4×', '5×', '6×', 'Pot', 'All in'],
-    );
-    expect(p.map((x) => x.value)).toEqual([4, 4, 5, 6, 7, 8, 10, 12, 6, 200]);
+  it('offers the same six before the flop as after it', () => {
+    const p = presetsStack({ actions: ['f', 'c', 'r'], call: 1, min: 4, max: 200 });
+    expect(p.map((x) => x.value)).toEqual([4, 20, 50, 100, 150, 200]);
   });
 
-  it('keeps ten slots when a short stack collapses them, so the keys stay put', () => {
-    const p = presetsWide({ actions: ['b'], call: 0, min: 2, max: 9 }, 400, 0, 'flop');
-    expect(p).toHaveLength(10);
+  it('starts a size of your own from the quarter', () => {
+    const p = presetsStack({ actions: ['f', 'c', 'r'], call: 1, min: 4, max: 200 });
+    expect(p[DEFAULT_PRESET].label).toBe('25%');
+    expect(p[DEFAULT_PRESET].value).toBe(50);
+  });
+
+  it('steps the sizer up to the first live box when a short stack blanks the quarter', () => {
+    // Twenty behind and a minimum raise of eighteen: everything under all in
+    // clamps to the minimum, so the quarter is blank and the sizer starts from
+    // the all in at the end of the row.
+    const p = presetsStack({ actions: ['f', 'c', 'r'], call: 8, min: 18, max: 20 });
+    expect(openAt(p, dupKeys(p))).toBe(5);
+    // And with nothing blank at all, it is the quarter itself.
+    const q = presetsStack({ actions: ['f', 'c', 'r'], call: 1, min: 4, max: 200 });
+    expect(openAt(q, dupKeys(q))).toBe(DEFAULT_PRESET);
+  });
+
+  it('keeps six slots when a short stack collapses them, so the keys stay put', () => {
+    const p = presetsStack({ actions: ['b'], call: 0, min: 2, max: 9 });
+    expect(p).toHaveLength(6);
     expect(p.every((x) => x.value >= 2 && x.value <= 9)).toBe(true);
+    // All in is always the last box and always says the whole stack.
+    expect(p[5].value).toBe(9);
   });
 
   it('offers nothing when there is no raise to make', () => {
-    expect(presetsWide({ actions: ['f', 'c'], call: 56, min: 0, max: 0 }, 71, 6, 'pre')).toEqual([]);
+    expect(presetsStack({ actions: ['f', 'c'], call: 56, min: 0, max: 0 })).toEqual([]);
   });
 });
 
 describe('duplicate sizes', () => {
-  it('gives a size that clamps to the stack to the all in segment', () => {
-    const p = presetsWide({ actions: ['f', 'c', 'r'], call: 34, min: 86, max: 186 }, 98, 18, 'turn');
-    expect([...dupKeys(p)].sort()).toEqual(['p125', 'p150', 'p25']);
+  it('gives a size that clamps to the stack to the all in box', () => {
+    // Twenty in front of them and a minimum raise of eighteen: every fraction
+    // of the stack under the minimum clamps up to it, and the top of the
+    // ladder is the all in box's own number.
+    const p = presetsStack({ actions: ['f', 'c', 'r'], call: 8, min: 18, max: 20 });
+    expect(p.map((x) => x.value)).toEqual([18, 18, 18, 18, 18, 20]);
+    expect([...dupKeys(p)].sort()).toEqual(['s10', 's25', 's50', 's75']);
   });
 
-  it('gives a size that clamps to the minimum to the min segment', () => {
-    const p = presetsWide({ actions: ['f', 'c', 'r'], call: 1, min: 4, max: 200 }, 3, 1, 'pre');
-    // 2x the bet is 4, which is the minimum, and a pot raise is 6, which 3x
-    // already says.
-    expect([...dupKeys(p)].sort()).toEqual(['2x', 'pot']);
+  it('gives a size that clamps to the minimum to the min box', () => {
+    const p = presetsStack({ actions: ['f', 'c', 'r'], call: 1, min: 40, max: 200 });
+    // A tenth is 20, which clamps to the minimum; a quarter is 50 and is its own.
+    expect([...dupKeys(p)].sort()).toEqual(['s10']);
   });
 
-  it('disables nothing when every size is its own', () => {
-    const p = presetsWide({ actions: ['x', 'b'], call: 0, min: 2, max: 400 }, 100, 0, 'flop');
-    expect(dupKeys(p).size).toBe(0);
+  it('blanks nothing when every size is its own', () => {
+    expect(dupKeys(presetsStack({ actions: ['x', 'b'], call: 0, min: 2, max: 400 })).size).toBe(0);
   });
 });
 
