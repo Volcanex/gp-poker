@@ -426,12 +426,15 @@ export const DEFAULT_FORMAT = SIX_MAX_STANDARD;
 export const DEFAULT_MODE: Mode = 'six-max';
 export const DEFAULT_SPEED: Speed = 'standard';
 
-/* The five bot levels, one table shared by the server (which plays them and
+/* The six bot levels, one table shared by the server (which plays them and
    labels the roster) and the client (which offers them in the practice
    picker). Level 4 is the bot that existed before levels did; 1 to 3 are
-   progressively looser or more passive, 5 is sharper. Monotonic: a higher
-   level beats a lower one over a long enough sample. */
-export type BotLevel = 1 | 2 | 3 | 4 | 5;
+   progressively looser or more passive, 5 is sharper. Level 6 is a different
+   animal: it tracks both ranges through the hand and solves the board it is
+   looking at, which costs real processor time, so there are only two of them
+   on the roster. Monotonic: a higher level beats a lower one over a long
+   enough sample. */
+export type BotLevel = 1 | 2 | 3 | 4 | 5 | 6;
 
 export const DEFAULT_BOT_LEVEL: BotLevel = 4;
 
@@ -447,13 +450,14 @@ export const BOT_LEVELS: BotLevelInfo[] = [
   { level: 3, name: 'Tight and passive', description: 'Level 3: tight but rarely raises' },
   { level: 4, name: 'Solid', description: 'Level 4: solid, plays the charts and pot odds' },
   { level: 5, name: 'Sharp', description: 'Level 5: sharp, semi-bluffs and sizes bets by the board' },
+  { level: 6, name: 'Solver', description: 'Level 6: tracks both ranges and solves the board while you wait' },
 ];
 
 export function isBotLevel(n: unknown): n is BotLevel {
-  return typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= 5;
+  return typeof n === 'number' && Number.isInteger(n) && n >= 1 && n <= BOT_LEVELS.length;
 }
 
-// Anything outside 1..5 reads as the default rather than erroring: a level is
+// Anything outside the range reads as the default rather than erroring: a level is
 // a preference, and a stored or hand-typed one should not break a table.
 export function botLevelInfo(level: number): BotLevelInfo {
   return BOT_LEVELS.find((b) => b.level === level) ?? BOT_LEVELS[DEFAULT_BOT_LEVEL - 1];
@@ -847,7 +851,7 @@ export interface UserSummary {
   name: string;
   guest: boolean;
   bot: boolean;
-  botLevel?: number; // 1..5, present only on a bot
+  botLevel?: number; // 1..6, present only on a bot
   /* The flag beside their name, as SeatView.country, except that this one is
      sent as `null` rather than left off when there is none: a summary is
      merged over the one a client already holds, and a key that goes absent

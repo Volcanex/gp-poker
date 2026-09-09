@@ -26,6 +26,7 @@ import {
   type Universe,
 } from './showdown.js';
 import {
+  DEFAULT_ALL_IN_SPR,
   DEFAULT_BET_SIZES,
   DEFAULT_RAISE_CAP,
   DEFAULT_RAISE_SIZES,
@@ -50,6 +51,8 @@ export interface SubgameSpec {
   betSizes?: number[];
   raiseSizes?: number[];
   raiseCap?: number;
+  allInSpr?: number;
+  leafDiscount?: number; // how much of a depth limited leaf's value is realised
   runoutWindow?: number; // runouts swept per iteration at a depth limited leaf
   flopRunouts?: number; // flop solves only: how many two card runouts to rank
 }
@@ -102,37 +105,55 @@ export class RunoutEvaluator implements ShowdownEvaluator {
   private masked: Float32Array;
   private saved: Float32Array;
   private offset = 0;
-  private window: number;
+  private rankPerIteration: number;
 
   constructor(
     private universe: Universe,
-    runouts: number[][], // the cards that complete the board, one entry per runout
-    board: number[],
-    window: number
+    private runouts: number[][], // the cards that complete the board, one entry per runout
+    private board: number[],
+    private window: number,
+    private discount: number,
+    rankPerIteration = RANK_PER_ITERATION
   ) {
-    for (const runout of runouts) {
-      this.ranked.push(rankBoard(universe, [...board, ...runout]));
-      const flags = new Uint8Array(universe.n);
-      for (let p = 0; p < universe.n; p++) {
-        flags[p] = runout.includes(universe.cardA[p]) || runout.includes(universe.cardB[p]) ? 1 : 0;
-      }
-      this.blocked.push(flags);
-      const positions: number[] = [];
-      for (let p = 0; p < universe.n; p++) if (flags[p]) positions.push(p);
-      this.blockedAt.push(Int32Array.from(positions));
-    }
-    this.window = Math.min(window, this.ranked.length);
+    this.rankPerIteration = rankPerIteration;
     this.masked = new Float32Array(universe.n);
     this.saved = new Float32Array(universe.n);
+    this.rankMore(Math.min(window, runouts.length));
+  }
+
+  /* Ranking every runout up front is the one part of a solve big enough to
+     stall an event loop on its own: a flop asks for a hundred boards over a
+     thousand combos. They are ranked a few per iteration instead, so the
+     longest thing this package ever does without returning is a single CFR
+     iteration. Early iterations sweep a coarser leaf than late ones, which
+     CFR+ already discounts by weighting the average strategy linearly. */
+  private rankMore(count: number): void {
+    const target = Math.min(this.runouts.length, this.ranked.length + count);
+    for (let r = this.ranked.length; r < target; r++) {
+      const runout = this.runouts[r];
+      this.ranked.push(rankBoard(this.universe, [...this.board, ...runout]));
+      const flags = new Uint8Array(this.universe.n);
+      const positions: number[] = [];
+      for (let p = 0; p < this.universe.n; p++) {
+        const blocked = runout.includes(this.universe.cardA[p]) || runout.includes(this.universe.cardB[p]);
+        flags[p] = blocked ? 1 : 0;
+        if (blocked) positions.push(p);
+      }
+      this.blocked.push(flags);
+      this.blockedAt.push(Int32Array.from(positions));
+    }
   }
 
   nextIteration(iteration: number): void {
-    this.offset = (iteration * this.window) % this.ranked.length;
+    this.rankMore(this.rankPerIteration);
+    const width = Math.min(this.window, this.ranked.length);
+    this.offset = (iteration * width) % this.ranked.length;
   }
 
   evaluate(oppW: Float32Array, payoff: number, out: Float32Array): void {
-    const share = payoff / this.window;
-    for (let s = 0; s < this.window; s++) {
+    const width = Math.min(this.window, this.ranked.length);
+    const share = (payoff * this.discount) / width;
+    for (let s = 0; s < width; s++) {
       const r = (this.offset + s) % this.ranked.length;
       const flags = this.blocked[r];
       for (let p = 0; p < this.universe.n; p++) this.masked[p] = flags[p] ? 0 : oppW[p];
@@ -191,14 +212,57 @@ export const RUNOUT_WINDOW = 8;
 // rather more, while the setup cost is roughly linear in the count.
 export const FLOP_RUNOUTS = 96;
 
+// Runouts ranked per iteration while the solve warms up. Four keeps a single
+// iteration under the few milliseconds a cooperative scheduler slices on.
+export const RANK_PER_ITERATION = 4;
+
+/* How much of a hand's share of the pot at a depth limited leaf actually
+   reaches it. Nothing, in that leaf, models the streets still to come: a hand
+   with fifty five percent equity is worth fifty five percent of whatever ends
+   up in the middle, however it got there. That is false in the direction that
+   costs the most money. A medium hand does not realise its equity against
+   further betting, it pays off the top of a range and folds to the rest, and a
+   solver that believes otherwise is happy to get a hundred big blinds in with
+   top pair.
+
+   Discounting the whole leaf makes winning the pot now worth relatively more
+   than winning it at showdown, which is the shape of the error. It stays zero
+   sum because both sides are scaled together. The flop is discounted harder
+   than the turn because two streets of betting realise less than one.
+
+   This is a correction for a known bias, not a tuned constant: the values were
+   picked by measuring level 6 against levels 4 and 5 at a hundred big blinds,
+   where an undiscounted leaf loses its whole stack in one hand out of twenty
+   and a discounted one does not. */
+export const TURN_LEAF_DISCOUNT = Number(process.env.SOLVER_TURN_DISCOUNT ?? 0.85);
+export const FLOP_LEAF_DISCOUNT = Number(process.env.SOLVER_FLOP_DISCOUNT ?? 0.72);
+
 /* Every runout, swept at every leaf. Too slow to solve with on the box, but it
    is the honest yardstick the sampled leaf is measured against. */
-export function fullRunoutEvaluator(universe: Universe, board: number[]): ShowdownEvaluator {
-  const runouts = board.length === 4 ? turnRunouts(board) : flopRunouts(board, Infinity);
-  return new RunoutEvaluator(universe, runouts, board, runouts.length);
+export function leafDiscountFor(board: number[]): number {
+  return board.length === 4 ? TURN_LEAF_DISCOUNT : FLOP_LEAF_DISCOUNT;
 }
 
-export function solveSubgame(spec: SubgameSpec, options: CfrOptions = {}): SolveResult {
+export function fullRunoutEvaluator(
+  universe: Universe,
+  board: number[],
+  discount = leafDiscountFor(board)
+): ShowdownEvaluator {
+  const runouts = board.length === 4 ? turnRunouts(board) : flopRunouts(board, Infinity);
+  return new RunoutEvaluator(universe, runouts, board, runouts.length, discount);
+}
+
+export interface PreparedSubgame {
+  cfr: Cfr;
+  tree: Tree;
+  universe: Universe;
+  root: DecisionNode;
+  started: number;
+}
+
+/* Everything a solve needs before its first iteration. Split out so a caller
+   that has to share a thread can run the iterations in slices of its own. */
+export function prepareSubgame(spec: SubgameSpec): PreparedSubgame {
   const started = Date.now();
   const universe = universeOf(spec.heroRange, spec.villainRange, spec.board);
   const hero = projectRange(universe, spec.heroRange);
@@ -216,6 +280,9 @@ export function solveSubgame(spec: SubgameSpec, options: CfrOptions = {}): Solve
     betSizes: spec.betSizes ?? DEFAULT_BET_SIZES,
     raiseSizes: spec.raiseSizes ?? DEFAULT_RAISE_SIZES,
     raiseCap: spec.raiseCap ?? DEFAULT_RAISE_CAP,
+    // The river solve is exact, so an all-in there is valued honestly however
+    // deep the stacks are.
+    allInSpr: spec.allInSpr ?? (spec.board.length >= 5 ? Infinity : DEFAULT_ALL_IN_SPR),
   });
 
   const window = spec.runoutWindow ?? RUNOUT_WINDOW;
@@ -226,23 +293,31 @@ export function solveSubgame(spec: SubgameSpec, options: CfrOptions = {}): Solve
           universe,
           spec.board.length === 4 ? turnRunouts(spec.board) : flopRunouts(spec.board, spec.flopRunouts ?? FLOP_RUNOUTS),
           spec.board,
-          window
+          window,
+          spec.leafDiscount ?? (spec.board.length === 4 ? TURN_LEAF_DISCOUNT : FLOP_LEAF_DISCOUNT)
         );
 
   const cfr = new Cfr(tree, universe, ranges, evaluator);
-  const iterations = cfr.run(options);
-  const root = tree.root as DecisionNode;
+  return { cfr, tree, universe, root: tree.root as DecisionNode, started };
+}
 
+export function finishSubgame(prepared: PreparedSubgame): SolveResult {
   return {
-    acts: root.acts,
-    strategy: cfr.averageStrategy(root),
-    universe,
-    root,
-    tree,
-    iterations,
-    ms: Date.now() - started,
-    cfr,
+    acts: prepared.root.acts,
+    strategy: prepared.cfr.averageStrategy(prepared.root),
+    universe: prepared.universe,
+    root: prepared.root,
+    tree: prepared.tree,
+    iterations: prepared.cfr.iterations,
+    ms: Date.now() - prepared.started,
+    cfr: prepared.cfr,
   };
+}
+
+export function solveSubgame(spec: SubgameSpec, options: CfrOptions = {}): SolveResult {
+  const prepared = prepareSubgame(spec);
+  prepared.cfr.run(options);
+  return finishSubgame(prepared);
 }
 
 /* The root action frequencies for one concrete hand. A combo the universe

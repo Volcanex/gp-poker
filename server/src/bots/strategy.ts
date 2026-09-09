@@ -17,8 +17,9 @@ export type { Persona } from './persona.js';
    thumb). Postflop it is all hand strength: the fraction of the opponent
    holdings still possible on this board that the bot's hand beats.
 
-   Five levels, not five brains. Level 4 is that bot, unchanged and still the
-   default: every other level reuses the same context, the same strength
+   Six levels, not six brains, and only five of them are in here: level 6
+   solves the board and lives in solver.ts. Level 4 is that bot, unchanged and
+   still the default: every other level reuses the same context, the same strength
    number and the same action helpers, and differs only in a handful of named
    constants and which rule it reaches for. Levels 1 to 3 replace the chart
    read with a plain percentile threshold and vary how loose, how passive and
@@ -571,6 +572,12 @@ export function decide(
   level: BotLevel = DEFAULT_BOT_LEVEL,
   persona: Persona = NEUTRAL_PERSONA
 ): BotDecision {
+  // Level 6 is not in here: it needs a clock and state across a hand, so it
+  // lives in solver.ts and answers asynchronously. What it falls back to when
+  // its budget is gone or the spot is multiway is level 5, and saying so here
+  // is what stops a level 6 view that reached this function playing level 4 by
+  // accident.
+  if (level === 6) level = 5;
   const legal = view.legal;
   if (!legal) throw new Error('decide called on a view with no legal actions');
   const me = view.you === null ? undefined : view.seats[view.you];

@@ -1,4 +1,4 @@
-import { botLevelInfo, type BotLevel, type ClientMsg, type Mode } from '@opentable/protocol';
+import { BOT_LEVELS, botLevelInfo, type BotLevel, type ClientMsg, type Mode } from '@opentable/protocol';
 import { generateName, seededRng } from '@opentable/identity';
 import { config } from '../config.js';
 import {
@@ -200,16 +200,17 @@ export async function availableBots(targetRating: number, limit: number, mode: M
 
 /* Free bots for a practice table, the asked-for level first and then outwards
    a level at a time (L-1, L+1, L-2, L+2). Three bots per level is not enough
-   to seat a six-max table from one level, so the spread is the normal case
-   rather than the fallback: the table is filled with the nearest opposition
-   there is, and comes back short only when the roster really is busy. */
+   to seat a six-max table from one level, and level 6 has two, so the spread
+   is the normal case rather than the fallback: the table is filled with the
+   nearest opposition there is, and comes back short only when the roster
+   really is busy. */
 export async function availableBotsAtLevel(level: number, limit: number): Promise<UserRow[]> {
   if (limit <= 0) return [];
   const free = (await getBotUsers()).filter(isFree);
   const order = [level];
-  for (let d = 1; d <= 4; d++) {
+  for (let d = 1; d < BOT_LEVELS.length; d++) {
     if (level - d >= 1) order.push(level - d);
-    if (level + d <= 5) order.push(level + d);
+    if (level + d <= BOT_LEVELS.length) order.push(level + d);
   }
 
   const picked: UserRow[] = [];

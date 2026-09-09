@@ -77,8 +77,10 @@ export interface RankedBoard {
   groups: Int32Array; // group start offsets into order, with n as the last entry
 }
 
-/* Ranks every combo on a five card board and groups the ties. phe ranks are
-   lower-is-better, so ascending order is best first.
+/* Ranks every combo on a board of three, four or five cards and groups the
+   ties. phe ranks are lower-is-better, so ascending order is best first. A
+   short board is only ever ranked to read made hand strength off it; a
+   subgame's leaves always hand over five.
 
    A universe built on the flop or the turn still holds combos that use a card
    this board has since run out, and handing the evaluator the same card twice
@@ -91,15 +93,17 @@ const BLOCKED_RANK = 1 << 20;
 export function rankBoard(u: Universe, board: number[]): RankedBoard {
   const ranks = new Int32Array(u.n);
   const mask = deadMask(board);
-  const seven = [board[0], board[1], board[2], board[3], board[4], 0, 0];
+  const hand = [...board, 0, 0];
+  const a = board.length;
+  const b = a + 1;
   for (let p = 0; p < u.n; p++) {
     if (cardBlocked(u.cardA[p], mask) || cardBlocked(u.cardB[p], mask)) {
       ranks[p] = BLOCKED_RANK;
       continue;
     }
-    seven[5] = u.cardA[p];
-    seven[6] = u.cardB[p];
-    ranks[p] = evaluateCardCodes(seven);
+    hand[a] = u.cardA[p];
+    hand[b] = u.cardB[p];
+    ranks[p] = evaluateCardCodes(hand);
   }
   const order = Int32Array.from({ length: u.n }, (_, i) => i).sort((a, b) => ranks[a] - ranks[b]);
   const groups: number[] = [];

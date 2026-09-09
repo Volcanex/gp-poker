@@ -56,11 +56,18 @@ export interface TreeSpec {
   betSizes: number[]; // fractions of the pot when first in
   raiseSizes: number[]; // fractions of the pot after calling, when facing a bet
   raiseCap: number; // raises allowed on this street, all-in included
+  /* All-in is only offered while what is behind is at most this many times the
+     pot. Deep on the flop and the turn the value of a stack-off comes almost
+     entirely from the depth limited leaf, which is the part of this solver
+     that is least trustworthy, so the option is simply not there. On the
+     river, where the solve is exact, it always is. */
+  allInSpr: number;
 }
 
 export const DEFAULT_BET_SIZES = [0.33, 0.75, 1.5];
 export const DEFAULT_RAISE_SIZES = [0.9];
 export const DEFAULT_RAISE_CAP = 2;
+export const DEFAULT_ALL_IN_SPR = 4;
 
 // A bet this close to the whole stack is an all-in with extra steps, and
 // keeping both makes the tree wider for no strategic gain.
@@ -143,8 +150,8 @@ function betTargets(spec: TreeSpec, from: number, potNow: number, minBet: number
     if (to <= from) continue;
     out.push(to);
   }
-  out.push(spec.stack);
-  return dedupe(out);
+  if (spec.stack - from <= spec.allInSpr * potNow) out.push(spec.stack);
+  return dedupe(out.length > 0 ? out : [spec.stack]);
 }
 
 function raiseTargets(spec: TreeSpec, facingTo: number, potAfterCall: number, minRaiseTo: number): number[] {
@@ -157,7 +164,7 @@ function raiseTargets(spec: TreeSpec, facingTo: number, potAfterCall: number, mi
   }
   // An all-in short of the minimum raise is still legal, and the caller has
   // already checked it is a raise at all.
-  out.push(spec.stack);
+  if (spec.stack - facingTo <= spec.allInSpr * potAfterCall) out.push(spec.stack);
   return dedupe(out);
 }
 

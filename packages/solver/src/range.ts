@@ -39,7 +39,7 @@ export function cloneRange(range: Range): Range {
   return new Float32Array(range);
 }
 
-function edgeWeight(p: number, lo: number, hi: number): number {
+export function regionWeight(p: number, lo: number, hi: number): number {
   let w = 1;
   if (lo > 0) w *= Math.max(0, Math.min(1, (p - lo) / TAPER + 0.5));
   if (hi < 100) w *= Math.max(0, Math.min(1, (hi - p) / TAPER + 0.5));
@@ -50,7 +50,7 @@ function edgeWeight(p: number, lo: number, hi: number): number {
    that is not the end of the ranking. */
 export function rangeFromPercentiles(lo: number, hi: number): Range {
   const range = emptyRange();
-  for (let i = 0; i < NUM_COMBOS; i++) range[i] = edgeWeight(COMBO_PERCENTILE[i], lo, hi);
+  for (let i = 0; i < NUM_COMBOS; i++) range[i] = regionWeight(COMBO_PERCENTILE[i], lo, hi);
   return range;
 }
 
