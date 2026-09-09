@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_PRESET, clamp, dupKeys, openAt, presetsFor, presetsStack } from '../table/sizing.ts';
+import { CUSTOM_KEY, turnKeyAction } from '../table/keys.ts';
+import { shiftOf } from '../table/chip-stack.tsx';
 import { actionText, shortHash, streetText } from '../table/labels.ts';
 import { bestFive, handCategory, readShowdown } from '../table/best-five.ts';
 import { amountToCall, isLastHand, resolvePreAction, survivesRaise } from '../table/preactions.ts';
@@ -103,6 +105,66 @@ describe('duplicate sizes', () => {
 
   it('blanks nothing when every size is its own', () => {
     expect(dupKeys(presetsStack({ actions: ['x', 'b'], call: 0, min: 2, max: 400 })).size).toBe(0);
+  });
+});
+
+describe('the turn keys', () => {
+  const legal = { actions: ['f', 'c', 'r'] as const, call: 8, min: 18, max: 400 };
+  const presets = presetsStack(legal);
+  const at = (key: string, typing = false) => turnKeyAction(key, { legal, presets, typing });
+
+  it('opens a size of your own on 0, beside R and through the same door', () => {
+    expect(at(CUSTOM_KEY)).toEqual({ do: 'custom' });
+    expect(at('r')).toEqual({ do: 'custom' });
+  });
+
+  it('blocks 0 while typing and lets R through', () => {
+    // R is how you get back to the field; a 0 while typing is a nought in the
+    // amount, not a sizer opening under the cursor.
+    expect(at(CUSTOM_KEY, true)).toBeNull();
+    expect(at('r', true)).toEqual({ do: 'custom' });
+  });
+
+  it('addresses the six sizes by position and answers nothing past them', () => {
+    expect(at('1')).toEqual({ do: 'preset', at: 0 });
+    expect(at('6')).toEqual({ do: 'preset', at: 5 });
+    expect(at('7')).toBeNull();
+  });
+
+  it('folds, checks and calls, and refuses what the table does not offer', () => {
+    expect(at('f')).toEqual({ do: 'fold' });
+    expect(at('c')).toEqual({ do: 'checkOrCall', kind: 'c' });
+    expect(at('f', true)).toBeNull();
+    const noRaise = { actions: ['f', 'c'] as const, call: 56, min: 0, max: 0 };
+    expect(turnKeyAction(CUSTOM_KEY, { legal: noRaise, presets: [], typing: false })).toBeNull();
+    expect(turnKeyAction('r', { legal: noRaise, presets: [], typing: false })).toBeNull();
+  });
+});
+
+describe('the pot\'s chips stand over its figure', () => {
+  const slots = [500, 100, 25, 5, 1];
+  const counts = (...on: number[]) => new Map(on.map((d) => [d, 1]));
+
+  it('moves a small pot back to the middle of its reserved row', () => {
+    // A pot of 3 is three ones, in the last of five slots: two columns right
+    // of the middle, so the row moves two columns left and the count is
+    // negative, which is the direction the transform takes.
+    expect(shiftOf(counts(1), slots)).toBe(-2);
+    // A pot holding both ends is already centred.
+    expect(shiftOf(counts(500, 1), slots)).toBe(0);
+    // 25s and 5s straddle the middle by half a column, to the right.
+    expect(shiftOf(counts(25, 5), slots)).toBe(-0.5);
+    // And a pot of hundreds alone leans the other way.
+    expect(shiftOf(counts(500, 100), slots)).toBe(1.5);
+  });
+
+  it('leaves an empty row where it is', () => {
+    expect(shiftOf(new Map(), slots)).toBe(0);
+  });
+
+  it('counts against the row it is given, not the whole set', () => {
+    // The seat's mini stack draws three denominations, not five.
+    expect(shiftOf(counts(25), [500, 100, 25])).toBe(-1);
   });
 });
 

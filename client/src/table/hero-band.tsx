@@ -6,8 +6,8 @@ import { PlayingCard } from './playing-card.tsx';
 import { ChipStack } from './chip-stack.tsx';
 import { TurnBar, TurnSeconds } from './turn-clock.tsx';
 import {
-  KeyLegend, PRESET_KEYS, PreActionPills, StopWatching, useCountdown, useDockLogic, useTurnKeys,
-  waitingText,
+  CUSTOM_KEY, KeyLegend, PRESET_KEYS, PreActionPills, StopWatching, useCountdown, useDockLogic,
+  useTurnKeys, waitingText,
 } from './dock.tsx';
 import type { DockState } from './dock.tsx';
 import { isLastHand } from './preactions.ts';
@@ -99,7 +99,7 @@ export function HeroBand({
         {/* One quiet line under the controls, gone on a phone where there is
             no keyboard to legend. It says the same thing in every state, so it
             is rendered outside the column that changes. */}
-        <KeyLegend className="hb-keys" watching={view.you == null} sizes={6} />
+        <KeyLegend className="hb-keys" watching={view.you == null} sizes={6} custom />
 
         {/* The readings stand in a column of their own on the far side of the
             controls, whole for the life of the table: they are the same three
@@ -470,8 +470,9 @@ function TurnColumn({
           presets={presets}
           dups={dups}
           selected={presets[sel]?.key}
-          sending={sending}
+          sending={sending || !canRaise}
           onTake={(p) => { playClick(); takePreset(p); }}
+          onCustom={wide ? () => { playClick(); openSizer(); } : undefined}
         />
       )}
 
@@ -533,16 +534,25 @@ function TurnColumn({
    and disabled rather than dropped, so the keys stay where they are. When
    raising is not on the table the grid is empty and keeps its box. */
 function SizeGrid({
-  presets, dups, selected, sending, onTake,
+  presets, dups, selected, sending, onTake, onCustom,
 }: {
   presets: Preset[];
   dups: ReadonlySet<string>;
   selected?: string;
   sending: boolean;
   onTake: (p: Preset) => void;
+  /* The seventh square, and only under a mouse: it is a way to a keyboard and
+     a typed number, and a phone has neither. There the sweep is that way and
+     the Bet button is how you reach it. */
+  onCustom?: () => void;
 }) {
   return (
-    <div className="hb-sizes" role="group" aria-label="Bet sizes">
+    <div
+      className="hb-sizes"
+      data-custom={onCustom ? '' : undefined}
+      role="group"
+      aria-label="Bet sizes"
+    >
       {presets.map((p, i) => {
         const blank = dups.has(p.key);
         return (
@@ -570,6 +580,26 @@ function SizeGrid({
           </button>
         );
       })}
+      {/* A size of your own, at the end of the row where its key is at the end
+          of the row of keys. **It is not a preset**: it holds no number, and
+          the key goes through the same door `r` does, so the sizer opens,
+          focuses and clamps identically however it was asked for. */}
+      {onCustom && (
+        <button
+          type="button"
+          className="hb-size hb-size-custom"
+          disabled={sending}
+          aria-label="A size of your own"
+          title={`A size of your own, key ${CUSTOM_KEY} or R`}
+          onClick={onCustom}
+        >
+          <span className="s-k" aria-hidden="true">{CUSTOM_KEY}</span>
+          {/* The word is decoration: the button says what it is through its
+              label, so a band too narrow for seven words can draw the ellipsis
+              in its place without the square going quiet to a screen reader. */}
+          <span className="s-v" aria-hidden="true">Custom</span>
+        </button>
+      )}
     </div>
   );
 }
