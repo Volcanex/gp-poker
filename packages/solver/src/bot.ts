@@ -359,7 +359,7 @@ export class SolverBot {
     const dead = [cardIndex(hole[0]), cardIndex(hole[1])];
     const combo = comboIndex(dead[0], dead[1]);
 
-    const heroRange = this.heroRangeFor(state, view, me, board);
+    const heroRange = this.heroRangeFor(state, me, board);
     const villainRange = state.tracker.rangeFor(opponent.button ? 'sb' : 'bb', board, []);
     removeBlocked(villainRange, dead);
 
@@ -468,7 +468,7 @@ export class SolverBot {
   /* Our own range in this spot, tracked the same way the opponent's is. It is
      not our actual hand: a strategy balanced against the hand we happen to
      hold is not balanced at all. */
-  private heroRangeFor(state: HandState, view: TableView, me: SeatView, board: number[]): Range {
+  private heroRangeFor(state: HandState, me: SeatView, board: number[]): Range {
     if (state.multiway) {
       const range = positionRange(me.button ? 1 : 0);
       return removeBlocked(range, board);

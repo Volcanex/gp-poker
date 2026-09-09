@@ -17,7 +17,7 @@
    collector on the critical path for no reason. */
 
 import type { Universe } from './showdown.js';
-import { accumulateShowdown, foldValues } from './showdown.js';
+import { foldValues } from './showdown.js';
 import type { DecisionNode, Node, Tree } from './tree.js';
 
 /* What a terminal that reaches a showdown is worth. The river has one board

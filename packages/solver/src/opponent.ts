@@ -13,7 +13,7 @@
    opponent whose measured statistics say they are not playing like us. A range
    that has been narrowed to nothing is a bot that folds the nuts. */
 
-import { bucketFor, type StackBucket } from '@opentable/preflop';
+import type { StackBucket } from '@opentable/preflop';
 import { NUM_COMBOS } from './cards.js';
 import {
   blendRanges,
@@ -288,10 +288,6 @@ export class RangeTracker {
     readonly bucket: StackBucket,
     private prior: number
   ) {}
-
-  static forStacks(effectiveBb: number, prior = BASE_PRIOR): RangeTracker {
-    return new RangeTracker(bucketFor(effectiveBb), prior);
-  }
 
   preflopAction(position: Position, aggressive: boolean, folded = false): void {
     this.steps.push({ position, aggressive, folded });
