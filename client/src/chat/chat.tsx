@@ -39,11 +39,28 @@ export function ChatPanel({ chat }: { chat: ChatController }) {
   const ready = canSend(draft, chat.cooldownMs);
 
   /* A conversation reads from the bottom. Only the list scrolls, never the
-     page: the table behind it must not move because somebody said something. */
+     page: the table behind it must not move because somebody said something.
+
+     **The newest line is scrolled to, not jumped to.** Opening the panel lands
+     on the bottom of the log outright, because a panel that animated its way
+     down a conversation you have not read yet is a panel you cannot read; a
+     line arriving while you are watching it slides, so a message you did not
+     see arrive is not simply there. It is the one animation this panel has,
+     and reduced motion drops it the way it drops the deal. */
+  const landed = useRef(false);
   useEffect(() => {
-    if (!chat.open) return;
+    if (!chat.open) {
+      landed.current = false;
+      return;
+    }
     const el = listRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (!el) return;
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    el.scrollTo({
+      top: el.scrollHeight,
+      behavior: landed.current && !still ? 'smooth' : 'auto',
+    });
+    landed.current = true;
   }, [chat.lines, chat.open]);
 
   const submit = (text: string) => {

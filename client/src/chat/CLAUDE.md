@@ -18,6 +18,22 @@ One threshold, because both shapes draw the same 1120px felt now that the
 seats sit in two wings round the board: the panel docks at 1440px of container
 and below that keeps the sheet rather than laying a column over a seat.
 
+## Every gap is off the scale, and one thing moves
+
+The panel is g's spacing and g's line-heights and nothing else: no raw 5s, 6s
+or 2s, no ratio line-heights. The owner's note was "animations and spacing and
+stuff" with a chat line circled, and this file was the one part of the table
+screen sitting half a step off the 4 px grid, which reads as unfinished beside
+a felt that is not.
+
+**The newest line is scrolled to, not jumped to.** Opening the panel lands on
+the bottom of the log outright, because a panel that animated its way down a
+conversation you have not read is a panel you cannot read; a line arriving
+while you are watching slides, so a message you did not see arrive is not
+simply there. That smooth scroll is the only animation the panel has, and
+reduced motion drops it. Nothing else in here moves: the panel shares the
+felt's screen, and the felt's rule is one thing at a time.
+
 ## The toggle goes at the end of the header's row
 
 So the unread count can arrive and grow without moving anything that was already
