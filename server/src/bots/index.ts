@@ -1,4 +1,11 @@
-import { BOT_LEVELS, botLevelInfo, type BotLevel, type ClientMsg, type Mode } from '@opentable/protocol';
+import {
+  BOT_LEVELS,
+  DEFAULT_BOT_LEVEL,
+  botLevelInfo,
+  type BotLevel,
+  type ClientMsg,
+  type Mode,
+} from '@opentable/protocol';
 import { generateName, seededRng } from '@opentable/identity';
 import { config } from '../config.js';
 import {
@@ -250,7 +257,7 @@ export async function rosterSummary(): Promise<BotSummary[]> {
   const ladder = await getLadderMatchCounts();
 
   const out = rows.map((u) => {
-    const level = levels.get(u.id) ?? ((u.botLevel ?? 4) as BotLevel);
+    const level = levels.get(u.id) ?? ((u.botLevel ?? DEFAULT_BOT_LEVEL) as BotLevel);
     const info = botLevelInfo(level);
     const ratings = {} as Record<Mode, { rating: number; matches: number }>;
     for (const mode of MODES) {
