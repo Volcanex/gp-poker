@@ -283,7 +283,7 @@ export class EngineHandRunner implements HandRunner {
     this.closeDeadBetting();
     this.lastEvent = this.state.street === 'done' && this.openRunout(shownBoard, acted)
       ? acted
-      : this.classifyTransition(before, this.state, false);
+      : this.classifyTransition(before, this.state, acted);
     if (this.state.street === 'done') this.complete();
     return true;
   }
@@ -302,7 +302,7 @@ export class EngineHandRunner implements HandRunner {
     this.closeDeadBetting();
     this.lastEvent = this.state.street === 'done' && this.openRunout(shownBoard, acted)
       ? acted
-      : this.classifyTransition(before, this.state, true);
+      : this.classifyTransition(before, this.state, acted);
     if (this.state.street === 'done') this.complete();
   }
 
@@ -368,7 +368,9 @@ export class EngineHandRunner implements HandRunner {
          resolves, so the stacks to show while the board is still coming are
          the resolved ones with the award taken back off. */
       stacks: this.state.seats.map((s, e) => s.stack - (paid.get(e) ?? 0)),
-      end: { k: 'showdown', ...(closing ? { seat: closing.seat, a: closing.a, v: closing.v } : {}) },
+      // A run-out always shows down, and it is named after the action that
+      // closed the betting rather than after the checks the runner took.
+      end: closing ? { ...closing, k: 'showdown' } : { k: 'showdown' },
     };
     return true;
   }
@@ -454,26 +456,24 @@ export class EngineHandRunner implements HandRunner {
     state.actions[idx] = { ...state.actions[idx], t, ...(timedOut ? { to: true } : {}) };
   }
 
-  // The action that just landed, as itself: what `last` says when nothing
-  // else happened, and what a paced run-out says about the action that closed
-  // the betting, since the streets it dealt are announced on their own beats.
+  /* The action that just landed, as itself. It is built from the state the
+     player's own action produced, before dead betting is closed on top of it,
+     so it names them rather than whichever auto-check ended the hand, and it
+     is what every other classification is written over. */
   private plainEvent(state: HandState, forcedTimeout: boolean): LastEvent {
     const a = state.actions[state.actions.length - 1];
     return { k: forcedTimeout ? 'timeout' : 'act', seat: this.tableSeat(a.s), a: a.a, v: a.v };
   }
 
-  private classifyTransition(prev: HandState, next: HandState, forcedTimeout: boolean): LastEvent {
-    const lastAction = next.actions[next.actions.length - 1];
-    const base = { seat: this.tableSeat(lastAction.s), a: lastAction.a, v: lastAction.v };
-
+  private classifyTransition(prev: HandState, next: HandState, acted: LastEvent): LastEvent {
     if (next.street === 'done' && prev.street !== 'done') {
       const shown = next.result?.shown ?? {};
-      return Object.keys(shown).length > 0 ? { k: 'showdown', ...base } : { k: 'award', ...base };
+      return { ...acted, k: Object.keys(shown).length > 0 ? 'showdown' : 'award' };
     }
     if (next.board.length > prev.board.length) {
       return { k: 'street', cards: next.board.slice(prev.board.length) };
     }
-    return this.plainEvent(next, forcedTimeout);
+    return acted;
   }
 
   toActSeat(): number | null {

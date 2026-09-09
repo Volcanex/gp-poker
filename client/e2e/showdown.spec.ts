@@ -68,6 +68,29 @@ test('a six-max showdown reads the same way', async ({ page }) => {
   await expect(page.locator('.award-zone .award-chip')).toBeVisible();
 });
 
+/* The all-in run-out: the hands go up when the betting closes rather than
+   when the river lands, which is the whole point of pacing it. Step 2 is the
+   count to the turn, so the flop is out and two cards are still to come. */
+test('an all-in run-out shows both hands before the board is finished', async ({ page }) => {
+  await stubApi(page);
+  await page.goto('/m/mock?runout=1&step=2');
+
+  await expect(page.locator('.board .pcard:not([data-empty]):not([data-back])')).toHaveCount(3);
+  await expect(page.locator('.seat .pcard[data-back]')).toHaveCount(0);
+  await expect(page.locator(`${HERO} .pcard:not([data-back])`)).toHaveCount(2);
+
+  /* The count stands in the award line's zone, in words and tabular figures,
+     and nobody is on the clock while it runs. */
+  await expect(page.locator('.award-zone .badge')).toHaveText('Turn in 2');
+  await expect(page.locator('.award-zone .award-chip')).toHaveCount(0);
+  await expect(page.locator('.seat-act[data-tone="clock"]')).toHaveCount(0);
+
+  /* And the count is gone on the beat a street lands. */
+  await page.goto('/m/mock?runout=1&step=3');
+  await expect(page.locator('.board .pcard:not([data-empty]):not([data-back])')).toHaveCount(4);
+  await expect(page.locator('.award-zone .badge')).toHaveCount(0);
+});
+
 test('the award line sits below the pot figure', async ({ page }) => {
   await stubApi(page);
   await page.goto('/m/mock?step=13');

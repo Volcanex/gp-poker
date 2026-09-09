@@ -26,7 +26,11 @@ export function useTableSounds(view: TableView | null): void {
   /* What just happened on the table. */
   useEffect(() => {
     if (!view?.last) return;
-    const key = `${view.h}:${view.n}:${view.last.k}`;
+    /* The board's length is part of the key because an all-in run-out deals
+       three streets without an action between them: the seq is the same for
+       all three, and a key without the board played the flop's card and then
+       sat silent through the turn and the river. */
+    const key = `${view.h}:${view.n}:${view.last.k}:${view.board.length}`;
     if (lastEvent.current === key) return;
     lastEvent.current = key;
 
