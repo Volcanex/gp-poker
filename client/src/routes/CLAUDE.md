@@ -8,6 +8,7 @@ are `../tools/` and the puzzles are `../puzzles/`.
 | `/` | the picker, how it works, top ten (`home.tsx`) |
 | `/arena` | the arena running now, or the next one, its board, and the last three that finished |
 | `/arena/:id` | one arena, readable for good once it is over |
+| `/bots` | the practice setup page behind the home panel's `More`: table, speed, level and the roster at each level (`bots.tsx`) |
 | `/leaderboard` | top 100 (`leaderboard.tsx`) |
 | `/u/:name` | profile (`profile.tsx`) |
 | `/watch` | live tables, and the ones that just finished (`watch.tsx`) |
@@ -64,10 +65,23 @@ open, so the control does not flicker shut on load. `/api/me` is refetched on
 every `end`, so it flips the moment the first game finishes.
 
 Under the button, the four other ways to play are **one line each**, with a
-Phosphor icon. Practice, a challenge link and a home game open their own
-controls in place rather than on four more cards; the arena is a link, because
-joining one is a thing you do beside the board you are joining. `@phosphor-icons/react`
-is used here and nowhere else on the site yet.
+Phosphor icon. A challenge link and a home game open their own controls in
+place; the arena is a link, because joining one is a thing you do beside the
+board you are joining. `@phosphor-icons/react` is used here and nowhere else
+on the site yet.
+
+**Practice is three named buttons and a `More`.** Easy, medium and hard each
+deal a table straight away at the pinned mode, no level select to open first;
+`More` goes to `/bots`, a setup page shaped like the arena page where the
+table, the speed, the level and the individual bots at each level can all be
+seen before the one button on it is pressed, because "on the bots screen we
+can get specific" is a different job from "let me try this" on the home page.
+The three presets are one table, `PRACTICE_PRESETS` in `@opentable/protocol`,
+so this row and the setup page cannot describe "hard" differently, and moving
+hard to the level 6 bot once it exists is a one-line change there. **No level
+name is ever lowercased**: both this row's buttons and the setup page read
+`botLevelInfo(level).name` as given, sentence case, because a name folded flat
+into a select option is what made the old picker read as tacky.
 
 **No middle dot separators.** They are banned in this UI, so the counts strip
 and the site footer separate with space and the page carries none.
