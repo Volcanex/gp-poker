@@ -25,6 +25,28 @@ hand when a number needs producing.
   the same starting state, so identical strategies cancel to exactly zero. One
   sample is one (deal, button) pair, which is two hands.
 
+- `bench-slumbot.ts`: level 6 against Slumbot, over its public HTTP API. A
+  yardstick and **never a dependency**: nothing in the product talks to it, and
+  this script is expected to stop working the day they change the protocol.
+
+  ```
+  SLUMBOT_HANDS=400 SLUMBOT_BUDGET_MS=600 npx tsx server/scripts/bench-slumbot.ts
+  ```
+
+  Two things about the protocol are worth writing down because they were
+  measured rather than read. An action string's `b<n>` is that player's total
+  contribution **on that street**, which is exactly what this codebase calls a
+  raise-to, so no conversion is needed. And passing the previous hand's token
+  back to `/api/new_hand` is what keeps the session, which is what makes the
+  seats alternate: without it every hand is dealt from the big blind and the
+  result measures how expensive the big blind is rather than how well the bot
+  plays. `client_pos` 1 means we are the button.
+
+  Four hundred hands is nowhere near enough to measure a win rate heads-up: the
+  standard error at that sample is about a hundred big blinds per hundred
+  hands. It is enough to say the bot is not being destroyed and that it never
+  sends an action Slumbot rejects, and both of those are worth knowing.
+
 ## Gotcha
 `BOT_BENCH_BUDGET_MS` defaults well below the 1500ms a live table gives level
 6, because a run long enough to say anything at 1500ms takes hours. A smaller
