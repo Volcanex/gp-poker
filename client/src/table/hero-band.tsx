@@ -808,17 +808,24 @@ function WaitColumn({
 /* The result is on the decision line. The three actions are held open as
    outlines in the boxes they were just in, group for group, so the control a
    hand is resting on when the hand ends is still where it was when the next
-   one deals. */
+   one deals. On the match's last hand there is no next one to rest a control
+   for, so the boxes hold their footprint empty rather than offering a fold,
+   a check and a raise that will never be legal again. */
 function OverColumn({ view }: { view: TableView }) {
   if (view.you == null) return <WatchColumn />;
+  const last = isLastHand(view);
   return (
     <div className="hb-turn hb-ghosts" aria-hidden="true">
       <div className="hb-sizes" />
       <div className="hb-acts">
-        <span className="btn hb-act hb-act-fold ghost">Fold</span>
-        <span className="btn hb-act hb-act-call ghost">Check</span>
+        {!last && (
+          <>
+            <span className="btn hb-act hb-act-fold ghost">Fold</span>
+            <span className="btn hb-act hb-act-call ghost">Check</span>
+          </>
+        )}
       </div>
-      <span className="btn hb-act hb-act-bet hb-bet ghost">Raise</span>
+      {!last && <span className="btn hb-act hb-act-bet hb-bet ghost">Raise</span>}
     </div>
   );
 }

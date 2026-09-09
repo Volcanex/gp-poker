@@ -136,7 +136,7 @@ test.describe('the play panel', () => {
     await expect(strips.nth(1)).toContainText('Ranked');
     await expect(strips.nth(1)).toContainText('Casual');
     // Six handed is the main game, so it is the first option offered.
-    await expect(strips.nth(2).locator('.tab').first()).toHaveText('Six-max');
+    await expect(strips.nth(2).locator('.tab').first()).toHaveText('6X');
 
     // One primary button, verb first. The switchers above it already say
     // what it would deal, so the button names nothing itself.
@@ -327,7 +327,7 @@ test.describe('the ready check', () => {
     await expect(dialog).toBeVisible();
     await expect(dialog).toContainText('Your table is ready');
     // What the table is, in the words the picker used for it.
-    await expect(dialog).toContainText('Six-max, fast, ranked');
+    await expect(dialog).toContainText('6X, fast, ranked');
     await expect(dialog).toContainText('of 4 accepted');
     await expect(dialog.locator('[role="progressbar"]')).toBeVisible();
 

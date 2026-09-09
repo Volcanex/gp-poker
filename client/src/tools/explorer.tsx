@@ -17,7 +17,7 @@ import { api } from '../net/api.ts';
 import type { Explorer, ExplorerFacing, ExplorerPlayers, ExplorerRow, PositionKey } from '../net/types.ts';
 import { useSession } from '../net/session.tsx';
 import { useTitle } from '../ui/title.ts';
-import { MODE_NAME, ModeTabs } from '../ui/mode-tabs.tsx';
+import { ModeTabs, modeInline } from '../ui/mode-tabs.tsx';
 import { fmtDate } from '../ui/format.ts';
 import { HandGrid, type HandCell } from './hand-grid.tsx';
 import { GridLegend } from './grid-legend.tsx';
@@ -206,7 +206,7 @@ export function Explorer() {
         <div className="card" aria-busy="true">
           <div className="empty">
             <span className="e-title">Reading the book</span>
-            <span className="e-desc">Every finished {MODE_NAME[mode].toLowerCase()} hand, replayed.</span>
+            <span className="e-desc">Every finished {modeInline(mode)} hand, replayed.</span>
           </div>
         </div>
       ) : !enough ? (

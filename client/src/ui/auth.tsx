@@ -4,7 +4,7 @@ import { api } from '../net/api.ts';
 import { useSession } from '../net/session.tsx';
 import { useGInit } from './bits.tsx';
 import { avatarVersion, levelOf, modeRating } from '../net/adapt.ts';
-import { MODE_NAME } from './mode-tabs.tsx';
+import { modeInline } from './mode-tabs.tsx';
 import { int } from './format.ts';
 import { Avatar } from './avatar.tsx';
 import { Flag } from './flag.tsx';
@@ -118,7 +118,7 @@ export function AccountMenu() {
         {me?.country && <Flag code={me.country} size={20} />}
         {me ? me.name : 'Account'}
         {me && <span className="r num">{int(modeRating(me, mode).rating)}</span>}
-        {me && <span className="m">{MODE_NAME[mode].toLowerCase()}</span>}
+        {me && <span className="m">{modeInline(mode)}</span>}
         {/* How many matches, as a level. It is the last thing in the button
             and the first thing dropped when the bar narrows: the rating is
             what somebody checks here, and the level is what they look at on

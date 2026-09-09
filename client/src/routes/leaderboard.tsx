@@ -5,7 +5,7 @@ import { api } from '../net/api.ts';
 import type { LeaderboardRow } from '../net/types.ts';
 import { useSession } from '../net/session.tsx';
 import { useTitle } from '../ui/title.ts';
-import { MODE_NAME, ModeTabs } from '../ui/mode-tabs.tsx';
+import { ModeTabs, modeInline } from '../ui/mode-tabs.tsx';
 import { int } from '../ui/format.ts';
 import { Avatar } from '../ui/avatar.tsx';
 import { FlagSlot } from '../ui/flag.tsx';
@@ -55,14 +55,14 @@ export function Leaderboard() {
       ) : list && list.length === 0 ? (
         <div className="card">
           <div className="empty">
-            <span className="e-title">No {MODE_NAME[mode].toLowerCase()} ratings yet</span>
+            <span className="e-title">No {modeInline(mode)} ratings yet</span>
             <span className="e-desc">The board fills in as rated matches in this mode finish.</span>
           </div>
         </div>
       ) : (
         <div className="card lb-card" data-enter-ready={list ? 'yes' : 'no'}>
           <div className="table-wrap">
-            <table className="table" aria-label={`Top rated ${MODE_NAME[mode].toLowerCase()} players`}>
+            <table className="table" aria-label={`Top rated ${modeInline(mode)} players`}>
               <thead>
                 <tr>
                   <th className="r" style={{ width: 40 }}>#</th>

@@ -8,9 +8,11 @@ import { QUICK_MESSAGES, canSend, cooldownSeconds, relativeTime } from './chat.t
 import type { ChatController } from './use-chat.ts';
 import './chat.css';
 
-/* The toggle lives in the hand header, at the end of the row, so the unread
-   count can grow without moving anything before it. The panel it opens is
-   never a row of the table's grid: see chat.css. */
+/* The toggle lives in the hand header, at the end of the row. Closed it is
+   the word alone: a slot held open for a count that is usually zero read as
+   a stray gap after "Chat", which is worse than the word moving the few
+   pixels a badge arriving actually costs. The panel it opens is never a row
+   of the table's grid: see chat.css. */
 export function ChatToggle({ chat }: { chat: ChatController }) {
   return (
     <button
@@ -22,9 +24,7 @@ export function ChatToggle({ chat }: { chat: ChatController }) {
       onClick={chat.toggle}
     >
       Chat
-      <span className="chat-unread num" aria-hidden={chat.unread === 0}>
-        {chat.unread > 0 ? chat.unread : ''}
-      </span>
+      {chat.unread > 0 && <span className="chat-unread num">{chat.unread}</span>}
     </button>
   );
 }
