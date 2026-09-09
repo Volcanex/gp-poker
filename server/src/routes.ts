@@ -49,7 +49,7 @@ import { mainMode, roundRatings, toModeRating, toUserSummary } from './userView.
 import { computeInsights, type Insights } from './insights.js';
 import { health } from './health.js';
 import { emptyExplorerCube, explorerQuery, foldExplorerHands, sliceExplorer, type ExplorerCube } from './explorer.js';
-import { acceptChallenge, cancelChallenge, challengeView, createChallenge } from './challenges.js';
+import { acceptChallenge, cancelChallenge, challengeSpeed, challengeView, createChallenge } from './challenges.js';
 import {
   cancelHomeGame,
   createHomeGame,
@@ -59,6 +59,14 @@ import {
   startHomeGame,
 } from './home-games.js';
 import { arenaListing, arenaView, joinArena, leaveArena, pauseArena } from './arena.js';
+import {
+  acceptFriend,
+  friendsView,
+  inviteFriend,
+  playedWith,
+  removeFriend,
+  requestFriendByName,
+} from './friends.js';
 import { registerAdminRoutes } from './admin.js';
 import { AVATAR_MAX_BYTES, AvatarLimiter, sniffAvatar } from './avatars.js';
 
@@ -457,9 +465,14 @@ export function registerRoutes(app: FastifyInstance): void {
      link works for someone who has never been here: they arrive, a guest is
      minted, and they are at the table. The match is created by the accept,
      which tells both players through the same `q found` a queue match sends. */
-  app.post<{ Body: { mode?: string; rated?: boolean } }>('/api/challenges', async (request, reply) => {
+  app.post<{ Body: { mode?: string; rated?: boolean; speed?: unknown } }>('/api/challenges', async (request, reply) => {
     const user = await requireUser(request, reply);
-    const result = await createChallenge(user.id, modeParam(request.body?.mode), request.body?.rated !== false);
+    const result = await createChallenge(
+      user.id,
+      modeParam(request.body?.mode),
+      request.body?.rated !== false,
+      challengeSpeed(request.body?.speed)
+    );
     if (!result.ok) return err(reply, result.status, result.error);
     return { id: result.row.id, url: `${originOf(request)}/c/${result.row.id}` };
   });
@@ -527,6 +540,73 @@ export function registerRoutes(app: FastifyInstance): void {
     const result = await cancelHomeGame(request.params.id, user.id);
     if (!result.ok) return err(reply, result.status, result.error);
     return { ok: true };
+  });
+
+  /* Friends. Unlike every other door on this site these are not open to a
+     guest: a guest's name is generated and its row may never be seen again,
+     so a friendship with one is a friendship with nobody. `requireUser` still
+     mints, because it is what puts a session on the request at all, and
+     `friends.ts` is where the refusal is made, in one place and with one
+     sentence, rather than at five route handlers.
+
+     Every mutation pushes a `friend` message to both parties and answers with
+     nothing but ok: the page asks for the list again, which is the answer it
+     opened with, so there is never a second shape of it to keep in step. */
+  app.get('/api/friends', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    return friendsView(user.id, originOf(request));
+  });
+
+  /* Where friends actually come from on a poker site: the people you have
+     sat down with. Its own route rather than a field on the list above,
+     because it is a query over every match this player has been in and the
+     friends page is the one screen that asks for it. */
+  app.get('/api/friends/played', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    return playedWith(user.id);
+  });
+
+  /* By name, because a name is what somebody has: one read off a seat, a
+     profile or a result. An ask to somebody who has already asked you is the
+     accept, which the answer says (`state`) so the page can draw the right
+     thing without asking again. */
+  app.post<{ Body: { name?: unknown } }>('/api/friends/request', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    const result = await requestFriendByName(user.id, request.body?.name);
+    if (!result.ok) return err(reply, result.status, result.error);
+    return { ok: true, state: result.state };
+  });
+
+  app.post<{ Params: { userId: string } }>('/api/friends/:userId/accept', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    const result = await acceptFriend(user.id, request.params.userId);
+    if (!result.ok) return err(reply, result.status, result.error);
+    return { ok: true, state: result.state };
+  });
+
+  /* One route for three things, because the row is what says which: a pending
+     request you sent is a cancel, a pending one you were sent is a decline,
+     and an accepted one is an unfriend. Nothing about the answer differs, so
+     nothing about the request does either. */
+  app.delete<{ Params: { userId: string } }>('/api/friends/:userId', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    const result = await removeFriend(user.id, request.params.userId);
+    if (!result.ok) return err(reply, result.status, result.error);
+    return { ok: true };
+  });
+
+  /* Play with a friend. The link is made by the code that owns links, so the
+     format, the caps, the expiry and the accept flow are the ones this site
+     already had; this route adds a row saying who the link is for and a push
+     telling them, which is the whole of "invite" as a feature. */
+  app.post<{
+    Params: { userId: string };
+    Body: { kind?: unknown; mode?: unknown; rated?: unknown; speed?: unknown; botLevel?: unknown };
+  }>('/api/friends/:userId/invite', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    const result = await inviteFriend(user.id, request.params.userId, request.body ?? { kind: 'challenge' }, originOf(request));
+    if (!result.ok) return err(reply, result.status, result.error);
+    return { kind: result.kind, id: result.id, url: result.url };
   });
 
   /* Arenas. Every one of these goes through requireUser like a challenge does,

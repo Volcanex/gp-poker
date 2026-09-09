@@ -3,7 +3,7 @@ import { DEFAULTS as RATING_DEFAULTS } from '@opentable/rating';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import type { LoggedAction, MatchFormat, MatchResult, Mode } from '@opentable/protocol';
+import type { LoggedAction, MatchFormat, MatchResult, Mode, Speed } from '@opentable/protocol';
 import { blindsAt } from '@opentable/protocol';
 import type { HandOutcome } from '@opentable/engine';
 import type { Decision, SeatStats, Summary } from '@opentable/preflop';
@@ -1079,6 +1079,10 @@ export interface ChallengeRow {
   creatorId: string;
   mode: Mode;
   rated: boolean;
+  /* Null on every link made before speed reached this table, which means the
+     same thing a stored format with no speed does. Read it through
+     `speedOf`-style defaulting at the boundary, never off the row. */
+  speed: Speed | null;
   status: 'open' | 'accepted' | 'cancelled';
   acceptedBy: string | null;
   matchId: string | null;
@@ -1091,11 +1095,12 @@ export async function insertChallenge(
   creatorId: string,
   mode: Mode,
   rated: boolean,
+  speed: Speed,
   expiresAt: Date
 ): Promise<ChallengeRow> {
   const [row] = await sql<ChallengeRow[]>`
-    insert into challenges (id, creator_id, mode, rated, expires_at)
-    values (${id}, ${creatorId}, ${mode}, ${rated}, ${expiresAt})
+    insert into challenges (id, creator_id, mode, rated, speed, expires_at)
+    values (${id}, ${creatorId}, ${mode}, ${rated}, ${speed}, ${expiresAt})
     returning *
   `;
   return row;
@@ -1266,6 +1271,245 @@ export async function cancelOpenHomeGame(id: string, hostId: string): Promise<Ho
     update home_games set status = 'cancelled'
     where id = ${id} and host_id = ${hostId} and status = 'open'
     returning *
+  `;
+  return row ?? null;
+}
+
+// ---- friends ----
+
+/* One friendship, and which way round it was asked. `requesterId` asked;
+   while the status is pending, `addresseeId` has yet to answer. A decline, a
+   cancel and an unfriend all delete the row rather than writing a third
+   status: see ../db/schema.sql for why none of them is a state to keep. */
+export interface FriendshipRow {
+  requesterId: string;
+  addresseeId: string;
+  status: 'pending' | 'accepted';
+  createdAt: Date;
+  respondedAt: Date | null;
+}
+
+/* An edge as the person at one end of it sees it: the row, plus who the other
+   person is. One query answers the friends list, the requests in and the
+   requests out, because all three are the same table read from the same end
+   and only the status and the direction tell them apart. */
+export interface FriendEdgeRow extends FriendshipRow {
+  otherId: string;
+  name: string;
+  guest: boolean;
+  bot: boolean;
+  country: string | null;
+  avatarV: number;
+  lastSeenAt: Date;
+}
+
+export async function getFriendEdges(userId: string): Promise<FriendEdgeRow[]> {
+  return sql<FriendEdgeRow[]>`
+    select f.requester_id, f.addressee_id, f.status, f.created_at, f.responded_at,
+           u.id as other_id, u.name, u.guest, u.bot, u.country, u.avatar_v, u.last_seen_at
+    from friendships f
+    join users u
+      on u.id = case when f.requester_id = ${userId} then f.addressee_id else f.requester_id end
+    where f.requester_id = ${userId} or f.addressee_id = ${userId}
+    order by u.name asc
+  `;
+}
+
+// The pair in either direction, which is the only way to ask about one: the
+// unique index on the unordered pair means at most one row can come back.
+export async function getFriendship(a: string, b: string): Promise<FriendshipRow | null> {
+  const [row] = await sql<FriendshipRow[]>`
+    select * from friendships
+    where (requester_id = ${a} and addressee_id = ${b})
+       or (requester_id = ${b} and addressee_id = ${a})
+  `;
+  return row ?? null;
+}
+
+export async function countFriends(userId: string): Promise<number> {
+  const [row] = await sql<{ n: number }[]>`
+    select count(*)::int as n from friendships
+    where status = 'accepted' and (requester_id = ${userId} or addressee_id = ${userId})
+  `;
+  return row.n;
+}
+
+// Requests this person has out and nobody has answered. The cap is about
+// somebody spraying requests at a list of names, so it counts only the ones
+// still waiting.
+export async function countOutgoingRequests(userId: string): Promise<number> {
+  const [row] = await sql<{ n: number }[]>`
+    select count(*)::int as n from friendships
+    where requester_id = ${userId} and status = 'pending'
+  `;
+  return row.n;
+}
+
+/* Asks. Null when the edge already exists, which the unique index on the
+   unordered pair is what decides: two people pressing Add on each other at
+   the same moment is one row and one loser, and the loser reads the row that
+   won and accepts it instead. */
+export async function insertFriendRequest(requesterId: string, addresseeId: string): Promise<FriendshipRow | null> {
+  const rows = await sql<FriendshipRow[]>`
+    insert into friendships (requester_id, addressee_id)
+    values (${requesterId}, ${addresseeId})
+    on conflict do nothing
+    returning *
+  `;
+  return rows[0] ?? null;
+}
+
+/* Answers yes. The direction is in the where clause, so the person who asked
+   cannot accept their own request, and the status test is there too, so
+   accepting twice is the second one answering null. */
+export async function acceptFriendRequest(requesterId: string, addresseeId: string): Promise<FriendshipRow | null> {
+  const [row] = await sql<FriendshipRow[]>`
+    update friendships set status = 'accepted', responded_at = now()
+    where requester_id = ${requesterId} and addressee_id = ${addresseeId} and status = 'pending'
+    returning *
+  `;
+  return row ?? null;
+}
+
+// Declining, cancelling and unfriending are one statement: the row goes, and
+// which of the three it was is a thing only the caller and the row's status
+// knew. Answers the row it deleted so the caller can say who to tell.
+export async function deleteFriendship(a: string, b: string): Promise<FriendshipRow | null> {
+  const [row] = await sql<FriendshipRow[]>`
+    delete from friendships
+    where (requester_id = ${a} and addressee_id = ${b})
+       or (requester_id = ${b} and addressee_id = ${a})
+    returning *
+  `;
+  return row ?? null;
+}
+
+// Who to tell when this person arrives, goes, or changes something about the
+// graph. Accepted edges only: a pending request is not somebody who should be
+// told when you come online.
+export async function getAcceptedFriendIds(userId: string): Promise<string[]> {
+  const rows = await sql<{ otherId: string }[]>`
+    select case when requester_id = ${userId} then addressee_id else requester_id end as other_id
+    from friendships
+    where status = 'accepted' and (requester_id = ${userId} or addressee_id = ${userId})
+  `;
+  return rows.map((r) => r.otherId);
+}
+
+/* Every mode of several players at once, defaults filled in for the ones
+   never played, so a friends list can name each person's own main mode
+   without a query per friend. `getRatingsForUsers` is the same thing for one
+   known mode; this is the shape `mainMode` needs. */
+export async function getRatingsForUsersByMode(userIds: string[]): Promise<Map<string, Record<Mode, RatingRow>>> {
+  const out = new Map<string, Record<Mode, RatingRow>>();
+  if (userIds.length === 0) return out;
+  const rows = await sql<RatingRow[]>`select * from ratings where user_id in ${sql(userIds)}`;
+  for (const id of userIds) {
+    const mine = {} as Record<Mode, RatingRow>;
+    for (const mode of MODES) {
+      mine[mode] = rows.find((r) => r.userId === id && r.mode === mode) ?? defaultRating(id, mode);
+    }
+    out.set(id, mine);
+  }
+  return out;
+}
+
+/* Who this player has actually sat down with, newest first. This is where
+   friends come from on a poker site: the list is people, not accounts, so
+   bots are out and so are guests, whose names are generated and who cannot
+   be friends anyway. Distinct by person rather than by match, ordered by the
+   most recent table they shared. */
+export interface PlayedOpponentRow {
+  id: string;
+  name: string;
+  country: string | null;
+  avatarV: number;
+  lastPlayedAt: Date;
+}
+
+export async function getPlayedOpponents(userId: string, limit = 20): Promise<PlayedOpponentRow[]> {
+  return sql<PlayedOpponentRow[]>`
+    select u.id, u.name, u.country, u.avatar_v, max(m.created_at) as last_played_at
+    from match_players mine
+    join match_players theirs
+      on theirs.match_id = mine.match_id and theirs.user_id <> mine.user_id
+    join matches m on m.id = mine.match_id
+    join users u on u.id = theirs.user_id
+    where mine.user_id = ${userId} and u.bot = false and u.guest = false
+    group by u.id, u.name, u.country, u.avatar_v
+    order by max(m.created_at) desc
+    limit ${limit}
+  `;
+}
+
+/* An invite: a link, and who it is for. The row carries no state about the
+   game, so nothing here can disagree with the link it points at. */
+export interface FriendInviteRow {
+  toId: string;
+  fromId: string;
+  kind: 'challenge' | 'home';
+  linkId: string;
+  createdAt: Date;
+}
+
+export async function insertFriendInvite(
+  toId: string,
+  fromId: string,
+  kind: 'challenge' | 'home',
+  linkId: string
+): Promise<void> {
+  await sql`
+    insert into friend_invites (to_id, from_id, kind, link_id)
+    values (${toId}, ${fromId}, ${kind}, ${linkId})
+    on conflict (to_id, kind, link_id) do nothing
+  `;
+}
+
+/* Invites waiting for this person, with the link's own state beside each one,
+   because whether an invite is worth anything is the link's answer and never
+   a column here. An invite whose link has gone comes back with nulls and
+   reads as spent. */
+export interface FriendInviteWithLink extends FriendInviteRow {
+  linkStatus: string | null;
+  linkExpiresAt: Date | null;
+  matchId: string | null;
+}
+
+export async function getFriendInvitesFor(userId: string): Promise<FriendInviteWithLink[]> {
+  return sql<FriendInviteWithLink[]>`
+    select i.to_id, i.from_id, i.kind, i.link_id, i.created_at,
+           c.status as link_status, c.expires_at as link_expires_at, c.match_id
+    from friend_invites i
+    left join challenges c on c.id = i.link_id
+    where i.to_id = ${userId} and i.kind = 'challenge'
+    union all
+    select i.to_id, i.from_id, i.kind, i.link_id, i.created_at,
+           g.status as link_status, g.expires_at as link_expires_at, g.match_id
+    from friend_invites i
+    left join home_games g on g.id = i.link_id
+    where i.to_id = ${userId} and i.kind = 'home'
+    order by created_at desc
+  `;
+}
+
+// Unfriending takes the invites between the two with it: an invite from
+// somebody who is no longer a friend is a table nobody should still be
+// offered, and it would otherwise sit in the list until its link expired.
+export async function deleteFriendInvitesBetween(a: string, b: string): Promise<void> {
+  await sql`
+    delete from friend_invites
+    where (to_id = ${a} and from_id = ${b}) or (to_id = ${b} and from_id = ${a})
+  `;
+}
+
+// The lobby an invite reuses rather than opening a fourth one: a host who
+// invites three friends in a row is gathering one table, not three.
+export async function getOpenHomeGameForHost(hostId: string): Promise<HomeGameRow | null> {
+  const [row] = await sql<HomeGameRow[]>`
+    select * from home_games
+    where host_id = ${hostId} and status = 'open' and expires_at > now()
+    order by created_at desc
+    limit 1
   `;
   return row ?? null;
 }

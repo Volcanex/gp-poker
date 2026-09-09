@@ -1,4 +1,4 @@
-/* Wire protocol v5. JSON over WebSocket, short keys, every message carries t.
+/* Wire protocol v6. JSON over WebSocket, short keys, every message carries t.
    The server is authoritative: clients send intent only. Any change to the
    shapes below is a protocol change: bump PROTOCOL_VERSION and keep the
    server accepting the previous one for a deploy cycle. v4 was additive: the
@@ -35,9 +35,17 @@
    `ranked_ban` error code and the `left` match reason are all new, and a
    client that never sends `resign` is served exactly as it was. An older
    client reading a `left` result falls through to no reason line rather than
-   to a wrong one. */
+   to a wrong one.
 
-export const PROTOCOL_VERSION = 5;
+   v6 is friends: the `friend` and `invite` pushes, and `challenges.speed`
+   reaching `Challenge` and the format a link deals. Every one of those is a
+   push a v5 client never subscribed to and a field it never reads, so it is
+   additive by the rule above. The number moves anyway, because a client that
+   cannot draw an invite is a client whose player is sent a table nobody told
+   them about: the invite is a real message this server now expects somebody
+   to be able to answer, the same argument the ready check made in v5. */
+
+export const PROTOCOL_VERSION = 6;
 
 export type Card = string; // 'As', 'Td', '2c' (rank + suit, lowercase suit)
 
@@ -488,6 +496,11 @@ export const isModeChoice = (v: unknown): v is ModeChoice =>
   v === 'any' || (typeof v === 'string' && (MODES as string[]).includes(v));
 export const isSpeedChoice = (v: unknown): v is SpeedChoice =>
   v === 'any' || (typeof v === 'string' && (SPEEDS as string[]).includes(v));
+/* A concrete speed, with no "any" in it: what a thing that has to deal a
+   table now reads off a body, since a challenge link and an invite both name
+   the speed the table will be dealt at rather than a search to widen. */
+export const isSpeed = (v: unknown): v is Speed =>
+  typeof v === 'string' && (SPEEDS as string[]).includes(v);
 
 /* A bot's strategy is a **tier**, and a level is only where that tier currently
    sits on the ladder. The distinction earns its keep the moment the ladder is
@@ -967,6 +980,20 @@ export const CHAT_MIN_GAP_MS = 2_000; // one message per this long
 export const CHAT_MAX_PER_MATCH = 20; // per user, for the life of the match
 export const CHAT_HISTORY = 100; // kept in memory per channel, replayed on join
 
+/* Friends, and what a push about one says. The message carries what changed
+   and not the graph it changed: an open page asks `/api/friends` again, which
+   is the answer it opened with, so there is never a second shape of the
+   friends list to keep in step with the first. `online` and `offline` are the
+   same message about presence, sent to somebody's friends when their last
+   socket opens or closes. */
+export type FriendEvent = 'request' | 'accepted' | 'removed' | 'online' | 'offline';
+
+/* An invitation to a table that has already been made. A challenge invite is
+   a challenge link and a home invite is a home game lobby, so answering one
+   is the accept those pages already have and there is no second way to seat
+   two people. An invite lives exactly as long as its link. */
+export type InviteKind = 'challenge' | 'home';
+
 /* Server -> client */
 export type ServerMsg =
   | { t: 'hi'; v: number; u: UserSummary }
@@ -991,6 +1018,14 @@ export type ServerMsg =
   // the lobby page updates without polling for it.
   | { t: 'lobby'; g: string; seats: LobbySeat[]; status: HomeGameStatus }
   | { t: 'chat'; m: string; from: ChatFrom; text: string; at: number } // at = epoch ms
+  // Something moved in your friends list. Pushed to both parties to a
+  // change, and to somebody's friends when they arrive or go. The page
+  // refetches; see FriendEvent for why nothing is carried on it.
+  | { t: 'friend'; kind: FriendEvent }
+  // A friend has made you a table. `id` is the link's own id, which is what
+  // the url ends in, and `expiresAt` is epoch ms like every other deadline
+  // the client counts down.
+  | { t: 'invite'; id: string; from: UserSummary; kind: InviteKind; url: string; expiresAt: number }
   // An arena's board, pushed to everyone watching it on a five second beat and
   // on every score change. `standings` is the top twenty plus you.
   | {

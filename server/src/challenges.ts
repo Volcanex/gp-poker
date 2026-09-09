@@ -1,4 +1,5 @@
-import type { Mode, UserSummary } from '@opentable/protocol';
+import { DEFAULT_SPEED, isSpeed } from '@opentable/protocol';
+import type { Mode, Speed, UserSummary } from '@opentable/protocol';
 import {
   cancelOpenChallenge,
   claimChallenge,
@@ -39,6 +40,10 @@ export interface ChallengeView {
   id: string;
   mode: Mode;
   rated: boolean;
+  /* The speed the link deals at, defaulted here rather than left null on the
+     wire: a link made before this column existed was a standard table, which
+     is the same thing `speedOf` reads a stored format with no speed as. */
+  speed: Speed;
   status: ChallengeStatus;
   creator: UserSummary;
   matchId: string | null;
@@ -52,15 +57,25 @@ type Refusal = { ok: false; status: number; error: string };
    nobody has cancelled and nobody has taken, and the clock is the only thing
    that changed. Deriving it here is what keeps the table free of rows a sweep
    would have had to correct. */
-export function statusOf(row: ChallengeRow, now = Date.now()): ChallengeStatus {
+export function statusOf(row: Pick<ChallengeRow, 'status' | 'expiresAt'>, now = Date.now()): ChallengeStatus {
   if (row.status === 'open' && row.expiresAt.getTime() <= now) return 'expired';
   return row.status;
+}
+
+/* The speed a link deals at is the creator's to choose, not the accepter's,
+   because the link is the offer: `/c/:id` says what table it opens before
+   anybody presses the button, and an invite made from a friends list carries
+   the speed the person sending it plays at. Anything off the wire that is not
+   a speed reads as the default, the same bargain a bot level makes. */
+export function challengeSpeed(raw: unknown): Speed {
+  return isSpeed(raw) ? raw : DEFAULT_SPEED;
 }
 
 export async function createChallenge(
   creatorId: string,
   mode: Mode,
-  rated: boolean
+  rated: boolean,
+  speed: Speed = DEFAULT_SPEED
 ): Promise<{ ok: true; row: ChallengeRow } | Refusal> {
   if (mode !== 'heads-up') {
     return { ok: false, status: 400, error: 'Only heads-up challenges can be shared for now' };
@@ -80,7 +95,7 @@ export async function createChallenge(
   // impossible.
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
-      return { ok: true, row: await insertChallenge(randomMatchId(), creatorId, mode, rated, expiresAt) };
+      return { ok: true, row: await insertChallenge(randomMatchId(), creatorId, mode, rated, speed, expiresAt) };
     } catch (err) {
       if (isUniqueViolation(err)) continue;
       throw err;
@@ -102,6 +117,7 @@ export async function challengeView(id: string): Promise<ChallengeView | null> {
     id: row.id,
     mode: row.mode,
     rated: row.rated,
+    speed: row.speed ?? DEFAULT_SPEED,
     status: statusOf(row),
     creator: toUserSummary(creator, await getRatingsFor(creator.id)),
     matchId: row.matchId,
@@ -159,7 +175,10 @@ export async function acceptChallenge(
   const seats =
     Math.random() < 0.5 ? [claimed.creatorId, userId] : [userId, claimed.creatorId];
   try {
-    const matchId = await createMatchForPlayers(seats, matchFormat(claimed.mode, claimed.rated));
+    const matchId = await createMatchForPlayers(
+      seats,
+      matchFormat(claimed.mode, claimed.rated, claimed.speed ?? DEFAULT_SPEED)
+    );
     await setChallengeMatch(id, matchId);
     return { ok: true, matchId };
   } catch (err) {

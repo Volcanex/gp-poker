@@ -72,7 +72,7 @@ const FULL = 'This table is full';
    nobody cancelled and nobody started, and the clock is the only thing that
    changed. Deriving it here is what keeps the table free of rows a sweep would
    have had to correct. */
-export function statusOf(row: HomeGameRow, now = Date.now()): HomeGameStatus {
+export function statusOf(row: Pick<HomeGameRow, 'status' | 'expiresAt'>, now = Date.now()): HomeGameStatus {
   if (row.status === 'open' && row.expiresAt.getTime() <= now) return 'expired';
   return row.status;
 }

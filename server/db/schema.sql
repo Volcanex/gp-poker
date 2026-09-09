@@ -329,3 +329,66 @@ alter table hands add column if not exists bb int;
 alter table users add column if not exists walkout_strikes int not null default 0;
 alter table users add column if not exists walkout_at timestamptz;
 alter table users add column if not exists ranked_ban_until timestamptz;
+
+-- The speed a challenge link deals at. Links predate speed and every one of
+-- them was standard, which is what `speedOf` reads a stored format with no
+-- speed as, so null here means the same thing and nothing has to be
+-- backfilled. It is a column rather than a thing the accepter chooses because
+-- the link is the offer: the page says what table it opens before anybody
+-- presses the button, and an invite made from a friends list carries the
+-- speed that list's owner plays at.
+alter table challenges add column if not exists speed text;
+
+-- Friends. One row per pair, and the row remembers which way round it was
+-- asked because that is what tells a request from an offer: `requester_id`
+-- asked, `addressee_id` has yet to answer while the status is pending.
+-- Status is only ever pending or accepted. A decline, a cancel and an unfriend
+-- all delete the row, because none of them is a state anybody should be shown
+-- later: a declined request that stayed on the table would be a rejection
+-- somebody has to look at, and the person who asked can simply ask again.
+--
+-- Both sides are claimed accounts. A guest's name is generated and its row
+-- may never be seen again, so a friendship with one is a friendship with
+-- nobody; the routes refuse it rather than the column, since `users.guest`
+-- is the fact and a check constraint here could not read it. Bots are refused
+-- the same way.
+create table if not exists friendships (
+  requester_id uuid not null references users(id) on delete cascade,
+  addressee_id uuid not null references users(id) on delete cascade,
+  status text not null default 'pending',      -- pending | accepted
+  created_at timestamptz not null default now(),
+  responded_at timestamptz,                    -- when it was accepted, null while pending
+  primary key (requester_id, addressee_id)
+);
+-- The unordered pair, so two rows can never describe one friendship: A asking
+-- B and B asking A are the same edge, and the second insert is a unique
+-- violation rather than a duplicate the reads would have to reconcile.
+create unique index if not exists friendships_pair
+  on friendships (least(requester_id, addressee_id), greatest(requester_id, addressee_id));
+-- Incoming requests and the friends list read from the other end of the pair,
+-- which the primary key's leading column cannot serve.
+create index if not exists friendships_addressee on friendships(addressee_id, status);
+
+-- Invites: a friend has made you a table. The invite is a link plus the name
+-- of who it is for, and nothing else: the match path is the challenge or the
+-- home game it points at, so there is no second way to seat two people and
+-- nothing here decides anything about the game.
+--
+-- `link_id` is a `challenges.id` or a `home_games.id` by `kind`, and carries
+-- no foreign key because it points at one of two tables. That is also what
+-- makes an invite need no sweeper: whether it is still worth anything is read
+-- off the link's own status and `expires_at`, exactly as the link's page reads
+-- it, and an invite whose link has gone reads as spent.
+--
+-- The key is (recipient, kind, link) rather than an id of its own: one invite
+-- per person per link is the rule, and a host inviting three friends to one
+-- home game is three rows, which is what the lobby is for.
+create table if not exists friend_invites (
+  to_id uuid not null references users(id) on delete cascade,
+  kind text not null,                          -- challenge | home
+  link_id text not null,                       -- challenges.id or home_games.id, by kind
+  from_id uuid not null references users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (to_id, kind, link_id)
+);
+create index if not exists friend_invites_from on friend_invites(from_id, created_at desc);
