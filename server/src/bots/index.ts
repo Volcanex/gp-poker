@@ -6,12 +6,14 @@ import {
   getBotUsers,
   getLadderMatchCounts,
   getRatingsForUsers,
+  migrateBotNamesToRealistic,
   migrateLegacyBotNames,
   type UserRow,
 } from '../db.js';
 import { hub } from '../ws/hub.js';
 import { roomForPlayer } from '../match/rooms.js';
 import { BotPlayer, type Dispatch } from './player.js';
+import { generatePopulation, levelForIndex, type PopulationBot } from './population-roster.js';
 
 /* The bot roster. Accounts are ordinary users with `bot = true`: real names,
    real Glicko-2 ratings, real match history, no password, never guests. They
@@ -19,51 +21,50 @@ import { BotPlayer, type Dispatch } from './player.js';
    with the hub as virtual connections so anything that sends to a user id
    reaches them.
 
-   Bots are excluded from the leaderboard but their matches are rated. That
-   is a deliberate bootstrap choice while there are no other players: the
-   alternative (casual bot matches) leaves every early human provisional
-   forever with nothing to calibrate against. Revisit once real humans are
-   pairing with each other. A practice match is the exception and is never
-   rated, because its whole point is to be a place to lose.
+   The roster is the bot population (`config.botCount`, `POPULATION_SIZE`):
+   `population-roster.ts` generates who each bot is (name, country, level,
+   persona, schedule) from a fixed seed, and this module is where that
+   becomes real database rows and live `BotPlayer`s. `population.ts` is the
+   scheduler that decides, minute to minute, which of them are "online" and
+   sends them to queue.
 
-   Every bot plays at one of the five levels (see BOT_LEVELS in the protocol),
-   three bots per level. The level is a property of the account, not of the
-   match: a level 2 bot is a level 2 bot in the rated queue as well, and its
-   rating is the honest consequence of that. */
+   Bots are excluded from the leaderboard by default but their matches are
+   rated; `config.populationPublic` puts them on it. A practice match is
+   always the exception and is never rated, because its whole point is to be
+   a place to lose.
 
-// A fixed roster, generated once from a fixed seed so the names are the
-// same on every boot rather than reshuffling each restart. Growing the count
-// only appends: the generator walks the same sequence, so the names of the
-// bots that already exist (and their ratings and histories) are untouched.
-function generateBotNames(count: number): string[] {
+   Every bot plays at one of the five levels (see BOT_LEVELS in the
+   protocol). The level is a property of the account, not of the match: a
+   level 2 bot is a level 2 bot in the rated queue as well, and its rating is
+   the honest consequence of that. */
+
+// The original fifteen-bot roster's CamelCase names, kept only as the source
+// half of the one-time rename onto the population's realistic handles
+// (`migrateBotNamesToRealistic`, positional by roster index). Nothing else
+// reads this any more.
+const LEGACY_ROSTER_SIZE = 15;
+function legacyCamelCaseNames(): string[] {
   const rng = seededRng('opentable-bots');
   const names = new Set<string>();
-  while (names.size < count) names.add(generateName(rng, 2));
+  while (names.size < LEGACY_ROSTER_SIZE) names.add(generateName(rng, 2));
   return [...names];
 }
 
-export const BOT_ROSTER_SIZE = 15;
+export { levelForIndex };
 
-const BOT_NAMES = generateBotNames(BOT_ROSTER_SIZE);
-
-// Levels cycle down the roster rather than sitting in blocks, so the first
-// bots ever created are spread across the five levels instead of all being
-// level 1. Roster index i plays at (i % 5) + 1.
-export function levelForIndex(i: number): BotLevel {
-  return ((i % 5) + 1) as BotLevel;
-}
-
-export interface RosterEntry {
-  name: string;
-  level: BotLevel;
-}
-
-export function botRoster(count = config.botCount): RosterEntry[] {
-  return BOT_NAMES.slice(0, Math.max(0, count)).map((name, i) => ({ name, level: levelForIndex(i) }));
+// The population, generated once from a fixed seed: growing `count` only
+// appends, since `generatePopulation` walks the same rng sequence every
+// time. Exported for `population.ts` and for tests.
+export function populationRoster(count = config.botCount): PopulationBot[] {
+  return generatePopulation(Math.max(0, count));
 }
 
 const players = new Map<string, BotPlayer>();
 const levels = new Map<string, BotLevel>();
+// A loaded bot's population spec, by user id, for the scheduler: mode/speed
+// preference, schedule, persona and budget all live on this rather than
+// being re-derived or re-queried.
+const population = new Map<string, PopulationBot>();
 
 // Bots send `join` and `act` through the same router a websocket message
 // goes through. It is injected rather than imported so this module does not
@@ -74,23 +75,73 @@ export function setBotDispatch(fn: Dispatch): void {
   dispatch = fn;
 }
 
-// One-time migration from the old `bot-otter` style names to the generated
-// roster, in the same order the old roster was read (name_lower asc). A
-// database with no legacy rows left (the common case, after the first boot
-// that runs this) does nothing. Exported with an overridable name list so
-// tests can exercise it without touching the real roster.
-export function migrateBotRoster(names: string[] = BOT_NAMES): Promise<void> {
+// Bots the population scheduler has told to queue and not yet seen resolve,
+// timestamped rather than a bare set so one that never resolves (a
+// rejection nothing here ever sees, such as the ranked gate refusing it) is
+// not unavailable forever. Tracked here rather than in population.ts because
+// `availableBots`/`availableBotsAtLevel` need it too: without it, a bot
+// searching the ordinary queue could also be pulled into a practice table or
+// a ladder match and end up seated at two tables at once. Bots never sat in
+// that queue before the population did, so this case could not arise until
+// now.
+const queuedAt = new Map<string, number>();
+const QUEUE_STALE_MS = 3 * 60_000;
+
+// The population scheduler drives a bot exactly the way its own `BotPlayer`
+// drives its actions: through the same router a socket message goes
+// through, via the same `dispatch` this module already holds.
+export function sendBotMessage(userId: string, msg: ClientMsg): void {
+  if (msg.t === 'queue') queuedAt.set(userId, Date.now());
+  else if (msg.t === 'dequeue') queuedAt.delete(userId);
+  dispatch(userId, msg);
+}
+
+// Whether this module believes a bot is currently searching the ordinary
+// queue. Self-healing: an entry older than `QUEUE_STALE_MS` is treated as
+// resolved even if nothing ever told this module so explicitly.
+export function isBotQueued(userId: string): boolean {
+  const at = queuedAt.get(userId);
+  if (at === undefined) return false;
+  if (Date.now() - at > QUEUE_STALE_MS) {
+    queuedAt.delete(userId);
+    return false;
+  }
+  return true;
+}
+
+// One-time migration from the old `bot-otter` style names, in the same order
+// the old roster was read (name_lower asc). A database with no legacy rows
+// left (the common case) does nothing. Exported with an overridable name
+// list so tests can exercise it without touching the real roster.
+export function migrateBotRoster(names: string[] = legacyCamelCaseNames()): Promise<void> {
   return migrateLegacyBotNames(names);
 }
 
 export async function ensureBots(count = config.botCount): Promise<void> {
-  await migrateBotRoster();
-  for (const { name, level } of botRoster(count)) {
-    const user = await ensureBotUser(name, level);
+  const legacyNames = legacyCamelCaseNames();
+  await migrateBotRoster(legacyNames);
+  const roster = populationRoster(count);
+  // Positional rename, CamelCase roster index i onto population index i, so
+  // the fifteen original bots keep their id, rating and history under a new
+  // name. A database that never had the old roster (a fresh test database)
+  // does nothing here either.
+  await migrateBotNamesToRealistic(legacyNames, roster.map((b) => b.name));
+
+  for (const bot of roster) {
+    const createdAt = new Date(Date.now() - bot.createdOffsetDays * 24 * 60 * 60 * 1000);
+    const user = await ensureBotUser(bot.name, bot.level, bot.country, createdAt);
     if (!user) continue;
-    levels.set(user.id, level);
+    levels.set(user.id, bot.level);
+    population.set(user.id, bot);
     if (players.has(user.id)) continue;
-    const player = new BotPlayer(user.id, (userId, msg: ClientMsg) => dispatch(userId, msg), level);
+    const player = new BotPlayer(
+      user.id,
+      (userId, msg: ClientMsg) => dispatch(userId, msg),
+      bot.level,
+      Math.random,
+      bot.persona,
+      bot.chat
+    );
     players.set(user.id, player);
     hub.attachVirtual(user.id, (msg) => player.receive(msg));
   }
@@ -102,11 +153,35 @@ export function levelOf(userId: string): BotLevel | null {
   return levels.get(userId) ?? null;
 }
 
-function isFree(u: UserRow): boolean {
-  return players.has(u.id) && !roomForPlayer(u.id)?.active;
+// The population spec for a loaded bot, or null for a human (or a bot not
+// yet loaded). What `population.ts`'s scheduler iterates.
+export function populationOf(userId: string): PopulationBot | null {
+  return population.get(userId) ?? null;
 }
 
-// Bots that are loaded in this process and not sitting in a live match,
+// Every loaded bot's user id and population spec together, for the
+// scheduler's tick.
+export function loadedPopulation(): { userId: string; bot: PopulationBot }[] {
+  return [...population.entries()].map(([userId, bot]) => ({ userId, bot }));
+}
+
+// Whether a loaded bot is currently sitting in a live match. Shared with the
+// scheduler so it does not have to re-derive `isFree` below on its own. Also
+// where a resolved queue entry gets cleared: once a bot is seated the room
+// itself is the truth, and there is no need to wait out `QUEUE_STALE_MS` to
+// notice.
+export function isBotBusy(userId: string): boolean {
+  const busy = roomForPlayer(userId)?.active === true;
+  if (busy) queuedAt.delete(userId);
+  return busy;
+}
+
+function isFree(u: UserRow): boolean {
+  return players.has(u.id) && !isBotBusy(u.id) && !isBotQueued(u.id);
+}
+
+// Bots that are loaded in this process, not sitting in a live match and not
+// already searching the ordinary queue on their own (see `isBotQueued`),
 // closest in rating to `targetRating` first. A finished room lingers for a
 // minute after the match ends, so availability asks the room whether it is
 // still active rather than whether it exists.

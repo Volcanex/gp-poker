@@ -343,10 +343,20 @@ export async function updateUserCountry(id: string, country: string | null): Pro
 // real history, no password and never a guest. Created once at boot. The level
 // is re-asserted on every boot rather than only at creation, so the roster in
 // code stays the source of truth for who plays how.
-export async function ensureBotUser(name: string, level: number): Promise<UserRow> {
+// `country` and `createdAt` only ever take on their given value at
+// insertion: a bot already on the roster keeps the country and join date it
+// was created with, the same way a real account would, and only its level
+// (which is a property of the code, not the account) is re-asserted every
+// boot.
+export async function ensureBotUser(
+  name: string,
+  level: number,
+  country: string | null = null,
+  createdAt: Date = new Date()
+): Promise<UserRow> {
   await sql`
-    insert into users (name, name_lower, guest, bot, bot_level)
-    values (${name}, ${name.toLowerCase()}, false, true, ${level})
+    insert into users (name, name_lower, guest, bot, bot_level, country, created_at)
+    values (${name}, ${name.toLowerCase()}, false, true, ${level}, ${country}, ${createdAt})
     on conflict (name_lower) do nothing
   `;
   await sql`
@@ -378,6 +388,28 @@ export async function migrateLegacyBotNames(names: string[]): Promise<void> {
       await tx`
         update users set name = ${names[i]}, name_lower = ${names[i].toLowerCase()}
         where id = ${legacy[i].id}
+      `;
+    }
+  });
+}
+
+// Same shape, one migration later: the fifteen bots the CamelCase generator
+// named (`RedTiger`, `SlyRunningFox`, ...) get renamed onto the population's
+// realistic handles, positional by roster index rather than by matching a
+// name pattern, since a CamelCase name gives no hint that it used to be a
+// bot's name and nothing else. Idempotent for the same reason the migration
+// above is: a row already renamed no longer matches `oldNames[i]`, so a
+// second run does nothing.
+const POPULATION_NAME_MIGRATION_LOCK_KEY = 727102;
+
+export async function migrateBotNamesToRealistic(oldNames: string[], newNames: string[]): Promise<void> {
+  await sql.begin(async (tx) => {
+    await tx`select pg_advisory_xact_lock(${POPULATION_NAME_MIGRATION_LOCK_KEY})`;
+    for (let i = 0; i < oldNames.length && i < newNames.length; i++) {
+      if (oldNames[i].toLowerCase() === newNames[i].toLowerCase()) continue;
+      await tx`
+        update users set name = ${newNames[i]}, name_lower = ${newNames[i].toLowerCase()}
+        where bot = true and name_lower = ${oldNames[i].toLowerCase()}
       `;
     }
   });
@@ -445,14 +477,17 @@ export interface LeaderboardRow {
   country: string | null;
 }
 
-export async function getLeaderboard(mode: Mode, limit = 100): Promise<LeaderboardRow[]> {
+// `includeBots` is `config.populationPublic`: off, this is exactly the human
+// leaderboard it always was; on, the population's own results are real rated
+// results and belong beside everyone else's.
+export async function getLeaderboard(mode: Mode, limit = 100, includeBots = false): Promise<LeaderboardRow[]> {
   // 110 mirrors @opentable/rating's isProvisional threshold (see userView.ts);
   // it's duplicated here only because SQL can't call into that package.
   return sql<LeaderboardRow[]>`
     select u.id, u.name, u.country, r.rating, r.rd, r.matches, r.peak_rating, u.avatar_v
     from ratings r
     join users u on u.id = r.user_id
-    where r.mode = ${mode} and r.rd <= 110 and u.bot = false
+    where r.mode = ${mode} and r.rd <= 110 ${includeBots ? sql`` : sql`and u.bot = false`}
     order by r.rating desc
     limit ${limit}
   `;
