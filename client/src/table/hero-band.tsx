@@ -746,18 +746,19 @@ function WaitColumn({
 /* ------------------------------------------------------------------- over */
 
 /* The result is on the decision line. The three actions are held open as
-   outlines in their own boxes, so the control a thumb is resting on when the
-   hand ends is still where it was when the next one deals. */
+   outlines in the boxes they were just in, group for group, so the control a
+   hand is resting on when the hand ends is still where it was when the next
+   one deals. */
 function OverColumn({ view }: { view: TableView }) {
   if (view.you == null) return <WatchColumn />;
   return (
-    <div className="hb-turn">
-      <div className="hb-sizes" aria-hidden="true" />
-      <div className="hb-ghosts" aria-hidden="true">
+    <div className="hb-turn hb-ghosts" aria-hidden="true">
+      <div className="hb-sizes" />
+      <div className="hb-acts">
         <span className="btn hb-act hb-act-fold ghost">Fold</span>
         <span className="btn hb-act hb-act-call ghost">Check</span>
-        <span className="btn hb-act hb-act-bet ghost">Raise</span>
       </div>
+      <span className="btn hb-act hb-act-bet hb-bet ghost">Raise</span>
     </div>
   );
 }

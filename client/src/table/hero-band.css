@@ -50,6 +50,12 @@
      it too and the three lines share one edge. */
   --hb-flag: 16px;
   --hb-flag-gap: 6px;
+  /* The floor under the hand's column. It is the fan's own width normally, but
+     the figure, its three chip columns and the last action are a line of their
+     own under the cards and they need more than a 76 px fan gives: below this
+     the label was pushed out of the column and printed over the key legend.
+     The cards stay on the column's near edge, so the shared left edge holds. */
+  --hb-hand-min: 184px;
   /* The rows and the two columns of the controls, named here because the
      waiting pills and the hand-over ghosts stand in the same boxes and have to
      be the same size in the same place. `--acts-w` is the left group, fold and
@@ -178,9 +184,13 @@
   display: grid;
   grid-template-rows: minmax(0, 1fr) calc(var(--hb-who-h) + var(--hb-nums-h) + 2px);
   row-gap: var(--hb-meta-gap);
-  /* The column is the fan's own width, so the name, the stack and the last
-     action under it share both of the cards' edges. */
-  width: calc(var(--hero-card) * (2 - var(--fan-overlap) + 1.4 * var(--fan-sin)));
+  /* The column is the fan's own width or the floor the meta line needs,
+     whichever is wider, so the name, the stack and the last action under it
+     share the cards' near edge. */
+  width: max(
+    calc(var(--hero-card) * (2 - var(--fan-overlap) + 1.4 * var(--fan-sin))),
+    var(--hb-hand-min)
+  );
   min-width: 0; min-height: 0;
 }
 
@@ -251,6 +261,9 @@
 .hb-nums {
   display: flex; align-items: flex-end; gap: var(--sp-2);
   height: var(--hb-nums-h);
+  /* A grid item is min-content wide by default, so without this the row is
+     free to grow past the column and print over whatever is beside it. */
+  min-width: 0;
 }
 /* A reserved slot, like the felt's `.stack-v` and for the same reason: this
    figure is the one that changes most on the band, and the chips and the last
@@ -326,10 +339,11 @@
 .hb-turn > .hb-sizes, .hb-turn > .hb-custom { grid-area: sizes; }
 .hb-turn > .hb-acts { grid-area: acts; }
 .hb-turn > .hb-bet { grid-area: bet; }
-/* The pills and the ghosts stand on the same floor as the three controls they
-   replace, across both groups, so nothing on the band moves when the hand ends
-   under a resting hand. */
-.hb-turn > .hb-pre, .hb-turn > .hb-ghosts {
+/* The waiting pills are three where the controls are two and one, so they
+   stand across both groups on the same floor rather than in the groups'
+   own boxes. The hand-over ghosts do stand in the groups' own boxes: they
+   are the three controls, held open. */
+.hb-turn > .hb-pre {
   grid-row: 3; grid-column: 1 / -1;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -691,6 +705,9 @@
     --band-pad: var(--sp-2);
     --band-gut: var(--sp-3);
     --hero-card: 104px;
+    /* A phone's fan is already wider than the floor, and the column beside it
+       is a fixed 176: a floor here would push the controls off the screen. */
+    --hb-hand-min: 0px;
     --sizes-h: 60px;
     --act-h: 44px;
   }
@@ -730,8 +747,8 @@
     grid-template-rows: repeat(2, minmax(0, 1fr));
   }
   .hb-act-fold { order: 1; }
-  /* The pills and the ghosts take the three rows the three controls take. */
-  .hb-turn > .hb-pre, .hb-turn > .hb-ghosts {
+  /* The pills take the three rows the three controls take. */
+  .hb-turn > .hb-pre {
     grid-row: 3 / 5; grid-column: 1;
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: repeat(3, minmax(0, 1fr));
