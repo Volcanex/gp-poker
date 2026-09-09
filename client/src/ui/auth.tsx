@@ -11,8 +11,13 @@ import { Flag } from './flag.tsx';
 
 /* Shown on your own profile while the account is still a guest. The point it
    has to make is that nothing is lost by claiming: the rating is already
-   yours, this only puts a name and a password on it. */
-export function ClaimCard({ onClaimed }: { onClaimed?: () => void }) {
+   yours, this only puts a name and a password on it.
+
+   `flat` drops the card ground and the copy above the fields, for a dialog
+   that has already said what it is asking for and why: a card inside a dialog
+   is a panel on a panel, and a second title is a second heading. The friend
+   controls raise it that way (`friend-controls.tsx`). */
+export function ClaimCard({ onClaimed, flat }: { onClaimed?: () => void; flat?: boolean }) {
   const { setMe, refreshMe } = useSession();
   const nameId = useId();
   const passId = useId();
@@ -42,14 +47,16 @@ export function ClaimCard({ onClaimed }: { onClaimed?: () => void }) {
   };
 
   return (
-    <form className="card claim" onSubmit={submit}>
-      <div className="claim-copy">
-        <span className="card-title">Claim this account</span>
-        <span className="muted">
-          Pick a name and a password. Your rating, matches and hand histories stay exactly as they
-          are; claiming only lets you log back in from another browser.
-        </span>
-      </div>
+    <form className={flat ? 'claim' : 'card claim'} onSubmit={submit}>
+      {!flat && (
+        <div className="claim-copy">
+          <span className="card-title">Claim this account</span>
+          <span className="muted">
+            Pick a name and a password. Your rating, matches and hand histories stay exactly as they
+            are; claiming only lets you log back in from another browser.
+          </span>
+        </div>
+      )}
       <div className="claim-fields">
         <div className="field">
           <label className="label" htmlFor={nameId}>Name</label>

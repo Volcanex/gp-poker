@@ -216,6 +216,13 @@ export interface MatchSeat {
   name: string;
   rating: number;
   bot: boolean;
+  /* Whether this seat was a guest when the table was made. Snapshotted like
+     the name beside it, and absent on every match stored before friends
+     existed, which is why nothing reads it as a boolean: a result panel
+     offers to add a friend only for a seat that says `false`, since a name
+     that might belong to a browser somebody has closed is not somebody to
+     offer. */
+  guest?: boolean;
   /* Picture version at the moment the table was made, 0 for none. Stored with
      the seat like the name and the rating are, so a finished match reads back
      as it looked, and absent on a match played before pictures existed. */

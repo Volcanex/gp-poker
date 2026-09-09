@@ -6,10 +6,11 @@ import type { MatchResult, TableView } from '@opentable/protocol';
 import type { Match } from '../net/types.ts';
 import { BoardText } from '../ui/board-text.tsx';
 import { fmtDate, fmtPct, int, signed } from '../ui/format.ts';
-import { handAccuracy, matchHasAccuracy, seatIsBot, avatarVersion } from '../net/adapt.ts';
+import { handAccuracy, matchHasAccuracy, seatIsBot, seatIsPlayer, avatarVersion } from '../net/adapt.ts';
 import { deltaTone } from '../ui/bits.tsx';
 import { Avatar } from '../ui/avatar.tsx';
 import { ordinal, stakeName, stakeSentence } from './labels.ts';
+import { FriendAction } from '../ui/friend-controls.tsx';
 import { leaverOf, rankSeats } from './results.ts';
 
 export interface MatchSummaryProps {
@@ -163,6 +164,10 @@ export function MatchSummary({ match, meId, onAgain, againLabel }: MatchSummaryP
               rating={match.rated ? r.rating : null}
               won={match.winner === r.seat.userId}
               you={mine?.seat.userId === r.seat.userId}
+              /* Beside the opponent, and only when they are a claimed
+                 account: this is the page somebody is looking at the moment
+                 they might want to play the same person again. */
+              addFriend={meId != null && r.seat.userId !== meId && seatIsPlayer(r.seat)}
             />
           ))}
         </div>
@@ -204,6 +209,7 @@ function PlayerResult({
   rating,
   won,
   you,
+  addFriend,
 }: {
   userId: string;
   name: string;
@@ -212,6 +218,7 @@ function PlayerResult({
   rating: ResultRating;
   won: boolean;
   you: boolean;
+  addFriend?: boolean;
 }) {
   const shown = useRatingReveal(rating);
   const delta = rating ? rating.after - rating.before : 0;
@@ -223,6 +230,7 @@ function PlayerResult({
         <Link className="pr-name" to={`/u/${encodeURIComponent(name)}`}>{name}</Link>
         {you && <span className="seat-you">You</span>}
         {won && <span className="badge badge-ok">Won</span>}
+        {addFriend && <FriendAction userId={userId} name={name} />}
       </div>
       <div className="pr-stack num">
         {int(stack)}

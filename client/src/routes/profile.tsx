@@ -17,6 +17,8 @@ import { MODES, MODE_NAME, ModeTabs, modeInline } from '../ui/mode-tabs.tsx';
 import { ordinal } from '../table/labels.ts';
 import { deltaTone } from '../ui/bits.tsx';
 import { ClaimCard } from '../ui/auth.tsx';
+import { FriendAction, InviteButton, useStanding } from '../ui/friend-controls.tsx';
+import { useFriends } from '../net/friends.tsx';
 import { Avatar } from '../ui/avatar.tsx';
 import { EditPictureButton } from '../ui/picture-dialog.tsx';
 import { Flag } from '../ui/flag.tsx';
@@ -132,6 +134,13 @@ export function Profile() {
             >
               {editingCountry ? 'Close' : 'Edit country'}
             </button>
+          )}
+          {/* Somebody else's page, and somebody who can be a friend: not you,
+              not a bot, and not a guest whose name will be handed out again.
+              The control says where you already stand rather than offering an
+              Add that answers "you asked yesterday". */}
+          {!isMe && !data.summary.bot && !data.summary.guest && (
+            <FriendActions userId={data.summary.id} name={data.summary.name} />
           )}
         </div>
         {/* The same control the settings menu offers, mounted here because a
@@ -848,5 +857,24 @@ function Tile({ k, v, d }: { k: string; v: string; d: string }) {
       <span className="v">{v}</span>
       <span className="d">{d}</span>
     </div>
+  );
+}
+
+/* The friend controls on somebody else's profile, and the one thing this page
+   can offer that a row cannot: a challenge while they are actually here.
+   Offered only to a friend who is online and not already at a table, because
+   a button that deals a link to somebody who left an hour ago is a link
+   nobody answers. */
+function FriendActions({ userId, name }: { userId: string; name: string }) {
+  const standing = useStanding(userId);
+  const { data } = useFriends();
+  const friend = data?.friends.find((f) => f.id === userId) ?? null;
+  const challengeable = standing === 'friends' && friend?.online === true && friend.playing == null;
+
+  return (
+    <>
+      <FriendAction userId={userId} name={name} />
+      {challengeable && <InviteButton userId={userId} label="Challenge" />}
+    </>
   );
 }

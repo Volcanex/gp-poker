@@ -312,6 +312,7 @@ export async function createMatchForPlayers(
       name: u!.name,
       rating: Math.round(standings.get(u!.id)!.rating),
       bot: u!.bot,
+      guest: u!.guest,
       avatarV: u!.avatarV,
       // A practice table's bots are bots, not people from somewhere: no flag.
       ...(u!.country && !(format.practice === true && u!.bot) ? { country: u!.country } : {}),

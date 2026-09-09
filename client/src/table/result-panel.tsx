@@ -4,7 +4,8 @@ import NumberFlow from '@number-flow/react';
 import { motion, useReducedMotion } from 'motion/react';
 import type { Match } from '../net/types.ts';
 import { Avatar } from '../ui/avatar.tsx';
-import { avatarVersion } from '../net/adapt.ts';
+import { avatarVersion, seatIsPlayer } from '../net/adapt.ts';
+import { FriendAction } from '../ui/friend-controls.tsx';
 import { deltaTone } from '../ui/bits.tsx';
 import { int, signed } from '../ui/format.ts';
 import { ordinal, stakeWord } from './labels.ts';
@@ -85,6 +86,13 @@ export function ResultPanel({ match, meId, onAgain, onReview, againLabel }: Resu
               />
               <Link to={`/u/${encodeURIComponent(r.seat.name)}`}>{r.seat.name}</Link>
               {r.seat.userId === meId && <span className="seat-you">You</span>}
+              {/* The moment somebody would want to keep hold of the person
+                  they just played, on the row that names them. Only for a
+                  claimed account, and never for your own row: `seatIsPlayer`
+                  is what says the name is one a request could reach. */}
+              {r.seat.userId !== meId && meId != null && seatIsPlayer(r.seat) && (
+                <FriendAction userId={r.seat.userId} name={r.seat.name} />
+              )}
             </span>
             <span className="rp-nums num">
               <span className="rp-stack">{int(r.stack)} units</span>

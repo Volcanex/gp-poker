@@ -127,6 +127,15 @@ export function seatIsBot(seat: MatchSeat): boolean {
   return seat.bot === true;
 }
 
+/* Somebody a friend request could reach: a person, with a name they claimed.
+   The test is deliberately `=== false` and not `!seat.guest`, because absent
+   is a match stored before seats said either way, and offering to add a name
+   that may have belonged to a browser somebody has closed is worse than
+   offering nothing. */
+export function seatIsPlayer(seat: MatchSeat): boolean {
+  return !seatIsBot(seat) && seat.guest === false;
+}
+
 /* A finishing position only reads as one with the size of the table beside it,
    so both fields have to be there before "1st of 6" can be said at all. */
 export function matchPlacing(m: UserMatchSummary): { place: number; players: number } | null {

@@ -1,8 +1,8 @@
 /* The REST payloads, mirroring server/src/routes.ts. Dates arrive as JSON
    strings, not Date objects, so every timestamp is typed as a string here. */
 import type {
-  ArenaStanding, ArenaStatus, HomeGameStatus, LobbySeat, LoggedAction, MatchFormat, MatchResult, Mode,
-  UserSummary,
+  ArenaStanding, ArenaStatus, HomeGameStatus, InviteKind, LobbySeat, LoggedAction, MatchFormat,
+  MatchResult, Mode, Speed, UserSummary,
 } from '@opentable/protocol';
 import type { HandOutcome } from '@opentable/engine';
 import type { Decision } from '@opentable/preflop';
@@ -83,6 +83,11 @@ export interface MatchSeat {
   name: string;
   /* Pending on the server. Read it through src/net/adapt.ts, never directly. */
   bot?: boolean;
+  /* Whether this seat was a guest when the match was made. Absent on every
+     match stored before friends existed, so it is read through
+     `seatIsPlayer()`: absent means "not known", which is not the same as
+     "claimed", and the control that depends on it stays away. */
+  guest?: boolean;
   /* The picture this seat had when the match was made. Absent on a match
      played before pictures existed; read it through avatarVersion(). */
   avatarV?: number;
@@ -437,6 +442,10 @@ export interface Challenge {
   id: string;
   mode: Mode;
   rated: boolean;
+  /* What the link will deal. The creator chose it, so the page can say so
+     before anybody presses the button. Absent on a server from before links
+     carried one, which means the standard table it always was. */
+  speed?: Speed;
   status: 'open' | 'accepted' | 'cancelled' | 'expired';
   creator: UserSummary;
   /* Set once the link has been accepted, so a spent link can still offer the
@@ -487,6 +496,79 @@ export interface StartedHomeGame {
   matchId: string;
   rated: boolean;
   reason: string | null;
+}
+
+/* Friends, from /api/friends. One call answers the whole page and the home
+   card: the list, the requests in and out, and the invites waiting. Every
+   mutation is answered by a push that says only that something moved, so this
+   is refetched rather than patched and there is one shape of the list.
+
+   The rating is for the mode that friend actually plays, with the mode beside
+   it, because a number with no mode next to it says nothing on a site that
+   keeps two. */
+export interface Friend {
+  id: string;
+  name: string;
+  country: string | null;
+  avatarV: number;
+  rating: number;
+  mode: Mode;
+  online: boolean;
+  /* The match they are sitting at right now, or null. A friend at the table
+     you are also at reads differently from one at a table of their own, which
+     is a comparison only the page holding your own live match can make. */
+  playing: string | null;
+  lastSeenAt: string;
+}
+
+/* A request in either direction. `id` and `name` are whose it is: the person
+   who asked on an incoming one, the person who was asked on an outgoing one. */
+export interface FriendRequest {
+  id: string;
+  name: string;
+  country: string | null;
+  avatarV: number;
+  rating: number;
+  mode: Mode;
+  at: string;
+}
+
+/* A friend has made you a table. `id` is the link's own id, which is what its
+   url ends in, and `expiresAt` is epoch ms because it is a deadline the page
+   counts down rather than a date it prints. */
+export interface FriendInvite {
+  id: string;
+  kind: InviteKind;
+  url: string;
+  from: UserSummary;
+  expiresAt: number;
+}
+
+export interface FriendsPayload {
+  friends: Friend[];
+  incoming: FriendRequest[];
+  outgoing: FriendRequest[];
+  invites: FriendInvite[];
+}
+
+/* Somebody this player has sat down with, from /api/friends/played, and where
+   they already stand with them so the page offers the right control rather
+   than an Add that answers "you already asked". */
+export interface PlayedPerson {
+  id: string;
+  name: string;
+  country: string | null;
+  avatarV: number;
+  lastPlayedAt: string;
+  status: 'none' | 'friends' | 'incoming' | 'outgoing';
+}
+
+/* What making an invite hands back: the link it made, so the sender can send
+   it by hand as well, and which kind it was. */
+export interface CreatedInvite {
+  kind: InviteKind;
+  id: string;
+  url: string;
 }
 
 /* An arena, from /api/arenas/:id. The board is the top twenty with your own row

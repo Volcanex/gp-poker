@@ -1,9 +1,10 @@
 import type {
-  Arena, ArenaListing, BotRow, Challenge, CreatedChallenge, CreatedHomeGame, Explorer, ExplorerFacing,
-  ExplorerPlayers, FeedMatch, Hand, HomeGame, Insights, LeaderboardRow, LiveMatch, Match, Me, PositionKey,
-  Profile, PuzzleHand, SiteStats, StartedHomeGame, Ticket, TicketSummary, TicketTarget, TicketViewport,
+  Arena, ArenaListing, BotRow, Challenge, CreatedChallenge, CreatedHomeGame, CreatedInvite, Explorer,
+  ExplorerFacing, ExplorerPlayers, FeedMatch, FriendsPayload, Hand, HomeGame, Insights, LeaderboardRow,
+  LiveMatch, Match, Me, PlayedPerson, PositionKey, Profile, PuzzleHand, SiteStats, StartedHomeGame,
+  Ticket, TicketSummary, TicketTarget, TicketViewport,
 } from './types.ts';
-import type { Mode, UserSummary } from '@opentable/protocol';
+import type { InviteKind, Mode, Speed, UserSummary } from '@opentable/protocol';
 
 export class ApiError extends Error {
   status: number;
@@ -86,7 +87,8 @@ export const api = {
   /* Play a friend. The link is made by the person sharing it and spent by the
      person who opens it; either may be a guest, so none of these calls needs
      an account. */
-  createChallenge: (mode: Mode, rated: boolean) => post<CreatedChallenge>('/api/challenges', { mode, rated }),
+  createChallenge: (mode: Mode, rated: boolean, speed?: Speed) =>
+    post<CreatedChallenge>('/api/challenges', { mode, rated, speed }),
   challenge: (id: string) => req<Challenge>(`/api/challenges/${encodeURIComponent(id)}`),
   acceptChallenge: (id: string) => post<{ matchId: string }>(`/api/challenges/${encodeURIComponent(id)}/accept`),
   cancelChallenge: (id: string) =>
@@ -102,6 +104,30 @@ export const api = {
   startHomeGame: (id: string) => post<StartedHomeGame>(`/api/home-games/${encodeURIComponent(id)}/start`),
   cancelHomeGame: (id: string) =>
     req<{ ok: true }>(`/api/home-games/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  /* Friends. None of these works for a guest: a guest's name is generated and
+     its row may never be seen again, so the server refuses both ends and the
+     refusal carries the sentence a page prints. One GET answers the page and
+     the home card, and every mutation is answered by a `friend` push that
+     says only that something moved, so this is refetched and never patched. */
+  friends: () => req<FriendsPayload>('/api/friends'),
+  /* Where friends come from on a poker site. Its own call because it is a
+     query over every match this player has been in, and only the friends
+     page asks for it. */
+  playedWith: () => req<PlayedPerson[]>('/api/friends/played'),
+  requestFriend: (name: string) =>
+    post<{ ok: true; state: 'requested' | 'accepted' }>('/api/friends/request', { name }),
+  acceptFriend: (userId: string) =>
+    post<{ ok: true; state: 'accepted' }>(`/api/friends/${encodeURIComponent(userId)}/accept`),
+  /* One call for three things, because the row is what says which: a request
+     you sent is cancelled, one you were sent is declined, and a friend is
+     removed. */
+  removeFriend: (userId: string) =>
+    req<{ ok: true }>(`/api/friends/${encodeURIComponent(userId)}`, { method: 'DELETE' }),
+  /* Play with a friend. The server makes an ordinary challenge link or home
+     game and pushes it to them, so this returns the link rather than a match:
+     the table is created by the accept those pages already have. */
+  inviteFriend: (userId: string, body: { kind: InviteKind; rated?: boolean; speed?: Speed; botLevel?: number }) =>
+    post<CreatedInvite>(`/api/friends/${encodeURIComponent(userId)}/invite`, body),
   /* Arenas. The listing stocks the schedule on the server's way past, so the
      first call of the day is what creates the arena it answers with. Joining,
      leaving and pausing all work for a guest, like every other way to play. */

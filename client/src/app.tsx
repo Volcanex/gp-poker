@@ -1,11 +1,13 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { SessionProvider } from './net/session.tsx';
+import { FriendsProvider } from './net/friends.tsx';
 import { Home } from './routes/home.tsx';
 import { Match } from './routes/match.tsx';
 import { Leaderboard } from './routes/leaderboard.tsx';
 import { Profile } from './routes/profile.tsx';
 import { Watch } from './routes/watch.tsx';
+import { FriendsPage } from './routes/friends.tsx';
 import { Challenge } from './routes/challenge.tsx';
 import { HomeGame } from './routes/home-game.tsx';
 import { ArenaPage } from './routes/arena.tsx';
@@ -56,57 +58,63 @@ export function App() {
   return (
     <BrowserRouter>
       <SessionProvider>
-        <AdminBar />
-        <SiteShell>
-          <PageEnter />
-          <MatchFoundAlert />
-          <ReadyCheckDialog />
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/arena" element={<ArenaPage />} />
-            <Route path="/arena/:id" element={<ArenaPage />} />
-            <Route path="/bots" element={<BotsPage />} />
-            <Route path="/leaderboard" element={<Leaderboard />} />
-            <Route path="/watch" element={<Watch />} />
-            {learnRoutes}
-            {puzzlesRoutes.map((r) => (
-              <Route key={r.path} path={r.path} element={r.element} />
-            ))}
-            {toolsRoutes.map((r) => (
-              <Route key={r.path} path={r.path} element={r.element} />
-            ))}
-            <Route path="/c/:id" element={<Challenge />} />
-            <Route path="/g/:id" element={<HomeGame />} />
-            <Route path="/m/:id" element={<Match />} />
-            <Route
-              path="/m/:id/h/:n"
-              element={
-                <Suspense fallback={<main className="page"><span className="muted">Loading the replay</span></main>}>
-                  <Replay />
-                </Suspense>
-              }
-            />
-            <Route path="/u/:name" element={<Profile />} />
-            <Route
-              path="/admin/tickets"
-              element={
-                <Suspense fallback={<main className="page"><span className="muted">Loading</span></main>}>
-                  <AdminTickets />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/admin/tickets/:id"
-              element={
-                <Suspense fallback={<main className="page"><span className="muted">Loading</span></main>}>
-                  <AdminTicket />
-                </Suspense>
-              }
-            />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          <SiteFooter />
-        </SiteShell>
+        {/* Inside the session and outside the shell: the friends list needs an
+            account before it can ask for anything, and the shell's own badge
+            and every page under it read the same copy of it. */}
+        <FriendsProvider>
+          <AdminBar />
+          <SiteShell>
+            <PageEnter />
+            <MatchFoundAlert />
+            <ReadyCheckDialog />
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/arena" element={<ArenaPage />} />
+              <Route path="/arena/:id" element={<ArenaPage />} />
+              <Route path="/bots" element={<BotsPage />} />
+              <Route path="/leaderboard" element={<Leaderboard />} />
+              <Route path="/watch" element={<Watch />} />
+              <Route path="/friends" element={<FriendsPage />} />
+              {learnRoutes}
+              {puzzlesRoutes.map((r) => (
+                <Route key={r.path} path={r.path} element={r.element} />
+              ))}
+              {toolsRoutes.map((r) => (
+                <Route key={r.path} path={r.path} element={r.element} />
+              ))}
+              <Route path="/c/:id" element={<Challenge />} />
+              <Route path="/g/:id" element={<HomeGame />} />
+              <Route path="/m/:id" element={<Match />} />
+              <Route
+                path="/m/:id/h/:n"
+                element={
+                  <Suspense fallback={<main className="page"><span className="muted">Loading the replay</span></main>}>
+                    <Replay />
+                  </Suspense>
+                }
+              />
+              <Route path="/u/:name" element={<Profile />} />
+              <Route
+                path="/admin/tickets"
+                element={
+                  <Suspense fallback={<main className="page"><span className="muted">Loading</span></main>}>
+                    <AdminTickets />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/admin/tickets/:id"
+                element={
+                  <Suspense fallback={<main className="page"><span className="muted">Loading</span></main>}>
+                    <AdminTicket />
+                  </Suspense>
+                }
+              />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+            <SiteFooter />
+          </SiteShell>
+        </FriendsProvider>
       </SessionProvider>
     </BrowserRouter>
   );
