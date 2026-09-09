@@ -21,11 +21,16 @@ export function useTableSounds(view: TableView | null): void {
   const lastEvent = useRef<string | null>(null);
   const lastTurn = useRef<string | null>(null);
   const lastHandEnd = useRef<number | null>(null);
+  const lastTick = useRef<string | null>(null);
 
   /* What just happened on the table. */
   useEffect(() => {
     if (!view?.last) return;
-    const key = `${view.h}:${view.n}:${view.last.k}`;
+    /* The board's length is part of the key because an all-in run-out deals
+       three streets without an action between them: the seq is the same for
+       all three, and a key without the board played the flop's card and then
+       sat silent through the turn and the river. */
+    const key = `${view.h}:${view.n}:${view.last.k}:${view.board.length}`;
     if (lastEvent.current === key) return;
     lastEvent.current = key;
 
@@ -49,6 +54,21 @@ export function useTableSounds(view: TableView | null): void {
     if (lastTurn.current === key) return;
     lastTurn.current = key;
     void sound.play('yourTurn');
+  }, [view]);
+
+  /* The count before the next street of an all-in run-out. The server sends
+     each number rather than a deadline, so a tick is a number arriving and
+     nothing here has a clock of its own to drift. */
+  useEffect(() => {
+    const run = view?.runout;
+    if (!run) {
+      lastTick.current = null;
+      return;
+    }
+    const key = `${view!.h}:${run.next}:${run.in}`;
+    if (lastTick.current === key) return;
+    lastTick.current = key;
+    void sound.play('tick');
   }, [view]);
 
   /* Five seconds left on your own clock, once. A timer rather than a poll,
@@ -85,4 +105,11 @@ export function playMatchEnd(won: boolean): void {
    module for one line. */
 export function playClick(): void {
   void sound.play('click');
+}
+
+/* One count of a countdown. The run-out's ticks come off the view above; this
+   is for the hold before the next hand, which the client counts down itself,
+   so it is played from `useCountdown` where that number changes. */
+export function playTick(): void {
+  void sound.play('tick');
 }

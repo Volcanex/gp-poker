@@ -54,6 +54,7 @@ interface ViewSpec {
   result?: TableView['result'];
   seed?: string | null;
   seedHash?: string;
+  runout?: TableView['runout'];
 }
 
 export interface MockStep {
@@ -112,12 +113,15 @@ function viewer(players: Player[], you: number, hole: Card[], format: MatchForma
       handsPlayed: spec.street === 'done' ? h : h - 1,
       last: spec.last ?? null,
       result: spec.result ?? null,
+      ...(spec.runout ? { runout: spec.runout } : {}),
     };
   };
 }
 
-export function mockScript(mode: Mode = 'heads-up', rated = true, practice = false): MockStep[] {
-  const steps = mode === 'six-max' ? sixMaxScript() : headsUpScript();
+export function mockScript(
+  mode: Mode = 'heads-up', rated = true, practice = false, runout = false,
+): MockStep[] {
+  const steps = runout ? runoutScript() : mode === 'six-max' ? sixMaxScript() : headsUpScript();
   /* A practice table is a casual table with the flag the client reads to show
      the analysis strip. Stamped over the finished script rather than threaded
      through both builders: the flag changes nothing about how a hand plays.
@@ -418,6 +422,100 @@ function headsUpScript(): MockStep[] {
           'u-opp': { before: 1642, after: 1623, rdBefore: 61, rdAfter: 60 },
         },
       },
+    },
+  ];
+}
+
+/* ------------------------------------------------------------- run-out */
+
+/* An all-in run-out, the one shape of hand neither script above covers: both
+   players are in for their whole stack, nobody has a decision left, and the
+   board arrives a street at a time behind a count. Its own script rather than
+   a few steps spliced into the heads-up one, because every spec that freezes
+   a step addresses it by number and a step inserted in the middle moves every
+   picture after it.
+
+   The hands and the board are the heads-up script's, so the showdown it ends
+   on is one the baselines already know how to read. */
+function runoutScript(): MockStep[] {
+  const format = formatFor('heads-up', true);
+  const view = viewer(HU, YOU, HU_HOLE, format, () => ({ sb: format.sb, bb: format.bb }));
+  const board = (n: number) => HU_BOARD.slice(0, n);
+  /* Both hands are up from the moment the betting closed, which is the whole
+     point of the run-out: the cards do not wait for the river. */
+  const seats = (n: number) => [
+    { stack: 0, allin: true, cards: HU_OPP_CARDS, last: { a: 'c' as ActionKind, v: 194 } },
+    { stack: 0, allin: true, button: true, last: { a: 'a' as ActionKind } },
+  ].map((s, i) => (n === 5 && i === 1 ? { ...s, stack: 400 } : s));
+
+  return [
+    {
+      delay: 1000,
+      label: 'Both all in preflop, the hands are up and the flop is counted in',
+      view: view({
+        n: 4, street: 'pre', board: board(0), pot: 400,
+        seats: seats(0), runout: { next: 'flop', in: 3 },
+        last: { k: 'act', seat: OPP, a: 'c', v: 194 },
+      }),
+    },
+    {
+      delay: 1000,
+      label: 'The flop lands on its beat',
+      view: view({
+        n: 4, street: 'flop', board: board(3), pot: 400,
+        seats: seats(0),
+        last: { k: 'street', cards: board(3) },
+      }),
+    },
+    {
+      delay: 1000,
+      label: 'Turn in 2',
+      view: view({
+        n: 4, street: 'flop', board: board(3), pot: 400,
+        seats: seats(0), runout: { next: 'turn', in: 2 },
+        last: { k: 'street', cards: board(3) },
+      }),
+    },
+    {
+      delay: 1000,
+      label: 'The turn lands',
+      view: view({
+        n: 4, street: 'turn', board: board(4), pot: 400,
+        seats: seats(0),
+        last: { k: 'street', cards: HU_BOARD.slice(3, 4) },
+      }),
+    },
+    {
+      delay: 1000,
+      label: 'River in 1',
+      view: view({
+        n: 4, street: 'turn', board: board(4), pot: 400,
+        seats: seats(0), runout: { next: 'river', in: 1 },
+        last: { k: 'street', cards: HU_BOARD.slice(3, 4) },
+      }),
+    },
+    {
+      delay: 1400,
+      label: 'The river lands',
+      view: view({
+        n: 4, street: 'river', board: board(5), pot: 400,
+        seats: seats(0),
+        last: { k: 'street', cards: HU_BOARD.slice(4, 5) },
+      }),
+    },
+    {
+      delay: 0,
+      label: 'The flush holds and the pot is paid',
+      view: view({
+        n: 4, street: 'done', board: board(5), pot: 400,
+        seed: SEED1,
+        seats: seats(5),
+        result: {
+          awards: [{ seat: YOU, amount: 400, hand: 'flush, king high' }],
+          shown: { [OPP]: HU_OPP_CARDS, [YOU]: HU_HOLE },
+        },
+        last: { k: 'showdown', seat: OPP, a: 'c', v: 194 },
+      }),
     },
   ];
 }

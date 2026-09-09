@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_PRESET, clamp, dupKeys, openAt, presetsFor, presetsStack } from '../table/sizing.ts';
-import { actionText, shortHash, streetText } from '../table/labels.ts';
+import { actionText, faceUp, shortHash, streetText } from '../table/labels.ts';
 import { bestFive, handCategory, readShowdown } from '../table/best-five.ts';
 import { amountToCall, isLastHand, resolvePreAction, survivesRaise } from '../table/preactions.ts';
 import type { LegalActions, SeatView, TableView } from '@opentable/protocol';
@@ -246,6 +246,25 @@ describe('labels', () => {
   it('names the streets', () => {
     expect(streetText('pre')).toBe('Preflop');
     expect(streetText('done')).toBe('Hand over');
+  });
+
+  /* The one reading the felt has of "these cards are being shown": a
+     showdown, or an all-in run-out from the moment the betting closed. A
+     seat that folded keeps its two question marks through a run-out and
+     reads false here, which is what keeps it hidden. */
+  it('says which holdings are face up', () => {
+    expect(faceUp(['Kh', '9h'])).toBe(true);
+    expect(faceUp(['?', '?'])).toBe(false);
+    expect(faceUp(['??', '??'])).toBe(false);
+    expect(faceUp(null)).toBe(false);
+    expect(faceUp(undefined)).toBe(false);
+    expect(faceUp([])).toBe(false);
+    expect(faceUp(['Kh'])).toBe(false);
+  });
+
+  it('names the street a run-out is counting to', () => {
+    expect(`${streetText('turn')} in 2`).toBe('Turn in 2');
+    expect(`${streetText('river')} in 1`).toBe('River in 1');
   });
 
   it('truncates a seed hash without hiding a short one', () => {

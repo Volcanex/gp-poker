@@ -13,6 +13,10 @@ const STATES = [
   { name: 'hand over', url: '/m/mock?step=13' },
   { name: 'the result', url: '/m/mock?step=18' },
   { name: 'six-max', url: '/m/mock?mode=six-max&step=0' },
+  /* The run-out's count is the one live figure the felt prints outside a
+     seat or the pot, and it is a timer, so it is here for its contrast and
+     for the role it announces itself with. */
+  { name: 'an all-in run-out', url: '/m/mock?runout=1&step=2' },
   { name: 'home', url: '/' },
   { name: 'an invite', url: '/c/ch-open' },
   { name: 'a lobby', url: '/g/hg-open' },

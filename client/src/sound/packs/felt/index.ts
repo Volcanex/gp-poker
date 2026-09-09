@@ -34,6 +34,7 @@ export const felt: {
     chipsCollect: chipsCollide1Sound,
     yourTurn: notificationPopSound,
     clockWarning: tick001Sound,
+    tick: tick001Sound,
     handWon: successChimeSound,
     handLost: drop001Sound,
     matchWon: jinglesHit01Sound,

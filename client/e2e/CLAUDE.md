@@ -17,6 +17,12 @@ hand that takes the table. `?practice=1` stamps `format.practice` over either
 script, which is how the analysis strip is driven without a server, and
 `?watch=1` drops the seat.
 
+`?runout=1` runs a third script instead of either of them: an all-in run-out,
+both hands up from the moment the betting closed and the board arriving a
+street at a time behind a count. It is a script of its own rather than steps
+spliced into the heads-up one, because every spec here freezes a step by
+number and a step inserted in the middle moves every picture after it.
+
 The mock deals in the names people actually get (two CamelCase words, up to
 sixteen characters), because a mock dealing seven-letter lowercase names hid a
 truncation defect no test could see.
@@ -100,7 +106,7 @@ it.
 | `puzzles.spec.ts` | the preflop chart's entrance: every cell ends visible, on the first spot and the next, and the page does not reflow while it runs |
 | `shell.spec.ts` | the sidebar as a named landmark and the section you are in, the sheet on a phone opening and shutting by toggle, Escape, scrim and a link with the focus put back, a shut sheet out of the tab order, and a table keeping the whole window |
 | `admin.spec.ts` | the admin bar, the annotate flow from shortcut to posted ticket, the tickets pages, and that a player gets none of it |
-| `screenshots.spec.ts` | 156 baselines: thirteen states at 360, 390, 430, 768, 1366 and 1920, dark and light |
+| `screenshots.spec.ts` | 198 baselines: sixteen states at 360, 390, 430, 768, 1366 and 1920 in dark and light, and three at 390 and 1366 in the games room |
 
 ## Reading a baseline diff
 

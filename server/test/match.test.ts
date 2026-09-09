@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { replay, seedHash, type HandConfig } from '@opentable/engine';
-import type { MatchFormat, TableView } from '@opentable/protocol';
+import type { MatchFormat, SeatView, TableView } from '@opentable/protocol';
 import { makeApp, mintGuestSession, deleteUser, listenForWs, connectWs, driveRandomPlay, testFormat } from './helpers.js';
 import { createMatchForPlayers } from '../src/matchmaking.js';
 import { getHandById, getHandsForMatch, getMatchById, getRating, getRatingHistoryForUser, sql } from '../src/db.js';
@@ -154,11 +154,14 @@ describe('a full match', () => {
         }
       }
 
-      // A's holes must never appear in a frame B received while that hand
-      // was still live.
+      /* A's holes must never appear in a frame B received while somebody was
+         being asked to act. Keyed on a seat acting rather than on the street:
+         an all-in run-out turns every live hand over before the board is
+         finished, and a hand is hidden for as long as anybody can still act
+         on it. See `runout.test.ts`. */
       const aSeat = match!.seats.find((s) => s.userId === a.id)!.seat;
       for (const frame of framesB) {
-        if (frame.t !== 'state' || frame.s.street === 'done') continue;
+        if (frame.t !== 'state' || !frame.s.seats.some((s: SeatView) => s.acting)) continue;
         const view: TableView = frame.s;
         const aSeatView = view.seats.find((s) => s.i === aSeat);
         if (!aSeatView) continue;

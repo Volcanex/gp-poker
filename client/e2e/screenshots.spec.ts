@@ -30,6 +30,11 @@ const STATES: Shot[] = [
   { name: 'result', url: '/m/mock?step=18' },
   { name: 'six-max', url: '/m/mock?mode=six-max&step=0' },
   { name: 'six-max-over', url: '/m/mock?mode=six-max&step=6' },
+  /* An all-in run-out, between the streets: both hands face up before the
+     board is finished, and the count to the next card standing in the award
+     line's own zone. The one state where the felt shows somebody else's
+     holding with a hand still to come. */
+  { name: 'runout', url: '/m/mock?runout=1&step=2' },
   /* The list of tables to watch: the one page whose whole content is the live
      endpoint, so it is worth a picture now that the endpoint has fixtures. */
   { name: 'watch', url: '/watch' },

@@ -34,6 +34,9 @@ export function Match() {
      after three timeouts, so the prompt and the way back can be pictured and
      tested without a table that has actually timed you out. */
   const sitout = params.get('sitout') === '1';
+  /* `?runout=1` runs the all-in run-out script instead of either ordinary
+     one: both hands up, the board arriving a street at a time behind a count. */
+  const runout = params.get('runout') === '1';
   return isMock ? (
     <MockMatch
       step={numOrNull(params.get('step'))}
@@ -44,6 +47,7 @@ export function Match() {
       v2={v2}
       hold={hold}
       sitout={sitout}
+      runout={runout}
     />
   ) : (
     <LiveMatch id={id} />
@@ -273,13 +277,16 @@ function LiveMatch({ id }: { id: string }) {
 /* ----------------------------------------------------------------- mock */
 
 function MockMatch(
-  { step, mode, rated, practice, watch, v2, hold, sitout }:
+  { step, mode, rated, practice, watch, v2, hold, sitout, runout }:
   {
     step: number | null; mode: Mode; rated: boolean; practice: boolean;
-    watch: boolean; v2: boolean; hold: boolean; sitout: boolean;
+    watch: boolean; v2: boolean; hold: boolean; sitout: boolean; runout: boolean;
   },
 ) {
-  const script = useMemo(() => mockScript(mode, rated, practice), [mode, rated, practice]);
+  const script = useMemo(
+    () => mockScript(mode, rated, practice, runout),
+    [mode, rated, practice, runout],
+  );
   const start = step == null ? 0 : Math.max(0, Math.min(script.length - 1, step));
   const [i, setI] = useState(start);
   const [enteredAt, setEnteredAt] = useState(() => Date.now());
@@ -347,8 +354,8 @@ function MockMatch(
   const replay = useCallback(() => {
     setI(0);
     setEnteredAt(Date.now());
-    nav(mode === 'six-max' ? '/m/mock?mode=six-max' : '/m/mock');
-  }, [nav, mode]);
+    nav(runout ? '/m/mock?runout=1' : mode === 'six-max' ? '/m/mock?mode=six-max' : '/m/mock');
+  }, [nav, mode, runout]);
 
   if (!view) return <Pending text="Loading the mock table" />;
 

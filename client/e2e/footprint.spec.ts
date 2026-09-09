@@ -86,6 +86,31 @@ test('a table being watched keeps one footprint too', async ({ page }) => {
   expect(await shiftSince(page, settledAt)).toBe(0);
 });
 
+/* An all-in run-out puts a count into the award line's zone and then three
+   more cards onto the board with nobody acting, which is two of the three
+   ways this screen has ever moved: a marker that comes and goes, and content
+   arriving in a slot. The zone reserves its height for the award line and the
+   board reserves five slots, so neither may move anything. */
+test('an all-in run-out keeps one footprint', async ({ page }) => {
+  await stubApi(page);
+  await watchLayoutShift(page);
+  await page.goto('/m/mock?runout=1');
+
+  await page.locator('.award-zone .badge').waitFor({ timeout: 30_000 });
+  const settledAt = await markSettled(page);
+  const counting = await boxes(page);
+
+  /* The award chip only exists on the last step, so waiting for it is waiting
+     for the whole run-out: three counts, three streets and the pot paid. */
+  await page.locator('.award-zone .award-chip').waitFor({ timeout: 30_000 });
+  await page.waitForTimeout(1200);
+  expect(
+    diff(counting, await boxes(page)),
+    'boxes that moved between the count and the paid pot',
+  ).toEqual([]);
+  expect(await shiftSince(page, settledAt)).toBe(0);
+});
+
 /* Both strips are rows of the table's own grid, which is the thing that makes
    them safe: the rows tile the table exactly, so a strip can only take room
    from the felt, and never by pushing the header or the dock out of place. */

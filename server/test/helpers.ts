@@ -101,7 +101,16 @@ export async function connectSession(url: string, session: Session): Promise<Con
 export function testFormat(overrides: Partial<MatchFormat> = {}): MatchFormat {
   const mode: Mode = overrides.mode ?? 'heads-up';
   const speed: Speed = overrides.speed ?? 'standard';
-  return { ...formatFor(mode, overrides.rated ?? true, speed), ...overrides };
+  /* An all-in run-out is paced for somebody to watch and a suite is not
+     watching, so it is off unless a test asks for it, the same bargain the
+     ladder makes. Nine seconds a hand of countdown is nine seconds a hand,
+     and a suite that drives random play hits an all-in constantly.
+     `runout.test.ts` sets its own tick and is where the pacing is proved. */
+  return {
+    ...formatFor(mode, overrides.rated ?? true, speed),
+    runoutTickMs: 0,
+    ...overrides,
+  };
 }
 
 /* Opens rated play for a user without playing a casual match first. The gate

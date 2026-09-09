@@ -9,6 +9,7 @@ import { foldSound } from './fold.ts';
 import { chipsCollectSound } from './chips-collect.ts';
 import { yourTurnSound } from './your-turn.ts';
 import { clockWarningSound } from './clock-warning.ts';
+import { tickSound } from './tick.ts';
 import { handWonSound } from './hand-won.ts';
 import { handLostSound } from './hand-lost.ts';
 import { matchWonSound } from './match-won.ts';
@@ -35,6 +36,7 @@ export const web: {
     chipsCollect: chipsCollectSound,
     yourTurn: yourTurnSound,
     clockWarning: clockWarningSound,
+    tick: tickSound,
     handWon: handWonSound,
     handLost: handLostSound,
     matchWon: matchWonSound,
