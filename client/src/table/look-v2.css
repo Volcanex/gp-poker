@@ -89,7 +89,11 @@
   font-variant-numeric: tabular-nums;
   fill: currentColor;
 }
-.match[data-look="v2"] .pc-rank[data-ten] { font-size: 40px; letter-spacing: -0.05em; }
+/* A ten is the one rank that is two glyphs, so it is set smaller to fit the
+   corner. It was also tracked in tighter than the single ranks, which read as
+   a squeezed 10 rather than a smaller one: the two digits now sit at the same
+   tracking as everything else and the size alone does the fitting. */
+.match[data-look="v2"] .pc-rank[data-ten] { font-size: 38px; letter-spacing: 0; }
 .match[data-look="v2"] .pc use { fill: currentColor; }
 .match[data-look="v2"] .pc[data-suit="s"] { color: var(--pip-s); }
 .match[data-look="v2"] .pc[data-suit="h"] { color: var(--pip-h); }

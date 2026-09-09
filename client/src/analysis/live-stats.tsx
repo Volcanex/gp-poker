@@ -95,8 +95,12 @@ const SHORT: Partial<Record<DrawName, string>> = {
   'backdoor flush draw': 'backdoor flush',
 };
 
+/* Sentence case, like every other label on the site: the package's names are
+   written lowercase because they are names of things, and this is the one
+   place they are a line of their own rather than a phrase inside one. */
 export function drawWords(draws: readonly DrawName[]): string {
-  return draws.map((d) => SHORT[d] ?? d).join(', ');
+  const line = draws.map((d) => SHORT[d] ?? d).join(', ');
+  return line ? line[0].toUpperCase() + line.slice(1) : line;
 }
 
 /* What the strength meter says to a screen reader, the studs being pictures.

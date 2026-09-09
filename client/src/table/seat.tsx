@@ -106,6 +106,10 @@ export function Seat({
           <FlagSlot code={seat.country} size={16} />
           <span className="seat-name" title={seat.name}>{shortName(seat.name, 16)}</span>
           <span className="seat-rating num">{int(seat.rating)}</span>
+          {/* Beside the name, because it says what this player is and the
+              name is who they are. The button marker and the connection are
+              facts about the seat and stay on the row below. */}
+          {seat.bot && <span className="seat-bot">Bot</span>}
           {you && <span className="seat-you">You</span>}
         </span>
 
@@ -120,7 +124,6 @@ export function Seat({
             <ChipStack amount={seat.out ? 0 : seat.stack} level={blind} />
           </span>
           {!seat.connected && <span className="seat-off">Disconnected</span>}
-          {seat.bot && <span className="seat-bot">Bot</span>}
           {/* Always here, hidden when the button is elsewhere: a marker that
               comes and goes moves every badge after it once a hand. */}
           <span className="btn-marker" title="Button" data-off={seat.button ? undefined : ''}>D</span>
@@ -133,7 +136,7 @@ export function Seat({
           can measure. */}
       {seat.out ? (
         <span className="seat-stack num" key="out">
-          <span className="u u-allin">{seat.place == null ? '' : 'out'}</span>
+          <span className="u u-allin">{seat.place == null ? '' : 'Out'}</span>
           <span className="stack-v">{seat.place == null ? 'Out' : ordinal(seat.place)}</span>
         </span>
       ) : (
@@ -143,7 +146,7 @@ export function Seat({
               node Chrome's layout-shift observer can give a stale rect, and it
               did, on six-max at 1280. An empty box that was always there has
               nothing to move from. */}
-          <span className="u u-allin">{seat.allin ? 'all in' : ''}</span>
+          <span className="u u-allin">{seat.allin ? 'All in' : ''}</span>
           <span className="stack-v" key={seat.stack}>{seat.stack}</span>
         </span>
       )}

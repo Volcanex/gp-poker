@@ -55,8 +55,8 @@ describe('the strength meter', () => {
 
 describe('draw words', () => {
   test('the long names are shortened for the strip, the rest kept', () => {
-    expect(drawWords(['flush draw', 'open-ended straight draw'])).toBe('flush draw, open-ender');
-    expect(drawWords(['gutshot', 'backdoor flush draw'])).toBe('gutshot, backdoor flush');
+    expect(drawWords(['flush draw', 'open-ended straight draw'])).toBe('Flush draw, open-ender');
+    expect(drawWords(['gutshot', 'backdoor flush draw'])).toBe('Gutshot, backdoor flush');
     expect(drawWords([])).toBe('');
   });
 });

@@ -652,7 +652,7 @@
   /* The whole of the column the felt gives a seat: the felt's width less the
      middle's and the two 16px gutters, halved. It used to stop short of that,
      which was width the name could have had. */
-  --seat-w: 424px;
+  --seat-w: 464px;
   /* The identity block: two rows and the gap between them. The avatar is cut
      to it, so the picture is exactly as tall as the name and the rack it
      stands beside. */
@@ -666,7 +666,7 @@
      the split board's width, and the stats box that stood under them left
      for the empty seat corner, but 264 is still what the award line and the
      stats box's own reading below 1060 need. */
-  --mid-w: 240px;
+  --mid-w: 160px;
 }
 /* Centred with auto margins rather than `justify-content`, because a centred
    flex item that overflows its container clips at the top and cannot be
@@ -982,7 +982,7 @@
     auto auto minmax(0, 1fr) auto min(calc(var(--seat-h) - 2px), 64px);
   align-items: center;
   column-gap: 6px;
-  padding-left: var(--sp-2);
+  padding-left: var(--sp-3);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-card);
   background: var(--surface-2);
@@ -1078,7 +1078,12 @@
    and beside the rack it is worth rather than under it. */
 .seat-stack {
   position: relative;
-  display: flex; align-items: baseline; justify-content: flex-end; gap: 6px;
+  display: flex; align-items: baseline; justify-content: center; gap: 6px;
+  /* Room on both sides of the figure: pressed against the action square it
+     read as part of it, and the word that shares its box needs somewhere to
+     be that is not touching the digits. Every pixel here is one the name
+     beside it does not get, so it is the smaller step. */
+  padding: 0 var(--sp-2);
   font-size: 22px; line-height: 24px; font-weight: 500; letter-spacing: -0.015em;
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }
@@ -1086,7 +1091,15 @@
    nothing moves when it does. "out" takes the same slot in the flow, because
    a busted seat's figure is rebuilt anyway. */
 .seat-stack .u { font-size: 11px; line-height: 16px; color: var(--text-secondary); font-weight: 400; }
-.seat-stack .u-allin { position: absolute; right: calc(4ch + 6px); bottom: 2px; }
+/* **Under the figure, not beside it.** It used to sit against the digits'
+   own edge, back when the rack shared their line and left a slot open; the
+   figure has a column to itself now, so the word goes under it, centred on
+   the same middle. Out of the flow either way, so a hand going all in moves
+   nothing. "All in" and "Out" share the slot. */
+.seat-stack .u-allin {
+  position: absolute; left: 0; right: 0; bottom: -14px;
+  text-align: center; white-space: nowrap;
+}
 /* Room for every stack a table can hold, so nothing beside the digits moves
    when the figure gains one. */
 .stack-v { display: inline-block; min-width: 4ch; text-align: right; }
@@ -1309,10 +1322,18 @@
 }
 .dock-keys > span { display: inline-flex; align-items: center; gap: 5px; }
 
-/* A refused action is told over the dock, not under it. */
+/* A refused action is told over the dock, not under it.
+
+   **Fixed to the viewport, and measured from a variable it can always see.**
+   It is rendered beside the table rather than inside it (`../routes/match.tsx`
+   returns the two as siblings), so `--dock-h` and `--keys-h`, which are
+   declared on `.match`, were both undefined here: the calc was invalid, the
+   whole declaration was dropped, and a toast meant to sit over the band went
+   to its static position at the top of the page and touched the top bar.
+   `--band-h` is a root token, and every live table is the band. */
 .dock-error {
-  position: absolute; left: 50%; translate: -50% 0;
-  bottom: calc(var(--dock-h) + var(--keys-h) + 8px + env(safe-area-inset-bottom));
+  position: fixed; left: 50%; translate: -50% 0;
+  bottom: calc(var(--band-h) + 8px + env(safe-area-inset-bottom));
   padding: 5px var(--sp-3);
   border: 1px solid var(--border); border-radius: var(--radius);
   background: var(--surface-1);

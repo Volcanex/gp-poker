@@ -24,7 +24,9 @@ export function actionWords(a: ActionKind, v?: number): { word: string; amount: 
     case 'x': return { word: 'Checks', amount: null, tone: 'call' };
     case 'c': return { word: 'Calls', amount: v ?? null, tone: 'call' };
     case 'b': return { word: 'Bets', amount: v ?? null, tone: 'bet' };
-    case 'r': return { word: 'Raises to', amount: v ?? null, tone: 'bet' };
+    /* "Raises", not "raises to": the figure is in the slot under the word,
+       so the preposition was pointing at a number the words never carried. */
+    case 'r': return { word: 'Raises', amount: v ?? null, tone: 'bet' };
     case 'a': return { word: 'All in', amount: v ?? null, tone: 'bet' };
   }
 }

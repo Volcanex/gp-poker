@@ -985,9 +985,8 @@
 :root { --strip-gap: var(--strip-h); }
 @media (min-width: 1100px) { :root { --strip-gap: 0px; } }
 .match[data-look="v2"] { --dock-h: var(--band-h); }
-.match[data-look="v2"] .dock-error {
-  bottom: calc(var(--dock-h) + 8px + env(safe-area-inset-bottom));
-}
+/* The toast is not inside `.match`, so this never matched it; it is
+   positioned against `--band-h` from the root instead (see `../app.css`). */
 /* The mock's step caption printed over the hero's cards, which are the one
    thing on this screen you have to be able to read. It is lifted clear of the
    band by `../routes/match.tsx`, which is the only thing that knows which rows
