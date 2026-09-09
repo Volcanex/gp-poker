@@ -894,7 +894,7 @@
      the owner could read at a glance. Each step is a whole number of card
      heights (a card is 1.4 wide, so 80, 100 and 120 are 112, 140 and 168) and
      lands on the four pixel grid. */
-  --card-want: 100px;
+  --card-want: 116px;
 
   /* The card gives way to the controls, never the other way round: the pair
      takes what is left of the felt's column once the gutters, the gap and the
@@ -955,8 +955,8 @@
   --card-rise: calc(1.4 + var(--fan-sin));
 }
 
-:root[data-card-size="regular"] { --card-want: 80px; }
-:root[data-card-size="huge"] { --card-want: 120px; }
+:root[data-card-size="regular"] { --card-want: 92px; }
+:root[data-card-size="huge"] { --card-want: 140px; }
 
 /* The phone. The controls are a column of three actions under the six sizes
    and they are what the band's height is: the hand only overtakes them past a
