@@ -36,11 +36,35 @@ test('the strip reads the hand, the outs and the equity', async ({ page }) => {
      the case the whole outs presentation exists for. A player counts nine. */
   await page.goto(`${PRACTICE}&step=5`);
 
-  const rows = page.locator(`${STRIP} .ls-row`);
-  await expect(rows).toHaveCount(3);
-  await expect(rows.nth(0)).toContainText('King high');
-  await expect(rows.nth(1)).toContainText('9 outs');
-  await expect(rows.nth(2)).toContainText(/\d+\.\d%/);
+  const cells = page.locator(`${STRIP} .ls-cell`);
+  await expect(cells).toHaveCount(3);
+  await expect(cells.nth(0)).toContainText('King high');
+  await expect(cells.nth(1)).toContainText('9 outs');
+  await expect(cells.nth(2)).toContainText(/\d+\.\d%/);
+});
+
+/* The studs: one lit for king high, the flush stud hollow for the four hearts,
+   and on the river, with the flush made, six lit and nothing hollow. Before
+   the flop none are lit and the holding is named in words. */
+test('the studs light up to the hand and mark the draw', async ({ page }) => {
+  await stubApi(page);
+  const studs = page.locator(`${STRIP} .stud`);
+
+  await page.goto(`${PRACTICE}&step=2`);
+  await expect(studs).toHaveCount(9);
+  await expect(page.locator(`${STRIP} .stud[data-lit]`)).toHaveCount(0);
+  await expect(page.locator(`${STRIP} .ls-name`)).toHaveText('Suited');
+
+  await page.goto(`${PRACTICE}&step=5`);
+  await expect(page.locator(`${STRIP} .ls-name`)).toContainText('King high');
+  await expect(page.locator(`${STRIP} .stud[data-lit]`)).toHaveCount(1);
+  await expect(studs.nth(5)).toHaveAttribute('data-aim', '');
+  await expect(page.locator(`${STRIP} .ls-studs`)).toHaveAttribute('aria-label', 'High card, drawing to flush');
+
+  await page.goto(`${PRACTICE}&step=12`);
+  await expect(page.locator(`${STRIP} .ls-name`)).toContainText('Flush');
+  await expect(page.locator(`${STRIP} .stud[data-lit]`)).toHaveCount(6);
+  await expect(page.locator(`${STRIP} .stud[data-aim]`)).toHaveCount(0);
 });
 
 /* **On a wide v2 table the readings are a section of the band, not a bar.**
@@ -55,17 +79,25 @@ test('the readings are a section of the band on a wide v2 table', async ({ page 
   await page.locator('.hero-band[data-stats]').waitFor({ timeout: 20_000 });
   await expect(page.locator(STRIP)).toHaveCount(0);
 
-  const rows = page.locator('.hb-stats .ls-row');
-  await expect(rows).toHaveCount(3);
-  await expect(rows.nth(0)).toContainText('King high');
-  await expect(rows.nth(1)).toContainText('9 outs');
-  await expect(rows.nth(2)).toContainText(/\d+\.\d%/);
+  const cells = page.locator('.hb-stats .ls-cell');
+  await expect(cells).toHaveCount(3);
+  await expect(cells.nth(0)).toContainText('King high');
+  await expect(cells.nth(1)).toContainText('9 outs');
+  await expect(cells.nth(2)).toContainText(/\d+\.\d%/);
 
-  /* The count and the percentage are the glance. The cards that make the outs
-     and the notes beside the numbers are the analysis panel's: a 248 px column
-     cannot hold nine cards and the reading they belong to. */
-  await expect(page.locator('.hb-stats .ctext')).toBeHidden();
-  await expect(page.locator('.hb-stats .ls-vs')).toBeHidden();
+  /* The count is the glance. The cards that make the outs are the analysis
+     panel's: a 248 px column cannot hold nine cards and the reading they
+     belong to. */
+  await expect(page.locator('.hb-stats .ls-cards')).toBeHidden();
+
+  /* The studs are the same studs in the column: one lit for king high and the
+     flush stud hollow for the four hearts, and they keep the bar's width. */
+  await expect(page.locator('.hb-stats .stud')).toHaveCount(9);
+  await expect(page.locator('.hb-stats .stud[data-lit]')).toHaveCount(1);
+  await expect(page.locator('.hb-stats .stud').nth(5)).toHaveAttribute('data-aim', '');
+  const column = (await page.locator('.hb-stats').boundingBox())!;
+  const studs = (await page.locator('.hb-stats .ls-studs').boundingBox())!;
+  expect(studs.x + studs.width).toBeLessThanOrEqual(column.x + column.width);
 });
 
 /* Narrower than a third column, it is still the strip: a band split three ways
@@ -90,7 +122,7 @@ test('the band keeps one footprint with the readings in it', async ({ page }) =>
 
   const FOOTPRINT = ['.hand-head', '.felt', '.board', '.pot', '.hero-band', '.hb-stats'];
   await page.locator('.hero-band[data-state="turn"]').waitFor({ timeout: 30_000 });
-  await expect(page.locator('.hb-stats .ls-row').nth(2)).toContainText(/\d+\.\d%/);
+  await expect(page.locator('.hb-stats .ls-cell').nth(2)).toContainText(/\d+\.\d%/);
   const settledAt = await markSettled(page);
   const onTurn = await boxes(page, FOOTPRINT);
 
@@ -110,7 +142,7 @@ test('a practice table keeps one footprint through a hand', async ({ page }) => 
   await page.goto(PRACTICE);
 
   await waitForDock(page, 'turn');
-  await expect(page.locator(`${STRIP} .ls-row`).nth(2)).toContainText(/\d+\.\d%/);
+  await expect(page.locator(`${STRIP} .ls-cell`).nth(2)).toContainText(/\d+\.\d%/);
   const settledAt = await markSettled(page);
   const onTurn = await boxes(page);
   const strip = await page.locator(STRIP).boundingBox();

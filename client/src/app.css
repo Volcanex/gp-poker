@@ -22,7 +22,7 @@
    table on it: Chromium rasterises some text greyscale rather than subpixel
    once the root carries a conditional declaration. Nothing about it is
    semantic and nothing on that page reads the property. */
-:root { --top-h: 48px; --strip-h: 34px; }
+:root { --top-h: 48px; --strip-h: 48px; }
 /* The three colours an action has, everywhere an action is shown: a seat's
    action square, the band's buttons and its size segments. Bet, raise and
    all in are yellow; check and call green; fold red. One place, so the felt
@@ -1179,7 +1179,7 @@
      for, and the field opens the numeric keypad. The legend goes too. */
   .match {
     --head-h: 36px;
-    --stats-h: 30px;
+    --stats-h: 60px;
     --dock-h: 150px;
     --keys-h: 0px;
     --dock-r1: 24px;

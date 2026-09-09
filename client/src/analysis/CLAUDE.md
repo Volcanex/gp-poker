@@ -6,7 +6,8 @@ Equity, outs and hand names, computed in a web worker.
 the only one that pulls in `phe`'s half-megabyte lookup table. `index.ts` is the
 main thread's request and response API, with cancellation by request id.
 `protocol.ts` is the message shape between them. `draw-outs.ts` turns the
-package's category outs into the number a player counts. `showdown-solve.ts` is
+package's category outs into the number a player counts. `strength.ts` is the
+practice strip's stud arithmetic, pure. `showdown-solve.ts` is
 the request the puzzle pages ask a showdown through, and is the only other file
 here that touches the package root (see `../puzzles/CLAUDE.md`).
 
@@ -23,31 +24,56 @@ that was a bar rather than a part of something. `table.tsx` picks the host and
 renders `LiveStats` **once**, because this component drives the worker and two
 of it would cancel each other's requests through the module-level request id.
 The band's own rules (`.hb-stats` at the foot of `live-stats.css`) are the
-strip's rules again, tighter: fixed rows, one value a row, nothing wrapping, and
-the card list, the draw's name and both notes dropped, because a 248 px column
-cannot hold nine cards and the reading they belong to.
+strip's rules again in a column: the same three cells stacked, the studs and
+the hand's name, the outs count and its draws, the equity meter and its
+percentage, each cell the same fixed two lines, and the out cards dropped,
+because a 248 px column cannot hold nine cards and the reading they belong to.
 
 Narrower than that, and on v1, it is the strip below.
 
-A practice table carries one more fixed row between the felt and the dock, row 4
-of the table's grid (`../table/CLAUDE.md`), reading the hand you hold, the outs
-and your equity against that many random hands. It is rendered for the whole
-match rather than only while you hold cards, and `.practice-strip` holds
-`--stats-h` whether or not a number has arrived. The felt gives up the height;
-the dock never does. `--stats-h` is `.match`'s, and it comes off `--strip-h` at
-the root, because the mock's caption stands above this strip and is fixed to the
-page rather than inside the table (`../app.css`). The caption adds `--strip-gap`
-rather than `--strip-h`, which is the same height until the readings move into
-the band and nought after that; the breakpoint is declared once in
-`../table/hero-band.css` beside the number `BAND_STATS` uses in `table.tsx`.
+A practice table carries one more fixed row between the felt and the band, row 4
+of the table's grid (`../table/CLAUDE.md`): one bar, three cells, reading left
+to right the way a player thinks. What you hold (the strength meter and the
+hand's name), what would improve it (the outs, their draws and the out cards),
+and how often it wins (the equity as a `g-meter` with the percentage beside it
+and "vs N random hands" under). It is rendered for the whole match rather than
+only while you hold cards, and `.practice-strip` holds `--stats-h` whether or
+not a number has arrived. The felt gives up the height; the band never does.
+`--stats-h` is `.match`'s, and it comes off `--strip-h` at the root, because the
+mock's caption stands above this strip and is fixed to the page rather than
+inside the table (`../app.css`). The caption adds `--strip-gap` rather than
+`--strip-h`, which is the same height until the readings move into the band and
+nought after that; the breakpoint is declared once in `../table/hero-band.css`
+beside the number `BAND_STATS` uses in `table.tsx`. The bar is capped at
+`--felt-w` and centred, like the band's content, so the studs start on the
+hero's cards' left edge and the equity ends on the controls' right one.
+
+**The strength meter** (`strength.ts`, drawn by `StrengthMeter` in
+`live-stats.tsx`) is nine squares, one per hand category, weakest on the left.
+Everything up to the hand you hold is lit in the accent, the studs a live draw
+would land on are hollow, and the rest are dark. The category is the worker's
+`handName`, the same evaluator that settles pots, so a stud can never disagree
+with a showdown; `strength.ts` only maps it to an index, maps each named draw
+to the stud it completes on (`drawTargets`, which drops a draw at or below the
+made hand and the backdoor draw that completes on no single card), and names
+a preflop holding in words (`preflopWords`: pocket kings, suited connectors,
+one gapper, suited, offsuit), because before the flop there is no made hand and
+the studs are all dark. **Only the stud that has just lit animates**: the top
+lit stud is keyed on its category, so a better hand mounts a new node and the
+masked reveal runs once on it, while the studs under it snap and a hand that
+gets worse snaps dark. `../test/strength.test.ts` pins the mapping.
 
 Every reading sits in a fixed cell. The numbers arrive from the worker after the
 labels beside them are already painted, so in a flow the note next to a number
 slides the moment it lands, and that is a layout shift on the one screen whose
-whole rule is that nothing moves. Three widths' worth of detail is dropped
-rather than wrapped: the card list and the draw's name go below 1024, and the
-note under the equity goes on a phone, leaving one line of hand, outs and
-number.
+whole rule is that nothing moves. Every changing value is keyed on itself, and
+**every branch of the outs line is keyed too**: React reused the out cards'
+node for the river's "No cards to come", and the layout-shift observer counted
+that node landing eighty pixels to the left as the strip's only shift. Detail
+is dropped rather than wrapped: the out cards go below 1024, and a phone stacks
+the studs under the two figures, with the hand's name beside them. The draws'
+names are shortened for the strip (`drawWords`: "open-ender", "backdoor
+flush"); the replay panel keeps the package's full names.
 
 **Outs at the table are draw outs**, not the package's category outs.
 `@opentable/equity` counts every card that improves the made hand category,

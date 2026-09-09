@@ -126,3 +126,32 @@ for (const width of [390, 1366]) {
     });
   }
 }
+
+/* The practice readings on the felt people play on, at three moments that
+   show every state they have: before the flop (studs dark, the holding in
+   words), on the turn with two live draws (a lit stud, two hollow ones and
+   fifteen outs), and on the river with the flush made (six lit, no cards to
+   come). Three widths, both themes: the phone stacks the studs under the
+   figures, 768 holds the bar in one line, and 1366 is the band's own column,
+   because above 1100 the readings are a section of the band and the strip's
+   row is gone. The wide bar itself is pictured once more below, on v1, which
+   is the felt that still carries it at that width. */
+const PRACTICE_STATES: Shot[] = [
+  { name: 'practice-preflop', url: '/m/mock?v2=1&practice=1&step=2' },
+  { name: 'practice-draw', url: '/m/mock?v2=1&practice=1&step=9' },
+  { name: 'practice-made', url: '/m/mock?v2=1&practice=1&step=12' },
+];
+for (const theme of THEMES) {
+  for (const width of [390, 768, 1366]) {
+    for (const state of PRACTICE_STATES) {
+      test(`${state.name} at ${width} in ${theme}`, async ({ page }) => {
+        await shoot(page, state, width, theme);
+      });
+    }
+  }
+}
+for (const theme of THEMES) {
+  test(`practice-wide-strip at 1366 in ${theme}`, async ({ page }) => {
+    await shoot(page, { name: 'practice-wide-strip', url: '/m/mock?practice=1&step=9' }, 1366, theme);
+  });
+}
