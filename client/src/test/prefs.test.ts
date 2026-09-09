@@ -38,11 +38,11 @@ describe('settings persistence', () => {
     const store = fakeStore();
     writePrefs({
       theme: 'light', palette: 'felt', accent: 'jade', fourColour: true, hand: 'left',
-      cards: 'ajar', cardSize: 'huge',
+      cards: 'ajar', cardSize: 'huge', seatCards: 'regular',
     }, store);
     expect(readPrefs(store)).toEqual({
       theme: 'light', palette: 'felt', accent: 'jade', fourColour: true, hand: 'left',
-      cards: 'ajar', cardSize: 'huge',
+      cards: 'ajar', cardSize: 'huge', seatCards: 'regular',
     });
   });
 
@@ -50,11 +50,11 @@ describe('settings persistence', () => {
     const store = fakeStore();
     writePrefs({
       theme: 'system', palette: 'sky', accent: 'clay', fourColour: false, hand: 'right',
-      cards: 'side', cardSize: 'regular',
+      cards: 'side', cardSize: 'regular', seatCards: 'huge',
     }, store);
     expect(store.getItem(PREFS_KEY)).toBe(
       '{"theme":"system","palette":"sky","accent":"clay","fourColour":false,"hand":"right"'
-      + ',"cards":"side","cardSize":"regular"}',
+      + ',"cards":"side","cardSize":"regular","seatCards":"huge"}',
     );
   });
 
@@ -70,7 +70,7 @@ describe('settings persistence', () => {
     });
     expect(readPrefs(store)).toEqual({
       theme: 'room', palette: 'slate', accent: 'violet', fourColour: false, hand: 'right',
-      cards: 'stacked', cardSize: 'large',
+      cards: 'stacked', cardSize: 'large', seatCards: 'large',
     });
   });
 
@@ -161,7 +161,7 @@ describe('applying settings', () => {
     applyPrefs(
       {
         theme: 'light', palette: 'felt', accent: 'ocean', fourColour: true, hand: 'left',
-        cards: 'side', cardSize: 'huge',
+        cards: 'side', cardSize: 'huge', seatCards: 'huge',
       },
       root, fakeStore(),
     );

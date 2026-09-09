@@ -347,14 +347,29 @@ export class MatchRoom {
       return;
     }
     if (this.resigned.has(userId)) return; // said twice, costs once
-    /* Nothing to leave. Either the match is already decided and waiting on
-       its own settle, or this seat has been knocked out and is watching the
-       rest of it: both have a place already, and charging a walkout for
-       pressing the button after that would be charging somebody for losing. */
-    if (this.hand.isDone() || this.hand.currentPlaces()[userId] !== undefined) return;
-    if (!this.match.format.practice && this.playerIds.length > 2) this.pinLeavingPlace(userId);
+    /* Already decided and waiting on its own settle. The result is on its way
+       without any help, so there is nothing here for the button to do. */
+    if (this.hand.isDone()) return;
+
+    /* Knocked out, and watching the rest of the table play. There is no
+       walkout to charge for that: they have a place already, and charging one
+       for pressing the button after busting would be charging somebody for
+       losing.
+
+       It is still a leave, though, and that is what this used to get wrong.
+       A multiway table has nothing to end for them and the client takes them
+       back to the lobby itself, so returning was right there. **A practice
+       table is the case it broke**: it exists for the one human sitting at
+       it, the client deliberately does not navigate away from one because it
+       is waiting to be shown a result, so a player who had busted out of a
+       six handed practice table pressed Leave game and nothing happened at
+       all, on the button or on the screen. */
+    const placed = this.hand.currentPlaces()[userId] !== undefined;
+    if (placed && !this.practice) return;
+
+    if (!placed && !this.match.format.practice && this.playerIds.length > 2) this.pinLeavingPlace(userId);
     this.resigned.add(userId);
-    this.chargeWalkoutIfRanked(userId);
+    if (!placed) this.chargeWalkoutIfRanked(userId);
 
     /* A practice table exists for the one human sitting at it, so there is
        nothing for it to play on for; heads-up has one opponent and the match

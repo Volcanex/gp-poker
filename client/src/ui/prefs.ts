@@ -38,13 +38,19 @@ export interface Prefs {
   hand: Handedness;
   cards: CardLayout;
   cardSize: CardSize;
+  /* How big everybody else's cards are drawn in their seat. Its own choice
+     rather than a second reading of `cardSize`: your own two cards are the
+     hand you are playing and the other five seats are a table you are
+     watching, and somebody who wants their own hand huge does not
+     necessarily want five more pairs that size on the felt. */
+  seatCards: CardSize;
 }
 
 export const PREFS_KEY = 'ot.prefs';
 
 export const DEFAULT_PREFS: Prefs = {
   theme: 'room', palette: 'slate', accent: 'default', fourColour: false, hand: 'right',
-  cards: 'stacked', cardSize: 'large',
+  cards: 'stacked', cardSize: 'large', seatCards: 'large',
 };
 
 export const THEMES: { id: ThemeChoice; label: string }[] = [
@@ -130,6 +136,7 @@ export function readPrefs(store: Storage | null = safeStorage()): Prefs {
     hand: isHand(r.hand) ? r.hand : DEFAULT_PREFS.hand,
     cards: isCardLayout(r.cards) ? r.cards : DEFAULT_PREFS.cards,
     cardSize: isCardSize(r.cardSize) ? r.cardSize : DEFAULT_PREFS.cardSize,
+    seatCards: isCardSize(r.seatCards) ? r.seatCards : DEFAULT_PREFS.seatCards,
   };
 }
 
@@ -184,6 +191,9 @@ export function applyPrefs(prefs: Prefs, root: HTMLElement, store: Storage | nul
 
   if (prefs.cardSize === 'large') root.removeAttribute('data-card-size');
   else root.setAttribute('data-card-size', prefs.cardSize);
+
+  if (prefs.seatCards === 'large') root.removeAttribute('data-seat-cards');
+  else root.setAttribute('data-seat-cards', prefs.seatCards);
 }
 
 function safeStorage(): Storage | null {

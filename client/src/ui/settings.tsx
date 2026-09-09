@@ -221,6 +221,16 @@ export function SettingsMenu() {
           />
         </div>
 
+        <div className="seg-row">
+          <span className="label">Other seats</span>
+          <Segmented
+            options={CARD_SIZES.map((c) => ({ value: c.id, label: c.label }))}
+            value={prefs.seatCards}
+            onPick={(v) => update({ seatCards: v as CardSize })}
+            label="Seat card size"
+          />
+        </div>
+
         <hr className="separator" />
 
         <div className="menu-title">Table</div>

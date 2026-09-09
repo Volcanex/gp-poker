@@ -196,7 +196,7 @@
      legend's row as well, so without this the readings ran twenty pixels below
      the row of controls beside them and the section read as hanging off the
      bottom of the band. */
-  padding-bottom: calc(var(--hb-keys-h) + var(--keys-gap));
+  padding-bottom: calc(var(--hb-keys-h) + var(--keys-gap) + var(--hb-floor-lift, 0px));
 }
 
 /* A spectator has no hand to hold and no keys to press, so the band is one
@@ -372,7 +372,20 @@
 
 /* ------------------------------------------------------------ the column */
 
+/* **The controls stand on the hand's floor, not on the band's.** The meta
+   line under the cards is taller than the key legend under the controls, so
+   an acts column that simply filled its own area ended a good thirty pixels
+   below the cards beside it, with all of that column's slack sitting unused
+   over the buttons. Lifted by the difference, fold, call and raise finish on
+   the same line the cards do. Seated only: a spectator's band has no hand and
+   no legend, and its single column is already the whole thing. */
+.hero-band[data-seated] {
+  --hb-floor-lift: calc(
+    (var(--hb-meta-gap) + var(--hb-meta-h)) - (var(--keys-gap) + var(--hb-keys-h))
+  );
+}
 .hb-col { grid-area: acts; display: grid; min-width: 0; min-height: 0; }
+.hero-band[data-seated] .hb-col { padding-bottom: var(--hb-floor-lift); }
 
 /* **Two groups under a mouse, left and right.** Fold and call are the left
    one, because they are the two answers that need no number; the sizes and the

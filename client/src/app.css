@@ -615,7 +615,10 @@
   overflow: auto;
   --seat-h: 60px;
   --seat-w: 372px;
-  --seat-card: 28px;
+  /* Everybody else's cards, from the Cards setting. Regular is what the felt
+     shipped with; the seat is 60px and its border takes two, so huge is the
+     tallest card that clears it at the 1.4 the artwork is drawn at. */
+  --seat-card: 34px;
   --board-card: 40px;
   --board-h: calc(var(--board-card) * 1.4); /* the board's row, and the pot's box under it */
   --pot-w: 108px; /* five chips of the pot's size and their gaps */
@@ -799,12 +802,6 @@
   font-size: 9px; color: var(--text-secondary);
 }
 
-/* Beside a player's own number, small: every denomination, so a bet of any
-   size is seen leaving. It is the same component as the pot's stack and ticks
-   on the same clock, which is what makes a bet read as chips moving from one
-   place to the other. */
-.stack-chips { --chip: 10px; display: inline-flex; align-items: flex-end; }
-.stack-chips .chips { gap: 2px; }
 
 
 
@@ -871,6 +868,16 @@
 .seat[data-acting] { border-color: var(--accent-fill); }
 .seat[data-folded] { opacity: 0.62; }
 .seat[data-out] { opacity: 0.45; }
+/* Took the pot. The whole seat carries it, because who won is what is being
+   read at a showdown and the five lit cards are spread across the felt saying
+   what the hand was rather than who is holding it. It outranks the folded and
+   busted dimming below it: a seat can be all in and beaten to a side pot and
+   still take one, and a winner that is 62 percent opaque is not a winner. */
+.seat[data-won] {
+  opacity: 1;
+  border-color: var(--accent-fill);
+  background: color-mix(in oklab, var(--accent-fill) 22%, var(--surface-2));
+}
 
 .avatar { width: var(--avatar-size, 26px); height: var(--avatar-size, 26px); overflow: hidden; flex: none; }
 .avatar img { width: 100%; height: 100%; display: block; }
@@ -884,6 +891,9 @@
 .avatar[data-size="28"] { --avatar-size: 28px; }
 .avatar[data-size="56"] { --avatar-size: 56px; }
 
+:root[data-seat-cards="regular"] .felt { --seat-card: 28px; }
+:root[data-seat-cards="huge"] .felt { --seat-card: 40px; }
+
 .seat-cards { display: flex; gap: 4px; }
 .seat .pcard { --card-w: var(--seat-card); }
 .seat-id { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; min-width: 0; }
@@ -894,21 +904,38 @@
   font-size: 13px; line-height: 16px; font-weight: 500; color: var(--text-primary);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
 }
-/* The figure and the chips beside it on one line, always. */
+/* The rack's own row, between the name and the figure it is worth. Its height
+   is reserved by the empty slots inside it, and it is smaller and shallower
+   here than in the pot: three rows have to live in a 60px seat, and a rack
+   beside a name is read for its shape rather than counted. */
+/* Four rows and no more: `denominate` rolls four ones into a five, four fives
+   into a twenty five, three twenty fives into a hundred and four hundreds
+   into a five hundred, and a table holding 1200 never stacks three of those.
+   So four is the tallest column the felt can produce, and reserving exactly
+   it is what keeps a rack off the seat's `overflow: hidden` edge. */
+/* Sized so four rows clear the seat's `overflow: hidden` edge: v1 stacks a
+   column by 3px a chip and v2 by 0.14 of its width, so the flat discs have
+   to be the smaller of the two to fit the same 60px seat. */
+.seat-chips {
+  display: flex; justify-content: flex-end; width: 100%;
+  --chip: 13px; --chip-rows: 4;
+}
+.seat-chips .chips { gap: 2px; }
+
+/* The figure on its own line under the rack. */
 .seat-stack {
   display: flex; align-items: flex-end; justify-content: flex-end; gap: 6px; width: 100%;
   font-size: 15px; line-height: 16px; font-weight: 500; letter-spacing: -0.015em;
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }
-/* "all in" lands in a slot the chips always leave open, out of the flow, so
+/* "all in" lands in a slot the figure always leaves open, out of the flow, so
    nothing moves when it does. "out" takes the same slot in the flow, because
    a busted seat's row is rebuilt anyway. */
 .seat-stack { position: relative; }
 .seat-stack .u { font-size: 11px; line-height: 16px; color: var(--text-secondary); font-weight: 400; }
 .seat-stack .u-allin { position: absolute; right: calc(4ch + 6px); bottom: 0; }
-.stack-chips { margin-right: calc(5ch + 6px); }
-/* Room for every stack a table can hold, so the chips beside the digits never
-   move when the figure gains one. */
+/* Room for every stack a table can hold, so nothing beside the digits moves
+   when the figure gains one. */
 .stack-v { display: inline-block; min-width: 4ch; text-align: right; }
 
 .btn-marker {
@@ -1014,7 +1041,7 @@
   .seat-line { gap: 4px; }
   .seat-line .flag-empty { display: none; }
   .seat-stack { font-size: 12px; line-height: 14px; gap: 4px; }
-  .stack-chips { display: none; }
+  .seat-chips { display: none; }
   .seat-bot { font-size: 9px; padding: 0 3px; line-height: 12px; }
   .seat-bot-line { display: none; }
   .seat-bot-stack { display: inline; }

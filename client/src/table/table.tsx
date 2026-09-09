@@ -234,6 +234,7 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
                   seatCount={dealt}
                   origin={dealFrom(place)}
                   best={show.best}
+                  won={award > 0}
                 />
               </div>
             );
