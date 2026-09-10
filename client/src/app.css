@@ -1652,13 +1652,15 @@
    at the top of this rule already clear down to 560. */
 @media (min-height: 690px) {
   @container (max-width: 560px) {
-    /* --seat-card stays close to its base value: it is the one number here
-       that also eats the compact seat's own fixed 179px column (two cards
-       plus their gap come straight out of the identity block's room), and a
-       name already down to a third of itself at this width cannot spend
-       more of it on bigger cards. */
+    /* --seat-card is not one of these: it is the one number here that also
+       eats the compact seat's own fixed 179px column (two cards plus their
+       gap come straight out of the identity block's room), and "a name is
+       what a seat is read by" outranks a bigger face-down card back, which
+       carries no information at whatever size it is drawn. It stays at its
+       base value here and the reclaimed height goes to the seat's own row
+       and the board in the middle, where growing does say something. */
     .felt:not([data-rows]) {
-      --seat-h: 60px; --seat-card: 18px; --board-card: 42px;
+      --seat-h: 60px; --board-card: 42px;
       --chip: 18px; --pot-w: 96px;
     }
   }
