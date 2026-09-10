@@ -62,7 +62,12 @@
    height. Sentence case, like every other label on the site; the two letters
    after the M have neither an ascender nor a descender, which is what lets
    the word fit in the height of one digit. */
-.mode-6max { display: inline-flex; align-items: center; gap: 2px; line-height: 1; }
+/* Centred against the tab's own box, the wordmark still read 2px low beside
+   "Heads-up": a digit's rendered ink overshoots a `line-height: 1` box by
+   about that much in every browser this was measured in, which a sibling tab
+   built from ordinary line-height text never shows. A transform corrects the
+   paint without touching the box either side centres against. */
+.mode-6max { display: inline-flex; align-items: center; gap: 2px; line-height: 1; transform: translateY(-2px); }
 .mode-6max-n { font-size: 18px; line-height: 1; font-weight: 500; }
 .mode-6max-suffix {
   writing-mode: vertical-rl;
@@ -382,11 +387,27 @@
 .how .t { font-size: var(--font-size-ui); font-weight: 500; }
 
 .lb-card { padding: 4px var(--pad-card); }
-.lb-head { display: flex; align-items: center; gap: var(--sp-3); }
+/* A row of plain sentence text sharing one baseline-aligned line, not a
+   table's own vertical centring: see the note above `.player-cell` for why
+   `align-items: center` is the wrong tool here whenever what sits either
+   side is ordinary text rather than a fixed-height control. */
+.lb-head { display: flex; align-items: baseline; gap: var(--sp-3); }
 .rd { color: var(--text-secondary); font-size: 11px; margin-left: 5px; }
 
 /* The name plus avatar pair in a leaderboard or match-history row. A 24px
-   avatar sits well inside --row-h, so it never grows the row. */
+   avatar sits well inside --row-h, so it never grows the row.
+
+   **Root cause of the site's 1-4px text misalignments.** An inline-flex box
+   with `align-items: center` (the default vertical-align, `baseline`)
+   synthesises its baseline from its first flex item as that item stands
+   after being centred, which lands a couple of pixels off the plain text
+   beside it: a `td` reading `vertical-align: middle` does not rescue it,
+   because the mismatch is inside the flex box, not between it and the row.
+   `vertical-align: middle` sidesteps the synthesis entirely by centring the
+   box on the parent's own x-height instead, which is what every inline-flex
+   "pill beside text" component on this site needs and almost none of them
+   had. Fixed once, here, rather than a magic pixel nudge on each. */
+.player-cell, .who, .badge { vertical-align: middle; }
 .player-cell { display: inline-flex; align-items: center; gap: var(--sp-2); }
 
 /* ------------------------------------------------------------------ accent */
@@ -697,6 +718,7 @@
   --seat-row: 16px;
   --seat-id-h: calc(var(--seat-row) * 2 + 2px);
   --board-h: calc(var(--board-card) * 1.4); /* the board's row, and the pot's box under it */
+  --board-clear: 20px; /* air between the board's row and the seats below it, own request */
   --pot-w: 108px; /* five chips of the pot's size and their gaps */
   --box-h: 100px; /* the stats box below 1060, back in the middle strip: five rows of 16 px, their gaps, the padding */
 }
@@ -750,6 +772,19 @@
   --seat-w: calc(var(--seat-body) + var(--seat-card) * 2);
   --felt-w: calc(var(--seat-w) * 2 + var(--mid-w) + var(--sp-4) * 2);
 }
+/* Community cards, much bigger: own request, desktop only. `--board-card` is
+   the one number the board, its row height, the pot's box and the middle
+   column's own width are all derived from above, so this is the whole
+   feature. `:root[data-big-board]` beats the plain `.match` rule above on
+   specificity regardless of source order, and every var that reads
+   `--board-card` picks the new value up live, the same way the phone's own
+   container queries already override it further down. Gated in a plain media
+   query rather than trusted to a container one, so a phone can never match
+   it whatever a table's own width does: the setting is not offered there
+   (`../ui/settings.tsx`) and this is what makes that true even if it were. */
+@media (min-width: 561px) {
+  :root[data-big-board] .match { --board-card: 64px; }
+}
 .bar-in { width: 100%; max-width: var(--felt-w); margin: 0 auto; }
 
 /* Named lines, so a seat is placed by two custom idents from layout.ts (`--r`
@@ -758,13 +793,24 @@
 .felt-in {
   display: grid;
   grid-template-columns: [l] minmax(0, 1fr) [m] auto [r] minmax(0, 1fr) [end];
+  /* The board's own track carries `--board-clear` past its card height: the
+     board element is still `height: var(--board-h)` and `align-items: start`
+     below sits it at the top of the track as it always has, so the extra
+     space lands under the cards, between the board and `s1`, rather than
+     stretching anything. The owner's note was the top seats read as crowding
+     the community cards. */
   grid-template-rows:
-    [board] var(--board-h)
+    [board] calc(var(--board-h) + var(--board-clear))
     [s1] var(--seat-h) [s2] var(--seat-h) [s3] var(--seat-h) [hero] auto [end];
   column-gap: var(--sp-4); row-gap: var(--sp-2);
   align-items: start;
 }
-.pos { grid-row: var(--r); grid-column: var(--c); display: flex; min-width: 0; }
+/* Its own container, not just the felt's: below 1060 the wings sit two to a
+   row rather than one, so a seat can be squeezed well past what the desktop
+   layout assumes while the felt itself is still nowhere near the 560px that
+   used to be the only width this screen asked a seat about. Queried below,
+   at the seat's own edge rather than the whole table's. */
+.pos { grid-row: var(--r); grid-column: var(--c); display: flex; min-width: 0; container-type: inline-size; }
 /* Both columns hug the middle, so the table gathers round the board rather
    than spreading to the felt's edges. */
 .pos[data-col="left"] { justify-content: flex-end; }
@@ -775,7 +821,7 @@
 .match[data-band] .pos[data-k="0"] { display: none; }
 .match[data-band] .felt-in {
   grid-template-rows:
-    [board] var(--board-h)
+    [board] calc(var(--board-h) + var(--board-clear))
     [s1] var(--seat-h) [s2] var(--seat-h) [s3] var(--seat-h) [hero end];
 }
 /* The board's row spans the felt and the cards are centred in it, so the board
@@ -1165,6 +1211,10 @@
 .seat-line {
   display: flex; align-items: center; justify-content: flex-start;
   gap: 6px; min-width: 0; width: 100%; height: var(--seat-row);
+  /* Own request: the flag and the name read as too close to the picture.
+     The rack below keeps the block's own left edge (see the note on
+     `.seat-sub`), so only this line's own start moves. */
+  padding-left: 6px;
 }
 /* Cut to the two rows it stands beside, and standing clear of both its
    neighbours by the same amount. **The margin rather than the row's own
@@ -1255,8 +1305,16 @@
 }
 .btn-marker[data-off] { visibility: hidden; }
 /* Every badge on the line is shorter than the name's 16 px line, so a seat
-   with a badge and a seat without are one height. */
-.seat-you { color: var(--text-secondary); font-size: 11px; line-height: 16px; }
+   with a badge and a seat without are one height.
+
+   **`.seat-name` is the only item in `.seat-line` allowed to shrink.** It
+   alone carries `min-width: 0` and an ellipsis; the flag already carries
+   `flex: none` and the rating did too, but the two badges after it did not,
+   so under real width pressure (a six-max seat at 768px, a long name) flex's
+   default shrink gave them a sliver of box while their text kept its full
+   size and painted straight over the name beside them: "shit is
+   overlapping" was this, not a name failing to ellipsize. */
+.seat-you { color: var(--text-secondary); font-size: 11px; line-height: 16px; flex: none; }
 .seat-rating {
   color: var(--text-secondary); font-size: 11px; line-height: 16px; flex: none;
   font-variant-numeric: tabular-nums;
@@ -1264,8 +1322,23 @@
 .seat-bot {
   color: var(--text-secondary); font-size: 10px; line-height: 14px;
   padding: 0 4px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+  flex: none;
 }
 .seat-off { color: var(--danger-text); font-size: 11px; line-height: 16px; white-space: nowrap; }
+
+/* A seat whose own column has been squeezed well past what the full desktop
+   row assumes, short of the width the felt-wide compact rules wait for
+   (`@container (max-width: 560px)` on `.match`, below): between roughly 560
+   and 1060 the wings sit two seats to a row instead of one, and a seat can
+   be narrower than the rating, the flag and the name all need before the
+   felt itself is anywhere near 560. Every flex: none sibling on the name's
+   own line was holding its ground and the name, the one flexible thing in
+   the row, was giving up every pixel of it, down to nothing: `riverrat`
+   disappeared behind `1642` rather than reading as either. The rating goes
+   first, the same one thing the felt-wide rule drops first. */
+@container (max-width: 420px) {
+  .seat-rating { display: none; }
+}
 
 /* The action square. Empty it is a quiet outline; with a word in it, the
    word's colour on a tint of the same, the three colours every action has

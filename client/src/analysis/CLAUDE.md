@@ -83,7 +83,9 @@ which is nine for a flush draw and twenty six for an open-ender, because pairing
 either hole card improves the category too. Nobody calls that twenty six outs.
 `draw-outs.ts` intersects the category outs with the cards the named draws
 complete, so the strip says eight, and with no draw at all it drops to a muted
-"Improves on N cards" rather than printing a number a player would misread.
+"No draw, but N cards help" rather than printing a number a player would
+misread as outs. The owner's own reaction to "Improves on 14 cards" ("...?")
+is why the sentence leads with "no draw" now instead of a bare count.
 
 ## The replay panel
 

@@ -946,6 +946,28 @@ unit tested:
 - **The rack sits on the block's own left edge**, level with the flag slot
   above it rather than indented past it to meet the name's first letter. Set
   in by the flag's 22 px it hung to the right of everything it belongs to.
+  `.seat-line` (the row above it: the flag, the name, the rating, the badges)
+  carries its own 6 px of further indent past that edge, own request, so the
+  two rows read as the name standing a little clear of the picture and the
+  rack standing under it rather than under the flag.
+- **Only `.seat-name` may shrink in `.seat-line`.** It alone carries
+  `min-width: 0` and an ellipsis; the flag, the rating and both badges (`Bot`,
+  `You`) all carry `flex: none`. They did not always: `.seat-bot` and
+  `.seat-you` had no shrink protection, so under real width pressure (a
+  six-max seat two to a row below 1060, a long name) flex's default shrink
+  gave them a sliver of box while their text kept its full size and painted
+  straight over the name beside them. "Shit is overlapping" was this.
+- **A seat is also its own container**, `.pos { container-type: inline-size }`
+  in `../app.css`, queried below 420px to drop `.seat-rating` the same way the
+  felt-wide `@container (max-width: 560px)` rule already does. The two columns
+  below 1060 put a seat two to a row rather than one, which can squeeze a
+  seat's own width well past what the felt-wide rule waits for: a name
+  disappeared behind its own rating (`min-width: 0` shrinking it to nothing,
+  not just tight) before this existed, at widths nowhere near 560.
+- **The board's own track carries `--board-clear` past `--board-h`** (own
+  request, 20px): `align-items: start` on `.felt-in` sits the board at the
+  top of the taller track it now has, so the extra height lands between the
+  board and `s1` rather than stretching the board itself.
 - **Dealing.** `dealOrder` is round robin from the seat left of the button, one
   card each then the second, which is the order the engine deals in; the seat
   passes it to `playing-card.tsx` as the stagger index. `dealFrom` says where
