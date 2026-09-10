@@ -204,3 +204,15 @@
 }
 .profile-badge { opacity: 0.4; }
 .profile-badge[data-earned] { opacity: 1; color: var(--text-primary); border-color: var(--border); }
+
+/* The tournaments heading and the career record on one line. Prefixed like
+   everything else in this file: the app's stylesheets are one global sheet
+   and the short names were taken long ago. */
+.tourney-record {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.tourney-record .h2 { flex: 1; min-width: 0; }

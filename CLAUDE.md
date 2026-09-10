@@ -210,6 +210,22 @@ files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
   (`arena_players`), which the streak bonus makes unavoidable: each result
   depends on the ones before it. Pairing stops three minutes before the end and
   started matches play out, so the board freezes when the last one settles.
+- Tournaments (`server/src/tournaments/`, `format.tournament`) are the arena's
+  sibling: a field that funnels up to a final rather than a rolling pairing with
+  a running score. Three fixtures on a fixed calendar and no admin, the way
+  arenas need none: a daily 32-seat heads-up bracket whose start rotates through
+  three slots so it lands in somebody's evening wherever they are, a 36-seat
+  Sunday shootout, and a 216-seat championship on the first Sunday of the month.
+  The scheduler writes each fixture's next row as soon as the previous one
+  starts, so registration is always open on exactly three and never on none.
+  Every match is an ordinary **fast** match on its own public page, heads-up
+  ones rated and six-max tables rated only with two humans at them, which is
+  the home game's rule. Every seat answers a ready check at the top of each
+  round; silence withdraws them and costs nothing else, since nobody is left
+  waiting at a table that was never dealt. Places are the final table's own
+  order at the top and the round somebody went out in below it, tied within a
+  round. A field under four (bracket) or six (shootout) is cancelled rather than
+  crowning somebody who beat nobody.
 - The engine only sees seats with chips; `hands.live_seats` maps engine
   seat to table seat and every stored log is in table seats.
 - Insights (`/api/users/:name/insights`, the block under a profile's rating
@@ -260,7 +276,8 @@ the entry point; the detail lives down the tree.
   `client/src/chat/`, `client/src/ui/`, `client/src/admin/`, `client/src/sound/`
   and `client/e2e/`
 - `server/CLAUDE.md`, and under it `server/src/`, `server/src/match/`,
-  `server/src/ws/`, `server/src/bots/` and `server/test/`
+  `server/src/ws/`, `server/src/bots/`, `server/src/tournaments/` and
+  `server/test/`
 - one per workspace package: `packages/engine/`, `packages/equity/`,
   `packages/identity/`, `packages/preflop/`, `packages/protocol/`,
   `packages/rating/`, `packages/solver/`

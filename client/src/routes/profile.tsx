@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { BADGES, botLevelInfo, type Mode } from '@opentable/protocol';
 import { api, ApiError } from '../net/api.ts';
-import type { Insights, PositionKey, Profile as ProfileData, ProfileArena } from '../net/types.ts';
+import type {
+  Insights, PositionKey, Profile as ProfileData, ProfileArena, ProfileTournament,
+} from '../net/types.ts';
 import { useSession } from '../net/session.tsx';
 import { useTitle } from '../ui/title.ts';
 import { PageResting } from '../ui/enter.tsx';
@@ -369,6 +371,11 @@ export function Profile() {
       </section>
 
       <ArenasSection arenas={data.arenas ?? []} />
+
+      <TournamentsSection
+        tournaments={data.tournaments ?? []}
+        record={data.tournamentRecord ?? { wins: 0, podiums: 0 }}
+      />
     </main>
   );
 }
@@ -409,6 +416,76 @@ function ArenasSection({ arenas }: { arenas: ProfileArena[] }) {
                   </td>
                   <td className="r num">{a.score}</td>
                   <td className="r"><Link to={`/arena/${a.id}`}>Open</Link></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* Tournaments this player has been in. Absent on a server from before
+   tournaments existed and empty for somebody who has never entered one, and
+   both read as no section at all rather than as an empty table.
+
+   The career record is two badges in this heading rather than a line in the
+   rating card above it. That card is one mode at a time and reserves its box
+   at its widest so picking the other mode moves nothing under it; a count of
+   tournaments won belongs to neither mode and would have to sit in a slot the
+   card keeps empty half the time. */
+function TournamentsSection({
+  tournaments,
+  record,
+}: {
+  tournaments: ProfileTournament[];
+  record: { wins: number; podiums: number };
+}) {
+  if (tournaments.length === 0) return null;
+  return (
+    <section className="stack" style={{ gap: 'var(--sp-3)' }}>
+      <div className="tourney-record">
+        <span className="h2">Tournaments</span>
+        <span className="tags">
+          {record.wins > 0 && (
+            <span className="badge badge-plain num">
+              {record.wins} {record.wins === 1 ? 'win' : 'wins'}
+            </span>
+          )}
+          {record.podiums > 0 && (
+            <span className="badge badge-plain num">
+              {record.podiums} {record.podiums === 1 ? 'podium' : 'podiums'}
+            </span>
+          )}
+        </span>
+      </div>
+      <div className="card lb-card">
+        <div className="table-wrap">
+          <table className="table" aria-label="Tournaments">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Tournament</th>
+                <th className="r">Place</th>
+                <th className="r">Field</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tournaments.map((t) => (
+                <tr key={t.id}>
+                  <td>{fmtDate(t.startsAt)}</td>
+                  <td><Link to={`/t/${t.id}`}>{t.name}</Link></td>
+                  <td className="r">
+                    {t.status === 'cancelled' ? (
+                      <span className="muted">Not played</span>
+                    ) : t.place === null ? (
+                      <span className="muted">Unplaced</span>
+                    ) : (
+                      <span className="badge badge-plain num">{ordinal(t.place)}</span>
+                    )}
+                  </td>
+                  <td className="r num">{t.players}</td>
                 </tr>
               ))}
             </tbody>

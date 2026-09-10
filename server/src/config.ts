@@ -84,6 +84,13 @@ export const config = {
   // on through `configureArena`, for the reason the ladder is: a suite that
   // quietly pairs matches in the background has timings that are not its own.
   arenaEnabled: process.env.ARENA_ENABLED ? process.env.ARENA_ENABLED === 'true' : !inTest,
+  // Tournaments: the three fixtures on the calendar. Off under vitest unless a
+  // test turns them on through `configureTournaments`, for the reason the
+  // arena is off: a scheduler that quietly opens a fixture and deals thirty-two
+  // seats in the background has timings that are not the suite's own.
+  tournamentsEnabled: process.env.TOURNAMENTS_ENABLED
+    ? process.env.TOURNAMENTS_ENABLED === 'true'
+    : !inTest,
   /* How far behind the present the opening explorer reads. A hand row is
      written when the hand completes, and two matches running side by side can
      commit out of order, so the window stops short of now and never closes

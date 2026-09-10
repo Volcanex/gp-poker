@@ -18,6 +18,8 @@ import {
   getInsightMatchesForUser,
   getExplorerHands,
   getArenasForUser,
+  getTournamentsForUser,
+  getTournamentRecord,
   getRatingHistoryForUser,
   getMatchById,
   getHandsForMatch,
@@ -67,6 +69,12 @@ import {
   removeFriend,
   requestFriendByName,
 } from './friends.js';
+import {
+  registerForTournament,
+  tournamentListing,
+  tournamentView,
+  withdrawFromTournament,
+} from './tournaments/index.js';
 import { registerAdminRoutes } from './admin.js';
 import { AVATAR_MAX_BYTES, AvatarLimiter, sniffAvatar } from './avatars.js';
 
@@ -167,6 +175,11 @@ export function registerRoutes(app: FastifyInstance): void {
     // than on a page of its own: an arena result is a thing you did, and the
     // place it belongs is beside the matches you played.
     const arenas = await getArenasForUser(user.id, 20);
+    /* And the tournaments, for the same reason. `record` is the headline
+       tile's two numbers, counted over the whole career rather than over the
+       capped list beside it. */
+    const tournaments = await getTournamentsForUser(user.id, 20);
+    const tournamentRecord = await getTournamentRecord(user.id);
 
     const headsUp = ratings['heads-up'];
     // The one heads-up standing every flat field on this route is read from,
@@ -219,6 +232,8 @@ export function registerRoutes(app: FastifyInstance): void {
       },
       lastMatches,
       arenas,
+      tournaments,
+      tournamentRecord,
     };
   });
 
@@ -642,6 +657,38 @@ export function registerRoutes(app: FastifyInstance): void {
 
   /* Pause and resume are the same route: the page says which state it wants
      rather than asking for a toggle, so two tabs cannot flip each other. */
+  /* Tournaments. The listing stocks the calendar on the server's way past, so
+     the first call of the day is what creates the fixtures it answers with,
+     exactly as the arena listing does. `page` walks the results under it.
+     Registering and withdrawing both work for a guest, like every other way
+     to play here. */
+  app.get<{ Querystring: { page?: string } }>('/api/tournaments', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    const page = Math.max(0, Math.min(200, Number(request.query.page ?? 0) || 0));
+    return tournamentListing(user.id, page);
+  });
+
+  app.get<{ Params: { id: string } }>('/api/tournaments/:id', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    const view = await tournamentView(request.params.id, user.id);
+    if (!view) return err(reply, 404, 'No such tournament');
+    return view;
+  });
+
+  app.post<{ Params: { id: string } }>('/api/tournaments/:id/register', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    const result = await registerForTournament(request.params.id, user.id);
+    if (!result.ok) return err(reply, result.status, result.error);
+    return { ok: true };
+  });
+
+  app.post<{ Params: { id: string } }>('/api/tournaments/:id/withdraw', async (request, reply) => {
+    const user = await requireUser(request, reply);
+    const result = await withdrawFromTournament(request.params.id, user.id);
+    if (!result.ok) return err(reply, result.status, result.error);
+    return { ok: true };
+  });
+
   app.post<{ Params: { id: string }; Body: { paused?: boolean } }>(
     '/api/arenas/:id/pause',
     async (request, reply) => {

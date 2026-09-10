@@ -1,7 +1,8 @@
 # src
 
-The server's own modules. `match/`, `ws/` and `bots/` have their own docs; this
-file covers the flat files and the subsystems that live in exactly one of them.
+The server's own modules. `match/`, `ws/`, `bots/` and `tournaments/` have their
+own docs; this file covers the flat files and the subsystems that live in
+exactly one of them.
 
 | File | Owns |
 | --- | --- |
@@ -17,6 +18,7 @@ file covers the flat files and the subsystems that live in exactly one of them.
 | `home-games.ts` | the six-max version of that link, as a lobby |
 | `friends.ts` | the social graph: requests, presence and the invites that hand a friend a link |
 | `arena.ts` | the hourly competitive event |
+| `tournaments/` | its sibling: three fixtures on a calendar, a field funnelling to a final. Own doc |
 | `ladder.ts` | bots playing each other so their ratings spread out |
 | `chat.ts` | the pure half of table chat: `cleanChatText` and `ChatLimiter` |
 | `admin.ts` | the admin gate's own routes: the tickets the annotation layer writes |
@@ -643,7 +645,9 @@ re-sends it on every reconnect rather than only on mount. A page whose socket
 never opened polls `GET /api/arenas/:id` instead.
 
 How a finished match reaches the scoreboard at all is `match/finished.ts`, in
-`match/CLAUDE.md`.
+`match/CLAUDE.md`. `tournaments/` is the second listener on it, and
+`tournaments/CLAUDE.md` says how a field funnels down to a final and why the
+calendar and the draw are two pure files of their own.
 
 ## Insights
 

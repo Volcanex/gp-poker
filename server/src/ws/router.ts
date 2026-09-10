@@ -13,6 +13,7 @@ import { respondReady } from '../ready.js';
 import { getRoom, roomForPlayer, roomsForSpectator } from '../match/rooms.js';
 import { unwatchArena, watchArena } from '../arena.js';
 import { friendsOnConnect, friendsOnDisconnect } from '../friends.js';
+import { unwatchTournament, watchTournament } from '../tournaments/index.js';
 
 // Dispatches everything the hub hands it except `ping`, which the hub
 // answers itself before this is ever called.
@@ -122,6 +123,11 @@ export function routeClientMessage(userId: string, msg: ClientMsg): void {
       // showing, and `null` says it has stopped showing one.
       watchArena(userId, msg.a);
       return;
+    // The same bargain for a tournament's bracket or funnel: watching one and
+    // being registered for it are different things, so the page says which.
+    case 'tournament':
+      watchTournament(userId, msg.id);
+      return;
     default:
       hub.send(userId, { t: 'err', c: 'bad_msg', msg: 'Unknown message type' });
   }
@@ -140,6 +146,7 @@ export function routeDisconnect(userId: string): void {
   // Told after a few seconds rather than now: a reload is a disconnect
   // followed by a connect, and a list that flickered would be unreadable.
   friendsOnDisconnect(userId);
+  unwatchTournament(userId);
   roomForPlayer(userId)?.handleDisconnect(userId);
   // A player keeps their subscription through the grace window; a spectator
   // has nothing to come back to, so every table they were watching drops

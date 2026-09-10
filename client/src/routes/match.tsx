@@ -236,6 +236,10 @@ function LiveMatch({ id }: { id: string }) {
      not the queue's, so the way on from this table is back to the board. */
   const done = ended ?? opened;
   const arena = done?.format.arena ?? null;
+  /* And the same for a tournament table: the next match is the tournament's
+     to give, so the way on from this table is back to the bracket or the
+     funnel it belongs to. */
+  const tournament = done?.format.tournament?.id ?? null;
   const playAgain = useCallback(() => {
     if (watching) {
       nav('/watch');
@@ -245,10 +249,20 @@ function LiveMatch({ id }: { id: string }) {
       nav(`/arena/${arena}`);
       return;
     }
+    if (tournament) {
+      nav(`/t/${tournament}`);
+      return;
+    }
     startQueue(done?.format.mode, done?.rated);
     nav('/');
-  }, [startQueue, nav, done, watching, arena]);
-  const againLabel = watching ? 'Watch another table' : arena ? 'Back to the arena' : undefined;
+  }, [startQueue, nav, done, watching, arena, tournament]);
+  const againLabel = watching
+    ? 'Watch another table'
+    : arena
+      ? 'Back to the arena'
+      : tournament
+        ? 'Back to the tournament'
+        : undefined;
 
   if (opened) {
     return <MatchSummary match={opened} meId={me?.id ?? null} onAgain={playAgain} againLabel={againLabel} />;

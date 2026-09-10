@@ -83,10 +83,13 @@ down, which is what a phone's is the moment its owner switches to a messaging
 app to send a challenge link: the creator came back to a home page still
 saying "waiting for your friend" and a match already dealing without them.
 
-Two other subscriptions are pushed rather than polled, and both re-send on every
-reconnect rather than only on mount, because the server drops them on
-disconnect: `{t:'arena', a}` for an arena board and the `lobby` message a home
-game's seats arrive on. See `../routes/CLAUDE.md`.
+Three other subscriptions are pushed rather than polled, and each re-sends on
+every reconnect rather than only on mount, because the server drops them on
+disconnect: `{t:'arena', a}` for an arena board, `{t:'tournament', id}` for a
+bracket or a funnel, and the `lobby` message a home game's seats arrive on. A
+tournament's board is pushed on every change rather than on a beat, because a
+tournament moves on events (a registration, a round starting, a table settling)
+rather than continuously. See `../routes/CLAUDE.md`.
 
 ## REST contract
 
