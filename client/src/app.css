@@ -1525,9 +1525,14 @@
      cards, 496 in all, which leaves the slack row a little and a 667 px
      phone scrolling the felt by a strip or so. */
   .felt[data-rows][data-mode="ring"] { --seat-h: 52px; --seat-card: 26px; --board-card: 44px; }
+  /* Two slack rows, not one: the heads-up template above splits its gap
+     round the board rather than dropping it all in a single spot, and a
+     ring table left every spare pixel in one strip between the last seat
+     and the hero's own row, which read as a hole in the felt rather than
+     as room. Split the same way here. */
   .felt[data-rows][data-mode="ring"] .felt-in {
     grid-template-rows:
-      [board] var(--board-h) [top] auto [topstats] auto
+      [gap0] minmax(0, 1fr) [board] var(--board-h) [top] auto [topstats] auto
       [p1] var(--seat-h) [p2] var(--seat-h) [p3] var(--seat-h) [p4] var(--seat-h) [p5] var(--seat-h)
       [gap1] minmax(0, 1fr) [s1 s2 s3 hero] auto [end];
   }
@@ -1584,10 +1589,64 @@
 /* A short phone (an iPhone SE is 667 tall) has 284 px of felt under the
    bar and over the band, and the heads-up rows want 300: the board and the
    pot's box each give up ten, so the readings stay above the fold rather
-   than under it, and the slack rows go to nought. */
-@media (max-height: 700px) {
+   than under it, and the slack rows go to nought.
+
+   Six-max needed the same treatment and never had it: five strips at the
+   default reading (52px seats, 44px board cards) come to 579px against the
+   469 a 667-tall phone actually gives the felt, which is what made "you
+   have to scroll to see them" true for the one mode most players sit down
+   to. The rule stands: dead space goes first (the `minmax(0, 1fr)` gap rows
+   above already go to nought before anything else does), and only once
+   that is spent do the rows themselves give something up. */
+@media (max-height: 760px) {
   @container (max-width: 560px) {
     .felt[data-rows][data-mode="stack"] { --board-card: 48px; }
+    .felt[data-rows][data-mode="ring"] {
+      --seat-h: 42px; --seat-card: 20px; --board-card: 32px; --chip: 13px;
+    }
+    .felt[data-rows][data-mode="ring"] .felt-in { row-gap: var(--sp-1); }
+    .felt[data-rows][data-mode="ring"] .seat-name { font-size: 12px; line-height: 15px; }
+  }
+}
+/* Below that, an even shorter phone in landscape or a split screen: the same
+   trade again, one more step down, still fixed sizes rather than a squashed
+   row. Later in the file than the tier above, so it wins the range both
+   match rather than the two fighting over source order. */
+@media (max-height: 640px) {
+  @container (max-width: 560px) {
+    .felt[data-rows][data-mode="ring"] {
+      --seat-h: 34px; --seat-card: 17px; --board-card: 24px; --chip: 10px;
+    }
+    .felt[data-rows][data-mode="ring"] .seat-name { font-size: 11px; line-height: 13px; }
+    .felt[data-rows][data-mode="ring"] .award-zone { height: 18px; }
+  }
+}
+/* A phone shorter than any of these three actually ship, kept for a browser
+   window resized small or a split screen rather than a real handset. */
+@media (max-height: 570px) {
+  @container (max-width: 560px) {
+    .felt[data-rows][data-mode="ring"] {
+      --seat-h: 28px; --seat-card: 14px; --board-card: 20px; --chip: 9px;
+    }
+    .felt[data-rows][data-mode="ring"] .seat-name { font-size: 10px; line-height: 12px; }
+    .felt[data-rows][data-mode="ring"] .seat-act { font-size: 9px; }
+  }
+}
+
+/* A six-max table not in the detailed reading (own request; also a
+   spectator's felt, which keeps this compact geometry always) had a third
+   of a tall phone's felt in fixed rows and the rest in dead green, split
+   top and bottom by the `margin: auto` centring above. Bigger cards spend
+   more of what a tall phone actually has, the way the detailed reading's
+   own sizes already do; gated to a phone tall enough to take them without
+   the auto margins clawing the room back as scroll, which the fixed sizes
+   at the top of this rule already clear down to 560. */
+@media (min-height: 690px) {
+  @container (max-width: 560px) {
+    .felt:not([data-rows]) {
+      --seat-h: 60px; --seat-card: 22px; --board-card: 42px;
+      --chip: 18px; --pot-w: 96px;
+    }
   }
 }
 
@@ -1796,8 +1855,12 @@
 
 .devnote {
   /* Out of the flow on purpose: the dock's footprint is measured in tests and
-     a dev-only caption must not be part of it. */
-  position: fixed; left: 6px; bottom: 2px; z-index: 5;
+     a dev-only caption must not be part of it. `match.tsx` overrides `bottom`
+     inline for a v2 table, lifting it clear of the band; this is the v1
+     fallback, and it was 2px off the corner the key legend's own row stands
+     in, overlapping "fold" and its key at both 390 and 768. Lifted clear of
+     that row's own height. */
+  position: fixed; left: 6px; bottom: 24px; z-index: 5;
   max-width: 30%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
   display: inline-flex; align-items: center; gap: 6px;
   font-size: 11px; color: var(--text-secondary);

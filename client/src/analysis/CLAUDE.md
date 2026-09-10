@@ -28,6 +28,11 @@ strip's rules again in a column: the same three cells stacked, the studs and
 the hand's name, the outs count and its draws, the equity meter and its
 percentage, each cell the same fixed two lines, and the out cards dropped,
 because a 248 px column cannot hold nine cards and the reading they belong to.
+The equity cell's own precision footnote (`.ls-extra`, "sampled, 20,000
+deals") is dropped here too, for the same reason: on one `nowrap` line next
+to "vs N random hands" it had nowhere to go at this width and either ran the
+two together or clipped the second half outright, which was the readings
+"needing to look way better".
 
 Narrower than that, and on v1, it is the strip below, on the felt's own column
 (see the cap below: it used to be a number close to `--felt-w` rather than the

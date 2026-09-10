@@ -232,6 +232,12 @@
 }
 
 .hb-stats .ls-cards { display: none; }
+/* The precision footnote ("sampled, 20,000 deals") is a technical aside
+   nobody reads mid-hand, and next to "vs N random hands" in a single
+   nowrap line it had nowhere to go at 248px: the two ran together with no
+   gap between them or clipped outright. Dropped here for the same reason
+   the out cards are: it says less than what is already on screen. */
+.hb-stats .ls-extra { display: none; }
 
 /* The column's own height is the band's content row less the key legend
    under it, and at the Regular card size that room is 28px short of what

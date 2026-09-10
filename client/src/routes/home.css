@@ -73,12 +73,17 @@
   flex: 1;
   min-width: 0;
 }
-.feed-players a { color: var(--text-primary); text-decoration: none; }
+.feed-players a { color: var(--text-primary); text-decoration: none; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .feed-players a:hover { text-decoration: underline; }
 .feed-players .beat { color: var(--text-secondary); font-size: 12px; }
 /* The comma belongs to the name before it, not to the gap after it. */
 .feed-players .punct { color: var(--text-secondary); margin-left: -4px; }
-.feed-players .name { display: inline-flex; align-items: baseline; gap: 4px; }
+/* `min-width: 0` the way `.seat-name` carries it: a wrapped flex item is
+   sized to its own content first and only wraps to a new line once that
+   does not fit, which left a name's rating a sliver into `.feed-meta`'s own
+   column at some widths rather than either fitting beside it or wrapping
+   clear of it. */
+.feed-players .name { display: inline-flex; align-items: baseline; gap: 4px; min-width: 0; }
 .feed-players .delta { font-size: 12px; font-variant-numeric: tabular-nums; }
 .feed-players .bot-tag {
   font-size: 11px;
@@ -246,7 +251,7 @@ main.page.home-page { max-width: 1180px; }
 
 .home-top {
   display: grid;
-  grid-template-columns: minmax(420px, 500px) 1fr;
+  grid-template-columns: minmax(420px, 500px) minmax(0, 1fr);
   gap: var(--sp-3);
   align-items: start;
 }
@@ -319,7 +324,14 @@ main.page.home-page { max-width: 1180px; }
 .side-card b.num-lg { font-size: 28px; }
 
 @media (max-width: 900px) {
-  .home-top { grid-template-columns: 1fr; }
+  /* `minmax(0, 1fr)`, not a bare `1fr`: a grid track's default floor is its
+     content's min-content width, and with the docked sidebar cutting the
+     column to 520px at 768, the play panel and the card under it both
+     wanted more than that (a mode tab strip that does not want to wrap, a
+     stat that does not want to shrink), so the track grew past the page's
+     own padding and the document scrolled sideways by five pixels. The zero
+     floor is what lets the track actually shrink to the column instead. */
+  .home-top { grid-template-columns: minmax(0, 1fr); }
   .home-side { grid-template-columns: repeat(3, 1fr); }
 }
 

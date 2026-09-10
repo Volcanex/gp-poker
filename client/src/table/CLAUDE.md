@@ -1004,11 +1004,30 @@ with 44 px board cards, because five strips and the board in 531 px is a
 tighter fit than one, and takes what is left at the bottom. Every other track
 is fixed and the slack rows divide what a given screen leaves over, so the
 footprint rule holds. `.felt-in` takes `flex: 1 0 auto` so those rows have a
-height to divide and a short screen scrolls the felt rather than squashing a
-row; under 700 px tall (an iPhone SE) the heads-up board and pot each give up
-ten so the readings stay above the fold. A spectator's felt keeps the
-geometry above, because the bottom seat is a player's and still has to be
-placed. The ended match keeps the shape: the band leaves with the match, and
+height to divide.
+
+**A short screen shrinks the rows now, rather than scrolling past them.**
+"You have to scroll to see them" was the owner's own complaint about exactly
+this: the slack rows going to nought was the documented ceiling and six-max
+(five strips) sailed past it at anything under about 720px tall, which is not
+a rare phone. `@media (max-height: ...)` tiers layered under the felt's own
+560px container query (760, 640 and 570px, `data-mode="ring"` only; heads-up's
+one `data-mode="stack"` tier at 700px predates this and still only trims the
+board) step `--seat-h`, `--seat-card`, `--board-card` and `--chip` down in
+three stages, tight enough that a table down to about 560px tall still fits
+inside `.felt`'s own `clientHeight` with no internal scroll; the ring
+template also gained a second `minmax(0, 1fr)` gap row, before the board as
+well as after the last seat, so what slack is left splits rather than
+collecting in one strip between the last opponent and the hero's own row.
+Below the compact (non-`data-rows`) geometry has its own equivalent for a
+six-max table not in the detailed reading, or a spectator's: `--seat-h`,
+`--seat-card`, `--board-card` and `--chip` step up under `@media
+(min-height: 690px)`, spending a tall phone's own slack on bigger cards
+instead of leaving it as dead green above the board and below the last seat,
+which was the same complaint's other half.
+
+A spectator's felt keeps the geometry above, because the bottom seat is a
+player's and still has to be placed. The ended match keeps the shape: the band leaves with the match, and
 without this the felt under the result panel fell back to the half-width
 opponent in an empty column; ended, the slack rows are nought and your own
 seat, drawn again once the band is gone, takes a last full-width row, so the
