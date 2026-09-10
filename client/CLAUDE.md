@@ -26,6 +26,7 @@ declaration for `phe` that the engine's own tsconfig provides.
 | `src/analysis/` | equity, outs and hand names in a web worker, plus the practice strip and the replay panel |
 | `src/replay/` | re-deriving a stored hand and rehashing its seed in the browser |
 | `src/routes/` | the pages, including `src/routes/learn/` which has its own doc |
+| `src/review/` | the match-level review on `/m/:id`: per-seat spider charts, backed counts and the chip track |
 | `src/tools/` | the pages at `/tools` |
 | `src/puzzles/` | the daily puzzles |
 | `src/chat/` | table chat |

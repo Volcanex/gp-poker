@@ -272,9 +272,9 @@ the entry point; the detail lives down the tree.
 
 - `client/CLAUDE.md`, and under it `client/src/net/`, `client/src/table/`,
   `client/src/analysis/`, `client/src/replay/`, `client/src/routes/` (with
-  `client/src/routes/learn/`), `client/src/tools/`, `client/src/puzzles/`,
-  `client/src/chat/`, `client/src/ui/`, `client/src/admin/`, `client/src/sound/`
-  and `client/e2e/`
+  `client/src/routes/learn/`), `client/src/review/`, `client/src/tools/`,
+  `client/src/puzzles/`, `client/src/chat/`, `client/src/ui/`,
+  `client/src/admin/`, `client/src/sound/` and `client/e2e/`
 - `server/CLAUDE.md`, and under it `server/src/`, `server/src/match/`,
   `server/src/ws/`, `server/src/bots/`, `server/src/tournaments/` and
   `server/test/`
