@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { axisPoints, styleWords } from '../review/style.ts';
+import { axisPoints, styleWords, wilsonInterval } from '../review/style.ts';
 import { reads } from '../review/reads.ts';
 import type { MatchRawRates } from '../net/types.ts';
 
@@ -35,6 +35,70 @@ describe('axisPoints', () => {
     const points = axisPoints(rates());
     const af = points.find((p) => p.axis.key === 'aggressionFactor')!;
     expect(af.display).toBe('2.00x over 2 calls');
+  });
+});
+
+describe('wilsonInterval', () => {
+  it('has nothing to estimate from zero chances', () => {
+    expect(wilsonInterval(0, 0)).toBeNull();
+  });
+
+  it('narrows continuously as the sample grows, with no threshold anywhere', () => {
+    const one = wilsonInterval(1, 1)!;
+    const eight = wilsonInterval(4, 8)!;
+    const fortyFour = wilsonInterval(22, 44)!;
+    const widthOf = (b: { lower: number; upper: number }) => b.upper - b.lower;
+    // Same point estimate (0.5) at every size; only the width should move.
+    expect(widthOf(one)).toBeGreaterThan(widthOf(eight));
+    expect(widthOf(eight)).toBeGreaterThan(widthOf(fortyFour));
+  });
+
+  it('swallows nearly the whole axis at a single observation', () => {
+    const won = wilsonInterval(1, 1)!;
+    expect(won.upper - won.lower).toBeGreaterThan(0.6);
+  });
+
+  it('draws a materially tighter band once the sample is real', () => {
+    const one = wilsonInterval(1, 1)!;
+    const b = wilsonInterval(22, 44)!;
+    // 1 of 1 spans the whole axis (0.79 wide, upper pinned at 1); 22 of 44
+    // is under half that width and centred, not pinned to an edge.
+    expect(b.upper - b.lower).toBeLessThan((one.upper - one.lower) / 2);
+    expect(b.lower).toBeLessThan(0.5);
+    expect(b.upper).toBeGreaterThan(0.5);
+  });
+
+  it('never lets a bound leave 0..1', () => {
+    const near1 = wilsonInterval(50, 50)!;
+    const near0 = wilsonInterval(0, 50)!;
+    expect(near1.upper).toBeLessThanOrEqual(1);
+    expect(near0.lower).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('axisPoints, the uncertainty band', () => {
+  it('gives a proportion axis a wide band at one hand and a tight one at forty-four', () => {
+    const short = axisPoints(rates({ vpip: { made: 1, of: 1, pct: 100 } })).find((p) => p.axis.key === 'vpip')!;
+    const long = axisPoints(rates({ vpip: { made: 22, of: 44, pct: 50 } })).find((p) => p.axis.key === 'vpip')!;
+    expect(short.lower).not.toBeNull();
+    expect(short.upper! - short.lower!).toBeGreaterThan(long.upper! - long.lower!);
+    // The single-hand shape still can't claim a tight, confident ring even
+    // though its point sits at the same saturated 100%.
+    expect(short.upper! - short.lower!).toBeGreaterThan(0.3);
+  });
+
+  it('gives aggression factor no band at all, ratio rather than proportion', () => {
+    const af = axisPoints(rates({ aggressionFactor: { made: 40, of: 20, pct: 2000 } })).find(
+      (p) => p.axis.key === 'aggressionFactor'
+    )!;
+    expect(af.lower).toBeNull();
+    expect(af.upper).toBeNull();
+  });
+
+  it('keeps the no-chances axis a marker, not a full-width band', () => {
+    const p = axisPoints(rates()).find((p) => p.axis.key === 'threeBet')!;
+    expect(p.lower).toBeNull();
+    expect(p.upper).toBeNull();
   });
 });
 

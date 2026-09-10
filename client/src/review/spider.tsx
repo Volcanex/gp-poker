@@ -34,18 +34,28 @@ function pointAt(i: number, v: number): [number, number] {
    component's worth of API surface for one page. See client/src/review/CLAUDE.md
    for why a normalised shape is drawn at all given the honesty rule.
 
-   The polygon's fill is full strength only when every axis has a real
-   denominator; short of that it is a wash, because a confident-looking solid
-   hexagon drawn from a nine-hand match is exactly the unbacked insight the
-   owner asked not to ship. Every axis prints its own made-of-of count in the
-   legend below regardless: the shape is illustration, the count is the
-   claim. */
+   A point alone is not enough: a ring position from 1 of 1 hands and one
+   from 44 of 50 look identical if the only thing drawn is where the rate
+   landed, which is the exact inversion the feature exists to avoid — the
+   least evidence drawing the most confident-looking shape. So the chart
+   draws each axis's 95% Wilson interval (style.ts) as a band between an
+   inner and an outer polygon, filled only in the space between them, with
+   the point itself as a thin line inside that band. At of:1 the band
+   swallows most of the ring; at of:44 it draws tight around the point. The
+   uncertainty is geometry, not a caption, so it survives a screenshot with
+   the legend cropped out. Aggression factor has no band (style.ts: Wilson
+   is for a proportion, and a ratio of calls to raises is not one), so that
+   axis is a point alone and says so in the legend below. */
 export function Spider({ raw, label }: { raw: MatchRawRates; label: string }) {
   const points = axisPoints(raw);
-  const allBacked = points.every((p) => p.value !== null);
   const style = styleWords(raw);
 
   const vertices = points.map((p, i) => pointAt(i, p.value ?? NO_DATA_R));
+  const innerVertices = points.map((p, i) => pointAt(i, p.lower ?? p.value ?? NO_DATA_R));
+  const outerVertices = points.map((p, i) => pointAt(i, p.upper ?? p.value ?? NO_DATA_R));
+  const ciPath =
+    `M${outerVertices.map((v) => v.join(',')).join('L')}Z ` +
+    `M${innerVertices.map((v) => v.join(',')).join('L')}Z`;
 
   return (
     <div className="spider">
@@ -64,11 +74,7 @@ export function Spider({ raw, label }: { raw: MatchRawRates; label: string }) {
           const [x, y] = pointAt(i, 1);
           return <line key={i} x1={CX} y1={CY} x2={x} y2={y} className="spider-spoke" />;
         })}
-        <polygon
-          points={vertices.map((v) => v.join(',')).join(' ')}
-          className="spider-fill"
-          data-complete={allBacked ? '' : undefined}
-        />
+        <path d={ciPath} className="spider-ci" fillRule="evenodd" />
         {points.map((p, i) => {
           const a = vertices[i];
           const b = vertices[(i + 1) % AXIS_COUNT];
@@ -110,14 +116,20 @@ export function Spider({ raw, label }: { raw: MatchRawRates; label: string }) {
       <dl className="spider-legend">
         {points.map((p) => (
           <div className="row" key={p.axis.key} data-empty={p.value === null ? '' : undefined}>
-            <dt>{p.axis.label}</dt>
+            <dt>
+              {p.axis.label}
+              {p.axis.unit === 'x' && <span className="spider-flag">no interval, a ratio not a share</span>}
+            </dt>
             <dd className="num">{p.display}</dd>
           </div>
         ))}
       </dl>
       <p className="spider-note">
-        Ring position is each rate against a typical range for its axis
-        (see the guide below); the count beside it is what actually happened.
+        Ring position is each rate against a typical range for its axis (see
+        the guide below); the shaded band around it is how much a sample this
+        size could be off by, tighter with more hands and wide enough at one
+        or two to swallow the axis; the count beside it is what actually
+        happened.
       </p>
       <details className="spider-band">
         <summary>What "typical" means on this chart</summary>

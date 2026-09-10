@@ -32,11 +32,57 @@ this player that three chances cannot support.
 The spider (`spider.tsx`) draws the raw counts, not the gated ones, because a
 match review is inherently about one sitting. Every axis prints its own
 count in the legend beneath the shape, and an axis with no denominator is a
-hollow marker on a dashed spoke, never a point plotted at zero: the polygon's
-fill is only drawn at full strength when every axis has a real count behind
-it, a wash otherwise. Reading the shape without reading the legend under it
-is exactly the failure mode this file exists to prevent, so the legend is
-never optional and never collapsed behind a toggle.
+hollow marker on a dashed spoke, never a point plotted at zero. Reading the
+shape without reading the legend under it is exactly the failure mode this
+file exists to prevent, so the legend is never optional and never collapsed
+behind a toggle.
+
+**The shape itself has to carry the uncertainty, not just the legend beside
+it.** The first version of this chart used "does a denominator exist" as its
+only honesty check: an axis with `of: 0` got the hollow no-data marker, and
+anything with `of` greater than zero got a filled point at its ring
+position, the same as a career-length sample. That is wrong in a way the
+no-data check does not catch — presence of a denominator is not the same as
+sufficiency of one. A seat dealt one hand that played it goes 1 of 1 on
+VPIP, PFR and went-to-showdown: a real, backed rate, plotted at the very
+edge of the ring, drawing the single most confident-looking shape the chart
+can produce from the single least amount of evidence it can hold. That is
+the exact inversion the feature exists to prevent, and six-max makes it the
+common case, not the edge case: a seat that busts in the first orbit is
+ordinary, not rare.
+
+The fix is `wilsonInterval` in `style.ts`, the standard 95% confidence
+interval for a binomial proportion estimated from a small sample (a Wald
+interval centred on the point estimate is a bad approximation exactly where
+this matters: low n, p near 0 or 1). `axisPoints` normalises its lower and
+upper bounds onto the same ring the point is, and `Spider` draws them as an
+inner and an outer polygon with the fill only in the band between them —
+never from the centre out, which would just be the old always-filled shape
+again with extra steps. At `of: 1` the band swallows most of the axis; by
+`of: 44` it draws tight around the point. There is no threshold anywhere in
+that arithmetic for a sample to cross before it is "trusted" — the
+uncertainty shrinks in continuous proportion to the evidence, which is what
+answers the "3 of 8 versus 300 of 800" question without either of us having
+to pick a cutoff. Because it is geometry rather than a caption, it survives
+someone screenshotting the shape with the legend cropped out, which a
+sentence under the chart cannot.
+
+Aggression factor gets no band. Wilson is defined for a proportion — a share
+of a fixed number of trials — and aggression factor is bets-and-raises per
+call, a ratio that is not bounded at 1 and is not a share of anything fixed.
+Applying a binomial interval to it anyway would be a second, quieter unbacked
+claim stacked on top of the first one this fix removes, so that axis stays a
+point alone and the legend says so (`spider-flag`, "no interval, a ratio not
+a share") rather than silently doing the wrong arithmetic. `of: 0` is
+untouched by any of this: still the hollow marker on a dashed spoke, because
+"no chances" and "one chance" are genuinely different states and a wide band
+would blur them into the same picture.
+
+`client/src/test/review.test.ts` pins the shape of this: `wilsonInterval` at
+`of: 1`, `of: 8` and `of: 44` with the width strictly shrinking, both bounds
+held to `0..1`, and `axisPoints` asserting a one-hand VPIP band swallows over
+a third of the ring while a same-match 44-hand one does not, plus the
+aggression-factor and `of: 0` axes both carrying no band at all.
 
 The accuracy tile is the other place this shows up: six-max stores no
 preflop study at all (`server/src/match/handRunner.ts`), which is a

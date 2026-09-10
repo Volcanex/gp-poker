@@ -91,13 +91,23 @@
 .spider svg { width: 100%; max-width: 260px; height: auto; margin: 0 auto; display: block; }
 .spider-ring { fill: none; stroke: var(--border); stroke-width: 1; }
 .spider-spoke { stroke: var(--border); stroke-width: 1; }
-.spider-fill { fill: var(--chart-1); fill-opacity: 0.06; stroke: none; }
-.spider-fill[data-complete] { fill-opacity: 0.18; }
+/* The uncertainty band: filled only between the Wilson interval's lower and
+   upper polygons (drawn as one evenodd path, see spider.tsx), never from the
+   centre out. Width is the honesty signal — wide at of:1, tight at of:44 —
+   so it carries on its own without the legend, which is the point of doing
+   this in geometry rather than a caption. */
+.spider-ci { fill: var(--chart-1); fill-opacity: 0.16; stroke: none; }
 .spider-edge { stroke: var(--chart-1); stroke-width: 1.5; fill: none; }
 .spider-edge[data-dashed] { stroke-dasharray: 3 3; opacity: 0.55; }
 .spider-vertex { fill: var(--chart-1); stroke: none; }
 .spider-vertex[data-empty] { fill: var(--surface-2); stroke: var(--chart-1); stroke-width: 1.5; }
 .spider-label { font-size: 11px; fill: var(--text-secondary); }
+.spider-flag {
+  display: block;
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
 
 .spider-legend {
   display: grid;
@@ -118,8 +128,7 @@
    carry identity here, so the one axis that does need to stand out (your own
    seat, on your own review) stands out in weight instead. */
 .review-player[data-you] .spider-edge { stroke-width: 2.25; }
-.review-player[data-you] .spider-fill { fill-opacity: 0.24; }
-.review-player[data-you] .spider-fill[data-complete] { fill-opacity: 0.3; }
+.review-player[data-you] .spider-ci { fill-opacity: 0.24; }
 
 .spider-band {
   font-size: 11px;

@@ -41,6 +41,14 @@ export interface AxisPoint {
   // feature exists to refuse. The chart draws these as an open ring at the
   // centre and a dashed spoke, never a filled point.
   value: number | null;
+  // The Wilson interval's two bounds, normalised onto the same ring `value`
+  // is. Null for the same reason `value` is null (of: 0), and also null on
+  // a ratio axis (aggressionFactor), which is not a proportion of hands and
+  // has no binomial interval to compute — see wilsonInterval's own doc.
+  // Present and equal to `value` is not a thing that happens: even one
+  // observation has a wide interval, which is the entire point.
+  lower: number | null;
+  upper: number | null;
   display: string; // "3 of 8 hands" style caption, always present
 }
 
@@ -50,15 +58,43 @@ function fmtRaw(rate: RawRate, unit: '%' | 'x'): string {
   return `${rate.made} of ${rate.of} ${rate.of === 1 ? 'hand' : 'hands'}`;
 }
 
+/* The 95% Wilson score interval for made/of, the standard correction for a
+   binomial proportion estimated from a small sample (a normal/Wald interval
+   centred on p-hat is a bad approximation exactly where this feature needs
+   one most: n under 30, p near 0 or 1). At of:1 the interval spans nearly
+   the whole 0..1 axis; it narrows as of grows, with no threshold anywhere
+   in the arithmetic for a sample to cross before it is "trusted" — the
+   shape is uncertain in continuous proportion to how little happened, not
+   suddenly confident past a cutoff. Null when there is nothing to estimate
+   from (of: 0), which the caller already draws as the open, no-data marker
+   rather than any interval at all. */
+export function wilsonInterval(made: number, of: number, z = 1.96): { lower: number; upper: number } | null {
+  if (of === 0) return null;
+  const n = of;
+  const p = made / n;
+  const z2 = z * z;
+  const denom = 1 + z2 / n;
+  const centre = (p + z2 / (2 * n)) / denom;
+  const margin = (z * Math.sqrt((p * (1 - p)) / n + z2 / (4 * n * n))) / denom;
+  return { lower: Math.max(0, centre - margin), upper: Math.min(1, centre + margin) };
+}
+
 export function axisPoints(raw: MatchRawRates): AxisPoint[] {
   return AXES.map((axis) => {
     const rate = raw[axis.key];
     const ratio = rate.of === 0 ? null : rate.made / rate.of;
-    const scaled = axis.unit === 'x' ? (ratio ?? 0) : (ratio ?? 0) * 100;
+    const norm = (r: number) => Math.max(0, Math.min(1, (axis.unit === 'x' ? r : r * 100) / axis.max));
+    // Aggression factor is bets-and-raises per call, unbounded above 1 and
+    // not a share of a fixed number of trials: Wilson is defined for a
+    // proportion and would be a second, silent unbacked claim layered on
+    // top of the first if applied here anyway.
+    const wilson = axis.unit === 'x' ? null : wilsonInterval(rate.made, rate.of);
     return {
       axis,
       rate,
-      value: ratio === null ? null : Math.max(0, Math.min(1, scaled / axis.max)),
+      value: ratio === null ? null : norm(ratio),
+      lower: wilson ? norm(wilson.lower) : null,
+      upper: wilson ? norm(wilson.upper) : null,
       display: fmtRaw(rate, axis.unit),
     };
   });
