@@ -142,8 +142,8 @@ describe('the price of a call', () => {
 
   it('says the price on its own, and with the hand that paid it', () => {
     const price = { toCall: 12, pot: 24, needed: 1 / 3 };
-    expect(priceText(price, null)).toBe('needed 33.3%');
-    expect(priceText(price, 0.42)).toBe('needed 33.3%, had 42.0%');
+    expect(priceText(price, null)).toBe('Needed 33.3%');
+    expect(priceText(price, 0.42)).toBe('Needed 33.3%, had 42.0%');
   });
 });
 

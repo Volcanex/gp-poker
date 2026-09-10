@@ -58,3 +58,55 @@ then stop.
 A seat's rating is 0 in a replayed view: a hand row does not record what the
 players were rated at the time, and a made-up number beside a name is worse than
 no number, so the seat hides it.
+
+## The felt is v2, bare, and capped at 520px
+
+`replay.tsx` passes `<Table ... bare look="v2">`. `look="v2"` is what gives the
+replay the current cards and chips (`playing-card.tsx`'s SVG faces,
+`chip-stack.tsx`'s ticking columns); `bare` keeps the hero band off regardless
+of `look`, since `band = look === 'v2' && !bare && !ended` in `table.tsx` — a
+replay has no hero seat, so nothing about turning the band on ever applied
+here. Before this the replay drew `v1`'s default look, which is effectively
+unmaintained now that every live table draws v2 (`table/CLAUDE.md`, "The v2
+felt"): its cards were blank rounded rectangles.
+
+`.match[data-bare]` in `replay.css` caps the felt at 520px and centres it in
+its card, rather than filling the card's own width. That number is not
+decorative: `.match { container-type: inline-size }` is what the felt's own
+`@container` queries in `app.css` read, and a replay's felt sits in a
+two-column page (the felt beside a 268px action list) inside `.page.wide`'s
+980px cap, which lands its width somewhere around 600-900px on an ordinary
+window — short of the 1060px a seat needs to stand in its full wing, and past
+the 560px a seat's compact form starts at. A seat's own grid has nowhere to
+put the identity block in that gap, which is what the reported "chip stack and
+figure drawn on top of each other" bug was: not an overlap bug in the seat
+itself, but the one place on the site that ever handed the felt a width
+between those two numbers. A live table's felt is always either the viewport's
+own width (comfortably past 1060 on a desktop) or actually a phone's (under
+560, where the felt's `data-rows` layout takes over instead), so the gap never
+showed anywhere else. 520 sits inside the compact range on every window.
+
+The stats box (`Hand`/`Street`/`Blinds`/`To call`) is hidden in bare mode
+(`.match[data-bare] .stats`): it exists to fill a live table's otherwise spare
+corner, a replay has none, and the same four facts are already in the page's
+own header and its action list.
+
+## The street strip has no point for a street nobody acted on
+
+`streetPoints()` in `../analysis/replay-analysis.ts` finds the first state at
+each of `pre`/`flop`/`turn`/`river` by scanning `states` for that exact
+`street` value. `packages/engine`'s `replay()` returns one state per *logged
+action* (`packages/engine/src/replay.ts`), and an all-in run-out deals every
+remaining street inside a single transition
+(`runOutAndShowdown`/`dealNextStreet` in `packages/engine/src/deal.ts`) with no
+action of its own to hang a state on. A hand that goes all in on the flop and
+runs out to a river showdown therefore has a `states` array that jumps from a
+`flop` state straight to a terminal one with a five-card board: nothing in it
+is ever tagged `turn` or `river`, so the strip silently prints two columns
+instead of four for that hand. `client/src/routes/replay.tsx` and everything
+under here can see this; fixing it needs the engine to expose the run-out's
+intermediate boards, which is `packages/engine`'s to do. `StripRow` in
+`../analysis/replay-panel.tsx` shows a "Computing" placeholder rather than a
+bare midline when a row has resolved nothing at all, which is a real fix for a
+cell that reads as broken while the worker is still answering, but does not
+manufacture the missing turn/river columns themselves.

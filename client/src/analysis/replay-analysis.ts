@@ -228,6 +228,6 @@ export function percent(fraction: number): string {
    out loud. Without a number for the hand it is still worth saying what the
    call needed. */
 export function priceText(price: Price, equity: number | null): string {
-  const needed = `needed ${percent(price.needed)}`;
+  const needed = `Needed ${percent(price.needed)}`;
   return equity == null ? needed : `${needed}, had ${percent(equity)}`;
 }

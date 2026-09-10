@@ -115,6 +115,10 @@
   border-radius: 50%;
   margin-right: var(--sp-2);
   background: var(--border);
+  /* An inline-block with nothing inside it to give it a baseline of its own
+     borrows its bottom margin edge, which sat it under the name's cap height
+     rather than beside it. */
+  vertical-align: middle;
 }
 
 .ra-dot[data-chart="1"] { background: var(--chart-1); }
@@ -125,11 +129,15 @@
 .ra-dot[data-chart="6"] { background: var(--chart-6); }
 
 /* The shape sits in a box of its own size, so the sparkline never stretches:
-   a point drawn as a circle has to stay a circle. */
+   a point drawn as a circle has to stay a circle. Baseline, the table's own
+   default, lines a cell up on the row's text; a chart has no text in it to
+   own one, so it sat low against the seat name and the percentages beside
+   it. Middle is what a graphic wants. */
 .ra-shape {
   width: 120px;
   min-width: 120px;
   line-height: 0;
+  vertical-align: middle;
 }
 
 .ra-mid {

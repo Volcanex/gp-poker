@@ -13,6 +13,7 @@ import { stateToView } from '../replay/to-view.ts';
 import { verifyHand } from '../replay/fairness.ts';
 import type { Check } from '../replay/fairness.ts';
 import { BoardText } from '../ui/board-text.tsx';
+import '../replay/replay.css';
 import { useSession } from '../net/session.tsx';
 import {
   AnalysisPanel,
@@ -184,7 +185,7 @@ function HandReplay({ hand, handCount }: { hand: Hand; handCount: number | null 
         <div className="replay">
           <div className="replay-main">
             <div className="card replay-felt">
-              <Table view={view} onAct={() => {}} sending={false} bare />
+              <Table view={view} onAct={() => {}} sending={false} bare look="v2" />
             </div>
             <div className="scrubber">
               <button
@@ -383,8 +384,8 @@ function studyFor(hand: Hand, states: HandState[], index: number): string | null
   if (!decision) return null;
 
   const best = { aggr: 'raise', passive: 'call', fold: 'fold' }[decision.best];
-  if (decision.evLost <= 0) return `baseline: ${best}, on plan`;
-  return `baseline: ${best}, ${decision.evLost.toFixed(1)} bb lost`;
+  if (decision.evLost <= 0) return `Baseline: ${best}, on plan`;
+  return `Baseline: ${best}, ${decision.evLost.toFixed(1)} bb lost`;
 }
 
 function ActionList({
@@ -534,7 +535,7 @@ function Fairness({ hand }: { hand: Hand }) {
           <ul className="checks">
             {checks.map((c) => (
               <li key={c.key} data-ok={c.ok ? '' : undefined}>
-                <span className="check-state">{c.ok ? 'ok' : 'mismatch'}</span>
+                <span className="check-state">{c.ok ? 'Ok' : 'Mismatch'}</span>
                 <span className="check-label">{c.label}</span>
                 <span className="check-detail">{c.detail}</span>
               </li>
