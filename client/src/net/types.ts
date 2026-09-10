@@ -684,3 +684,62 @@ export interface ProfileTournament {
   place: number | null;
   players: number;
 }
+
+/* /api/matches/:id/review: how every seat at one finished match actually
+   played, mirroring server/src/match-review.ts. `insights` is the same shape
+   as the profile's Insights above, gated below `minHands` exactly as there —
+   a six-max match's fifty-odd hands split six ways rarely clear it for any
+   one seat. `raw` never gates: every axis is a plain count either side of a
+   divide, honest at any sample size, which is what the review's charts are
+   drawn from instead. */
+export interface RawRate {
+  made: number;
+  of: number;
+  pct: number | null;
+}
+
+export interface MatchRawRates {
+  hands: number;
+  vpip: RawRate;
+  pfr: RawRate;
+  threeBet: RawRate;
+  aggressionFactor: RawRate;
+  cbet: RawRate;
+  wentToShowdown: RawRate;
+}
+
+export interface MatchAccuracy {
+  mean: number | null;
+  hands: number;
+}
+
+export interface ChipPoint {
+  hand: number;
+  chips: number;
+  final?: boolean;
+}
+
+export interface MatchSeatReview {
+  seat: number;
+  userId: string;
+  name: string;
+  bot: boolean;
+  avatarV: number;
+  place: number | null;
+  finalStack: number | null;
+  result: 'win' | 'loss' | 'draw';
+  insights: Insights;
+  raw: MatchRawRates;
+  // Null when this match's mode stores no preflop study at all (six-max),
+  // not when a seat simply had no scoreable decision (raw counts as zero).
+  accuracy: MatchAccuracy | null;
+  chips: ChipPoint[];
+}
+
+export interface MatchReview {
+  matchId: string;
+  mode: Mode;
+  hands: number;
+  minHands: number;
+  seats: MatchSeatReview[];
+}

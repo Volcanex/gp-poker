@@ -14,6 +14,8 @@ import { StakeBadge } from './feed.tsx';
 import { useTitle } from '../ui/title.ts';
 import { mockChat, mockScript } from '../dev/mock.ts';
 import { useMatchChat, useMockChat } from '../chat/use-chat.ts';
+import { MatchReview } from '../review/match-review.tsx';
+import '../review/review.css';
 
 export function Match() {
   const { id = '' } = useParams();
@@ -265,7 +267,16 @@ function LiveMatch({ id }: { id: string }) {
         : undefined;
 
   if (opened) {
-    return <MatchSummary match={opened} meId={me?.id ?? null} onAgain={playAgain} againLabel={againLabel} />;
+    return (
+      <>
+        <MatchSummary match={opened} meId={me?.id ?? null} onAgain={playAgain} againLabel={againLabel} />
+        {opened.status === 'finished' && (
+          <main className="page">
+            <MatchReview matchId={opened.id} meId={me?.id ?? null} />
+          </main>
+        )}
+      </>
+    );
   }
 
   if (offline && !view) return <Pending text="The table server is not answering. Reload once it is back." />;
@@ -306,6 +317,7 @@ function LiveMatch({ id }: { id: string }) {
           />
           <main className="page">
             <HandsSection match={ended} />
+            <MatchReview matchId={ended.id} meId={me?.id ?? null} />
           </main>
         </>
       ) : (
