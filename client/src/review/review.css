@@ -113,26 +113,47 @@
 
 .spider-note { font-size: 11px; color: var(--text-secondary); margin: 0; }
 
-/* ---------------------------------------------------------- chips chart */
+/* "You" reads heavier, never a different hue: the whole point of drawing one
+   radar per card instead of one overlaid chart is that colour never has to
+   carry identity here, so the one axis that does need to stand out (your own
+   seat, on your own review) stands out in weight instead. */
+.review-player[data-you] .spider-edge { stroke-width: 2.25; }
+.review-player[data-you] .spider-fill { fill-opacity: 0.24; }
+.review-player[data-you] .spider-fill[data-complete] { fill-opacity: 0.3; }
 
-.chips-chart { display: flex; flex-direction: column; gap: var(--sp-3); }
-.chips-chart svg { width: 100%; height: 200px; display: block; }
-.chips-zero { stroke: var(--border); stroke-width: 1; }
-.chips-line { fill: none; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
-.chips-line[data-mine] { stroke-width: 2.5; }
-
-.chips-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-2) var(--sp-4);
-  font-size: 12px;
+.spider-band {
+  font-size: 11px;
   color: var(--text-secondary);
+  margin: 0;
 }
-.chips-legend .item { display: inline-flex; align-items: center; gap: 6px; }
-.chips-legend .item[data-mine] { color: var(--text-primary); font-weight: 500; }
-.chips-legend .dot { width: 8px; height: 8px; border-radius: 2px; flex: none; }
-.chips-legend .num { color: var(--text-primary); font-variant-numeric: tabular-nums; }
-.chips-legend .item[data-mine] .num { font-weight: 500; }
+.spider-band summary { cursor: pointer; color: var(--text-primary); }
+.spider-band dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px var(--sp-2);
+  margin: var(--sp-2) 0 0;
+}
+.spider-band dl .row { display: contents; }
+.spider-band dt { color: var(--text-secondary); }
+.spider-band dd { margin: 0; }
+
+/* --------------------------------------------------------- chip sparkline
+   One line per card, one colour for every card: six overlaid hues on a
+   single chart is what the dataviz pass over g-system's own --chart-1..6
+   failed a CVD check on (deltaE 3.6 between #e93d82 and #12a594 under
+   deuteranopia). Small multiples sidestep the problem rather than working
+   around it: there is never more than one series in view, so there is
+   nothing for colour to have to separate. */
+.rp-chips { display: flex; flex-direction: column; gap: var(--sp-2); }
+.chip-spark { display: flex; flex-direction: column; gap: 4px; }
+.cs-graph svg { width: 100%; height: 56px; display: block; }
+.cs-zero { stroke: var(--border); stroke-width: 1; }
+.cs-line { fill: none; stroke: var(--chart-1); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.cs-line[data-mine] { stroke-width: 3; }
+.cs-figures { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); }
+.cs-end { color: var(--text-primary); }
+.cs-end[data-sign='up'] { color: var(--ok-text); }
+.cs-end[data-sign='down'] { color: var(--danger-text); }
 
 /* --------------------------------------------------- the hands table, phone
    The hands table itself is HandsSection in client/src/table/match-summary.tsx,

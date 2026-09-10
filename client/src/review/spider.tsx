@@ -1,4 +1,4 @@
-import { axisPoints, styleWords, type AxisPoint } from './style.ts';
+import { AXES, axisPoints, styleWords, type AxisPoint } from './style.ts';
 import type { MatchRawRates } from '../net/types.ts';
 
 const SIZE = 300;
@@ -119,6 +119,21 @@ export function Spider({ raw, label }: { raw: MatchRawRates; label: string }) {
         Ring position is each rate against a typical range for its axis
         (see the guide below); the count beside it is what actually happened.
       </p>
+      <details className="spider-band">
+        <summary>What "typical" means on this chart</summary>
+        <dl>
+          {AXES.map((a) => (
+            <div className="row" key={a.key}>
+              <dt>{a.short}</dt>
+              <dd>
+                {a.unit === 'x'
+                  ? `${a.typical[0]}x–${a.typical[1]}x typical, ${a.max}x fills the ring`
+                  : `${a.typical[0]}–${a.typical[1]}% typical, ${a.max}% fills the ring`}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </details>
     </div>
   );
 }

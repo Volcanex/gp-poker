@@ -5,6 +5,7 @@ import { ordinal } from '../table/labels.ts';
 import { avatarVersion } from '../net/adapt.ts';
 import { Spider } from './spider.tsx';
 import { AccuracyTile } from './accuracy.tsx';
+import { ChipSpark } from './chip-spark.tsx';
 import { reads } from './reads.ts';
 import type { MatchSeatReview } from '../net/types.ts';
 
@@ -27,10 +28,12 @@ export function PlayerCard({
   seat,
   you,
   studied,
+  maxChips,
 }: {
   seat: MatchSeatReview;
   you: boolean;
   studied: boolean;
+  maxChips: number;
 }) {
   const bullets = reads(seat.raw);
   const streets = seat.insights.streets;
@@ -49,6 +52,11 @@ export function PlayerCard({
         </div>
         {seat.result === 'win' && <span className="badge badge-ok">Won</span>}
         {seat.result === 'draw' && <span className="badge">Draw</span>}
+      </div>
+
+      <div className="rp-chips">
+        <span className="muted">Chips by hand</span>
+        <ChipSpark seat={seat} maxChips={maxChips} you={you} />
       </div>
 
       <Spider raw={seat.raw} label={seat.name} />

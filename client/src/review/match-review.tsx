@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { api } from '../net/api.ts';
 import type { MatchReview as MatchReviewData, MatchSeatReview } from '../net/types.ts';
 import { PlayerCard } from './player-card.tsx';
-import { ChipsChart } from './chips-chart.tsx';
 
 /* The match-level review, under the result and the hand list on /m/:id.
    Its own request, the way the profile's insights are: a finished match's
@@ -55,6 +54,11 @@ export function MatchReview({ matchId, meId }: { matchId: string; meId: string |
   const studied = data.seats.some((s) => s.accuracy !== null);
   const shortSample = data.hands < data.minHands;
   const you = data.seats.find((s) => s.userId === meId) ?? null;
+  // One scale for every seat's chip sparkline, not one per card: a seat that
+  // only ever held 200 units has to draw shorter than one that ran to 800,
+  // or the small multiples would each be comparing a different scale as if
+  // they were the same chart.
+  const maxChips = Math.max(1, ...data.seats.flatMap((s) => s.chips.map((p) => p.chips)));
 
   return (
     <section className="stack review-section" style={{ gap: 'var(--sp-4)' }}>
@@ -72,16 +76,9 @@ export function MatchReview({ matchId, meId }: { matchId: string; meId: string |
 
       <AccuracyBanner data={data} />
 
-      {data.seats.length > 1 && (
-        <div className="ins-group">
-          <span className="muted">Chips by hand</span>
-          <ChipsChart seats={data.seats} meId={meId} />
-        </div>
-      )}
-
       <div className="review-grid">
         {orderSeats(data.seats, meId).map((s) => (
-          <PlayerCard key={s.userId} seat={s} you={s.userId === meId} studied={studied} />
+          <PlayerCard key={s.userId} seat={s} you={s.userId === meId} studied={studied} maxChips={maxChips} />
         ))}
       </div>
 

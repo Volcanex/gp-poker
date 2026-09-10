@@ -53,10 +53,36 @@ than only living in a tooltip.
 Same reasoning as `client/src/ui/rating-graph.tsx` and `profile.css`'s two
 charts: g ships `g.chart`, but it draws into a DOM node it owns and
 re-renders by being called again, which fights React. `spider.tsx` and
-`chips-chart.tsx` are drawn as JSX for the same reason, reading `--chart-1`
-through `--chart-6` so they stay legible across all four palettes
-(`client/src/palettes.css`) and the games room theme (`client/src/room.css`)
-without a colour of their own.
+`chip-spark.tsx` are drawn as JSX for the same reason.
+
+**The chip chart is small multiples, not six overlaid lines.** The first cut
+put every seat's stack on one chart, one of g-system's six `--chart-1..6`
+hues each. A CVD check on those exact six tokens on the dark surface fails:
+`#e93d82` (chart-5) and `#12a594` (chart-3) sit 3.6 deltaE apart under
+deuteranopia and 1.9 under tritanopia, both well under the 15 a reader needs
+to tell two lines apart, and `#46a758` vs `#12a594` fail even for ordinary
+colour vision at 8.4. Six is also one past what a legend can carry with
+direct labels. `chip-spark.tsx` is the fix: one sparkline per seat, inside
+that seat's own card, drawn in a single colour every time
+(`var(--chart-1)`), so identity comes from the card it sits in rather than
+from a hue nobody can be asked to separate six ways. "You" is heavier
+(`stroke-width`), never a different colour — the same rule the spider's own
+`data-you` weight follows. Every card's sparkline shares one y scale
+(`maxChips`, computed once in `match-review.tsx`), not an auto-fit range
+each: a seat that only ever held 200 units has to draw shorter than one that
+ran to 800, or the small multiples would each be comparing a different scale
+as if it were the same chart.
+
+**The radar's reference band is printed, not implied.** A ring position
+means nothing without the band it is normalised against sitting somewhere a
+reader can see it, so the `<details>` under each spider (`spider-band` in
+`review.css`) spells out every axis's typical range and what fills the ring
+outright, and the axis order (`AXES` in `style.ts`) is fixed and identical
+on every player's chart, because a reordered axis changes the shape's
+silhouette and two players' shapes stop being comparable. One radar per
+seat, never two players' shapes filled on the same chart: comparison comes
+from the cards sitting side by side in `review-grid`, not from overlaid
+polygons.
 
 ## The hands table on a phone
 
