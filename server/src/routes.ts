@@ -23,6 +23,7 @@ import {
   getRatingHistoryForUser,
   getMatchById,
   getHandsForMatch,
+  getHandRowsForMatch,
   getHandById,
   getRecentMatches,
   getPuzzleHandCandidates,
@@ -49,6 +50,7 @@ import { rosterSummary } from './bots/index.js';
 import { onlineCount as populationOnlineCount } from './bots/population.js';
 import { mainMode, roundRatings, toModeRating, toUserSummary } from './userView.js';
 import { computeInsights, type Insights } from './insights.js';
+import { computeMatchReview, type MatchReview } from './match-review.js';
 import { health } from './health.js';
 import { emptyExplorerCube, explorerQuery, foldExplorerHands, sliceExplorer, type ExplorerCube } from './explorer.js';
 import { acceptChallenge, cancelChallenge, challengeSpeed, challengeView, createChallenge } from './challenges.js';
@@ -327,6 +329,25 @@ export function registerRoutes(app: FastifyInstance): void {
         accuracy: match.seats.map((s) => h.study?.[s.seat]?.summary.accuracy ?? null),
       })),
     };
+  });
+
+  /* The match-level review: how every seat at one finished match actually
+     played, in it rather than across their whole history. Cached forever per
+     match id, bounded the way the insights cache is: a finished match's hands
+     never change, so there is no invalidation to key on, only a cap on how
+     many reviews a long-running process keeps warm. Refused before the match
+     is finished — a live table's hands are still arriving, and a review of a
+     match mid-hand would be a review of a match that has not happened yet. */
+  app.get<{ Params: { id: string } }>('/api/matches/:id/review', async (request, reply) => {
+    const match = await getMatchById(request.params.id);
+    if (!match) return err(reply, 404, 'No such match');
+    if (match.status !== 'finished') return err(reply, 409, 'This match has not finished yet');
+    const cached = matchReviewCache.get(match.id);
+    if (cached) return cached;
+    const hands = await getHandRowsForMatch(match.id);
+    const review = computeMatchReview(match, hands);
+    rememberMatchReview(match.id, review);
+    return review;
   });
 
   app.get<{ Params: { id: string } }>('/api/hands/:id', async (request, reply) => {
@@ -877,6 +898,22 @@ function rememberInsights(key: string, at: string, body: Insights): void {
     const oldest = insightsCache.keys().next().value;
     if (oldest === undefined) break;
     insightsCache.delete(oldest);
+  }
+}
+
+// One entry per finished match, never invalidated: unlike the insights cache
+// above there is no "at" to compare, because a finished match's hands cannot
+// change under it. Bounded the same way, on insertion order, so a process
+// that reviews a lot of old matches does not hold every one of them forever.
+const MATCH_REVIEW_CACHE_MAX = 300;
+const matchReviewCache = new Map<string, MatchReview>();
+
+function rememberMatchReview(matchId: string, review: MatchReview): void {
+  matchReviewCache.set(matchId, review);
+  while (matchReviewCache.size > MATCH_REVIEW_CACHE_MAX) {
+    const oldest = matchReviewCache.keys().next().value;
+    if (oldest === undefined) break;
+    matchReviewCache.delete(oldest);
   }
 }
 

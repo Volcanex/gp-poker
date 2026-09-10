@@ -946,6 +946,14 @@ export async function getHandsForMatch(matchId: string): Promise<HandSummary[]> 
   `;
 }
 
+// The full rows for one match, actions included: what the match review needs
+// to fold every seat's hands through the engine the way insights.ts does.
+// getHandsForMatch leaves actions out because the ordinary match page never
+// reads them; this is the one caller that does.
+export async function getHandRowsForMatch(matchId: string): Promise<HandRow[]> {
+  return sql<HandRow[]>`select * from hands where match_id = ${matchId} order by number asc`;
+}
+
 // ---- rating history ----
 
 export async function getRatingHistoryForUser(userId: string): Promise<RatingHistoryRow[]> {
