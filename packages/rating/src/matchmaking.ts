@@ -10,10 +10,10 @@ export interface QueueEntry {
 }
 
 const WINDOW_FLOOR = 100;
-const WINDOW_STEP = 50;
-const WINDOW_STEP_MS = 5000;
+const WINDOW_STEP = 30;
+const WINDOW_STEP_MS = 1000;
 const WINDOW_CAP = 1000;
-const WINDOW_UNBOUNDED_MS = 60000;
+const WINDOW_UNBOUNDED_MS = 30000;
 
 /* How far a pairing may reach in rating for an entry at this moment. The
    default is `window`, which opens with the wait; a caller that wants two
@@ -22,6 +22,9 @@ export type Reach = (entry: QueueEntry, now: number) => number;
 
 export const anyone: Reach = () => Infinity;
 
+// Widens every second rather than every five: a search opens near its rating
+// and is willing to take anyone at all within half a minute, on a curve a
+// player watching the range tick up can actually see move.
 export function window(entry: QueueEntry, now: number): number {
   const waited = now - entry.joinedAt;
   if (waited >= WINDOW_UNBOUNDED_MS) return Infinity;

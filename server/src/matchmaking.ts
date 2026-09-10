@@ -40,11 +40,61 @@ export type { QueueEntry };
 const MATCH_ID_ALPHABET = '23456789abcdefghjkmnpqrstuvwxyz'; // base32-ish, no ambiguous chars
 const TICK_MS = 1000;
 
-// How long a lone human waits before a bot is brought in. Heads-up is short
-// because there is nothing to wait for once no human is queued; six-max is
-// longer because gathering real players is worth a little patience.
-const BOT_FILL_HEADS_UP_MS = 5_000;
-const BOT_FILL_SIX_MAX_MS = 20_000;
+// How long a human waits before a bot is brought in, for both heads-up and
+// six-max. Real players are matchmade with each other aggressively, whatever
+// the gap (see `people` below), so this is only the fallback for whoever is
+// left over. It has one branch: is there another real person around who
+// might still turn into an opponent. Nobody else queued anywhere: a bot is
+// brought in fast, because there is nothing to wait for. Somebody else is
+// queued: wait a little longer, because a second human might still land on
+// this exact table. Both were a single constant per mode until a second
+// human queuing six seconds after a heads-up seat had already been given to
+// a bot could never be matched with the first: gathering real players is
+// worth a little patience, but not so much that a lone, genuinely alone
+// visitor stares at a queue for the better part of a minute before anyone
+// deals them a hand.
+export const BOT_FILL_ALONE_MS = 30_000;
+export const BOT_FILL_ACCOMPANIED_MS = 45_000;
+
+let botFillAloneMs = BOT_FILL_ALONE_MS;
+let botFillAccompaniedMs = BOT_FILL_ACCOMPANIED_MS;
+
+// The one seam this file has for the fill clock, in the spirit of
+// `configureArena` and `configureFriends`: a test that wants to watch a bot
+// fill happen should not wait thirty or forty-five real seconds for it.
+export function configureMatchmaking(opts: { botFillAloneMs?: number; botFillAccompaniedMs?: number } = {}): void {
+  if (opts.botFillAloneMs !== undefined) botFillAloneMs = opts.botFillAloneMs;
+  if (opts.botFillAccompaniedMs !== undefined) botFillAccompaniedMs = opts.botFillAccompaniedMs;
+}
+
+export function resetMatchmakingConfig(): void {
+  botFillAloneMs = BOT_FILL_ALONE_MS;
+  botFillAccompaniedMs = BOT_FILL_ACCOMPANIED_MS;
+}
+
+/* "Online" here means searching for a table right now, anywhere in the
+   queue, not merely connected: a friend reading the leaderboard is present
+   on the site but is never going to turn into this player's opponent, and
+   counting them would buy nothing but a longer stare at the same empty
+   table. It also is not narrowed to a compatible bucket, because by the time
+   a bot-fill decision is being made a compatible human would already have
+   been paired by `people()` above, whatever the gap - so a same-bucket check
+   would almost always read false and the two thresholds would collapse into
+   one. Reading the whole queue is a deliberate bet the other way: somebody
+   searching for a different table right now is still a live visitor who
+   might requeue or widen their own search, which is worth fifteen extra
+   seconds of patience on a site this size. Bots never count: they are
+   always around and would make the "alone" branch unreachable. */
+function humansQueuedBesides(id: string): boolean {
+  for (const entry of queue.values()) {
+    if (!entry.bot && entry.id !== id) return true;
+  }
+  return false;
+}
+
+function botFillMs(id: string): number {
+  return humansQueuedBesides(id) ? botFillAccompaniedMs : botFillAloneMs;
+}
 
 interface QueuedPlayer extends QueueEntry {
   /* What this search will accept, in the order it prefers. One entry each for
@@ -435,7 +485,7 @@ async function tickHeadsUp(entries: QueuedPlayer[], format: MatchFormat, now: nu
   // picked again when the check passes.
   const waiting = entries.filter((e) => queue.has(e.id)).sort((a, b) => a.joinedAt - b.joinedAt);
   for (const entry of waiting) {
-    if (now - entry.joinedAt < BOT_FILL_HEADS_UP_MS) continue;
+    if (now - entry.joinedAt < botFillMs(entry.id)) continue;
     const [bot] = await availableBots(entry.rating, 1, format.mode);
     if (!bot) return;
     launch([entry], 1, format);
@@ -459,7 +509,7 @@ async function tickMultiway(entries: QueuedPlayer[], format: MatchFormat, now: n
     .filter((e) => queue.has(e.id))
     .sort((a, b) => Number(a.bot) - Number(b.bot) || a.joinedAt - b.joinedAt);
   if (waiting.length === 0) return;
-  if (now - waiting[0].joinedAt < BOT_FILL_SIX_MAX_MS) return;
+  if (now - waiting[0].joinedAt < botFillMs(waiting[0].id)) return;
 
   // Six-max fills with bots after the threshold, ranked included. Ranked
   // used to wait for six people, which with one person on the site meant it

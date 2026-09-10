@@ -30,9 +30,20 @@ against its live queue and applies whatever pairs come back. Both it and
 `groupQueue` take an optional `reach` in place of `window`; `anyone` is the
 one that ignores rating altogether, which is what the server uses for its
 people-only pass. `window(entry,
-now)` is `max(100, 2*rd) + 50` per 5 seconds waited, capped at 1000, and
-unbounded (`Infinity`) once an entry has waited 60 seconds or more, so
-nobody queues forever. A pair only forms when the rating gap sits inside
-*both* entries' windows. Entries are processed longest-waiting-first, each
-picking its closest-rated eligible opponent; ties break by `joinedAt` then
-`id` so the result is deterministic for identical inputs.
+now)` is `max(100, 2*rd) + 30` per second waited, capped at 1000, and
+unbounded (`Infinity`) once an entry has waited 30 seconds or more, so
+nobody queues forever. It widens every second rather than in five-second
+jumps so the range a searching player is shown actually moves as they
+watch it. A pair only forms when the rating gap sits inside *both* entries'
+windows. Entries are processed longest-waiting-first, each picking its
+closest-rated eligible opponent; ties break by `joinedAt` then `id` so the
+result is deterministic for identical inputs.
+
+This window is what governs when a human accepts a **bot already sitting in
+the queue** as an opponent (population bots search the same queue as
+ordinary entries, `server/src/matchmaking.ts`'s `CLAUDE.md`). It has nothing
+to do with human-to-human pairing, which the server runs first and
+unrestricted (`anyone`) regardless of this curve: on a site this size two
+real people are matched the instant both are searching, whatever the rating
+gap, and `window` only decides how patient a lone search is about a bot
+before that.

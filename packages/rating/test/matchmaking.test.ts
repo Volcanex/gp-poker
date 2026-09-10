@@ -13,30 +13,30 @@ function mulberry32(seed: number) {
 }
 
 describe('window', () => {
-  it('is unbounded after 60 seconds waited', () => {
+  it('is unbounded after 30 seconds waited', () => {
     const entry: QueueEntry = { id: 'a', rating: 1500, rd: 50, joinedAt: 0 };
-    expect(window(entry, 60000)).toBe(Infinity);
-    expect(window(entry, 59999)).toBeLessThan(Infinity);
+    expect(window(entry, 30000)).toBe(Infinity);
+    expect(window(entry, 29999)).toBeLessThan(Infinity);
   });
 
-  it('widens by 50 every 5 seconds and caps at 1000 before the unbounded cutoff', () => {
+  it('widens by 30 every second and caps at 1000 before the unbounded cutoff', () => {
     const entry: QueueEntry = { id: 'a', rating: 1500, rd: 30, joinedAt: 0 };
     expect(window(entry, 0)).toBe(100);
-    expect(window(entry, 5000)).toBe(150);
-    expect(window(entry, 10000)).toBe(200);
+    expect(window(entry, 1000)).toBe(130);
+    expect(window(entry, 2000)).toBe(160);
   });
 });
 
 describe('pairQueue', () => {
-  it('does not pair two players 900 apart at t=0 but does after 60 seconds', () => {
+  it('does not pair two players 900 apart at t=0 but does after 30 seconds', () => {
     const a: QueueEntry = { id: 'a', rating: 1000, rd: 50, joinedAt: 0 };
     const b: QueueEntry = { id: 'b', rating: 1900, rd: 50, joinedAt: 0 };
 
     expect(pairQueue([a, b], 0)).toEqual([]);
-    expect(pairQueue([a, b], 60000)).toEqual([[a, b]]);
+    expect(pairQueue([a, b], 30000)).toEqual([[a, b]]);
   });
 
-  it('never pairs the same entry twice and only within both windows, and pairs everyone within 90s', () => {
+  it('never pairs the same entry twice and only within both windows, and pairs everyone within 60s', () => {
     const rand = mulberry32(7);
     const entries: QueueEntry[] = Array.from({ length: 50 }, (_, i) => ({
       id: `p${i}`,
@@ -48,7 +48,7 @@ describe('pairQueue', () => {
     const pending = new Map(entries.map((e) => [e.id, e]));
     const pairedAt = new Map<string, number>();
 
-    for (let t = 1000; t <= 120000; t += 1000) {
+    for (let t = 1000; t <= 60000; t += 1000) {
       const active = [...pending.values()].filter((e) => e.joinedAt <= t);
       if (active.length === 0) continue;
 
@@ -75,7 +75,7 @@ describe('pairQueue', () => {
     for (const entry of entries) {
       const at = pairedAt.get(entry.id);
       expect(at, `entry ${entry.id} never paired`).toBeDefined();
-      expect((at as number) - entry.joinedAt).toBeLessThanOrEqual(90000);
+      expect((at as number) - entry.joinedAt).toBeLessThanOrEqual(60000);
     }
   });
 });
@@ -108,10 +108,10 @@ describe('groupQueue', () => {
   });
 
   it('takes anyone once an entry has waited past the unbounded cutoff', () => {
-    const now = 61_000;
+    const now = 31_000;
     // old's window is unbounded, but x and y joined a moment ago and their
     // own windows still have to cover the gap, so no group forms.
-    const entries = [entry('old', 1500, 0), entry('x', 2400, 60_000), entry('y', 2410, 60_100)];
+    const entries = [entry('old', 1500, 0), entry('x', 2400, 30_000), entry('y', 2410, 30_100)];
     expect(groupQueue(entries, 3, now)).toEqual([]);
     const patient = [entry('old', 1500, 0), entry('x', 2400, 0), entry('y', 2410, 0)];
     const [group] = groupQueue(patient, 3, now);

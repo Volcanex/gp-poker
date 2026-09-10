@@ -470,18 +470,60 @@ a human is not always on the first button.
 
 ### Bot fill
 
-Two constants at the top of the file, both measured from the longest wait in that
-queue: `BOT_FILL_HEADS_UP_MS` (5s) and `BOT_FILL_SIX_MAX_MS` (20s). Heads-up
-gives a lone human one bot. Six-max launches on six humans, or after the
-threshold with bots in the remaining seats, ranked included. Ranked used to be
-people or nothing (five bots at a rated table is a rating anybody could dial
-in), but with one person on the site that meant ranked six-max never dealt;
-until the bot population plays the queue as ordinary opponents, a rated bot
-fill is the same bargain the rated heads-up fill already makes. **Bots never fill a
-table with no human**, and a roster too short to fill the table waits rather than seating a
-short-handed one. Candidates come from `availableBots(rating, n)` in `bots/`:
-loaded in this process, not in a live match (a finished room lingers a minute, so
-this asks `room.active`, not whether the room exists), closest in rating first.
+One pair of thresholds, `BOT_FILL_ALONE_MS` (30s) and `BOT_FILL_ACCOMPANIED_MS`
+(45s), applied the same way to heads-up and to six-max: measured from the
+longest wait at that table, and picked by `botFillMs(id)` on whether
+`humansQueuedBesides(id)` is true. Heads-up gives a lone human one bot. Six-max
+launches on six humans, or after the threshold with bots in the remaining
+seats, ranked included. Ranked used to be people or nothing (five bots at a
+rated table is a rating anybody could dial in), but with one person on the site
+that meant ranked six-max never dealt; until the bot population plays the
+queue as ordinary opponents, a rated bot fill is the same bargain the rated
+heads-up fill already makes. **Bots never fill a table with no human**, and a
+roster too short to fill the table waits rather than seating a short-handed
+one. Candidates come from `availableBots(rating, n)` in `bots/`: loaded in this
+process, not in a live match (a finished room lingers a minute, so this asks
+`room.active`, not whether the room exists), closest in rating first.
+
+**Real players are matchmade with each other first, whatever the gap** (see
+"People first" above): the fill clock only ever runs for whoever is left after
+that pass, so it is a fallback and never a substitute for pairing two people
+who are both already there. What the two thresholds answer is one question:
+is there anybody else around who might still become an opponent? Nobody else
+in the whole queue: a bot is brought in after the short threshold, because
+there is nothing to wait for. Somebody else searching for anything at all: the
+long threshold, because a second human might still land on this table.
+`humansQueuedBesides` reads the whole queue rather than a rating-compatible
+bucket or a same-table one on purpose, and both narrower readings were
+considered and rejected:
+
+- **A compatible bucket** (same mode, rated flag and speed) sounds like the
+  precise answer, but by the time a fill decision runs, a compatible human
+  would already have been paired by the unrestricted human-only pass above.
+  For heads-up this makes the check almost always read false, collapsing both
+  thresholds into one and defeating the point of having two.
+- **Connected but not searching** (`hub.countHumans()`, the definition
+  `friends.ts` already uses for presence) over-counts: a friend reading the
+  leaderboard is on the site but is never going to become this player's
+  opponent, and borrowing that definition here would only buy consistency
+  with a feature this has nothing to do with.
+
+Reading the whole queue is the middle choice: a person searching for a
+different table right now is a real, live visitor who might requeue or widen
+their own search, which is worth the extra fifteen seconds on a site this
+size, and a population bot never counts (`!entry.bot`), so the population
+alone can never make the "alone" branch unreachable. `configureMatchmaking`
+and `resetMatchmakingConfig` are the test seam, in the shape of
+`configureArena`: `bot-fill.test.ts` proves both thresholds and both branches
+without waiting thirty or forty-five real seconds.
+
+Bot fill was a single constant per mode until a second human queuing six
+seconds after a heads-up seat had already been handed to a bot could never be
+matched with the first: a fixed five-second fill outran real players landing
+close together in time. The two-threshold shape keeps that fixed rather than
+overcorrecting the other way: on a near-empty site, a genuinely alone visitor
+still only waits thirty seconds, not the full forty-five, for a hand to be
+dealt.
 
 Practice mode is a `queue` message carrying `bots: {level}`. It skips the human
 queue entirely through `enqueuePractice`, builds the table on the spot from bots

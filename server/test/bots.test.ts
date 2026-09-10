@@ -12,7 +12,7 @@ import {
   driveRandomPlay,
   testFormat,
 } from './helpers.js';
-import { setFormatResolver, tick } from '../src/matchmaking.js';
+import { configureMatchmaking, resetMatchmakingConfig, setFormatResolver, tick } from '../src/matchmaking.js';
 import { getHandsForMatch, getMatchById, sql } from '../src/db.js';
 import { thinkRange } from '../src/bots/player.js';
 
@@ -36,10 +36,14 @@ describe('bots', () => {
     app = await makeApp();
     wsUrl = await listenForWs(app);
     setFormatResolver((mode, rated) => ({ ...FAST[mode], rated }));
+    // Nobody here is testing the fill clock itself, only what a fill does
+    // once it happens: see bot-fill.test.ts for the thresholds.
+    configureMatchmaking({ botFillAloneMs: 100, botFillAccompaniedMs: 100 });
   });
 
   afterAll(async () => {
     setFormatResolver(formatFor);
+    resetMatchmakingConfig();
     for (const id of createdMatchIds) await sql`delete from matches where id = ${id}`;
     for (const id of createdUserIds) await deleteUser(id);
     await app.close();
@@ -60,7 +64,7 @@ describe('bots', () => {
 
       // Too soon: a human might still turn up.
       await tick();
-      await sleep(5_100);
+      await sleep(150);
       await tick();
 
       // The table is offered before it is dealt, bot seats and all: the bot
@@ -120,7 +124,7 @@ describe('bots', () => {
       expect(searching.seated).toBe(1);
 
       await tick();
-      await sleep(20_100);
+      await sleep(150);
       await tick();
 
       await acceptReady(conn);

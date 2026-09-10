@@ -103,12 +103,16 @@ files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
   on a profile and in the top bar, and it unlocks nothing at all. Six badges
   hang off the same counters (`BADGES`, `badgesFor`), also derived and also
   functionally inert.
-- Bots (`users.bot`) fill a heads-up seat after 5s and a **casual** six-max
-  table after 20s of waiting, never a table with no human. **Rated six-max is
-  people only** and waits for them: five bots at a table whose result moves a
-  Glicko-2 rating is a rating anybody could dial in. Bot matches are
-  otherwise rated for now, a bootstrap choice to revisit once there are
-  users.
+- Bots (`users.bot`) fill a heads-up or a six-max seat after 30s of waiting
+  with nobody else around, or 45s if another real person is searching for
+  anything at all (`BOT_FILL_ALONE_MS`/`BOT_FILL_ACCOMPANIED_MS`,
+  `server/src/matchmaking.ts`), never a table with no human. Real players are
+  matchmade with each other first and without a rating window the moment both
+  are queued, whatever the gap; the fill clock only ever runs for whoever is
+  left over. **Rated six-max is people only** and waits for them: five bots at
+  a table whose result moves a Glicko-2 rating is a rating anybody could dial
+  in. Bot matches are otherwise rated for now, a bootstrap choice to revisit
+  once there are users.
 - **A bot plays a tier; a level is only where that tier sits on the ladder.**
   `BotTier` and `LEVEL_TIER` in the protocol are the map, and nothing branches
   on the number, so renumbering the ladder is a one-table edit. Seven tiers
