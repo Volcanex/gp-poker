@@ -277,16 +277,20 @@ you took: `HeroMeta`, one component in two homes, and the player picks with
 
 - **Under your cards**, the default: two rows on the cards' own left edge, the
   name over the figures, inside `.hb-hero`.
-- **Over the controls**: a row of its own in `.hb-in` above the acts column,
-  and the cards take their column whole. **One line here, not two.** The row it
-  stands in is the slack the controls' column already carries, which is the
-  difference between what the sizes, the send button and the legend need and
-  what the hand beside them does: 26 px, one row of figures. Folded flat it is
-  the decision line's own shape directly under it, who on the left with the
-  width and the figures on the right, and it turns round with everything else
-  left handed. The band ends up 4 px taller than it is under the cards, because
-  the hand's column gives up two rows and a gap while the controls' takes one
-  and a gap.
+- **Over the controls**: a block of its own in `.hb-in` above the acts column,
+  and the cards take their column whole. **Stacked, exactly as it is under the
+  cards** (own request, twice filed): who on top, the stack, its chips and the
+  last action under it, both left aligned in the same grid area rather than
+  spread across it. It used to fold flat, who on the left with the width and
+  the figures pinned to the far right of the same wide row over the controls,
+  which read as a name at one edge and a stack a couple of hundred pixels from
+  it at the other; only `.hb-meta`'s `grid-area` differs from the under-cards
+  rule now; the row shape is the one shared rule (`hero-band.css`). Left
+  handed it turns round with everything else, off the same general rule
+  (`:root[data-hand="left"] .hb-who`/`.hb-meta`/`.hb-nums`) rather than a copy
+  of its own. The controls' column pays `--hb-meta-h`, the full stacked pair,
+  where it once paid one row: the band ends up close to the height it is under
+  the cards rather than a few pixels off it.
 
 The band is as tall as its taller column, so the line's height is a pair of
 terms in `hero-band.css`, `--hb-meta-in-hand` and `--hb-meta-in-col`, and
