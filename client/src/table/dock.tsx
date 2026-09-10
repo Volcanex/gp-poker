@@ -3,7 +3,8 @@ import type { ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import type { ActionKind, LegalActions, TableView } from '@opentable/protocol';
 import { RUNOUT_TICKS, holdFor } from '@opentable/protocol';
-import { isTextEntry, useGInit } from '../ui/bits.tsx';
+import { isTextEntry, useGInit, useKeyLegend } from '../ui/bits.tsx';
+import { updatePrefs } from '../ui/prefs.ts';
 import { clamp, presetsFor, raiseAction, raiseShape } from './sizing.ts';
 import { CUSTOM_KEY, PRESET_KEYS, turnKeyAction } from './keys.ts';
 import type { Preset } from './sizing.ts';
@@ -12,6 +13,7 @@ import {
 } from './preactions.ts';
 import type { PreAction } from './preactions.ts';
 import { ordinal } from './labels.ts';
+import { X } from '@phosphor-icons/react/dist/icons/X';
 import { Link } from 'react-router-dom';
 import { playClick, playTick } from './sounds.ts';
 
@@ -164,6 +166,7 @@ export function PreActionPills({
           disabled={!canPre}
           aria-pressed={pre === p.key}
           data-on={pre === p.key ? '' : undefined}
+          data-tone={p.tone}
           onClick={() => { playClick(); onPre(pre === p.key ? null : p.key); }}
         >
           {p.label}
@@ -513,26 +516,49 @@ function TurnControls({
 }
 
 /* One spaced line under the dock, desktop only, and the same line in every
-   state: a legend that comes and goes is a legend that moves the felt. */
+   state: a legend that comes and goes is a legend that moves the felt.
+
+   **It carries its own way out.** A caption for a keyboard is read once and
+   then read never again, and a player who knows the keys was left looking at
+   them for the rest of the match with the way to stop three clicks down a
+   settings menu. The `x` at its right end is that setting, pressed where the
+   thing it governs is; Settings > Table puts it back. Dismissing it does move
+   the row it stands in, which is the one thing the footprint rule forbids the
+   table doing on its own, and this is not the table doing it on its own. */
 export function KeyLegend(
   { watching, className = 'dock-keys', sizes = 6, custom = false }:
   { watching?: boolean; className?: string; sizes?: number; custom?: boolean } = {},
 ) {
+  const shown = useKeyLegend();
   /* A spectator has no keys to press, and a legend that offers three of them
      is a legend that lies. The row still renders, and holds its height, so the
      felt is the same size whether you are playing or watching. */
   if (watching) return <div className={className} aria-hidden="true" />;
+  if (!shown) return null;
   return (
-    <div className={className} aria-hidden="true">
-      <span><span className="kbd">F</span> fold</span>
-      <span><span className="kbd">C</span> check or call</span>
-      <span><span className="kbd">R</span> raise</span>
+    <div className={className}>
+      <span aria-hidden="true"><span className="kbd">F</span> fold</span>
+      <span aria-hidden="true"><span className="kbd">C</span> check or call</span>
+      <span aria-hidden="true"><span className="kbd">R</span> raise</span>
       {/* A legend that offers keys a control does not answer is a legend that
           lies: the dock has six sizes and no square for a size of your own,
           and the band has six and the `0` beside them. */}
-      <span><span className="kbd">1</span> to <span className="kbd">{sizes}</span> sizes</span>
-      {custom && <span><span className="kbd">0</span> your own size</span>}
-      <span><span className="kbd">Enter</span> send</span>
+      <span aria-hidden="true">
+        <span className="kbd">1</span> to <span className="kbd">{sizes}</span> sizes
+      </span>
+      {custom && <span aria-hidden="true"><span className="kbd">0</span> your own size</span>}
+      <span aria-hidden="true"><span className="kbd">Enter</span> send</span>
+      {/* The only thing here that is not a caption, so it is the only thing
+          the reader is offered: the spans above stay hidden from it. */}
+      <button
+        type="button"
+        className="keys-off"
+        title="Hide the key legend"
+        aria-label="Hide the key legend"
+        onClick={() => updatePrefs({ keyLegend: false })}
+      >
+        <X size={12} weight="bold" aria-hidden="true" />
+      </button>
     </div>
   );
 }

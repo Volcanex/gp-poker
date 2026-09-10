@@ -19,7 +19,7 @@ import {
 import type { Preset } from './sizing.ts';
 import { playClick } from './sounds.ts';
 import { actionText, shortName } from './labels.ts';
-import { isTextEntry, useFading, useMedia } from '../ui/bits.tsx';
+import { isTextEntry, useFading, useHandMeta, useMedia } from '../ui/bits.tsx';
 import { FlagSlot } from '../ui/flag.tsx';
 import './hero-band.css';
 
@@ -78,6 +78,11 @@ export function HeroBand({
   const mine = view.you == null ? null : view.seats.find((s) => s.i === view.you) ?? null;
   const legal = view.legal;
   const wide = useMedia(WIDE);
+  /* Where your own line stands: under your cards, or over the controls
+     (`handMeta` in `../ui/prefs.ts`). Wide only. A phone's band is a hand
+     beside a thumb's column with no spare row in either, and the setting is
+     about a row the wide band has and the phone one does not. */
+  const metaOverActs = useHandMeta() === 'acts' && wide;
   const sittingOut = sittingOutNow(view, state === 'over');
   /* On a practice table the way on from a held hand goes under the readings
      rather than on the decision line: the readings are what is being read
@@ -93,6 +98,7 @@ export function HeroBand({
       data-seated={mine ? '' : undefined}
       data-sitout={sittingOut ? '' : undefined}
       data-stats={stats ? '' : undefined}
+      data-meta={metaOverActs ? 'acts' : undefined}
     >
       <DecisionLine
         view={view}
@@ -106,7 +112,15 @@ export function HeroBand({
           the felt's column, so the cards start on the felt's left edge and the
           controls end on its right one. */}
       <div className="hb-in">
-        {mine && <HeroCards view={view} best={best} stack={stack} />}
+        {mine && <HeroCards view={view} best={best} stack={stack} meta={!metaOverActs} />}
+
+        {/* Over the controls instead: a sibling of the hand rather than a row
+            of it, so the band's grid places it and the cards take the column
+            whole. One line here where it is two under the cards, because the
+            row it stands in is the slack the controls' own column already
+            has, and two would make the band taller to hold a reading that
+            fits in one. */}
+        {mine && metaOverActs && <HeroMeta view={view} stack={stack} />}
 
         {/* One quiet line under the controls, gone on a phone where there is
             no keyboard to legend. It says the same thing in every state, so it
@@ -298,20 +312,18 @@ function DealNext({ onNext, className }: { onNext: () => void; className?: strin
    state rather than a ref, so the flag flips after the deal has already been
    handed to motion, and the cards are keyed on the hand so a new one deals. */
 function HeroCards({
-  view, best, stack,
+  view, best, stack, meta,
 }: {
   view: TableView;
   best?: ReadonlySet<Card>;
   stack: number;
+  meta: boolean;
 }) {
   const mine = view.seats.find((s) => s.i === view.you);
   const cards = mine?.cards ?? [null, null];
   const [dealtHand, setDealtHand] = useState<number | null>(null);
   useEffect(() => setDealtHand(view.h), [view.h]);
   const still = dealtHand === view.h;
-
-  const last = mine?.last ?? null;
-  const label = useFading(last ? actionText(last.a, last.v) : null, `${view.h}:${view.n}:${view.you}`);
 
   return (
     <div className="hb-hero">
@@ -334,31 +346,47 @@ function HeroCards({
         ))}
       </div>
 
-      <div className="hb-meta">
-        <span className="hb-who">
-          {/* Reserved like the button marker beside it: an empty slot keeps
-              the name where it was for a player with no flag. */}
-          <FlagSlot code={mine?.country} size={16} />
-          <span className="hb-name" title={mine?.name}>{shortName(mine?.name ?? '', 16)}</span>
-          {/* Always rendered, hidden when the button is elsewhere: a marker
-              that comes and goes moves the name beside it once a hand. */}
-          <span className="btn-marker" title="Button" data-off={mine?.button ? undefined : ''}>D</span>
+      {meta && <HeroMeta view={view} stack={stack} />}
+    </div>
+  );
+}
+
+/* Who you are and what you are holding it with: the flag, the name, the button
+   marker, the stack, its rack and the last action you took. One component in
+   two homes (`handMeta` in `../ui/prefs.ts`), under the cards or over the
+   controls, so the two placements cannot drift into two different readings.
+   Which one it is in is `data-meta` on the band, and the stylesheet is what
+   folds it from two rows into one. */
+function HeroMeta({ view, stack }: { view: TableView; stack: number }) {
+  const mine = view.seats.find((s) => s.i === view.you);
+  const last = mine?.last ?? null;
+  const label = useFading(last ? actionText(last.a, last.v) : null, `${view.h}:${view.n}:${view.you}`);
+
+  return (
+    <div className="hb-meta">
+      <span className="hb-who">
+        {/* Reserved like the button marker beside it: an empty slot keeps
+            the name where it was for a player with no flag. */}
+        <FlagSlot code={mine?.country} size={16} />
+        <span className="hb-name" title={mine?.name}>{shortName(mine?.name ?? '', 16)}</span>
+        {/* Always rendered, hidden when the button is elsewhere: a marker
+            that comes and goes moves the name beside it once a hand. */}
+        <span className="btn-marker" title="Button" data-off={mine?.button ? undefined : ''}>D</span>
+      </span>
+      <span className="hb-nums">
+        <span className="hb-stack num">{stack}</span>
+        {/* The big three denominations beside the figure, the way the felt's
+            seats carry them: they say deep or short at a glance, and they
+            tick when the figure changes, which is what says a bet has left
+            or a pot has landed. Every column keeps its slot, so the label
+            after them does not move. */}
+        <span className="hb-chips">
+          <ChipStack amount={stack} columns={3} level={view.blinds.sb} />
         </span>
-        <span className="hb-nums">
-          <span className="hb-stack num">{stack}</span>
-          {/* The big three denominations beside the figure, the way the felt's
-              seats carry them: they say deep or short at a glance, and they
-              tick when the figure changes, which is what says a bet has left
-              or a pot has landed. Every column keeps its slot, so the label
-              after them does not move. */}
-          <span className="hb-chips">
-            <ChipStack amount={stack} columns={3} level={view.blinds.sb} />
-          </span>
-          {/* A reserved slot: the label is empty most of the hand and a box
-              that sizes to it would move the stack every time it filled. */}
-          <span className="hb-last">{label}</span>
-        </span>
-      </div>
+        {/* A reserved slot: the label is empty most of the hand and a box
+            that sizes to it would move the stack every time it filled. */}
+        <span className="hb-last">{label}</span>
+      </span>
     </div>
   );
 }

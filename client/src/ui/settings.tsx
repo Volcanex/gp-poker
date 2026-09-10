@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { GearSix } from '@phosphor-icons/react';
 import { useGInit, useMedia } from './bits.tsx';
-import { ACCENTS, CARD_LAYOUTS, CARD_SIZES, PALETTES, TABLE_INFO, THEMES, applyPrefs, defaultAccentFor, readPrefs, writePrefs, SEAT_DETAILS } from './prefs.ts';
-import type { AccentId, CardLayout, CardSize, PaletteId, Prefs, TableInfo, ThemeChoice, SeatDetail } from './prefs.ts';
+import { ACCENTS, CARD_LAYOUTS, CARD_SIZES, HAND_METAS, PALETTES, TABLE_INFO, THEMES, applyPrefs, defaultAccentFor, readPrefs, writePrefs, SEAT_DETAILS } from './prefs.ts';
+import type { AccentId, CardLayout, CardSize, HandMeta, PaletteId, Prefs, TableInfo, ThemeChoice, SeatDetail } from './prefs.ts';
 import { Segmented } from './segmented.tsx';
 import { useSoundSettings } from '../sound/react.ts';
 import { PictureDialog } from './picture-dialog.tsx';
@@ -37,6 +37,13 @@ export function SettingsMenu() {
     if (!menu) return undefined;
     const onToggle = (e: Event) => {
       if ((e as unknown as { newState?: string }).newState !== 'open') return;
+      /* Two controls live outside this menu and write the same record
+         (`updatePrefs` in `./prefs.ts`): the `x` on the key legend and the
+         chevron on the game panel. This component mounts once for the whole
+         app, so without re-reading on open its copy is whatever it was at
+         first paint and the next thing changed in here would put a dismissed
+         legend back. */
+      setPrefs(readPrefs());
       menu.querySelectorAll<HTMLButtonElement>('.tabs .tab[aria-selected="true"]')
         .forEach((tab) => tab.click());
     };
@@ -274,6 +281,32 @@ export function SettingsMenu() {
             label="Hand info placement"
           />
         </div>
+
+        {/* Your own name, stack, button marker and rack: under your two cards
+            on the band, or on a line of its own over the controls. A row of
+            its own for the same reason Hand info takes one. */}
+        <div className="seg-row">
+          <span className="label">Your line</span>
+          <Segmented
+            options={HAND_METAS.map((m) => ({ value: m.id, label: m.label }))}
+            value={prefs.handMeta}
+            onPick={(v) => update({ handMeta: v as HandMeta })}
+            label="Your line placement"
+          />
+        </div>
+
+        {/* The way back for the `x` on the legend itself. A caption for a
+            keyboard is worth dismissing once you know the keys, and worth
+            being able to ask for again when you have forgotten them. */}
+        <label className="switch-row">
+          <span className="label">Key legend</span>
+          <input
+            type="checkbox"
+            className="switch"
+            checked={prefs.keyLegend}
+            onChange={(e) => update({ keyLegend: e.target.checked })}
+          />
+        </label>
 
         <hr className="separator" />
 

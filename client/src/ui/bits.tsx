@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
-import type { TableInfo } from './prefs.ts';
+import type { HandMeta, TableInfo } from './prefs.ts';
 
 declare global {
   interface Window {
@@ -106,6 +106,21 @@ export function useRootAttr(name: string): string | null {
    `./prefs.ts` works, so anything but `seat` reads as `panel`. */
 export function useTableInfo(): TableInfo {
   return useRootAttr('data-table-info') === 'seat' ? 'seat' : 'panel';
+}
+
+/* The same bargain for the three settings a control outside the menu can move
+   (`./prefs.ts`, `updatePrefs`): the default is the absent attribute, so
+   anything that is not the other value reads as the default. */
+export function useHandMeta(): HandMeta {
+  return useRootAttr('data-hand-meta') === 'acts' ? 'acts' : 'cards';
+}
+
+export function useKeyLegend(): boolean {
+  return useRootAttr('data-key-legend') !== 'off';
+}
+
+export function useGamePanelOpen(): boolean {
+  return useRootAttr('data-game-panel') !== 'shut';
 }
 
 export function useNow(active: boolean, everyMs = 1000): number {

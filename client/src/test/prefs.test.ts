@@ -39,10 +39,12 @@ describe('settings persistence', () => {
     writePrefs({
       theme: 'light', palette: 'felt', accent: 'jade', fourColour: true, hand: 'left',
       cards: 'ajar', cardSize: 'huge', seatCards: 'regular', seatDetail: 'detailed', tableInfo: 'seat',
+      handMeta: 'acts', keyLegend: false, gamePanel: 'shut',
     }, store);
     expect(readPrefs(store)).toEqual({
       theme: 'light', palette: 'felt', accent: 'jade', fourColour: true, hand: 'left',
       cards: 'ajar', cardSize: 'huge', seatCards: 'regular', seatDetail: 'detailed', tableInfo: 'seat',
+      handMeta: 'acts', keyLegend: false, gamePanel: 'shut',
     });
   });
 
@@ -51,10 +53,12 @@ describe('settings persistence', () => {
     writePrefs({
       theme: 'system', palette: 'sky', accent: 'clay', fourColour: false, hand: 'right',
       cards: 'side', cardSize: 'regular', seatCards: 'huge', seatDetail: 'normal', tableInfo: 'seat',
+      handMeta: 'cards', keyLegend: true, gamePanel: 'open',
     }, store);
     expect(store.getItem(PREFS_KEY)).toBe(
       '{"theme":"system","palette":"sky","accent":"clay","fourColour":false,"hand":"right"'
-      + ',"cards":"side","cardSize":"regular","seatCards":"huge","seatDetail":"normal","tableInfo":"seat"}',
+      + ',"cards":"side","cardSize":"regular","seatCards":"huge","seatDetail":"normal","tableInfo":"seat"'
+      + ',"handMeta":"cards","keyLegend":true,"gamePanel":"open"}',
     );
   });
 
@@ -71,6 +75,7 @@ describe('settings persistence', () => {
     expect(readPrefs(store)).toEqual({
       theme: 'room', palette: 'slate', accent: 'violet', fourColour: false, hand: 'right',
       cards: 'stacked', cardSize: 'large', seatCards: 'large', seatDetail: 'normal', tableInfo: 'panel',
+      handMeta: 'cards', keyLegend: true, gamePanel: 'open',
     });
   });
 
@@ -91,6 +96,26 @@ describe('settings persistence', () => {
   it('refuses a hand info placement it does not draw', () => {
     const store = fakeStore({ [PREFS_KEY]: '{"tableInfo":"sidebar"}' });
     expect(readPrefs(store)).toMatchObject({ tableInfo: 'panel' });
+  });
+
+  /* The three newest keys, and the same bargain: a record written before them
+     is a record without them, and the defaults have to be what the table was
+     drawing for those players. Your line under your cards, the legend shown,
+     the game panel open. */
+  it('takes the defaults for a record written before the newest three', () => {
+    const store = fakeStore({ [PREFS_KEY]: '{"theme":"dark"}' });
+    expect(readPrefs(store)).toMatchObject({
+      handMeta: 'cards', keyLegend: true, gamePanel: 'open',
+    });
+  });
+
+  it('refuses a line placement or a panel state it does not draw', () => {
+    const store = fakeStore({
+      [PREFS_KEY]: '{"handMeta":"felt","keyLegend":"yes","gamePanel":"ajar"}',
+    });
+    expect(readPrefs(store)).toMatchObject({
+      handMeta: 'cards', keyLegend: true, gamePanel: 'open',
+    });
   });
 
   it('reads back every layout and every size it offers', () => {
@@ -175,6 +200,7 @@ describe('applying settings', () => {
       {
         theme: 'light', palette: 'felt', accent: 'ocean', fourColour: true, hand: 'left',
         cards: 'side', cardSize: 'huge', seatCards: 'huge', seatDetail: 'detailed', tableInfo: 'seat',
+        handMeta: 'acts', keyLegend: false, gamePanel: 'shut',
       },
       root, fakeStore(),
     );
@@ -187,6 +213,19 @@ describe('applying settings', () => {
     expect(root.getAttribute('data-cards')).toBe('side');
     expect(root.getAttribute('data-card-size')).toBe('huge');
     expect(root.getAttribute('data-table-info')).toBe('seat');
+    expect(root.getAttribute('data-hand-meta')).toBe('acts');
+    expect(root.getAttribute('data-key-legend')).toBe('off');
+    expect(root.getAttribute('data-game-panel')).toBe('shut');
+  });
+
+  /* The default is the absent attribute for all three, the way every other
+     setting here works: the stylesheet's bare `:root` is the default state and
+     nothing has to be written for a player who has chosen nothing. */
+  it('leaves the newest three unstamped at their defaults', () => {
+    applyPrefs(DEFAULT_PREFS, root, fakeStore());
+    expect(root.getAttribute('data-hand-meta')).toBe(null);
+    expect(root.getAttribute('data-key-legend')).toBe(null);
+    expect(root.getAttribute('data-game-panel')).toBe(null);
   });
 
   /* Right handed is the default, so it is the absence of the attribute: a

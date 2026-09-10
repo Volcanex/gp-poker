@@ -690,26 +690,15 @@
      round them**: the card is the thing being sized and the seat is the card
      it is held in, so the panel grows with the setting rather than the cards
      growing inside a panel that does not. */
-  --seat-card: 46px;
   --seat-h: calc(var(--seat-card) * 1.4 + 16px);
-  /* The whole of the column the felt gives a seat: the felt's width less the
-     middle's and the two 16px gutters, halved. It used to stop short of that,
-     which was width the name could have had. */
-  --seat-w: 464px;
   /* The identity block: two rows and the gap between them. The avatar is cut
      to it, so the picture is exactly as tall as the name and the rack it
      stands beside. */
   --seat-row: 16px;
   --seat-id-h: calc(var(--seat-row) * 2 + 2px);
-  --board-card: 40px;
   --board-h: calc(var(--board-card) * 1.4); /* the board's row, and the pot's box under it */
   --pot-w: 108px; /* five chips of the pot's size and their gaps */
   --box-h: 100px; /* the stats box below 1060, back in the middle strip: five rows of 16 px, their gaps, the padding */
-  /* The middle column, now the pot and the award line only: it used to be
-     the split board's width, and the stats box that stood under them left
-     for the empty seat corner, but 264 is still what the award line and the
-     stats box's own reading below 1060 need. */
-  --mid-w: 160px;
 }
 /* Centred with auto margins rather than `justify-content`, because a centred
    flex item that overflows its container clips at the top and cannot be
@@ -717,8 +706,50 @@
 .felt .felt-in { width: 100%; max-width: var(--felt-w); margin: auto; }
 /* The header, the felt and the band are one column: the felt's width is
    declared on `.match` because the band is the felt's sibling and reads it
-   from there, and the header's actions end on the same edge. */
-.match { --felt-w: 1120px; }
+   from there, and the header's actions end on the same edge.
+
+   **The column is derived from the seat, and the seat from its cards**, so
+   Other seats is one setting rather than a card size and a width that have
+   to be kept in step by hand. A seat is everything that is not the two
+   cards plus the two cards, and the felt is two seats, the middle and the
+   two gutters between them: at the default 46 px card that is the 464 and
+   the 1120 these were written as, and at huge it is 484 and 1160, which is
+   the felt growing by exactly what the bigger cards take rather than the
+   cards growing into room the name was using. The owner's note was that
+   bigger cards should widen the table, not squeeze the seat.
+
+   `--seat-card` stands here rather than on `.felt` for that reason: `.match`
+   cannot read a variable declared on its own child. The phone's container
+   queries still override it further down on `.felt`, which is where they
+   want it, because `--felt-w` is a max-width no phone ever reaches. */
+.match {
+  /* The board: five cards in a row with 8 px between them. It stands here
+     with the sizes derived from it rather than on `.felt`, for the same
+     reason `--seat-card` does. The phone's container queries override it
+     further down, which is where they want it: below 1060 the middle goes
+     across the top and `--mid-w` is not used at all. */
+  --board-card: 40px;
+  --board-w: calc(var(--board-card) * 5 + var(--sp-2) * 4);
+  /* The middle column, the pot and the award line under the board.
+     **It is the board's width less the two gutters beside it**, which is what
+     puts the seats' inner edges on the board's outer ones: the wings hug the
+     middle, so a middle narrower than the board leaves them standing inside
+     it, over the pot. At 160 they overhung the community cards by 20 px a
+     side, which is what the owner read as the seats encroaching on the pot. */
+  --mid-w: calc(var(--board-w) - var(--sp-4) * 2);
+  /* Everybody else's cards, from the Other seats setting. The seat is built
+     round them: the card is the thing being sized and the seat is the card
+     it is held in. */
+  --seat-card: 46px;
+  /* The room a seat gives everything that is not its two cards: the padding,
+     the picture, the identity block, the figure and the action square. The
+     12 px of air added either side of the picture is in here, because a
+     seat that absorbed it would have paid for it out of the name, and the
+     name is what a seat is read by. */
+  --seat-body: 384px;
+  --seat-w: calc(var(--seat-body) + var(--seat-card) * 2);
+  --felt-w: calc(var(--seat-w) * 2 + var(--mid-w) + var(--sp-4) * 2);
+}
 .bar-in { width: 100%; max-width: var(--felt-w); margin: 0 auto; }
 
 /* Named lines, so a seat is placed by two custom idents from layout.ts (`--r`
@@ -899,26 +930,72 @@
 
 /* `panelMode`'s card (`table.tsx`'s `GamePanel`), top right of the match
    screen under the profile chip in the site's own top bar directly above
-   it. It takes `.hand-head`'s own optional row (`grid-row: 2` on both,
-   never both rendered at once) rather than floating over the felt: the
-   felt's board and its own top-right seat are not at a fixed distance from
-   `.match`'s own top edge, they are `.felt-in`'s auto margins centring
-   whatever slack a given viewport height and card size setting leave over,
-   which shrinks toward nothing exactly in the tight cases (1280x720, a
-   large seat card) this file is measured against, and a floating panel
-   pinned to a fixed offset overlapped that seat the moment the felt had
-   less spare height than the panel was tall. A reserved row cannot
-   overlap anything below it: the felt starts after it, always. */
+   it.
+
+   **It floats over the felt rather than taking a row of its own.** A row
+   here is a full width band across the top of the screen holding one card
+   in its right hand corner, and the other thousand pixels of it are the
+   page's own ground with nothing on them: 129 px of black bar, paid for out
+   of the felt, which is the one row on this screen that should have the
+   height. The owner's word for it was that it squishes the game.
+
+   The felt's top right corner is what it floats over, and that corner is
+   empty above 1060: the board is one centred row across the top and the
+   right wing's first seat starts under it, so the panel is over green and
+   over nothing else. Below 1060 the wings stop being wings (see the felt's
+   own container query: the middle goes across the top and both columns
+   stack single file under it), there is no spare corner left, and the panel
+   goes back to a reserved row, which cannot overlap what starts after it.
+   That is the same threshold the felt already changes shape at rather than
+   a second number to keep in step with it.
+
+   Its own width buys the clearance: at 340 the four controls wrapped to two
+   rows and the card stood 113 px tall, which is deep enough to reach the
+   first seat at 1280x720 with huge seat cards. At 360 they are one row and
+   it is 79, which clears that case by more than it costs anywhere. */
 .game-panel {
-  justify-self: end;
-  width: 340px;
+  position: absolute; top: 0; right: 0; z-index: 2;
+  width: 360px;
   display: flex; flex-direction: column; gap: var(--sp-2);
+  /* Shut it is one line of facts, so it shrinks to them rather than holding
+     the open card's height: the whole point of shutting it is the felt it
+     gives back. */
   padding: var(--sp-2) var(--sp-3);
   margin: var(--sp-2) var(--sp-4) var(--sp-2) 0;
   border: 1px solid var(--border-subtle); border-radius: var(--radius-card);
   background: var(--surface-2);
 }
+@container (max-width: 1060px) {
+  .game-panel { position: static; justify-self: end; z-index: auto; }
+}
 .gp-div { flex: none; height: 1px; background: var(--border-subtle); }
+
+/* The card's top line: the hand, the street and the blinds, with the chevron
+   that shuts everything under them on the far end. The readings take the
+   width and the chevron takes what it needs, so the line's own edge is the
+   card's and the facts never move when the card opens or shuts. */
+.gp-head { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
+.gp-head > .stats { flex: 1; min-width: 0; }
+.gp-toggle {
+  flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; padding: 0;
+  border: none; border-radius: var(--radius-sm);
+  background: none; color: var(--text-secondary);
+  cursor: pointer;
+}
+.gp-toggle:hover { background: var(--fill-hover); color: var(--text-primary); }
+.gp-toggle:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+/* Open, the chevron points down at what it is holding open; shut, it points
+   at the card it would unfold. The one rotation on this screen that is not on
+   the felt, so the felt's "one thing moves at a time" is untouched. */
+.gp-toggle svg { transition: transform var(--dur-base) var(--ease-out); }
+.game-panel:not([data-open]) .gp-toggle svg { transform: rotate(-90deg); }
+@media (prefers-reduced-motion: reduce) {
+  .gp-toggle svg { transition: none; }
+}
+
+.gp-acts { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
 
 /* The same one line `seat` mode reads in the felt corner: one row is a third
    the height of the three-row table below 1060, which is what buys this
@@ -928,10 +1005,12 @@
    240px every other card on this screen keeps to. */
 .game-panel .stats { height: auto; padding: 0; border: none; background: none; }
 
-/* The actions wrap here, unlike in the top bar or `.hand-head`, where they
-   may not: the panel is a fixed width rather than a row fighting the rest
-   of a bar for space, and four controls read better as two short lines than
-   as one that has to give up a label to fit. */
+/* The actions may wrap here, unlike in the top bar or `.hand-head`, where
+   they may not. At the width above they do not have to: the card is sized
+   so the four stand in one row, because a floating panel is paid for in the
+   felt it covers and a second row of buttons is 34 px more of it. The rule
+   stays because a longer label in one of them should wrap rather than
+   widen the card over the felt. */
 .game-panel .head-acts { flex-wrap: wrap; row-gap: 6px; }
 
 /* ------------------------------------------------------------------ chips */
@@ -1069,8 +1148,8 @@
 .avatar[data-size="28"] { --avatar-size: 28px; }
 .avatar[data-size="56"] { --avatar-size: 56px; }
 
-:root[data-seat-cards="regular"] .felt { --seat-card: 36px; }
-:root[data-seat-cards="huge"] .felt { --seat-card: 56px; }
+:root[data-seat-cards="regular"] .match { --seat-card: 36px; }
+:root[data-seat-cards="huge"] .match { --seat-card: 56px; }
 
 .seat-cards { display: flex; gap: 4px; }
 .seat .pcard { --card-w: var(--seat-card); }
@@ -1087,8 +1166,15 @@
   display: flex; align-items: center; justify-content: flex-start;
   gap: 6px; min-width: 0; width: 100%; height: var(--seat-row);
 }
-/* Cut to the two rows it stands beside. */
-.seat > .avatar { --avatar-size: var(--seat-id-h); }
+/* Cut to the two rows it stands beside, and standing clear of both its
+   neighbours by the same amount. **The margin rather than the row's own
+   `column-gap`**, which is one number for four gaps: the picture wants more
+   air than the figure does, and 6 px on each side of it makes the gap either
+   side 12 while the two gaps further along the row keep theirs. Equal by
+   construction rather than by two declarations that can drift. The owner's
+   note was that the picture was touching the cards on one side and the name
+   on the other. */
+.seat > .avatar { --avatar-size: var(--seat-id-h); margin: 0 6px; }
 .seat-name {
   font-size: 13px; line-height: 16px; font-weight: 500; color: var(--text-primary);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
@@ -1102,15 +1188,14 @@
    into a five hundred, and a table holding 1200 never stacks three of those.
    So four is the tallest column the felt can produce, and reserving exactly
    it is what keeps a rack off the seat's `overflow: hidden` edge. */
-/* The second row: the rack on the name's edge, and the seat's own marks
-   pushed to the far end of it. */
+/* The second row: the rack on the block's own left edge, level with the flag
+   slot above it rather than indented past it to meet the name, and the seat's
+   own marks pushed to the far end. A rack set in by the flag's 22 px hung to
+   the right of everything it belongs to, which is what the owner read as the
+   chips being out of line. */
 .seat-sub {
   display: flex; align-items: center; gap: 6px;
   width: 100%; height: var(--seat-row); min-width: 0;
-  /* The rack starts on the name's own left edge, not the block's: the line
-     above reserves 16px for the flag slot and a 6px gap before the name, and
-     the rack has to clear the same 22px or the chips hang left of it. */
-  padding-left: 22px;
 }
 .seat-sub .btn-marker { margin-left: auto; }
 .seat-sub .seat-bot + .btn-marker { margin-left: 0; }
@@ -1466,11 +1551,46 @@
 .dock-presets .preset { flex: 1; min-width: 0; gap: 5px; }
 .dock-presets .p-v { color: var(--text-secondary); }
 .dock .pill { border-radius: var(--radius-full); }
+/* The sizing presets keep the accent: they are a choice among six, not a thing
+   left armed, and there is no action for them to wear the tone of. */
 .dock .btn[data-on] {
   border-color: var(--accent-fill);
   color: var(--text-primary);
   background: var(--fill-hover);
 }
+/* **An armed pill is pressed down and lit.** It was neither: the state was in
+   the markup (`aria-pressed`, `data-on`) and the only thing drawn for it was
+   a background two per cent lighter than the one beside it, so the one control
+   on this screen that stays on after you let go looked exactly like the two
+   that did not. Three things say it now, because one of them is not enough on
+   a felt: the tone of the action it will take (`preactions.ts` says which),
+   a full weight border in that tone, and the inset shadow that puts the face
+   of the button below its own edge. Pressing it again disarms it, which is
+   what the pressed look is promising.
+
+   No transition. One thing moves at a time on this table and a pill is not
+   it: the press is the movement, and a button that fades into its own pressed
+   state reads as the table thinking about it. */
+.dock .pill[data-tone="call"] { --_tone: var(--act-call); --_tone-text: var(--act-call-text); }
+.dock .pill[data-tone="fold"] { --_tone: var(--act-fold); --_tone-text: var(--act-fold-text); }
+/* **Painted directly, not through `.btn`'s `--_fill`.** `.btn-tertiary:hover`
+   sets `background` itself, and a declaration beats a variable the cascade
+   never gets to re-read: armed and under the cursor, the pill went back to
+   looking like every other tertiary button on the screen, which is the state
+   a player is in for the whole second after they press it. */
+.dock .pill[data-on],
+.dock .pill[data-on]:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--_tone) 30%, transparent);
+  border-color: var(--_tone);
+  color: var(--_tone-text);
+  box-shadow: inset 0 1px 3px color-mix(in oklab, black 30%, transparent);
+}
+/* Hovering an armed pill offers to disarm it, so it lights one step further
+   rather than dropping back to the tertiary hover. */
+.dock .pill[data-on]:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--_tone) 40%, transparent);
+}
+
 
 /* Centred by text-align rather than by shrinking to its contents: a box sized
    to a string that changes is a box that shifts every time the string does. */
@@ -1515,6 +1635,23 @@
   background: var(--surface-2);
 }
 .dock-keys > span { display: inline-flex; align-items: center; gap: 5px; }
+/* The row is centred, so the `x` is pushed to the right edge rather than left
+   sitting against the last caption. */
+.dock-keys .keys-off { margin-left: auto; }
+/* The legend's own way out. Quiet enough to be part of the caption rather than
+   a control on the felt, and it only says what it is on hover and to a reader:
+   an `x` beside five key names reads as an `x` you can press without a label
+   telling you so. Settings > Table puts the legend back. */
+.dock-keys .keys-off {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; padding: 0; flex: none;
+  border: none; border-radius: var(--radius-sm);
+  background: none; color: var(--text-placeholder);
+  cursor: pointer;
+}
+.dock-keys .keys-off:hover { color: var(--text-primary); background: var(--fill-hover); }
+.dock-keys .keys-off:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+
 
 /* A refused action is told over the dock, not under it.
 

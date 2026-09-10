@@ -42,6 +42,14 @@ export type TableInfo = 'seat' | 'panel';
 
 export type SeatDetail = 'normal' | 'detailed';
 
+/* Where the hand's own line stands on the v2 band: the name, the button
+   marker, the stack, its rack of chips and the last action. `cards` is the
+   original, under your own two cards on their edge. `acts` moves it over the
+   controls, into the spare row `.hb-turn` already reserves above the sizes,
+   which is the one part of the band that is empty in every state. Two
+   placements, and the player picks, exactly as `TableInfo` is. */
+export type HandMeta = 'cards' | 'acts';
+
 export interface Prefs {
   theme: ThemeChoice;
   palette: PaletteId;
@@ -64,6 +72,19 @@ export interface Prefs {
      `table/table.tsx` off the root, since it changes the felt's own grid. */
   seatDetail: SeatDetail;
   tableInfo: TableInfo;
+  handMeta: HandMeta;
+  /* The key legend under the controls, and whether it is drawn at all. It is
+     a caption for a keyboard, read once and then never again, so it carries
+     its own way out: the `x` at its right end is this. Off it holds no height
+     either, unlike every other optional thing on this screen, because a
+     player pressing a button is not the table re-dividing on its own, which
+     is what the footprint rule is about. */
+  keyLegend: boolean;
+  /* Whether `panelMode`'s card is open or shut. Shut it keeps its top line,
+     the hand and the street and the blinds, and folds the four controls
+     away under the chevron: the facts are what is read every hand and the
+     controls are pressed once a match. */
+  gamePanel: 'open' | 'shut';
 }
 
 export const PREFS_KEY = 'ot.prefs';
@@ -71,6 +92,7 @@ export const PREFS_KEY = 'ot.prefs';
 export const DEFAULT_PREFS: Prefs = {
   theme: 'room', palette: 'slate', accent: 'default', fourColour: false, hand: 'right',
   cards: 'stacked', cardSize: 'large', seatCards: 'large', seatDetail: 'normal', tableInfo: 'panel',
+  handMeta: 'cards', keyLegend: true, gamePanel: 'open',
 };
 
 export const THEMES: { id: ThemeChoice; label: string }[] = [
@@ -146,6 +168,13 @@ export const TABLE_INFO: { id: TableInfo; label: string }[] = [
 
 const isTableInfo = (v: unknown): v is TableInfo => v === 'seat' || v === 'panel';
 
+export const HAND_METAS: { id: HandMeta; label: string }[] = [
+  { id: 'cards', label: 'Under your cards' },
+  { id: 'acts', label: 'Over the controls' },
+];
+
+const isHandMeta = (v: unknown): v is HandMeta => v === 'cards' || v === 'acts';
+
 const isPalette = (v: unknown): v is PaletteId =>
   typeof v === 'string' && PALETTES.some((p) => p.id === v);
 
@@ -173,6 +202,9 @@ export function readPrefs(store: Storage | null = safeStorage()): Prefs {
     seatCards: isCardSize(r.seatCards) ? r.seatCards : DEFAULT_PREFS.seatCards,
     seatDetail: isSeatDetail(r.seatDetail) ? r.seatDetail : DEFAULT_PREFS.seatDetail,
     tableInfo: isTableInfo(r.tableInfo) ? r.tableInfo : DEFAULT_PREFS.tableInfo,
+    handMeta: isHandMeta(r.handMeta) ? r.handMeta : DEFAULT_PREFS.handMeta,
+    keyLegend: typeof r.keyLegend === 'boolean' ? r.keyLegend : DEFAULT_PREFS.keyLegend,
+    gamePanel: r.gamePanel === 'shut' ? 'shut' : DEFAULT_PREFS.gamePanel,
   };
 }
 
@@ -240,6 +272,32 @@ export function applyPrefs(prefs: Prefs, root: HTMLElement, store: Storage | nul
      combined card) and not just a pixel a stylesheet can carry alone. */
   if (prefs.tableInfo === 'panel') root.removeAttribute('data-table-info');
   else root.setAttribute('data-table-info', prefs.tableInfo);
+
+  /* All three change a component's own DOM shape rather than a pixel a
+     stylesheet can carry alone, so they go on the root the way `tableInfo`
+     does and are read back through `useRootAttr` (`./bits.tsx`). The default
+     is the absent attribute in each. */
+  if (prefs.handMeta === 'cards') root.removeAttribute('data-hand-meta');
+  else root.setAttribute('data-hand-meta', prefs.handMeta);
+
+  if (prefs.keyLegend) root.removeAttribute('data-key-legend');
+  else root.setAttribute('data-key-legend', 'off');
+
+  if (prefs.gamePanel === 'open') root.removeAttribute('data-game-panel');
+  else root.setAttribute('data-game-panel', prefs.gamePanel);
+}
+
+/* The write path for a control that is not in the settings menu: the `x` on
+   the key legend and the chevron on the game panel are both settings, pressed
+   where the thing they govern is rather than three clicks away in a menu.
+   Read, merge, store and stamp, so a control anywhere on the page can move a
+   preference without holding the record. The settings menu re-reads on open
+   (`./settings.tsx`), which is what keeps its own copy from going stale. */
+export function updatePrefs(patch: Partial<Prefs>): Prefs {
+  const next = { ...readPrefs(), ...patch };
+  writePrefs(next);
+  applyPrefs(next, document.documentElement);
+  return next;
 }
 
 function safeStorage(): Storage | null {

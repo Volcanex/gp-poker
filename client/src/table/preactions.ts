@@ -5,10 +5,17 @@ import type { ActionKind, LegalActions, TableView } from '@opentable/protocol';
    your turn rather than a bar that says "waiting". */
 export type PreAction = 'check-fold' | 'call-any' | 'fold-any';
 
-export const PRE_ACTIONS: { key: PreAction; label: string }[] = [
-  { key: 'check-fold', label: 'Check or fold' },
-  { key: 'call-any', label: 'Call any' },
-  { key: 'fold-any', label: 'Fold to any bet' },
+/* The tone each pill wears once it is armed: what the table's colours already
+   say everywhere else, so an armed pill says what it is going to do rather
+   than only that something is armed. Green is the one that puts chips in.
+   The other two are red because both of them give the hand up the moment
+   there is a price to pay, which is the half of "check or fold" and "fold to
+   any bet" worth being warned about; the half that checks costs nothing and
+   needs no colour. */
+export const PRE_ACTIONS: { key: PreAction; label: string; tone: 'call' | 'fold' }[] = [
+  { key: 'check-fold', label: 'Check or fold', tone: 'fold' },
+  { key: 'call-any', label: 'Call any', tone: 'call' },
+  { key: 'fold-any', label: 'Fold to any bet', tone: 'fold' },
 ];
 
 /* What it would cost the viewer to call as the table stands. Read off the

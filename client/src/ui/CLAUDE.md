@@ -198,6 +198,22 @@ is why the swatch in the menu can paint itself by carrying the same attribute.
 | Handedness | `data-hand` | absent (right), `left` |
 | Card layout | `data-cards` | absent (stacked), `side`, `ajar` |
 | Card size | `data-card-size` | absent (large), `regular`, `huge` |
+| Seat cards | `data-seat-cards` | absent (large), `regular`, `huge` |
+| Seat detail | `data-seat-detail` | absent (normal), `detailed` |
+| Hand info | `data-table-info` | absent (panel), `seat` |
+| Your line | `data-hand-meta` | absent (under your cards), `acts` |
+| Key legend | `data-key-legend` | absent (shown), `off` |
+| Game panel | `data-game-panel` | absent (open), `shut` |
+
+**Two of these are pressed where the thing they govern is**, not in this menu:
+the `x` on the key legend and the chevron on the game panel. They go through
+`updatePrefs` in `prefs.ts`, which reads, merges, stores and stamps in one
+call, so a control anywhere on the page can move a preference without holding
+the record. `SettingsMenu` mounts once for the whole app, so it re-reads on
+every popover open; without that its own copy is whatever it was at first
+paint, and the next thing changed in the menu would put a dismissed legend
+back. The way back for both is still in here, because a control that can only
+turn itself off is a one way door.
 
 **The card layout and the card size are geometry, and the geometry is in
 `../table/hero-band.css`.** A layout is how wide and how tall the pair of cards

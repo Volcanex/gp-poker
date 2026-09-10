@@ -16,13 +16,15 @@ import { dealFrom, dealOrder, layoutMode, placeOf, seatOrder } from './layout.ts
 import { amountToCall } from './preactions.ts';
 import { readShowdown } from './best-five.ts';
 import { useTableSounds } from './sounds.ts';
-import { useMedia, useRootAttr, useTableInfo, useGInit } from '../ui/bits.tsx';
+import { useGamePanelOpen, useMedia, useRootAttr, useTableInfo, useGInit } from '../ui/bits.tsx';
+import { updatePrefs } from '../ui/prefs.ts';
 import { LiveStats } from '../analysis/live-stats.tsx';
 import { ChatFab, ChatPanel, ChatToggle } from '../chat/chat.tsx';
 import { LeaveControl } from './leave-control.tsx';
 import type { ChatController } from '../chat/use-chat.ts';
 import { LookContext, type Look } from './look.ts';
 import { DeckSprite } from './deck-sprite.tsx';
+import { CaretDown } from '@phosphor-icons/react/dist/icons/CaretDown';
 import { DotsThreeCircle } from '@phosphor-icons/react/dist/icons/DotsThreeCircle';
 import { useTopActsSlot, useTopGameSlot } from '../ui/shell.tsx';
 import './look-v2.css';
@@ -506,10 +508,17 @@ function GameMenu({ children }: { children: ReactNode }) {
    panel of information about the match you are in, which is what the two
    were anyway.
 
-   `position: absolute` on `.match`'s own box rather than `position: fixed`
-   on the viewport: `.match` starts exactly where `header.top` ends, so its
-   own top right corner already sits under the chip, and the panel leaves
-   with the table rather than floating over whatever route comes after it.
+   It floats over the felt rather than taking a row of the table's grid; the
+   rules for where and why are in `../app.css` under "game panel".
+
+   **The chevron shuts it.** The two halves of this card are read at
+   completely different rates: the hand, the street and the blinds are read
+   every hand, and Copy link, Verify, Leave game and Chat are pressed once a
+   match if at all. Shut, the facts stay and the controls fold away, so the
+   card over the felt is one line instead of four. It is a setting rather
+   than this component's own state (`gamePanel` in `../ui/prefs.ts`), because
+   a player who shuts it wants it shut next hand and next match, not until
+   the next re-render.
 
    Its own box does not resize as Verify or Leave game enable and disable,
    the same rule `.head-acts` has always kept: `stats` is a fixed five rows
@@ -517,11 +526,31 @@ function GameMenu({ children }: { children: ReactNode }) {
    answer it) and `actions` is the same `head-acts` span `seat` mode portals
    elsewhere, Leave game always rendered for a seated player. */
 function GamePanel({ stats, actions }: { stats: ReactNode; actions: ReactNode }) {
+  const open = useGamePanelOpen();
   return (
-    <div className="game-panel">
-      {stats}
-      <div className="gp-div" aria-hidden="true" />
-      {actions}
+    <div className="game-panel" data-open={open ? '' : undefined}>
+      <div className="gp-head">
+        {stats}
+        <button
+          type="button"
+          className="gp-toggle"
+          aria-expanded={open}
+          aria-controls="game-panel-acts"
+          title={open ? 'Hide the match controls' : 'Show the match controls'}
+          aria-label={open ? 'Hide the match controls' : 'Show the match controls'}
+          onClick={() => updatePrefs({ gamePanel: open ? 'shut' : 'open' })}
+        >
+          <CaretDown size={14} weight="bold" aria-hidden="true" />
+        </button>
+      </div>
+      {/* `hidden` rather than unmounted: the dialog `LeaveControl` owns is
+          wired by an effect in this file that walks `head-acts` for it (see
+          `./CLAUDE.md`), and a group that leaves the DOM every time the card
+          is shut is a group that comes back unwired. */}
+      <div className="gp-acts" id="game-panel-acts" hidden={!open}>
+        <div className="gp-div" aria-hidden="true" />
+        {actions}
+      </div>
     </div>
   );
 }

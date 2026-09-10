@@ -178,6 +178,69 @@
   row-gap: var(--keys-gap);
 }
 
+/* ------------------------------------------- the line over the controls */
+
+/* `handMeta: 'acts'`. Your own line leaves the hand's column for a row of its
+   own over the controls, and the cards take their column whole.
+
+   **One line here, two under the cards.** The row it stands in is the slack
+   the controls' column already carries: the sizes, the send button and the
+   legend come to less than the hand beside them wants, and that difference is
+   the empty strip over the six sizes. Twenty six pixels of it, which is one
+   row of figures and not two, so the reading folds flat rather than the band
+   growing to hold a stacked one. Laid flat it is the decision line's own
+   shape, directly under it: who on the left with the width, the figures on
+   the right.
+
+   The gap between the rows here is the legend's `--keys-gap`, which is the
+   same six the meta line's own gap under the cards is, so one `row-gap` is
+   both and there is nothing to keep in step. */
+.hero-band[data-seated][data-meta="acts"] .hb-in {
+  grid-template-rows: var(--hb-nums-h) minmax(0, 1fr) var(--hb-keys-h);
+  grid-template-areas:
+    "cards meta"
+    "cards acts"
+    "cards keys";
+}
+.hero-band[data-seated][data-meta="acts"][data-stats] .hb-in {
+  grid-template-areas:
+    "cards meta  stats"
+    "cards acts  stats"
+    "cards keys  stats";
+}
+/* Nothing under the cards to reserve a row for any more. */
+.hero-band[data-meta="acts"] .hb-hero {
+  grid-template-rows: minmax(0, 1fr);
+  row-gap: 0;
+}
+/* The controls stand on their own floor here: the lift below exists to bring
+   fold and call down level with the cards beside them, and with the line out
+   of that column there is nothing left in it to be level with. */
+.hero-band[data-seated][data-meta="acts"] { --hb-floor-lift: 0px; }
+.hero-band[data-meta="acts"] .hb-meta {
+  grid-area: meta;
+  grid-template-rows: var(--hb-nums-h);
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: stretch;
+  align-items: center;
+  column-gap: var(--sp-3);
+  row-gap: 0;
+}
+.hero-band[data-meta="acts"] .hb-who { height: auto; }
+/* The figures keep their bottom edge and give up their own height: aligned to
+   the middle of a row this shallow the 22px stack and the 11px label sat on
+   two different lines. */
+.hero-band[data-meta="acts"] .hb-nums { height: auto; justify-content: flex-end; }
+/* Left handed, the controls' column is on the band's left edge, so the line
+   over them turns round with everything else in it. */
+:root[data-hand="left"] .hero-band[data-meta="acts"] .hb-meta {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+:root[data-hand="left"] .hero-band[data-meta="acts"] .hb-who { order: 2; }
+:root[data-hand="left"] .hero-band[data-meta="acts"] .hb-nums {
+  order: 1; justify-content: flex-start;
+}
+
 /* **A practice table's readings are a section of the band, not a bar of their
    own.** They take a column on the far side of the controls, whole for the
    life of the table, so the hand, the outs and the equity are read where the
@@ -410,6 +473,25 @@
   min-width: 0; overflow: hidden; white-space: nowrap;
 }
 .hb-keys > span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+/* On the far side of the captions, which is the right end right handed and the
+   left end left handed: `.hb-keys` reverses its own justification there, so
+   the `x` follows the row rather than naming an edge. */
+.hb-keys .keys-off { margin-left: var(--sp-1); }
+:root[data-hand="left"] .hb-keys .keys-off { margin-left: 0; margin-right: var(--sp-1); order: -1; }
+/* The legend's own way out. Quiet enough to be part of the caption rather than
+   a control on the felt, and it only says what it is on hover and to a reader:
+   an `x` beside five key names reads as an `x` you can press without a label
+   telling you so. Settings > Table puts the legend back. */
+.hb-keys .keys-off {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; padding: 0; flex: none;
+  border: none; border-radius: var(--radius-sm);
+  background: none; color: var(--text-placeholder);
+  cursor: pointer;
+}
+.hb-keys .keys-off:hover { color: var(--text-primary); background: var(--fill-hover); }
+.hb-keys .keys-off:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+
 
 /* ------------------------------------------------------------ the column */
 
@@ -456,17 +538,35 @@
 .hb-turn > .hb-sizes, .hb-turn > .hb-custom { grid-area: sizes; }
 .hb-turn > .hb-acts { grid-area: acts; }
 .hb-turn > .hb-bet { grid-area: bet; }
-/* The waiting pills are three where the controls are two and one, so they
-   stand across both groups on the same floor rather than in the groups'
-   own boxes. The hand-over ghosts do stand in the groups' own boxes: they
-   are the three controls, held open. */
+/* **The three pills stand in the three controls' own boxes**, the way the
+   hand-over ghosts do: check or fold where Fold is, call any where Call is,
+   and fold to any bet where the raise button is. They were three equal thirds
+   across the whole floor before, so every pill was in a box no control ever
+   occupies and the row you armed something in was a different row from the one
+   it fired in. Mirroring them means a pill and the button it becomes are the
+   same shape in the same place, and the band does not re-divide when the turn
+   arrives.
+
+   The tracks are written out rather than nested in an `.hb-acts` of their own,
+   because the phone stacks these same three flat children up one column and a
+   wrapper would have to be undone there. Two gaps, not one: `--act-gap`
+   between fold and call inside the left group, and the band's `--sp-4` between
+   that group and the raise button. Grid has one `column-gap`, so the gaps are
+   carried as margins and folded into the tracks that hold them, which is what
+   makes the sum come out on the controls' own edges rather than near them. */
 .hb-turn > .hb-pre {
   grid-row: 3; grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--act-gap);
+  grid-template-columns:
+    calc((var(--acts-w) + var(--act-gap)) / 2)
+    calc((var(--acts-w) - var(--act-gap)) / 2 + var(--sp-4))
+    minmax(0, 1fr);
+  column-gap: 0;
+  row-gap: var(--act-gap);
   min-height: 0;
 }
+.hb-turn > .hb-pre > :nth-child(1) { margin-right: var(--act-gap); }
+.hb-turn > .hb-pre > :nth-child(2) { margin-right: var(--sp-4); }
 
 /* ------------------------------------------------------------- the sizes */
 
@@ -715,7 +815,44 @@
    kind of thing: `.btn`'s own radius, not the stadium shape a pill elsewhere
    on the site gets, because these three sit in the row the fold, call and
    raise buttons occupy the moment the turn arrives. */
-.hb-pre .btn { width: 100%; height: 100%; font-size: 13px; }
+/* Height only. A grid item already stretches to its area, and a declared
+   `width: 100%` is that area whatever margin the item is carrying: with one,
+   the pill drew its full track and hung the margin off the end, so the two
+   gaps that put these on the controls' own edges did nothing at all. */
+.hb-pre .btn { height: 100%; font-size: 13px; }
+/* **An armed pill is pressed down and lit.** It was neither: the state was in
+   the markup (`aria-pressed`, `data-on`) and the only thing drawn for it was
+   a background two per cent lighter than the one beside it, so the one control
+   on this screen that stays on after you let go looked exactly like the two
+   that did not. Three things say it now, because one of them is not enough on
+   a felt: the tone of the action it will take (`preactions.ts` says which),
+   a full weight border in that tone, and the inset shadow that puts the face
+   of the button below its own edge. Pressing it again disarms it, which is
+   what the pressed look is promising.
+
+   No transition. One thing moves at a time on this table and a pill is not
+   it: the press is the movement, and a button that fades into its own pressed
+   state reads as the table thinking about it. */
+.hb-pre .btn[data-tone="call"] { --_tone: var(--act-call); --_tone-text: var(--act-call-text); }
+.hb-pre .btn[data-tone="fold"] { --_tone: var(--act-fold); --_tone-text: var(--act-fold-text); }
+/* **Painted directly, not through `.btn`'s `--_fill`.** `.btn-tertiary:hover`
+   sets `background` itself, and a declaration beats a variable the cascade
+   never gets to re-read: armed and under the cursor, the pill went back to
+   looking like every other tertiary button on the screen, which is the state
+   a player is in for the whole second after they press it. */
+.hb-pre .btn[data-on],
+.hb-pre .btn[data-on]:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--_tone) 30%, transparent);
+  border-color: var(--_tone);
+  color: var(--_tone-text);
+  box-shadow: inset 0 1px 3px color-mix(in oklab, black 30%, transparent);
+}
+/* Hovering an armed pill offers to disarm it, so it lights one step further
+   rather than dropping back to the tertiary hover. */
+.hb-pre .btn[data-on]:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--_tone) 40%, transparent);
+}
+
 
 /* ------------------------------------------------------------------- over */
 
@@ -932,12 +1069,20 @@
      of it. On a phone the controls are always the taller column, so the cards
      never reach the line and the line keeps its whole width. */
   --card-poke-on: 1;
+  /* Your own line is carried by one column or the other, never both, and the
+     band is as tall as the taller column: so the line's height is a pair of
+     terms, one in each sum, and moving it is moving which of the two is
+     nought. Written this way rather than as two whole formulas per placement
+     because the phone overrides one of the sums, and a second copy of it is a
+     copy that drifts. */
+  --hb-meta-in-hand: calc(var(--hb-meta-gap) + var(--hb-meta-h));
+  --hb-meta-in-col: 0px;
   --hb-hand-h: calc(
     var(--hero-card) * var(--card-rise) - var(--card-poke)
-    + var(--hb-meta-gap) + var(--hb-meta-h)
+    + var(--hb-meta-in-hand)
   );
   --hb-col-h: calc(var(--sizes-h) + var(--act-h) + 2 * var(--act-gap)
-    + var(--hb-keys-h) + var(--keys-gap));
+    + var(--hb-keys-h) + var(--keys-gap) + var(--hb-meta-in-col));
   --band-h: calc(var(--band-chrome) + max(var(--hb-hand-h), var(--hb-col-h)));
   --band-watch-h: 176px;
 }
@@ -958,22 +1103,37 @@
 :root[data-card-size="regular"] { --card-want: 92px; }
 :root[data-card-size="huge"] { --card-want: 140px; }
 
+/* `handMeta: 'acts'` moves your own line from the hand's column to the
+   controls', so the two terms swap. It costs the controls one row of figures
+   and the legend's gap, and the hand gives up two rows and its own, which is
+   why the band ends up within a few pixels of the height it was. */
+:root[data-hand-meta="acts"] {
+  --hb-meta-in-hand: 0px;
+  --hb-meta-in-col: calc(var(--hb-nums-h) + var(--keys-gap));
+}
+
 /* The phone. The controls are a column of three actions under the six sizes
    and they are what the band's height is: the hand only overtakes them past a
    card the clamp will not give out at this width anyway. The clamp itself is
    the page's own gutters, the gap and the 176 the thumb's column takes. */
 @media (max-width: 560px) {
-  :root {
+  /* `hero-band.tsx` keeps your own line under the cards at this width whatever
+     the setting says, so the pair of terms goes back the way it was. Both
+     selectors, and this one last, so the setting's own rule above cannot win
+     on specificity down here. */
+  :root, :root[data-hand-meta="acts"] {
     --band-pad: var(--sp-2);
     --sizes-h: 60px;
     --act-h: 44px;
     --hero-card: min(var(--card-want), calc((100vw - 208px) / var(--card-span)));
     --hb-col-h: calc(var(--sizes-h) + var(--act-h)
       + calc(2 * var(--act-h) + var(--act-gap)) + 3 * var(--act-gap));
+    --hb-meta-in-col: 0px;
     /* The thumb's column is the height here and the hand never reaches out of
        it, so there is nothing to pay for and nothing to get out of the way of. */
     --card-poke: 0px;
     --card-poke-on: 0;
+    --hb-meta-in-hand: calc(var(--hb-meta-gap) + var(--hb-meta-h));
   }
 }
 
@@ -1049,12 +1209,23 @@
     grid-template-rows: repeat(2, minmax(0, 1fr));
   }
   .hb-act-fold { order: 1; }
-  /* The pills take the three rows the three controls take. */
+  /* The pills take the three rows the three controls take. One column, so the
+     wide band's two gaps carried as margins come back off.
+
+     **And the same three rows, in the same order.** The column runs bet, call,
+     fold from the top with fold on the bottom edge under the thumb
+     (`.hb-act-fold`'s own order below), so the pill that folds you goes on the
+     bottom edge too and the one standing where the raise button is is the one
+     the wide band puts there. Read in DOM order the three would have mirrored
+     the column upside down. */
   .hb-turn > .hb-pre {
     grid-row: 3 / 5; grid-column: 1;
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: repeat(3, minmax(0, 1fr));
   }
+  .hb-turn > .hb-pre > :nth-child(1) { order: 3; margin-right: 0; }
+  .hb-turn > .hb-pre > :nth-child(2) { order: 2; margin-right: 0; }
+  .hb-turn > .hb-pre > :nth-child(3) { order: 1; }
 
   .hb-sizer {
     grid-template-rows: minmax(0, 1fr) 36px 44px 52px;

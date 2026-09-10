@@ -103,24 +103,40 @@ absent attribute.
   empty right-wing seat cell, which is empty in both modes: six-max seats its
   hero in the band and heads-up has the whole column spare.
 
-**The panel takes row 2 rather than floating over the felt**, which is the
-whole of why it cannot overlap a seat. `.felt-in` centres its slack with auto
-margins, so the felt's distance from the top of `.match` is whatever a given
-viewport height and seat-card size leave over, and that slack goes to nothing
-in exactly the tight cases this file is measured against. A panel pinned at a
-fixed offset under the chip overlapped the top-right seat the moment the felt
-had less spare height than the panel was tall. A reserved row cannot: whatever
-is in it, the felt starts under it.
+**The panel floats over the felt above 1060 and takes row 2 below it.** It
+took the row at every width once, and a row here is a full-width band across
+the top of the screen with one card in its right-hand corner: 129 px of the
+page's own black, all of it out of the felt, which is the one row on this
+screen that should have the height. The owner's word for it was that it
+squishes the game.
 
-Row 2 holds one thing at a time. `.hand-head` and `.game-panel` are never both
-rendered, so the row is theirs in turn and its height is whichever one is in
-it, nought when neither is.
+What it floats over above 1060 is the felt's top right corner, and that corner
+is empty: the board is one centred row across the top and the right wing's
+first seat starts under it. Below 1060 the wings stop being wings (the felt's
+own container query puts the middle across the top and stacks both columns
+under it), there is no spare corner, and the panel goes back to a reserved
+row, which cannot overlap what starts after it. One threshold, and it is the
+one the felt already changes shape at.
 
-At Huge seat cards on a 1280x720 window in panel mode the felt falls back to
-scrolling its own overflow. That is the documented behaviour of the row above
-it ("a window too short for the felt shortens the felt"), not a new failure:
-the panel's row costs the felt more height than the header row it replaces
-gave back, and Huge was already the tightest case.
+The clearance is bought with the card's own width. At 340 the four controls
+wrapped to two rows and the card stood 113 px tall, which reaches the first
+seat at 1280x720 with huge seat cards; at 360 they are one row and it is 79,
+which clears every combination of seat card size and window this file is
+measured at. The numbers are in `../app.css` under "game panel", and the
+matrix they were checked against is 1920x1080 down to 1024x700 at all three
+seat card sizes.
+
+**The chevron shuts it.** The two halves of the card are read at completely
+different rates: the hand, the street and the blinds every hand, and Copy
+link, Verify, Leave game and Chat once a match if at all. Shut, the facts stay
+and the controls fold away under `gp-acts`, which is `hidden` rather than
+unmounted so the leave dialog's wiring (below) survives it. It is a setting
+(`gamePanel` in `../ui/prefs.ts`), not this component's state, because a
+player who shuts it wants it shut next hand.
+
+Row 2 still holds one thing at a time. `.hand-head` and `.game-panel` are
+never both rendered, so below 1060 the row is theirs in turn and its height is
+whichever one is in it, nought when neither is.
 
 `head-acts` itself stands in one of two places, decided in `table.tsx` by
 `TOP_BAR_ACTS` (`(min-width: 900px)`), never both: above it, portalled into
@@ -192,6 +208,28 @@ Nothing slides. A spectator gets a fourth, `watch` (see `../routes/CLAUDE.md`).
 | `turn` | the sizing presets, the amount field and slider, then fold / check or call / raise |
 | `over` | the result line with a countdown, and the three choices as inert outlines that hold the height |
 
+**An armed pre-action is pressed down and lit.** The state was in the markup
+from the start (`aria-pressed`, `data-on`) and nothing was drawn for it but a
+background two per cent lighter than its neighbours', so the one control on
+this screen that stays on after you let go looked exactly like the two that
+did not. Three things say it now: the tone of the action it will take, a full
+weight border in that tone, and an inset shadow that puts the button's face
+below its own edge. `preactions.ts` says which tone each wears, and the rule
+there is that green is the one that puts chips in and red is the two that can
+give the hand up. Pressing an armed pill disarms it, which is what the pressed
+look is promising. No transition: the press is the movement.
+
+**And the three stand in the three controls' own boxes.** Check or fold where
+Fold is, call any where Call is, fold to any bet where the raise button is, at
+both widths, so a pill and the button it becomes are the same shape in the
+same place and the band does not re-divide when the turn arrives. They were
+three equal thirds across the whole floor before, which put every one of them
+in a box no control ever occupies. The tracks are written out in
+`hero-band.css` rather than nested in an `.hb-acts` of their own, because the
+phone stacks the same three flat children up one column and a wrapper would
+have to be undone there; the phone reverses their order instead, so the pill
+that folds you is the one on the bottom edge under the thumb.
+
 **Pre-actions** (`preactions.ts`) are the reason the waiting state is worth
 having. Arm one and it fires the instant the action reaches you: check or fold
 checks if it can and folds if it cannot, call any calls, fold to any bet folds
@@ -228,14 +266,45 @@ scoped to `.hero-band` and `.match[data-band]` so it cannot.
 | Sizes | six, two rows of three | six and a custom square, one row |
 | Actions | three rows: bet, call, fold | two groups: fold and call, then bet |
 | A size of your own | the sweep sizer | a typed field, key `r` |
-| Key legend | none, there is no keyboard | one line under the controls |
+| Key legend | none, there is no keyboard | one line under the controls, dismissable |
+| Your own line | under your cards | under your cards, or one line over the controls |
+
+### Where your own line stands
+
+The flag, the name, the button marker, the stack, its rack and the last action
+you took: `HeroMeta`, one component in two homes, and the player picks with
+**Your line** under Settings > Table (`handMeta` in `../ui/prefs.ts`).
+
+- **Under your cards**, the default: two rows on the cards' own left edge, the
+  name over the figures, inside `.hb-hero`.
+- **Over the controls**: a row of its own in `.hb-in` above the acts column,
+  and the cards take their column whole. **One line here, not two.** The row it
+  stands in is the slack the controls' column already carries, which is the
+  difference between what the sizes, the send button and the legend need and
+  what the hand beside them does: 26 px, one row of figures. Folded flat it is
+  the decision line's own shape directly under it, who on the left with the
+  width and the figures on the right, and it turns round with everything else
+  left handed. The band ends up 4 px taller than it is under the cards, because
+  the hand's column gives up two rows and a gap while the controls' takes one
+  and a gap.
+
+The band is as tall as its taller column, so the line's height is a pair of
+terms in `hero-band.css`, `--hb-meta-in-hand` and `--hb-meta-in-col`, and
+moving the line is moving which of the two is nought. Written that way rather
+than as two whole formulas per placement because the phone overrides one of
+the sums and a second copy of it is a copy that drifts.
+
+**Wide only.** `hero-band.tsx` keeps the line under the cards below 561 px
+whatever the setting says: a phone's band is a hand beside a thumb's column
+with no spare row in either, and the setting is about a row the wide band has
+and the phone one does not.
 
 **The band's ground is the page's and its content is the felt's.** The ground
 runs the full width, because a band that stopped where the felt does would be a
 floating panel; `.hb-line` and `.hb-in` inside it are capped at `--felt-w` and
 centred, so the cards start on the felt's left edge and the controls end on its
-right one. `--felt-w` is declared on `.match` (as well as on `.felt`) for exactly
-this, and `table.tsx` stamps `data-mode` on both.
+right one. `--felt-w` is declared on `.match` for exactly this, and `table.tsx`
+stamps `data-mode` on both.
 
 **The line stands off the divider.** `--hb-line-top` is 4 px of padding at the
 top of the band and it comes out of the gap under the line, so the two cancel,
@@ -451,6 +520,17 @@ controls, so row 6 is empty and the felt gets those pixels back. v1 keeps the
 row untouched and its six. It is `--text-secondary` rather than the placeholder
 grey, because the placeholder measures 3.68:1 on this ground and this is text a
 person reads.
+
+**And it carries its own way out.** A caption for a keyboard is read once and
+then never again, and a player who knows the keys was left looking at them for
+the rest of the match with the way to stop three clicks down a settings menu.
+The `x` at its far end is that setting (`keyLegend` in `../ui/prefs.ts`),
+pressed where the thing it governs is; Settings > Table puts it back, which is
+why it is a switch there and not only a dismissal here. The captions are
+`aria-hidden` and the button is not, so the one thing a reader is offered is
+the one thing that can be pressed. Dismissing it does move the row it stands
+in, which is the one thing the footprint rule forbids the table doing on its
+own, and a player pressing a button is not the table doing it on its own.
 
 **The table is one screen and never the page's scrollbar.** `.match` is capped
 at `calc(100dvh - var(--top-h))` unless it is bare or ended, so a window too
@@ -837,12 +917,35 @@ unit tested:
   a phone can hold (above, "A reserved slot has to be paid for somewhere").
   Container queries rather than media queries, because the replay draws this
   felt in a column of its own.
-- **The columns hug the middle.** A seat is `min(100%, --seat-w)` and the left
-  column's seats are packed to their column's right edge, the right column's
-  to their left, so the table gathers round the board rather than spreading to
-  the felt's edges. `--felt-w` is 1120, declared on `.match` so the band and
-  the header share the column; the header's actions end on the felt's right
-  edge.
+- **The columns hug the middle, and the middle is the board's own width.** A
+  seat is `min(100%, --seat-w)` and the left column's seats are packed to
+  their column's right edge, the right column's to their left, so the table
+  gathers round the board rather than spreading to the felt's edges. That
+  makes a middle narrower than the board a middle the seats stand inside: at
+  160 they overhung the community cards by 20 px a side and read as
+  encroaching on the pot. `--mid-w` is the board's five cards and their four
+  gaps less the two gutters beside it, which is exactly what puts a seat's
+  inner edge on the board's outer one, at every board card size.
+- **The felt's width is derived from the seat, and the seat from its cards.**
+  `--seat-w` is `--seat-body` plus its two cards and `--felt-w` is two seats,
+  the middle and the two gutters, so Other seats is one setting rather than a
+  card size and a width kept in step by hand: 476 and 1184 at the default
+  46 px card, and at huge the felt grows by exactly what the bigger cards
+  take rather than the cards growing into room the name was using. `--seat-card`, `--board-card` and the widths
+  derived from them are declared on `.match` and not on `.felt` for that
+  reason: `.match` cannot read a variable declared on its own child. The
+  phone's container queries still override the two card sizes on `.felt`,
+  which is where they want them, because `--felt-w` is a max-width no phone
+  reaches and `--mid-w` is not used below 1060 at all.
+- **The picture stands clear of both its neighbours by the same amount.** 6 px
+  of margin either side of `.seat > .avatar`, which makes the gap to the cards
+  and the gap to the identity block 12 apiece while the two gaps further along
+  the row keep the row's own 6. Equal by construction rather than by two
+  declarations that can drift, and the 12 is in `--seat-body` so a seat did
+  not pay for it out of the name.
+- **The rack sits on the block's own left edge**, level with the flag slot
+  above it rather than indented past it to meet the name's first letter. Set
+  in by the flag's 22 px it hung to the right of everything it belongs to.
 - **Dealing.** `dealOrder` is round robin from the seat left of the button, one
   card each then the second, which is the order the engine deals in; the seat
   passes it to `playing-card.tsx` as the stagger index. `dealFrom` says where
@@ -1079,9 +1182,10 @@ being poker-specific, build it in g-system, not here.
   are full-width boxes with a reserved height: a centred box sized to its
   word moved when the word did, and an empty amount line collapsed to nothing
   and moved the word above it.
-- The felt's inner box is `.felt-in`; `--felt-w` caps it at 1120 px and
-  centres it, except in `bare` mode (the replay), which fills the card it sits
-  in.
+- The felt's inner box is `.felt-in`; `--felt-w` caps it and centres it,
+  except in `bare` mode (the replay), which fills the card it sits in. The cap
+  follows the Other seats setting (above): 1144 at regular, 1184 at large,
+  1224 at huge.
 - A six-max match carries no hand count (`format.hands` is null) and the stats
   box says "12" without "of". `blindsRow` in `labels.ts` adds the level and a
   next-level row whenever `format.levels` holds more than one; `blindText` is
