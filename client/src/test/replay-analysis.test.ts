@@ -184,12 +184,36 @@ describe('the street strip', () => {
     expect(points.map((p) => p.street)).toEqual(['pre', 'flop', 'turn', 'river']);
     expect(points.map((p) => p.board.length)).toEqual([0, 3, 4, 5]);
     expect(points.every((p) => p.live.length === 2)).toBe(true);
+    expect(points.every((p) => p.runout === false)).toBe(true);
+  });
+
+  /* Nobody acts on a street an all-in run-out deals, so the engine never
+     produces a state tagged with it (`packages/engine`'s `replay()` is one
+     state per logged action, and `runOutAndShowdown` deals every remaining
+     street inside the one action that put the last seat all in). Preflop
+     all in skips flop, turn and river together, which is the sharpest case
+     of the gap `streetPoints` has to build across. */
+  const ALLIN_ACTIONS: LoggedAction[] = [
+    { s: 0, a: 'r', v: 200, t: 100 },
+    { s: 1, a: 'c', t: 200 },
+  ];
+  const ALLIN_STATES = replay(CONFIG, ALLIN_ACTIONS);
+
+  it('builds the streets nobody acted on from the run-out board', () => {
+    const points = streetPoints(ALLIN_STATES, MAP);
+    expect(points.map((p) => p.street)).toEqual(['pre', 'flop', 'turn', 'river']);
+    expect(points.map((p) => p.runout)).toEqual([false, true, true, true]);
+    expect(points.map((p) => p.board.length)).toEqual([0, 3, 4, 5]);
+    const final = ALLIN_STATES[ALLIN_STATES.length - 1];
+    expect(final.street).toBe('done');
+    expect(points[3].board).toEqual(final.board);
+    expect(points.every((p) => p.live.length === 2)).toBe(true);
   });
 
   const POINTS: StreetPoint[] = [
-    { street: 'pre', step: 0, board: [], live: [0, 1, 2] },
-    { street: 'flop', step: 3, board: ['5h', '3d', '8d'], live: [0, 1] },
-    { street: 'turn', step: 5, board: ['5h', '3d', '8d', 'Kc'], live: [0] },
+    { street: 'pre', step: 0, board: [], live: [0, 1, 2], runout: false },
+    { street: 'flop', step: 3, board: ['5h', '3d', '8d'], live: [0, 1], runout: false },
+    { street: 'turn', step: 5, board: ['5h', '3d', '8d', 'Kc'], live: [0], runout: false },
   ];
 
   it('gives every known seat a row and every street it was still in a cell', () => {

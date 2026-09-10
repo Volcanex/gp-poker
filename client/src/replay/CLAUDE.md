@@ -91,22 +91,38 @@ The stats box (`Hand`/`Street`/`Blinds`/`To call`) is hidden in bare mode
 corner, a replay has none, and the same four facts are already in the page's
 own header and its action list.
 
-## The street strip has no point for a street nobody acted on
+## A run-out street is built from the final board, not found in the states
 
-`streetPoints()` in `../analysis/replay-analysis.ts` finds the first state at
-each of `pre`/`flop`/`turn`/`river` by scanning `states` for that exact
-`street` value. `packages/engine`'s `replay()` returns one state per *logged
-action* (`packages/engine/src/replay.ts`), and an all-in run-out deals every
-remaining street inside a single transition
-(`runOutAndShowdown`/`dealNextStreet` in `packages/engine/src/deal.ts`) with no
-action of its own to hang a state on. A hand that goes all in on the flop and
-runs out to a river showdown therefore has a `states` array that jumps from a
-`flop` state straight to a terminal one with a five-card board: nothing in it
-is ever tagged `turn` or `river`, so the strip silently prints two columns
-instead of four for that hand. `client/src/routes/replay.tsx` and everything
-under here can see this; fixing it needs the engine to expose the run-out's
-intermediate boards, which is `packages/engine`'s to do. `StripRow` in
-`../analysis/replay-panel.tsx` shows a "Computing" placeholder rather than a
-bare midline when a row has resolved nothing at all, which is a real fix for a
-cell that reads as broken while the worker is still answering, but does not
-manufacture the missing turn/river columns themselves.
+`packages/engine`'s `replay()` returns one state per *logged action*
+(`packages/engine/src/replay.ts`), and an all-in run-out deals every
+remaining street inside a single transition (`runOutAndShowdown`/
+`dealNextStreet` in `packages/engine/src/deal.ts`) with no action of its own
+to hang a state on. A hand that goes all in on the flop and runs out to a
+river showdown has a `states` array that jumps from a `flop` state straight to
+a terminal one with a five-card board: nothing in it is ever tagged `turn` or
+`river`. `streetPoints()` in `../analysis/replay-analysis.ts` scans `states`
+for each street first and, for one it finds no state for, builds the point
+itself from the final state's own board (`final.board.slice(0, 4)` for the
+turn, `.slice(0, 5)` for the river) and the seats `contestingSeats(final, ...)`
+still shows in the hand — real cards and real seats, nothing sampled or
+guessed, marked `runout: true` on the `StreetPoint` so the strip can say so.
+
+This is deliberately **not** a `packages/engine` change: `states` is indexed
+by logged action everywhere outside this module too (`useAnalysis` in
+`../routes/replay.tsx` pairs `hand.actions[i]` to `states[i]` to price every
+call, and the scrubber counts `states.length` for "N of M"), so inserting a
+state for a street nobody acted on would silently break both. The strip is
+the one reader of `streetPoints()` that wants a point for every street the
+board reached regardless of whether an action opened it, so it is the one
+place that builds it.
+
+A run-out point carries no action and must not be treated as though it does:
+nothing prices it (`prices` in `replay.tsx` stays keyed to `hand.actions`, and
+a run-out street has none) and nothing scores it (`studyFor` is preflop only).
+`StreetStrip`'s header marks a run-out column in the strip's own voice
+("Turn, dealt without a bet") rather than let it read as a street played
+normally. `StripRow` also shows a "Computing" placeholder rather than a bare
+midline when a row has resolved nothing at all yet — a real fix for a cell
+that reads as broken while the worker is still answering, orthogonal to the
+run-out gap above but easy to mistake for the same bug (both show as an empty
+shape cell).

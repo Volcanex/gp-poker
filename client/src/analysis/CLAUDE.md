@@ -128,11 +128,16 @@ against the row beside it.
 **A shape cell with nothing resolved yet says so.** `StripRow` draws the
 "Computing" placeholder (the same one the panel's own cells use) rather than a
 bare `<svg>` when every point in the row is still null: a midline with no point
-on it reads as broken, not as a chart still filling in. This does not paper
-over `streetPoints()` skipping a street nobody acted on (an all-in run-out has
-no state tagged `turn` or `river` to find, `../replay/CLAUDE.md`) — a row
-missing a whole column still ends two columns short, it just no longer looks
-empty while what it does have is on its way.
+on it reads as broken, not as a chart still filling in.
+
+**A street nobody acted on still gets a real point.** `streetPoints()`
+(`replay-analysis.ts`, `../replay/CLAUDE.md`) builds a `turn`/`river` point
+from the final state's own board when an all-in run-out left no state tagged
+with it, rather than leave the strip silently short a column on exactly the
+hands where the swing matters most. `StreetPoint.runout` marks one, and
+`StreetStrip`'s header says so in its own voice ("Turn, dealt without a bet")
+so a reader can tell a run-out from ordinary play; nothing downstream prices
+or scores a run-out point, because nothing was decided on it.
 
 **Every fragment this panel prints on its own is sentence case**, the
 `priceText` needed/had line, the exact/sampled note beside an equity and the

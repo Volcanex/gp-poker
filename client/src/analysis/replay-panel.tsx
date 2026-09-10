@@ -340,7 +340,14 @@ export function StreetStrip({ points, known, seats, equities, colourOf }: Street
               <th scope="col" className="ra-seat">Seat</th>
               <th scope="col" className="ra-shape">Shape</th>
               {points.map((p) => (
-                <th scope="col" key={p.street}>{STREET_WORDS[p.street] ?? p.street}</th>
+                <th scope="col" key={p.street}>
+                  {STREET_WORDS[p.street] ?? p.street}
+                  {/* Nobody acted here: an all-in run-out deals every street left
+                      at once, so the reading is real but there was no decision
+                      to make on it, which is worth saying plainly rather than
+                      letting the street look like an ordinary one. */}
+                  {p.runout && <span className="muted">, dealt without a bet</span>}
+                </th>
               ))}
             </tr>
           </thead>
