@@ -25,11 +25,20 @@
   box-shadow: var(--shadow-overlay);
 }
 
-/* The column: the felt is 1120px in both shapes now that the seats sit in
-   two wings round the board, so one gutter width serves both, and a 264px
-   panel needs the container to be 1440px before it fits beside the felt.
-   Below that a table keeps the sheet, which is the honest answer to "there is
-   no room here" rather than a column laid over a seat. */
+/* The column: below 1440 a table keeps the sheet, which is the honest answer
+   to "there is no room here" rather than a column laid over a seat.
+
+   **The 1440 is stale and the panel does lie over a seat above it.** It was
+   worked out against a felt that was 1120 wide whatever the settings said,
+   and the felt is now derived from the Other seats card size (`--felt-w` in
+   `../app.css`): 1144, 1184 or 1224. The panel shares the felt's own grid
+   cell rather than taking a column beside it, so the felt does not narrow to
+   make room and the two simply overlap by whatever the gutter is short of
+   264 plus its margin: 120 px at 1440 when this was written, 152 at the
+   default now and 172 at huge. Widening the felt made an overlap that was
+   already here worse rather than causing it. Fixing it properly means the
+   panel taking a column of its own so the felt can give the width up, which
+   is a change to the table's grid and not to this file. */
 @container (min-width: 700px) {
   .chat-panel {
     right: var(--sp-4);
