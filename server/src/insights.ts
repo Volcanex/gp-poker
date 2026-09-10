@@ -402,6 +402,48 @@ function time(at: Date | null): number {
   return at ? at.getTime() : 0;
 }
 
+export interface RawRate {
+  made: number;
+  of: number;
+  pct: number | null;
+}
+
+export interface RawRates {
+  hands: number;
+  vpip: RawRate;
+  pfr: RawRate;
+  threeBet: RawRate;
+  // 'made' is aggressive postflop actions, 'of' is postflop calls: the same
+  // pair aggressionFactor divides, printable as a count either side of a
+  // divide-by-zero.
+  aggressionFactor: RawRate;
+  cbet: RawRate;
+  wentToShowdown: RawRate;
+}
+
+/* The same fold computeInsights runs, with MIN_INSIGHT_HANDS never applied
+   and every rate printed as a count either side of a divide, not a rounded
+   percentage. A single finished match rarely reaches twenty hands for one
+   seat, so computeInsights is right to say nothing there — that gate is
+   about a number being read as a stable tendency, which is not what a match
+   review is for. This is for "what actually happened at this table", which a
+   count backs at any sample size. The other half of the honesty rule still
+   holds: a rate with no denominator is null here too, never a guessed zero. */
+export function computeRawRates(input: InsightsInput): RawRates {
+  const totals = emptyTotals();
+  for (const hand of input.hands) foldHand(totals, hand);
+  const rate = (made: number, of: number): RawRate => ({ made, of, pct: pct(made, of) });
+  return {
+    hands: totals.hands,
+    vpip: rate(totals.vpipHands, totals.hands),
+    pfr: rate(totals.pfrHands, totals.hands),
+    threeBet: rate(totals.threeBets, totals.threeBetSpots),
+    aggressionFactor: rate(totals.postflopAggressive, totals.postflopCalls),
+    cbet: rate(totals.cbets, totals.cbetSpots),
+    wentToShowdown: rate(totals.showdowns, totals.sawFlop),
+  };
+}
+
 export function computeInsights(input: InsightsInput): Insights {
   const totals = emptyTotals();
   for (const hand of input.hands) foldHand(totals, hand);

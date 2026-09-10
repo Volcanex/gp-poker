@@ -1,0 +1,191 @@
+/* client/src/review/ — the match-level review on /m/:id. Self-contained on
+   purpose: every rule that draws something in this directory's components
+   lives here, never in app.css or in another route's stylesheet, even where
+   a shape (a street bar, a stat tile) already exists elsewhere. See
+   client/src/review/CLAUDE.md for why. Tokens only: --bg, --surface-1/-2,
+   --text-primary/-secondary, --border, --chart-1..6. */
+
+.review-section { margin-top: var(--sp-2); }
+.review-head p { max-width: 62ch; }
+
+.review-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--sp-4);
+  align-items: start;
+}
+
+/* --------------------------------------------------------------- banner */
+
+.review-banner .e-desc { max-width: none; }
+
+/* ---------------------------------------------------------- player card */
+
+.review-player { display: flex; flex-direction: column; gap: var(--sp-4); }
+.review-player[data-you] { border-color: var(--accent-edge, var(--border)); }
+
+.rp-head { display: flex; align-items: center; gap: var(--sp-3); }
+.rp-who { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.rp-name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rp-sub { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+
+.rp-reads {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.rp-reads li::marker { color: var(--text-placeholder); }
+
+.rp-streets { display: flex; flex-direction: column; gap: var(--sp-2); }
+.rp-street-track {
+  display: flex;
+  height: 14px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--fill-active);
+}
+.rp-street-track .seg { min-width: 0; }
+.rp-street-track .seg[data-street='preflop'] { background: var(--chart-1); }
+.rp-street-track .seg[data-street='flop'] { background: var(--chart-2); }
+.rp-street-track .seg[data-street='turn'] { background: var(--chart-3); }
+.rp-street-track .seg[data-street='river'] { background: var(--chart-4); }
+.rp-street-track .seg[data-street='showdown'] { background: var(--chart-6); }
+
+.rp-career { font-size: 12px; }
+
+/* The little i. Plain and inline rather than a g button: g ships no inline
+   info-glyph component, only the data-tip behaviour a trigger element hangs
+   off, so the trigger itself is the smallest thing that can carry one.
+   Flagged as a promotion candidate for g-system in the review's CLAUDE.md. */
+.acc-k { display: inline-flex; align-items: center; gap: 4px; }
+.i-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-secondary);
+  cursor: help;
+}
+.i-btn:hover, .i-btn:focus-visible { color: var(--text-primary); }
+
+/* -------------------------------------------------------------- spider */
+
+.spider { display: flex; flex-direction: column; gap: var(--sp-3); }
+.spider-head { display: flex; align-items: baseline; justify-content: space-between; }
+.spider-style { font-size: var(--font-size-ui); font-weight: 500; }
+
+.spider svg { width: 100%; max-width: 260px; height: auto; margin: 0 auto; display: block; }
+.spider-ring { fill: none; stroke: var(--border); stroke-width: 1; }
+.spider-spoke { stroke: var(--border); stroke-width: 1; }
+/* The uncertainty band: filled only between the Wilson interval's lower and
+   upper polygons (drawn as one evenodd path, see spider.tsx), never from the
+   centre out. Width is the honesty signal — wide at of:1, tight at of:44 —
+   so it carries on its own without the legend, which is the point of doing
+   this in geometry rather than a caption. */
+.spider-ci { fill: var(--chart-1); fill-opacity: 0.16; stroke: none; }
+.spider-edge { stroke: var(--chart-1); stroke-width: 1.5; fill: none; }
+.spider-edge[data-dashed] { stroke-dasharray: 3 3; opacity: 0.55; }
+.spider-vertex { fill: var(--chart-1); stroke: none; }
+.spider-vertex[data-empty] { fill: var(--surface-2); stroke: var(--chart-1); stroke-width: 1.5; }
+.spider-label { font-size: 11px; fill: var(--text-secondary); }
+.spider-flag {
+  display: block;
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.spider-legend {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px var(--sp-3);
+  font-size: 12px;
+}
+.spider-legend .row { display: contents; }
+.spider-legend dt { color: var(--text-secondary); margin: 0; }
+.spider-legend dd { margin: 0; text-align: right; color: var(--text-primary); }
+.spider-legend .row[data-empty] dt,
+.spider-legend .row[data-empty] dd { color: var(--text-secondary); }
+
+.spider-note { font-size: 11px; color: var(--text-secondary); margin: 0; }
+
+/* "You" reads heavier, never a different hue: the whole point of drawing one
+   radar per card instead of one overlaid chart is that colour never has to
+   carry identity here, so the one axis that does need to stand out (your own
+   seat, on your own review) stands out in weight instead. */
+.review-player[data-you] .spider-edge { stroke-width: 2.25; }
+.review-player[data-you] .spider-ci { fill-opacity: 0.24; }
+
+.spider-band {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+.spider-band summary { cursor: pointer; color: var(--text-primary); }
+.spider-band dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px var(--sp-2);
+  margin: var(--sp-2) 0 0;
+}
+.spider-band dl .row { display: contents; }
+.spider-band dt { color: var(--text-secondary); }
+.spider-band dd { margin: 0; }
+
+/* --------------------------------------------------------- chip sparkline
+   One line per card, one colour for every card: six overlaid hues on a
+   single chart is what the dataviz pass over g-system's own --chart-1..6
+   failed a CVD check on (deltaE 3.6 between #e93d82 and #12a594 under
+   deuteranopia). Small multiples sidestep the problem rather than working
+   around it: there is never more than one series in view, so there is
+   nothing for colour to have to separate. */
+.rp-chips { display: flex; flex-direction: column; gap: var(--sp-2); }
+.chip-spark { display: flex; flex-direction: column; gap: 4px; }
+.cs-graph svg { width: 100%; height: 56px; display: block; }
+.cs-zero { stroke: var(--border); stroke-width: 1; }
+.cs-line { fill: none; stroke: var(--chart-1); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.cs-line[data-mine] { stroke-width: 3; }
+.cs-figures { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); }
+.cs-end { color: var(--text-primary); }
+.cs-end[data-sign='up'] { color: var(--ok-text); }
+.cs-end[data-sign='down'] { color: var(--danger-text); }
+
+/* --------------------------------------------------- the hands table, phone
+   The hands table itself is HandsSection in client/src/table/match-summary.tsx,
+   out of this directory's ownership; its #hands id is stable markup this file
+   is allowed to restyle from the outside, the way a palette restyles a g
+   component through tokens rather than editing g-system. At 390px the board
+   column and the accuracy columns (heads-up only) push scrollWidth past
+   clientWidth, which the shell's own rule already contains inside
+   .table-wrap without letting the page itself scroll — this narrows the row
+   until it mostly fits instead of just containing the overflow. */
+@media (max-width: 480px) {
+  #hands .table th,
+  #hands .table td { padding: 6px 8px; font-size: 12px; }
+  #hands .table .ctext { gap: 1px; font-size: 11px; }
+  #hands .table th:first-child,
+  #hands .table td:first-child { padding-left: 4px; width: 22px; }
+  /* "Won by" is a name column with no fixed width; on a phone it is the
+     column most likely to push the table wide on its own, so it clips
+     instead of forcing a scroll for every row's sake. */
+  #hands .table td:nth-child(3) {
+    max-width: 74px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

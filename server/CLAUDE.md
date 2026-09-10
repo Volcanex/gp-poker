@@ -32,7 +32,7 @@ bundle time. Nothing needs copying alongside it for the bundle to find them.
 ## Where things are
 | Directory | What, and its own doc |
 | --- | --- |
-| `src/` | the modules, and the subsystems that live in one file each: auth, the queue, arenas, the ladder, the shared links, insights, the explorer, link previews |
+| `src/` | the modules, and the subsystems that live in one file each: auth, the queue, arenas, the ladder, the shared links, insights, the match review, the explorer, link previews |
 | `src/match/` | one live match: the room, the hand runner, the seam between them, and how a result becomes a rating |
 | `src/ws/` | the connection registry and the message router, including bots' virtual connections |
 | `src/bots/` | the bot population (names, personas, schedules), the scheduler that queues them, one bot's message loop and the pure decision function |

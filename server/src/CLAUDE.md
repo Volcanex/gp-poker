@@ -24,6 +24,7 @@ exactly one of them.
 | `admin.ts` | the admin gate's own routes: the tickets the annotation layer writes |
 | `avatars.ts` | the pure half of profile pictures: the size cap, the magic-number sniff and the per-user rate limit |
 | `insights.ts` | the pure derivation behind `/api/users/:name/insights` |
+| `match-review.ts` | the pure derivation behind `/api/matches/:id/review`, folding one match's hands through the same `computeInsights` per seat |
 | `explorer.ts` | the pure derivation behind `/api/explorer` |
 | `meta.ts` | what a pasted link shows, plus `/robots.txt` and `/sitemap.xml` |
 | `health.ts` | `/health`, five checks (see the repo root `CLAUDE.md`) |
@@ -723,6 +724,32 @@ everything else under `/api`. `getInsightHandsForUser` is bounded
 (`INSIGHT_HAND_LIMIT`, 3000 hands, newest first) because this runs on a request
 path. Three thousand hands replay in about half a second, which is a cache miss
 nobody notices and a hot loop nobody should write.
+
+## The match review
+
+`GET /api/matches/:id/review` (`match-review.ts`) is `insights.ts` turned
+sideways: instead of one player's whole history in one mode, it folds every
+seat's hands through `computeInsights` over just the hands of one finished
+match. The 409 on a match still `playing` is deliberate — a review of a match
+that has not happened yet is not a review, it is a guess mid-hand.
+
+**Cached forever, not invalidated.** `insightsCache` above keys on the id of
+a player's latest finished match because a career can always grow another
+hand; a finished match cannot. `matchReviewCache` is therefore a plain
+`Map<matchId, MatchReview>` with no "at" to compare, bounded the same way
+(`MATCH_REVIEW_CACHE_MAX`, insertion order) so a long-running process does
+not hold every match it has ever been asked about.
+
+**A six-max match rarely clears `MIN_INSIGHT_HANDS` for any one seat**, so
+`computeInsights`'s nulls are expected here far more than they are on a
+profile — and are printed anyway, unmodified: the gate is not lowered for
+this page. What backs the short sample instead is `computeRawRates`
+(`insights.ts`), the same fold with the floor removed and every rate
+returned as a plain count either side of a divide, never rounded to a
+percentage. The client's spider chart is drawn from those counts, not the
+gated rate, and prints every one of them in its own legend — see
+`client/src/review/CLAUDE.md` for the reasoning and the fuller shape of the
+payload.
 
 ## Explorer
 

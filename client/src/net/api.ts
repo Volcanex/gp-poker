@@ -1,8 +1,8 @@
 import type {
   Arena, ArenaListing, BotRow, Challenge, CreatedChallenge, CreatedHomeGame, CreatedInvite, Explorer,
   ExplorerFacing, ExplorerPlayers, FeedMatch, FriendsPayload, Hand, HomeGame, Insights, LeaderboardRow,
-  LiveMatch, Match, Me, PlayedPerson, PositionKey, Profile, PuzzleHand, SiteStats, StartedHomeGame,
-  Ticket, TicketSummary, TicketTarget, TicketViewport, Tournament, TournamentListing,
+  LiveMatch, Match, MatchReview, Me, PlayedPerson, PositionKey, Profile, PuzzleHand, SiteStats,
+  StartedHomeGame, Ticket, TicketSummary, TicketTarget, TicketViewport, Tournament, TournamentListing,
 } from './types.ts';
 import type { InviteKind, Mode, Speed, UserSummary } from '@opentable/protocol';
 
@@ -71,6 +71,12 @@ export const api = {
         `&facing=${encodeURIComponent(facing)}&players=${encodeURIComponent(players)}`
     ),
   match: (id: string) => req<Match>(`/api/matches/${encodeURIComponent(id)}`),
+  /* The match-level review: every seat's insights over just this match's
+     hands, plus the aggregated preflop accuracy and the chip track. Its own
+     call, like the profile's insights, because a finished match's review is
+     cacheable server-side and there is no reason to compute it for a match
+     summary somebody never scrolls to. */
+  matchReview: (id: string) => req<MatchReview>(`/api/matches/${encodeURIComponent(id)}/review`),
   /* A hand's primary key is '<match id>-<number>' (server/db/schema.sql), so a
      hand is addressable from a match URL without a lookup table. */
   hand: (matchId: string, n: number) => req<Hand>(`/api/hands/${encodeURIComponent(`${matchId}-${n}`)}`),
