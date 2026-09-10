@@ -134,19 +134,48 @@ export interface StreetPoint {
   step: number; // the state index this street opened at
   board: Card[];
   live: number[]; // table seats still in the hand when it opened
+  /* True for a street nobody acted on: the engine deals every remaining
+     street of an all-in run-out inside one transition (`packages/engine`'s
+     `replay()` is one state per logged action), so there is no state ever
+     tagged with this street for `streetPoints` to find. The point is
+     synthesised from the final state's board instead, see below. */
+  runout: boolean;
 }
+
+const BOARD_AT: Partial<Record<Street, number>> = { flop: 3, turn: 4, river: 5 };
 
 /* The first state of each street the hand reached, which is the moment the new
    card is down and before anyone has acted on it. Four points at most, and a
-   hand that ends on the flop has two. */
+   hand that ends on the flop has two.
+
+   An all-in run-out is the exception: nobody acts on the turn or the river,
+   so no state is ever tagged with either street, and a naive scan finds the
+   hand jumping straight from the flop (or earlier) to a terminal state with
+   a full board. The board there is still honest, the cards that were really
+   dealt, so a street the scan missed is built from it rather than left out:
+   the strip would otherwise be silently two columns short on exactly the
+   hands where knowing who was ahead street by street matters most. */
 export function streetPoints(states: HandState[], seatMap: number[]): StreetPoint[] {
   const wanted: Street[] = ['pre', 'flop', 'turn', 'river'];
+  const final = states[states.length - 1] as HandState | undefined;
   const out: StreetPoint[] = [];
   for (const street of wanted) {
     const step = states.findIndex((s) => s.street === street);
-    if (step < 0) continue;
-    const state = states[step];
-    out.push({ street, step, board: [...state.board], live: contestingSeats(state, seatMap) });
+    if (step >= 0) {
+      const state = states[step];
+      out.push({ street, step, board: [...state.board], live: contestingSeats(state, seatMap), runout: false });
+      continue;
+    }
+    const need = BOARD_AT[street];
+    if (need && final && final.board.length >= need) {
+      out.push({
+        street,
+        step: states.length - 1,
+        board: final.board.slice(0, need),
+        live: contestingSeats(final, seatMap),
+        runout: true,
+      });
+    }
   }
   return out;
 }
@@ -228,6 +257,6 @@ export function percent(fraction: number): string {
    out loud. Without a number for the hand it is still worth saying what the
    call needed. */
 export function priceText(price: Price, equity: number | null): string {
-  const needed = `needed ${percent(price.needed)}`;
+  const needed = `Needed ${percent(price.needed)}`;
   return equity == null ? needed : `${needed}, had ${percent(equity)}`;
 }

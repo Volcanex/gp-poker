@@ -1,0 +1,122 @@
+/* The hand replay: the felt (bare, on `.match[data-bare]`), the scrubber, the
+   action list and the fairness card. Split out of `app.css`, which is shell
+   and live-table styling and had no reason to carry a page only this route
+   draws; `replay.tsx` imports this directly, the way `replay-panel.css` and
+   the packages under `../analysis/` already own their own sheets. */
+
+.replay-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
+.replay-links { display: flex; gap: var(--sp-2); }
+.replay { display: grid; grid-template-columns: minmax(0, 1fr) 268px; gap: var(--sp-4); align-items: start; }
+.replay-main { display: flex; flex-direction: column; gap: var(--sp-3); }
+.replay-felt { padding: var(--sp-3); }
+/* `.match`'s own width is what `@container` in `../table/CLAUDE.md`'s felt
+   queries against, so this is the lever that decides which of the felt's own
+   breakpoints a replay lands on. Left unbound it filled the card and sat at
+   whatever width the replay's two-column page happened to leave the felt
+   (roughly 600-900px on a typical window, since the action list beside it and
+   `.page.wide`'s own 980px cap both eat into it): short of the 1060px a seat
+   needs to stand in its full wing, and past the 560px `@container` query the
+   seat's compact form kicks in at. Between those two numbers the seat's own
+   grid has nowhere to put the identity block, and a bare replay was the one
+   place on the site that ever handed the felt a width in that gap: a live
+   table's width is the viewport's, and the viewport is never framed by a
+   268px action list beside it. 520 keeps the replay inside the compact form
+   on every window, the same shape the felt already proves out for a phone,
+   rather than stranding it in a width nothing was ever built for. */
+.match[data-bare] { display: block; min-height: 0; max-width: 520px; margin: 0 auto; }
+.match[data-bare] .felt { padding: 0; gap: var(--sp-3); overflow: visible; }
+/* The hand, street, blinds and to-call box is the felt's own reading for a
+   live table's empty corner; a replay has no spare corner to stand in and
+   says all four already, in its own header and its own action list, so
+   drawing it here was a second answer laid over the seats it had no room
+   for. */
+.match[data-bare] .stats { display: none; }
+
+.scrubber { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
+.scrubber .counter { font-size: var(--font-size-ui); color: var(--text-secondary); }
+.scrubber .spacer { flex: 1; }
+.scrub-hint { font-size: 11px; color: var(--text-secondary); }
+.scrub-hint .kbd { margin-right: 2px; }
+
+.replay-side { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.acts-list {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 1px;
+  max-height: 420px; overflow: auto;
+}
+/* A scroller with a fixed height cuts a line wherever its edge falls, and the
+   top of an 11px street label is three pixels of letters that read as stray
+   punctuation under the last action rather than as a line continuing below.
+   So the edge that is cutting fades, and only that edge: a list short enough
+   to fit keeps its last line sharp.
+
+   The fade drops hard and then tails off. A gentle one cannot help here: the
+   pixel under the last whole row is where the cut line starts, so it has to be
+   most of the way gone by the time the fade is four pixels old, or the marks
+   are still marks. `scroll-margin-block` on the row below keeps the action you
+   are on out of it. Black is an alpha channel here, not a colour. */
+.acts-list[data-cut="bottom"] {
+  mask-image: linear-gradient(to bottom, black calc(100% - 22px), rgb(0 0 0 / 0.22) calc(100% - 18px), transparent);
+}
+.acts-list[data-cut="top"] {
+  mask-image: linear-gradient(to top, black calc(100% - 22px), rgb(0 0 0 / 0.22) calc(100% - 18px), transparent);
+}
+.acts-list[data-cut="both"] {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    rgb(0 0 0 / 0.22) 4px,
+    black 22px,
+    black calc(100% - 22px),
+    rgb(0 0 0 / 0.22) calc(100% - 18px),
+    transparent
+  );
+}
+
+.act-street {
+  display: block; padding: var(--sp-3) 6px 4px;
+  font-size: 11px; color: var(--text-secondary);
+}
+.act-row {
+  display: flex; flex-direction: column; gap: 1px;
+  width: 100%; padding: 5px 7px;
+  /* Stepping scrolls the current action into view by the smallest amount that
+     works, which puts it flush against the edge and under the fade above. The
+     margin is the room the fade takes, so the row you are on is never the row
+     being faded out. */
+  scroll-margin-block: 22px;
+  border: 1px solid transparent; border-radius: var(--radius-sm);
+  background: none; text-align: left; cursor: pointer;
+  font-family: var(--font-ui); font-size: var(--font-size-ui); color: var(--text-primary);
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+}
+.act-row:hover { background: var(--fill-hover); }
+.act-row[data-current] { background: var(--fill-hover); border-color: var(--border-subtle); }
+.act-seat { font-size: 11px; color: var(--text-secondary); }
+.act-what { font-variant-numeric: tabular-nums; }
+.act-note { font-size: 11px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+
+.fairness { display: flex; flex-direction: column; gap: var(--sp-3); }
+.checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+.checks li { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 2px var(--sp-3); font-size: var(--font-size-ui); }
+.check-state { grid-row: span 2; color: var(--danger-text); font-variant-numeric: tabular-nums; }
+.checks li[data-ok] .check-state { color: var(--ok-text); }
+.check-label { color: var(--text-primary); }
+.check-detail { font-size: 11px; color: var(--text-secondary); overflow-wrap: anywhere; }
+
+@media (max-width: 900px) {
+  .replay { grid-template-columns: minmax(0, 1fr); }
+  /* On one column the page is the scroller; a second scrolling box inside it
+     only clips the list halfway through a line. */
+  .acts-list { max-height: none; overflow: visible; }
+}
+
+/* A hand with a few streets of raising is forty-odd rows; half a phone's
+   width is no reason to also give each of them the desktop's own padding and
+   type size. Tighter rows are still full sentences, just less of a scroll to
+   read all of them. */
+@media (max-width: 560px) {
+  .act-row { padding: 4px 6px; gap: 0; }
+  .act-street { padding: var(--sp-2) 6px 2px; }
+  .act-seat, .act-note { font-size: 10px; }
+}

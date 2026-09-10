@@ -115,3 +115,31 @@ own generator when any part of that does not read.
 `replay-analysis.ts` is the pure half: what is known at a step, what a call cost,
 and the questions the strip needs. `../test/replay-analysis.test.ts` and
 `../test/analysis.test.ts` are its tests.
+
+**The strip's two tables share a column.** `StreetStrip`'s "Seat" header and
+`StripRow`'s row header both carry `.ra-seat`, the same fixed-width class
+`AnalysisPanel`'s own Seat column uses, so the two cards' first columns line up
+under each other rather than each settling on whatever its own longest name
+measures; `.ra-shape` and `.ra-dot` are `vertical-align: middle` for the same
+reason a graphic with no text in it does not want the table's own baseline
+default, which sat the dot under a name's cap height and the sparkline low
+against the row beside it.
+
+**A shape cell with nothing resolved yet says so.** `StripRow` draws the
+"Computing" placeholder (the same one the panel's own cells use) rather than a
+bare `<svg>` when every point in the row is still null: a midline with no point
+on it reads as broken, not as a chart still filling in.
+
+**A street nobody acted on still gets a real point.** `streetPoints()`
+(`replay-analysis.ts`, `../replay/CLAUDE.md`) builds a `turn`/`river` point
+from the final state's own board when an all-in run-out left no state tagged
+with it, rather than leave the strip silently short a column on exactly the
+hands where the swing matters most. `StreetPoint.runout` marks one, and
+`StreetStrip`'s header says so in its own voice ("Turn, dealt without a bet")
+so a reader can tell a run-out from ordinary play; nothing downstream prices
+or scores a run-out point, because nothing was decided on it.
+
+**Every fragment this panel prints on its own is sentence case**, the
+`priceText` needed/had line, the exact/sampled note beside an equity and the
+baseline verdict under a preflop action in `../routes/replay.tsx`: none of them
+inherit a capital from anywhere, so each is its own sentence's first word.

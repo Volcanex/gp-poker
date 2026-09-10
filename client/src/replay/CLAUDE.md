@@ -58,3 +58,71 @@ then stop.
 A seat's rating is 0 in a replayed view: a hand row does not record what the
 players were rated at the time, and a made-up number beside a name is worse than
 no number, so the seat hides it.
+
+## The felt is v2, bare, and capped at 520px
+
+`replay.tsx` passes `<Table ... bare look="v2">`. `look="v2"` is what gives the
+replay the current cards and chips (`playing-card.tsx`'s SVG faces,
+`chip-stack.tsx`'s ticking columns); `bare` keeps the hero band off regardless
+of `look`, since `band = look === 'v2' && !bare && !ended` in `table.tsx` — a
+replay has no hero seat, so nothing about turning the band on ever applied
+here. Before this the replay drew `v1`'s default look, which is effectively
+unmaintained now that every live table draws v2 (`table/CLAUDE.md`, "The v2
+felt"): its cards were blank rounded rectangles.
+
+`.match[data-bare]` in `replay.css` caps the felt at 520px and centres it in
+its card, rather than filling the card's own width. That number is not
+decorative: `.match { container-type: inline-size }` is what the felt's own
+`@container` queries in `app.css` read, and a replay's felt sits in a
+two-column page (the felt beside a 268px action list) inside `.page.wide`'s
+980px cap, which lands its width somewhere around 600-900px on an ordinary
+window — short of the 1060px a seat needs to stand in its full wing, and past
+the 560px a seat's compact form starts at. A seat's own grid has nowhere to
+put the identity block in that gap, which is what the reported "chip stack and
+figure drawn on top of each other" bug was: not an overlap bug in the seat
+itself, but the one place on the site that ever handed the felt a width
+between those two numbers. A live table's felt is always either the viewport's
+own width (comfortably past 1060 on a desktop) or actually a phone's (under
+560, where the felt's `data-rows` layout takes over instead), so the gap never
+showed anywhere else. 520 sits inside the compact range on every window.
+
+The stats box (`Hand`/`Street`/`Blinds`/`To call`) is hidden in bare mode
+(`.match[data-bare] .stats`): it exists to fill a live table's otherwise spare
+corner, a replay has none, and the same four facts are already in the page's
+own header and its action list.
+
+## A run-out street is built from the final board, not found in the states
+
+`packages/engine`'s `replay()` returns one state per *logged action*
+(`packages/engine/src/replay.ts`), and an all-in run-out deals every
+remaining street inside a single transition (`runOutAndShowdown`/
+`dealNextStreet` in `packages/engine/src/deal.ts`) with no action of its own
+to hang a state on. A hand that goes all in on the flop and runs out to a
+river showdown has a `states` array that jumps from a `flop` state straight to
+a terminal one with a five-card board: nothing in it is ever tagged `turn` or
+`river`. `streetPoints()` in `../analysis/replay-analysis.ts` scans `states`
+for each street first and, for one it finds no state for, builds the point
+itself from the final state's own board (`final.board.slice(0, 4)` for the
+turn, `.slice(0, 5)` for the river) and the seats `contestingSeats(final, ...)`
+still shows in the hand — real cards and real seats, nothing sampled or
+guessed, marked `runout: true` on the `StreetPoint` so the strip can say so.
+
+This is deliberately **not** a `packages/engine` change: `states` is indexed
+by logged action everywhere outside this module too (`useAnalysis` in
+`../routes/replay.tsx` pairs `hand.actions[i]` to `states[i]` to price every
+call, and the scrubber counts `states.length` for "N of M"), so inserting a
+state for a street nobody acted on would silently break both. The strip is
+the one reader of `streetPoints()` that wants a point for every street the
+board reached regardless of whether an action opened it, so it is the one
+place that builds it.
+
+A run-out point carries no action and must not be treated as though it does:
+nothing prices it (`prices` in `replay.tsx` stays keyed to `hand.actions`, and
+a run-out street has none) and nothing scores it (`studyFor` is preflop only).
+`StreetStrip`'s header marks a run-out column in the strip's own voice
+("Turn, dealt without a bet") rather than let it read as a street played
+normally. `StripRow` also shows a "Computing" placeholder rather than a bare
+midline when a row has resolved nothing at all yet — a real fix for a cell
+that reads as broken while the worker is still answering, orthogonal to the
+run-out gap above but easy to mistake for the same bug (both show as an empty
+shape cell).

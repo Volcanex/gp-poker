@@ -242,7 +242,7 @@ export function AnalysisPanel({
                       ) : result ? (
                         <>
                           {percent(result.equity)}
-                          <span className="ra-sub">{result.exact ? 'exact' : `sampled, ${result.samples.toLocaleString('en-GB')}`}</span>
+                          <span className="ra-sub">{result.exact ? 'Exact' : `Sampled, ${result.samples.toLocaleString('en-GB')}`}</span>
                         </>
                       ) : (
                         <Waiting />
@@ -334,10 +334,20 @@ export function StreetStrip({ points, known, seats, equities, colourOf }: Street
         <table className="table ra-strip">
           <thead>
             <tr>
-              <th scope="col">Seat</th>
-              <th scope="col">Shape</th>
+              {/* The same fixed width the panel's own Seat column carries
+                  above, so the two cards' first columns line up rather than
+                  each settling on whatever its own longest name measures. */}
+              <th scope="col" className="ra-seat">Seat</th>
+              <th scope="col" className="ra-shape">Shape</th>
               {points.map((p) => (
-                <th scope="col" key={p.street}>{STREET_WORDS[p.street] ?? p.street}</th>
+                <th scope="col" key={p.street}>
+                  {STREET_WORDS[p.street] ?? p.street}
+                  {/* Nobody acted here: an all-in run-out deals every street left
+                      at once, so the reading is real but there was no decision
+                      to make on it, which is worth saying plainly rather than
+                      letting the street look like an ordinary one. */}
+                  {p.runout && <span className="muted">, dealt without a bet</span>}
+                </th>
               ))}
             </tr>
           </thead>
@@ -400,24 +410,31 @@ function StripRow({
 
   return (
     <tr>
-      <th scope="row">
+      <th scope="row" className="ra-seat" title={name}>
         <span className="ra-dot" data-chart={colour} />
         {name}
       </th>
       <td className="ra-shape">
-        <svg
-          viewBox={`0 0 ${W} ${H}`}
-          width={W}
-          height={H}
-          role="img"
-          aria-label={`${name}: ${values.map((v, i) => `${STREET_WORDS[points[i].street] ?? ''} ${v == null ? 'not worked out yet' : percent(v)}`).join(', ')}`}
-        >
-          <line className="ra-mid" x1={PAD} x2={W - PAD} y1={y(0.5)} y2={y(0.5)} />
-          {drawn.length > 1 && <polyline className="ra-line" data-chart={colour} points={line} vectorEffect="non-scaling-stroke" />}
-          {drawn.map((p, i) => (
-            <circle className="ra-point" data-chart={colour} key={i} cx={p.x} cy={p.y} r={2} />
-          ))}
-        </svg>
+        {/* A bare midline with no point on it reads as an empty box, not a
+            chart still filling in: nothing here says a number is coming.
+            Nought points drawn is the one state worth a word instead. */}
+        {drawn.length === 0 ? (
+          <Waiting />
+        ) : (
+          <svg
+            viewBox={`0 0 ${W} ${H}`}
+            width={W}
+            height={H}
+            role="img"
+            aria-label={`${name}: ${values.map((v, i) => `${STREET_WORDS[points[i].street] ?? ''} ${v == null ? 'not worked out yet' : percent(v)}`).join(', ')}`}
+          >
+            <line className="ra-mid" x1={PAD} x2={W - PAD} y1={y(0.5)} y2={y(0.5)} />
+            {drawn.length > 1 && <polyline className="ra-line" data-chart={colour} points={line} vectorEffect="non-scaling-stroke" />}
+            {drawn.map((p, i) => (
+              <circle className="ra-point" data-chart={colour} key={i} cx={p.x} cy={p.y} r={2} />
+            ))}
+          </svg>
+        )}
       </td>
       {answers.map((answer, i) => (
         <td className="num ra-cell" key={points[i].street} title={answer?.note}>
