@@ -39,19 +39,19 @@ describe('live stats helpers', () => {
     });
 
     const backdoor = outsLine({ cards: ['Ks'], count: 9, draws: ['backdoor flush draw'], drawCards: [] });
-    expect(backdoor?.label).toBe('Improves on 9 cards');
+    expect(backdoor?.label).toBe('No draw, but 9 cards help');
     expect(backdoor?.muted).toBe(true);
     expect(backdoor?.draws).toBe('backdoor flush draw');
     const flush = outsLine({ cards: [], count: 15, draws: ['flush draw'], drawCards: ['Kh'] });
     expect(flush?.label).toBe('1 out');
 
     const none = outsLine({ cards: ['Ah', 'Ad'], count: 2, draws: [], drawCards: [] });
-    expect(none).toEqual({ label: 'Improves on 2 cards', cards: [], draws: '', muted: true });
+    expect(none).toEqual({ label: 'No draw, but 2 cards help', cards: [], draws: '', muted: true });
 
     expect(outsLine({ cards: ['Ah'], count: 1, draws: [], drawCards: [] })?.label)
-      .toBe('Improves on 1 card');
+      .toBe('No draw, but 1 card helps');
     expect(outsLine({ cards: [], count: 0, draws: [], drawCards: [] })?.label)
-      .toBe('Nothing improves it');
+      .toBe('No draw, and nothing helps');
     expect(outsLine(null)).toBe(null);
   });
 

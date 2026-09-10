@@ -88,7 +88,10 @@
 .tourney-list-when,
 .tourney-list-foot {
   display: flex;
-  align-items: center;
+  /* Two spans of plain text at different sizes on one row: baseline is what
+     lines their words up, the way it does everywhere else this shape shows
+     up on the site. */
+  align-items: baseline;
   flex-wrap: wrap;
   gap: var(--sp-2);
 }

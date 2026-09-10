@@ -85,6 +85,14 @@ export interface Prefs {
      away under the chevron: the facts are what is read every hand and the
      controls are pressed once a match. */
   gamePanel: 'open' | 'shut';
+  /* Own request: the board dealt much bigger, desktop only. `--board-card`
+     is the one number the board, the pot's box and the middle column are all
+     derived from (`../app.css`), so growing it is the whole feature; a phone
+     has no room to spend on it and the rule that reads it is written inside
+     a `(min-width: 561px)` block for that reason; not a setting a phone even
+     offers, in `settings.tsx`. Applies to the live table and the replay
+     alike, since both read the same variable off `.match`. */
+  bigBoard: boolean;
 }
 
 export const PREFS_KEY = 'ot.prefs';
@@ -92,7 +100,7 @@ export const PREFS_KEY = 'ot.prefs';
 export const DEFAULT_PREFS: Prefs = {
   theme: 'room', palette: 'slate', accent: 'default', fourColour: false, hand: 'right',
   cards: 'stacked', cardSize: 'large', seatCards: 'large', seatDetail: 'normal', tableInfo: 'panel',
-  handMeta: 'cards', keyLegend: true, gamePanel: 'open',
+  handMeta: 'cards', keyLegend: true, gamePanel: 'open', bigBoard: false,
 };
 
 export const THEMES: { id: ThemeChoice; label: string }[] = [
@@ -205,6 +213,7 @@ export function readPrefs(store: Storage | null = safeStorage()): Prefs {
     handMeta: isHandMeta(r.handMeta) ? r.handMeta : DEFAULT_PREFS.handMeta,
     keyLegend: typeof r.keyLegend === 'boolean' ? r.keyLegend : DEFAULT_PREFS.keyLegend,
     gamePanel: r.gamePanel === 'shut' ? 'shut' : DEFAULT_PREFS.gamePanel,
+    bigBoard: typeof r.bigBoard === 'boolean' ? r.bigBoard : DEFAULT_PREFS.bigBoard,
   };
 }
 
@@ -249,6 +258,9 @@ export function applyPrefs(prefs: Prefs, root: HTMLElement, store: Storage | nul
 
   if (prefs.hand === 'left') root.setAttribute('data-hand', 'left');
   else root.removeAttribute('data-hand');
+
+  if (prefs.bigBoard) root.setAttribute('data-big-board', '');
+  else root.removeAttribute('data-big-board');
 
   /* Two attributes rather than one, because they are two independent choices:
      a layout is where the second card sits and a size is how big both are. The

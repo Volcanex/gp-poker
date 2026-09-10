@@ -277,16 +277,20 @@ you took: `HeroMeta`, one component in two homes, and the player picks with
 
 - **Under your cards**, the default: two rows on the cards' own left edge, the
   name over the figures, inside `.hb-hero`.
-- **Over the controls**: a row of its own in `.hb-in` above the acts column,
-  and the cards take their column whole. **One line here, not two.** The row it
-  stands in is the slack the controls' column already carries, which is the
-  difference between what the sizes, the send button and the legend need and
-  what the hand beside them does: 26 px, one row of figures. Folded flat it is
-  the decision line's own shape directly under it, who on the left with the
-  width and the figures on the right, and it turns round with everything else
-  left handed. The band ends up 4 px taller than it is under the cards, because
-  the hand's column gives up two rows and a gap while the controls' takes one
-  and a gap.
+- **Over the controls**: a block of its own in `.hb-in` above the acts column,
+  and the cards take their column whole. **Stacked, exactly as it is under the
+  cards** (own request, twice filed): who on top, the stack, its chips and the
+  last action under it, both left aligned in the same grid area rather than
+  spread across it. It used to fold flat, who on the left with the width and
+  the figures pinned to the far right of the same wide row over the controls,
+  which read as a name at one edge and a stack a couple of hundred pixels from
+  it at the other; only `.hb-meta`'s `grid-area` differs from the under-cards
+  rule now; the row shape is the one shared rule (`hero-band.css`). Left
+  handed it turns round with everything else, off the same general rule
+  (`:root[data-hand="left"] .hb-who`/`.hb-meta`/`.hb-nums`) rather than a copy
+  of its own. The controls' column pays `--hb-meta-h`, the full stacked pair,
+  where it once paid one row: the band ends up close to the height it is under
+  the cards rather than a few pixels off it.
 
 The band is as tall as its taller column, so the line's height is a pair of
 terms in `hero-band.css`, `--hb-meta-in-hand` and `--hb-meta-in-col`, and
@@ -946,6 +950,28 @@ unit tested:
 - **The rack sits on the block's own left edge**, level with the flag slot
   above it rather than indented past it to meet the name's first letter. Set
   in by the flag's 22 px it hung to the right of everything it belongs to.
+  `.seat-line` (the row above it: the flag, the name, the rating, the badges)
+  carries its own 6 px of further indent past that edge, own request, so the
+  two rows read as the name standing a little clear of the picture and the
+  rack standing under it rather than under the flag.
+- **Only `.seat-name` may shrink in `.seat-line`.** It alone carries
+  `min-width: 0` and an ellipsis; the flag, the rating and both badges (`Bot`,
+  `You`) all carry `flex: none`. They did not always: `.seat-bot` and
+  `.seat-you` had no shrink protection, so under real width pressure (a
+  six-max seat two to a row below 1060, a long name) flex's default shrink
+  gave them a sliver of box while their text kept its full size and painted
+  straight over the name beside them. "Shit is overlapping" was this.
+- **A seat is also its own container**, `.pos { container-type: inline-size }`
+  in `../app.css`, queried below 420px to drop `.seat-rating` the same way the
+  felt-wide `@container (max-width: 560px)` rule already does. The two columns
+  below 1060 put a seat two to a row rather than one, which can squeeze a
+  seat's own width well past what the felt-wide rule waits for: a name
+  disappeared behind its own rating (`min-width: 0` shrinking it to nothing,
+  not just tight) before this existed, at widths nowhere near 560.
+- **The board's own track carries `--board-clear` past `--board-h`** (own
+  request, 20px): `align-items: start` on `.felt-in` sits the board at the
+  top of the taller track it now has, so the extra height lands between the
+  board and `s1` rather than stretching the board itself.
 - **Dealing.** `dealOrder` is round robin from the seat left of the button, one
   card each then the second, which is the order the engine deals in; the seat
   passes it to `playing-card.tsx` as the stagger index. `dealFrom` says where
@@ -978,11 +1004,30 @@ with 44 px board cards, because five strips and the board in 531 px is a
 tighter fit than one, and takes what is left at the bottom. Every other track
 is fixed and the slack rows divide what a given screen leaves over, so the
 footprint rule holds. `.felt-in` takes `flex: 1 0 auto` so those rows have a
-height to divide and a short screen scrolls the felt rather than squashing a
-row; under 700 px tall (an iPhone SE) the heads-up board and pot each give up
-ten so the readings stay above the fold. A spectator's felt keeps the
-geometry above, because the bottom seat is a player's and still has to be
-placed. The ended match keeps the shape: the band leaves with the match, and
+height to divide.
+
+**A short screen shrinks the rows now, rather than scrolling past them.**
+"You have to scroll to see them" was the owner's own complaint about exactly
+this: the slack rows going to nought was the documented ceiling and six-max
+(five strips) sailed past it at anything under about 720px tall, which is not
+a rare phone. `@media (max-height: ...)` tiers layered under the felt's own
+560px container query (760, 640 and 570px, `data-mode="ring"` only; heads-up's
+one `data-mode="stack"` tier at 700px predates this and still only trims the
+board) step `--seat-h`, `--seat-card`, `--board-card` and `--chip` down in
+three stages, tight enough that a table down to about 560px tall still fits
+inside `.felt`'s own `clientHeight` with no internal scroll; the ring
+template also gained a second `minmax(0, 1fr)` gap row, before the board as
+well as after the last seat, so what slack is left splits rather than
+collecting in one strip between the last opponent and the hero's own row.
+Below the compact (non-`data-rows`) geometry has its own equivalent for a
+six-max table not in the detailed reading, or a spectator's: `--seat-h`,
+`--seat-card`, `--board-card` and `--chip` step up under `@media
+(min-height: 690px)`, spending a tall phone's own slack on bigger cards
+instead of leaving it as dead green above the board and below the last seat,
+which was the same complaint's other half.
+
+A spectator's felt keeps the geometry above, because the bottom seat is a
+player's and still has to be placed. The ended match keeps the shape: the band leaves with the match, and
 without this the felt under the result panel fell back to the half-width
 opponent in an empty column; ended, the slack rows are nought and your own
 seat, drawn again once the band is gone, takes a last full-width row, so the

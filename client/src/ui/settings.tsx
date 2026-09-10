@@ -266,6 +266,23 @@ export function SettingsMenu() {
           />
         </label>
 
+        {/* Own request: much bigger community cards. Desktop only, both in
+            what it does (`--board-card` above 561px in `../app.css`) and in
+            what it offers: a phone has no room to spend on the board any
+            bigger than it already draws it, so the row is not here at all
+            rather than a switch that would answer no. */}
+        {!phone && (
+          <label className="switch-row">
+            <span className="label">Big community cards</span>
+            <input
+              type="checkbox"
+              className="switch"
+              checked={prefs.bigBoard}
+              onChange={(e) => update({ bigBoard: e.target.checked })}
+            />
+          </label>
+        )}
+
         {/* Where the hand's facts and the match's actions are read from: one
             card in the top bar's own corner, or the stats box back in the
             seat six-max leaves empty and heads-up leaves whole. A row of its

@@ -63,18 +63,27 @@
   position: relative;
   z-index: 1;
   display: flex;
-  align-items: center;
+  /* Baseline, not centre: every child here is a plain word or two at its own
+     font-size (a name, a comma, a badge), and centring them read as a name
+     sitting a pixel or two off the comma after it. See `.player-cell` in
+     `../app.css` for the same fix on the flex box a name itself is. */
+  align-items: baseline;
   flex-wrap: wrap;
   gap: 5px var(--sp-2);
   flex: 1;
   min-width: 0;
 }
-.feed-players a { color: var(--text-primary); text-decoration: none; }
+.feed-players a { color: var(--text-primary); text-decoration: none; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .feed-players a:hover { text-decoration: underline; }
 .feed-players .beat { color: var(--text-secondary); font-size: 12px; }
 /* The comma belongs to the name before it, not to the gap after it. */
 .feed-players .punct { color: var(--text-secondary); margin-left: -4px; }
-.feed-players .name { display: inline-flex; align-items: center; gap: 4px; }
+/* `min-width: 0` the way `.seat-name` carries it: a wrapped flex item is
+   sized to its own content first and only wraps to a new line once that
+   does not fit, which left a name's rating a sliver into `.feed-meta`'s own
+   column at some widths rather than either fitting beside it or wrapping
+   clear of it. */
+.feed-players .name { display: inline-flex; align-items: baseline; gap: 4px; min-width: 0; }
 .feed-players .delta { font-size: 12px; font-variant-numeric: tabular-nums; }
 .feed-players .bot-tag {
   font-size: 11px;
@@ -225,17 +234,24 @@ main.page.home-page { max-width: 1180px; }
   letter-spacing: -0.01em;
 }
 .pb-who .muted { font-size: 12px; }
-/* Baseline-aligned against the 19px name and rating beside it, the mode text
-   sits noticeably high; centering just this item reads truer against the
-   row's own height. */
-.pb-mode { align-self: center; }
 /* Beside the name, not a display number of its own: the name is what a
    reader looks for first, and the rating is the second fact about it. */
 .pb-rating { font-size: 19px; font-weight: 500; letter-spacing: -0.01em; }
+/* A true superscript on the rating it names, own request: sat as a flat
+   sibling on the row's own baseline it read a few pixels high against the
+   19px figures either side of it, however that baseline was nudged. Raised
+   and set small against the number it rides on instead, which is what a
+   superscript is for and needs no alignment rule of its own. */
+.pb-mode {
+  font-size: 11px; font-weight: 500; letter-spacing: normal;
+  vertical-align: super; margin-left: 2px;
+  color: var(--text-secondary);
+}
+.muted .pb-mode { color: inherit; }
 
 .home-top {
   display: grid;
-  grid-template-columns: minmax(420px, 500px) 1fr;
+  grid-template-columns: minmax(420px, 500px) minmax(0, 1fr);
   gap: var(--sp-3);
   align-items: start;
 }
@@ -263,13 +279,16 @@ main.page.home-page { max-width: 1180px; }
 .way { display: flex; flex-direction: column; gap: var(--sp-2); }
 .way-go {
   display: flex;
-  align-items: center;
+  /* The label and the note are two sizes of plain text sharing a line, so
+     they align by baseline like any other sentence; the icon is not text
+     and keeps its own centring below. */
+  align-items: baseline;
   gap: var(--sp-2);
   width: 100%;
   justify-content: flex-start;
   text-decoration: none;
 }
-.way-icon { display: inline-flex; flex: none; color: var(--text-secondary); }
+.way-icon { display: inline-flex; flex: none; align-self: center; color: var(--text-secondary); }
 .way-label { flex: 1; text-align: left; }
 .way-note { font-size: 12px; flex: none; }
 .way[data-open] .way-go { border-color: var(--border); }
@@ -305,7 +324,14 @@ main.page.home-page { max-width: 1180px; }
 .side-card b.num-lg { font-size: 28px; }
 
 @media (max-width: 900px) {
-  .home-top { grid-template-columns: 1fr; }
+  /* `minmax(0, 1fr)`, not a bare `1fr`: a grid track's default floor is its
+     content's min-content width, and with the docked sidebar cutting the
+     column to 520px at 768, the play panel and the card under it both
+     wanted more than that (a mode tab strip that does not want to wrap, a
+     stat that does not want to shrink), so the track grew past the page's
+     own padding and the document scrolled sideways by five pixels. The zero
+     floor is what lets the track actually shrink to the column instead. */
+  .home-top { grid-template-columns: minmax(0, 1fr); }
   .home-side { grid-template-columns: repeat(3, 1fr); }
 }
 

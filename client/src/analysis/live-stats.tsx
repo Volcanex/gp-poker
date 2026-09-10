@@ -58,9 +58,13 @@ export function outsLine(result: OutsRead | null): OutsLine | null {
       muted: false,
     };
   }
+  /* No named draw, so there is no outs number to headline: the category
+     count alone read as an outs figure a player did not recognise ("Improves
+     on 14 cards" beside a hand with no draw). Saying there is no draw first
+     is what the number was missing. */
   const n = result.count;
   return {
-    label: n === 0 ? 'Nothing improves it' : `Improves on ${n} ${n === 1 ? 'card' : 'cards'}`,
+    label: n === 0 ? 'No draw, and nothing helps' : `No draw, but ${n} ${n === 1 ? 'card helps' : 'cards help'}`,
     cards: [],
     draws: result.draws.join(', '),
     muted: true,

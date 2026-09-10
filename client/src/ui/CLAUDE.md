@@ -186,7 +186,7 @@ announces the wrong thing.
 **Every setting is an attribute on the root element and every value is in CSS.**
 `prefs.ts` holds ids and no colours: an accent is `data-accent="jade"` and
 `../app.css` says what jade is. That is what keeps the pre-paint script in
-`../../index.html` down to six attribute writes with nothing to drift, and it
+`../../index.html` down to seven attribute writes with nothing to drift, and it
 is why the swatch in the menu can paint itself by carrying the same attribute.
 
 | Setting | Attribute | Values |
@@ -204,6 +204,14 @@ is why the swatch in the menu can paint itself by carrying the same attribute.
 | Your line | `data-hand-meta` | absent (under your cards), `acts` |
 | Key legend | `data-key-legend` | absent (shown), `off` |
 | Game panel | `data-game-panel` | absent (open), `shut` |
+| Big community cards | `data-big-board` | absent (regular), present |
+
+**Big community cards is desktop only in what it offers, not only in what it
+does.** `settings.tsx` does not render the row at all under the same
+`(max-width: 560px)` check the felt itself uses, rather than showing a switch
+a phone's own board size would ignore; `--board-card` only reads the attribute
+inside `(min-width: 561px)` in `../app.css` regardless, so the two cannot drift
+into a phone that draws a bigger board with no control to have asked for it.
 
 **Two of these are pressed where the thing they govern is**, not in this menu:
 the `x` on the key legend and the chevron on the game panel. They go through

@@ -136,7 +136,13 @@ export function Seat({
           can measure. */}
       {seat.out ? (
         <span className="seat-stack num" key="out">
-          <span className="u u-allin">{seat.place == null ? '' : 'Out'}</span>
+          {/* "Out" used to double as this slot's superscript once a place was
+              known, which put the one word the action square exists to say
+              on the stack line instead: the owner's note was that it belongs
+              where Call and Raise show, not beside a figure. The square says
+              it now (below), so this slot is left to the placing alone, or
+              to "Out" itself while that placing is still pending. */}
+          <span className="u u-allin"></span>
           <span className="stack-v">{seat.place == null ? 'Out' : ordinal(seat.place)}</span>
         </span>
       ) : (
@@ -153,10 +159,12 @@ export function Seat({
 
       <span
         className="seat-act"
-        data-tone={clocked ? 'clock' : last?.tone}
-        data-empty={!clocked && !last ? '' : undefined}
+        data-tone={seat.out ? undefined : clocked ? 'clock' : last?.tone}
+        data-empty={!seat.out && !clocked && !last ? '' : undefined}
       >
-        {clocked ? (
+        {seat.out ? (
+          <span className="act-w">Out</span>
+        ) : clocked ? (
           <>
             <TurnSeconds deadline={onClock.deadline} totalMs={format.clockMs} paused={onClock.paused} />
             <TurnBar deadline={onClock.deadline} totalMs={format.clockMs} paused={onClock.paused} />

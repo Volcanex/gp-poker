@@ -103,7 +103,11 @@
   row-gap: var(--sp-1);
   align-items: center;
 }
-.chat-line .avatar { grid-area: av; }
+/* Centred on the row's own height it lands on the same middle as the name
+   beside it, but a circle and a line of text read from different anchors: an
+   eye follows the avatar's top edge and the name's cap height, not either
+   one's arithmetic centre, so the two still looked two pixels apart. */
+.chat-line .avatar { grid-area: av; margin-top: 2px; }
 .chat-meta { grid-area: meta; display: flex; align-items: baseline; gap: var(--sp-2); min-width: 0; }
 .chat-text {
   grid-area: text;

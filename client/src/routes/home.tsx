@@ -353,14 +353,21 @@ function PlayerBar({ me, mode }: { me: Me | null; mode: Mode }) {
             at the far edge of the row: the one number that matters here is
             "Gabriel 1567", not a name and then a number a foot away from it. */}
         {r.matches === 0 ? (
-          <span className="muted">No ranked matches yet</span>
+          <span className="muted">
+            No ranked matches yet <span className="pb-mode">{MODE_NAME[mode]}</span>
+          </span>
         ) : (
           <>
-            <span className="pb-rating num">{int(r.rating)}</span>
+            <span className="pb-rating num">
+              {int(r.rating)}
+              {/* Own request: the mode reads as a superscript on the rating
+                  it belongs to, the default now rather than a flat badge a
+                  baseline row could never quite line up with. */}
+              <span className="pb-mode">{MODE_NAME[mode]}</span>
+            </span>
             {r.provisional && <span className="badge badge-warn">Provisional</span>}
           </>
         )}
-        <span className="muted pb-mode">{MODE_NAME[mode]}</span>
       </div>
     </div>
   );

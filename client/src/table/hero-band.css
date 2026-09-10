@@ -180,23 +180,25 @@
 
 /* ------------------------------------------- the line over the controls */
 
-/* `handMeta: 'acts'`. Your own line leaves the hand's column for a row of its
-   own over the controls, and the cards take their column whole.
+/* `handMeta: 'acts'`. Your own line leaves the hand's column for a block of
+   its own over the controls, and the cards take their column whole.
 
-   **One line here, two under the cards.** The row it stands in is the slack
-   the controls' column already carries: the sizes, the send button and the
-   legend come to less than the hand beside them wants, and that difference is
-   the empty strip over the six sizes. Twenty six pixels of it, which is one
-   row of figures and not two, so the reading folds flat rather than the band
-   growing to hold a stacked one. Laid flat it is the decision line's own
-   shape, directly under it: who on the left with the width, the figures on
-   the right.
+   **Stacked here exactly as it is under the cards, not folded flat.** It was
+   laid flat once, who on the left with the width and the figures pinned to
+   the far right of the same wide row: a report filed twice named this
+   precisely, a name at one edge and a stack a couple of hundred pixels from
+   it at the other, which is what a row this wide over a column this wide
+   does to two short flex rows with nothing between them. Stacking them
+   removes the gap by removing the row: both are left aligned in the same
+   grid area now, immediately under one another, starting where the cards'
+   own column ends, which is the same corner the hand's own copy of this
+   reads from under the cards.
 
    The gap between the rows here is the legend's `--keys-gap`, which is the
    same six the meta line's own gap under the cards is, so one `row-gap` is
    both and there is nothing to keep in step. */
 .hero-band[data-seated][data-meta="acts"] .hb-in {
-  grid-template-rows: var(--hb-nums-h) minmax(0, 1fr) var(--hb-keys-h);
+  grid-template-rows: var(--hb-meta-h) minmax(0, 1fr) var(--hb-keys-h);
   grid-template-areas:
     "cards meta"
     "cards acts"
@@ -217,29 +219,13 @@
    fold and call down level with the cards beside them, and with the line out
    of that column there is nothing left in it to be level with. */
 .hero-band[data-seated][data-meta="acts"] { --hb-floor-lift: 0px; }
-.hero-band[data-meta="acts"] .hb-meta {
-  grid-area: meta;
-  grid-template-rows: var(--hb-nums-h);
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-content: stretch;
-  align-items: center;
-  column-gap: var(--sp-3);
-  row-gap: 0;
-}
-.hero-band[data-meta="acts"] .hb-who { height: auto; }
-/* The figures keep their bottom edge and give up their own height: aligned to
-   the middle of a row this shallow the 22px stack and the 11px label sat on
-   two different lines. */
-.hero-band[data-meta="acts"] .hb-nums { height: auto; justify-content: flex-end; }
-/* Left handed, the controls' column is on the band's left edge, so the line
-   over them turns round with everything else in it. */
-:root[data-hand="left"] .hero-band[data-meta="acts"] .hb-meta {
-  grid-template-columns: auto minmax(0, 1fr);
-}
-:root[data-hand="left"] .hero-band[data-meta="acts"] .hb-who { order: 2; }
-:root[data-hand="left"] .hero-band[data-meta="acts"] .hb-nums {
-  order: 1; justify-content: flex-start;
-}
+/* `grid-area` is the only override left: the rest is the shared, stacked
+   `.hb-meta` rule below, the same one the hand's own copy of this line uses.
+   Its grid area is the width of the controls' column, and `justify-items`
+   there defaults to stretch, but `.hb-who` and `.hb-nums` are flex rows
+   packed from their own start, so the content still reads from the cards'
+   own edge rather than spreading to fill it. */
+.hero-band[data-meta="acts"] .hb-meta { grid-area: meta; }
 
 /* **A practice table's readings are a section of the band, not a bar of their
    own.** They take a column on the far side of the controls, whole for the
@@ -1104,12 +1090,11 @@
 :root[data-card-size="huge"] { --card-want: 140px; }
 
 /* `handMeta: 'acts'` moves your own line from the hand's column to the
-   controls', so the two terms swap. It costs the controls one row of figures
-   and the legend's gap, and the hand gives up two rows and its own, which is
-   why the band ends up within a few pixels of the height it was. */
+   controls', so the two terms swap: the controls pay `--hb-meta-h`, the same
+   stacked pair of rows the hand no longer does, plus the legend's gap. */
 :root[data-hand-meta="acts"] {
   --hb-meta-in-hand: 0px;
-  --hb-meta-in-col: calc(var(--hb-nums-h) + var(--keys-gap));
+  --hb-meta-in-col: calc(var(--hb-meta-h) + var(--keys-gap));
 }
 
 /* The phone. The controls are a column of three actions under the six sizes

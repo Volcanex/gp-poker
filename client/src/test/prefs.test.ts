@@ -39,12 +39,12 @@ describe('settings persistence', () => {
     writePrefs({
       theme: 'light', palette: 'felt', accent: 'jade', fourColour: true, hand: 'left',
       cards: 'ajar', cardSize: 'huge', seatCards: 'regular', seatDetail: 'detailed', tableInfo: 'seat',
-      handMeta: 'acts', keyLegend: false, gamePanel: 'shut',
+      handMeta: 'acts', keyLegend: false, gamePanel: 'shut', bigBoard: true,
     }, store);
     expect(readPrefs(store)).toEqual({
       theme: 'light', palette: 'felt', accent: 'jade', fourColour: true, hand: 'left',
       cards: 'ajar', cardSize: 'huge', seatCards: 'regular', seatDetail: 'detailed', tableInfo: 'seat',
-      handMeta: 'acts', keyLegend: false, gamePanel: 'shut',
+      handMeta: 'acts', keyLegend: false, gamePanel: 'shut', bigBoard: true,
     });
   });
 
@@ -53,12 +53,12 @@ describe('settings persistence', () => {
     writePrefs({
       theme: 'system', palette: 'sky', accent: 'clay', fourColour: false, hand: 'right',
       cards: 'side', cardSize: 'regular', seatCards: 'huge', seatDetail: 'normal', tableInfo: 'seat',
-      handMeta: 'cards', keyLegend: true, gamePanel: 'open',
+      handMeta: 'cards', keyLegend: true, gamePanel: 'open', bigBoard: false,
     }, store);
     expect(store.getItem(PREFS_KEY)).toBe(
       '{"theme":"system","palette":"sky","accent":"clay","fourColour":false,"hand":"right"'
       + ',"cards":"side","cardSize":"regular","seatCards":"huge","seatDetail":"normal","tableInfo":"seat"'
-      + ',"handMeta":"cards","keyLegend":true,"gamePanel":"open"}',
+      + ',"handMeta":"cards","keyLegend":true,"gamePanel":"open","bigBoard":false}',
     );
   });
 
@@ -75,7 +75,7 @@ describe('settings persistence', () => {
     expect(readPrefs(store)).toEqual({
       theme: 'room', palette: 'slate', accent: 'violet', fourColour: false, hand: 'right',
       cards: 'stacked', cardSize: 'large', seatCards: 'large', seatDetail: 'normal', tableInfo: 'panel',
-      handMeta: 'cards', keyLegend: true, gamePanel: 'open',
+      handMeta: 'cards', keyLegend: true, gamePanel: 'open', bigBoard: false,
     });
   });
 
@@ -200,7 +200,7 @@ describe('applying settings', () => {
       {
         theme: 'light', palette: 'felt', accent: 'ocean', fourColour: true, hand: 'left',
         cards: 'side', cardSize: 'huge', seatCards: 'huge', seatDetail: 'detailed', tableInfo: 'seat',
-        handMeta: 'acts', keyLegend: false, gamePanel: 'shut',
+        handMeta: 'acts', keyLegend: false, gamePanel: 'shut', bigBoard: true,
       },
       root, fakeStore(),
     );
@@ -209,6 +209,7 @@ describe('applying settings', () => {
     expect(root.getAttribute('data-accent')).toBe('ocean');
     expect(root.getAttribute('data-deck')).toBe('four');
     expect(root.getAttribute('data-hand')).toBe('left');
+    expect(root.getAttribute('data-big-board')).toBe('');
     expect(root.getAttribute('data-seat-detail')).toBe('detailed');
     expect(root.getAttribute('data-cards')).toBe('side');
     expect(root.getAttribute('data-card-size')).toBe('huge');
