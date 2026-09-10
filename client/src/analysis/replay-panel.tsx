@@ -312,6 +312,17 @@ const STREET_WORDS: Record<string, string> = {
   river: 'River',
 };
 
+/* The header a phone reads: `.ra-cell` gives up too much width there for the
+   full word to sit whole, and a browser's own ellipsis lands wherever the
+   letters happen to run out ("Prefl…", "Riv…") rather than somewhere a reader
+   would choose. A short, chosen word beats a cut one. */
+const STREET_WORDS_SHORT: Record<string, string> = {
+  pre: 'Pre',
+  flop: 'Flop',
+  turn: 'Tn',
+  river: 'Riv',
+};
+
 /* Equity across the streets, every seat on the same scale.
 
    One scale is the whole point of drawing it: two lines that each fill their
@@ -323,6 +334,7 @@ export function StreetStrip({ points, known, seats, equities, colourOf }: Street
   const rows = streetRows(points, known);
   const nameOf = new Map(seats.map((s) => [s.seat, s.name]));
   if (rows.length === 0) return null;
+  const anyRunout = points.some((p) => p.runout);
 
   return (
     <section className="card ra-panel" aria-label="Equity by street">
@@ -340,13 +352,20 @@ export function StreetStrip({ points, known, seats, equities, colourOf }: Street
               <th scope="col" className="ra-seat">Seat</th>
               <th scope="col" className="ra-shape">Shape</th>
               {points.map((p) => (
-                <th scope="col" key={p.street}>
-                  {STREET_WORDS[p.street] ?? p.street}
-                  {/* Nobody acted here: an all-in run-out deals every street left
-                      at once, so the reading is real but there was no decision
-                      to make on it, which is worth saying plainly rather than
-                      letting the street look like an ordinary one. */}
-                  {p.runout && <span className="muted">, dealt without a bet</span>}
+                /* Nobody acted here: an all-in run-out deals every street left
+                   at once, so the reading is real but there was no decision to
+                   make on it. That is worth saying, but not in the header's own
+                   width: a phrase wider than the column it names is what pushed
+                   the whole table past its wrap. The star carries it instead,
+                   the title backs it up for a mouse, and the line under the
+                   table is what a thumb reads. */
+                <th scope="col" className="ra-cell" key={p.street} title={p.runout ? 'Dealt without a bet' : undefined}>
+                  {/* Only one of these is ever on screen (`display: none` takes
+                      the other out of the accessibility tree with it), so a
+                      reader gets the word once whichever width they are on. */}
+                  <span className="ra-street-full">{STREET_WORDS[p.street] ?? p.street}</span>
+                  <span className="ra-street-short">{STREET_WORDS_SHORT[p.street] ?? p.street}</span>
+                  {p.runout && <span aria-hidden="true">*</span>}
                 </th>
               ))}
             </tr>
@@ -365,6 +384,12 @@ export function StreetStrip({ points, known, seats, equities, colourOf }: Street
           </tbody>
         </table>
       </div>
+      {/* The star's meaning, spelled out where a thumb can read it: a title
+          attribute is a mouse's alone, and this table has no room to spend on
+          saying it again in every marked header. */}
+      {anyRunout && (
+        <p className="muted small ra-note">* Dealt without a bet, from an all-in run-out.</p>
+      )}
     </section>
   );
 }

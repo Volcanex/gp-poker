@@ -46,6 +46,17 @@
   min-width: 38.25rem;
 }
 
+/* The strip carries far fewer columns than the panel above it, so it is
+   fixed to the wrap's own width rather than to a minimum of its own: Seat,
+   Shape and up to four streets add up to less than the panel's five columns
+   ever did, and a table that fits does not need the scroll a wider one asks
+   for. The street strip's own reveal ticket was filed over exactly a column
+   sitting past the edge nobody could see. */
+.ra-strip {
+  table-layout: fixed;
+  width: 100%;
+}
+
 /* g's table pads every cell (var(--sp-3)) so the header's word and the
    panel's own "Analysis" above it start on two different verticals: the
    first column gives that padding back so the two sit on one rhythm. */
@@ -166,8 +177,8 @@
 .ra-line { fill: none; }
 
 .ra-cell {
-  width: 5.5rem;
-  min-width: 5.5rem;
+  width: 4rem;
+  min-width: 4rem;
 }
 
 /* The price beside an action in the list next door, and the verdict under it.
@@ -189,4 +200,27 @@
    for is the one that never needs scrolling to. */
 @media (max-width: 720px) {
   .ra-outs .ctext { display: none; }
+}
+
+/* The strip fits four streets beside a name on a laptop; half a phone is not
+   four columns and a chart too. The sparkline goes first, because the exact
+   number beside it says the same thing in fewer pixels, and the percentages
+   are the reading this table exists for. What is left still fits without the
+   wrap scrolling sideways, which is the one thing a reader of z8venqmr's
+   ticket could not do. */
+.ra-street-short { display: none; }
+
+@media (max-width: 560px) {
+  .ra-shape { display: none; }
+  .ra-cell { width: 3rem; min-width: 3rem; font-size: 11px; }
+  /* g's table pads every cell (var(--sp-3), 12px) a side, which alone was
+     more than half of what a 3rem column had to give a value like "100.0%":
+     the header text fit the box and the ellipsis still fired, because the
+     box was never the number's to fill. `.table td` in g.css carries an
+     element selector, which outweighs `.ra-cell` alone on its own, so this
+     is qualified under `.ra-strip` to actually win the padding back, the way
+     the first column already does. */
+  .ra-strip .ra-cell { padding-left: 2px; padding-right: 2px; }
+  .ra-street-full { display: none; }
+  .ra-street-short { display: inline; }
 }

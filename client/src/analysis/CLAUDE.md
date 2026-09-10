@@ -135,9 +135,28 @@ on it reads as broken, not as a chart still filling in.
 from the final state's own board when an all-in run-out left no state tagged
 with it, rather than leave the strip silently short a column on exactly the
 hands where the swing matters most. `StreetPoint.runout` marks one, and
-`StreetStrip`'s header says so in its own voice ("Turn, dealt without a bet")
-so a reader can tell a run-out from ordinary play; nothing downstream prices
-or scores a run-out point, because nothing was decided on it.
+`StreetStrip`'s header says so ("Turn*" / "River*", the star titled "Dealt
+without a bet" and spelled out under the table) so a reader can tell a
+run-out from ordinary play; nothing downstream prices or scores a run-out
+point, because nothing was decided on it.
+
+**The strip's own header text must never be wider than its column.** The full
+run-out wording ("Turn, dealt without a bet") is what pushed `table.ra-strip`
+past its `.table-wrap` at every width the first time this shipped: `.ra-strip`
+has no `.ra-table`-style minimum, so an oversized header does not scroll, it
+overflows silently, on the exact page a hidden column was already a filed
+ticket. `.ra-street-full`/`.ra-street-short` (one word each, swapped by the
+560px query already governing `.ra-cell`) and the title-plus-footnote split
+for the run-out star both exist to keep the column's own width in charge of
+the column. `.ra-strip .ra-cell`'s phone padding override is there for the
+same reason from the other side: `.table td` in g.css carries an element
+selector, which beats `.ra-cell` alone, so the 12px g gives every cell by
+default silently ate more than half of a 3rem phone column before this was
+qualified under `.ra-strip` to actually win. Measure both ends after touching
+this table — `table.ra-strip`'s width against its `.table-wrap`'s
+`clientWidth`, and each cell's `scrollWidth` against its own `clientWidth` —
+because a table that merely doesn't overflow can still be ellipsising every
+value in it.
 
 **Every fragment this panel prints on its own is sentence case**, the
 `priceText` needed/had line, the exact/sampled note beside an equity and the
