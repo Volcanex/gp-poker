@@ -134,6 +134,26 @@ files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
   `server/scripts/bench-bots.ts`, because "beats the tier below" is a number
   with an interval rather than a test that passes. See
   `server/src/bots/CLAUDE.md` for why both are shaped the way they are.
+- **A bot's think time is a function of the format, the table and the spot**
+  (`server/src/bots/pacing.ts`), not a fixed pause. A **standard** table (the
+  twenty second clock, the slow game) is paced like somebody is actually
+  looking at the board; **fast** tables and **any table with no human at it**
+  — the ladder, or two bots the ordinary queue paired with each other because
+  no person wanted the same table — keep the quick, throughput-tuned ranges
+  regardless of speed, because pacing a table nobody is watching for a
+  spectator who is never coming would slow the rating pool for nothing. A
+  free decision (a check, a call or fold that costs nothing) lands anywhere
+  in its own short range; a real one on a standard or fast table is weighed
+  by how big the spot reads — the street and the price — with jitter on top
+  so six bots at a table do not act in lockstep. Practice keeps a plain
+  uniform roll throughout, deliberately: it is a new visitor's likely first
+  look at the site, and weighing it the same way would only push its already
+  generous range up further for the biggest spots. Every range stays capped
+  against a quarter of the format's clock, so pacing can never run a bot out
+  of time. See
+  `server/src/bots/CLAUDE.md` for the ranges and why the gate has to ask
+  `bots/index.ts` rather than read a seat's own `bot` field, which is masked
+  to `false` for the population once it is public.
 - Practice mode is a `queue` message carrying `bots: {level}`. It skips the
   human queue, builds the table on the spot from bots at that level and
   outwards, and is **always unrated** (`format.practice`, persisted like every

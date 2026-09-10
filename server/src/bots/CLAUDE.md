@@ -43,25 +43,96 @@ knowing before grepping for it.
   database, room or socket. The level ordering test and
   `../../scripts/bench-bots.ts` both run on it, so they measure the same thing
   the same way.
+- `pacing.ts` - pure: which think-time range applies (`thinkRange`) and where
+  inside it a real decision lands (`spotWeight`, `spotThinkMs`). See below.
 - `player.ts` - `BotPlayer`. Holds a level and a persona, thinks on a timer
   capped against the decision clock, answers through the ordinary client
   router, and says the odd line through the same path.
 - `index.ts` - turns the population into database rows and live
-  `BotPlayer`s, and answers who is free, who is queued, and the summary
-  `/api/bots` serves.
+  `BotPlayer`s, and answers who is free, who is queued, whether a match has a
+  human in it (`matchHasHuman`), and the summary `/api/bots` serves.
 
-## Thinking time is a function of the format, not of the bot
+## Thinking time is a function of the format, the table and the spot
 
-One `BotPlayer` instance is loaded per bot account for the life of the process
-and plays a rated queue fill, a practice table and a ladder match one after
-another, so the pacing cannot be fixed at construction: `thinkRange(format,
-trivial)` reads `format.practice` on every decision instead. A practice table
-(a person against bots) gets the slower `PRACTICE_*` ranges, 1400-3200ms for a
-real decision and 200-800ms for a trivial one (a check, a call that costs
-nothing); everything else — a rated or casual queue fill, a filled heads-up
-seat, the ladder — keeps the ranges that existed before practice tables had
-their own pacing. Both are still capped against a quarter of `format.clockMs`
-exactly as before, so a short test clock is unaffected either way.
+`pacing.ts` owns this, pure throughout: no clock, no rng seeded inside it,
+every branch reachable from a plain object. `player.ts`'s `think()` is the
+only place real time runs.
+
+One `BotPlayer` instance is loaded per bot account for the life of the
+process and plays a rated queue fill, a practice table and a ladder match one
+after another, so the pacing cannot be fixed at construction:
+`thinkRange(format, trivial, humanPresent)` is asked fresh on every decision.
+Three ranges, each with a "trivial" half (a check, a call or fold that costs
+nothing) and a "real decision" half:
+
+- **Fast** (100-400ms / 600-1800ms): a fast-speed table, or **any table with
+  no human at it**, whatever its format says.
+- **Standard** (300-900ms / 1200-3400ms): a standard-speed table with a human
+  present. A twenty second clock and blinds that sit still read as a real
+  table, and a bot answering in under a second is the tell, whoever is
+  playing or spectating.
+- **Practice** (200-800ms / 1400-3200ms): a practice table, which is always a
+  person against bots. Slower than standard on purpose: fast enough not to be
+  dull, slow enough that a hand reads as something happening.
+
+**`humanPresent` decides before the format gets a say.** A table with nobody
+real at it plays at the fast ranges regardless of its speed or its format,
+because pacing a table nobody is watching for a spectator who is not there
+costs throughput for nothing. This used to be a check for `format.ladder`
+specifically, which was really always a proxy for "nobody is watching"; the
+real fact now decides directly, which is what closed the actual gap. The
+ladder is one bot-only table. It was never the only one: the population's
+own bots search the ordinary queue and pair with each other through the same
+algorithm a human uses whenever nobody wants the same table
+(`../matchmaking.ts`'s "People first"), and a **standard-speed** pairing like
+that has no `ladder` flag on its format at all. Before `humanPresent`
+existed, a table like that paced itself for a spectator who was never coming,
+which is exactly the kind of thing that quietly halves the rating pool's
+throughput on a near-empty site: most bot-vs-bot matches are the ordinary
+queue's fallback, not the ladder's.
+
+**Asking is the only option, because reading the view lies.**
+`humanPresent` cannot be read off the seats a decision's own `TableView`
+carries: `shownAsBot` (`config.ts`) masks every population bot's `bot` field
+to `false` once the population is public, so the room reads as people to
+everyone in it, bots included. `bots/index.ts`'s `matchHasHuman(matchId)` is
+the one place that can answer for real, because `players` there is the
+actual loaded roster rather than a wire field anything can mask: it checks
+the match's `playerIds` against that roster and answers whether any of them
+is not on it. `player.ts` never imports `index.ts` to ask it — that would be
+a bot player module reaching back up to the thing that constructs bot
+players, the same shape of coupling `dispatch` was already injected to avoid
+— so `humanAtMatch` is injected into `BotPlayer`'s constructor exactly the
+way `dispatch` is, and `index.ts` passes `matchHasHuman` there when it builds
+each bot. A test constructing a `BotPlayer` directly and supplying nothing
+gets `() => true`, the paced-for-a-person default, not the fast one.
+
+**Inside the "real decision" half of a standard or fast table's range, the
+delay is a function of the spot** (`spotWeight`, `spotThinkMs`), not a second
+uniform roll across the same numbers regardless of what is being decided. A
+street weight (preflop lowest, river highest) and a stake weight — a call or
+fold judged against what is left in the seat's own stack, a bet or raise
+judged against where its size sits between the legal minimum and an all-in —
+combine into a 0-1 read of how big the spot looks, which picks a point inside
+the range; jitter of up to 30% of the range's own width sits on top of that
+point, so six bots weighing similar spots at the same table do not land on
+the same instant. A river shove reads near the top of the range; a preflop
+fold to a min-raise reads near the bottom; a flop continuation bet sits
+somewhere between. The trivial half is still a plain uniform roll across its
+own (already short) range: there is nothing to weigh in a decision that costs
+nothing.
+
+**Practice is the one range spot-weighting never touches**, trivial or not.
+It was asked for on standard tables, which is where "a bot answering in under
+a second is the tell" actually lives; practice is a new visitor's likely
+first look at the site, and pushing the slower half of an already generous
+1400-3200ms range up further for the biggest spots is the wrong direction to
+move a page somebody might bounce off before they have played a hand. A
+practice decision keeps the plain uniform roll it always had.
+
+Every range is still capped against a quarter of `format.clockMs`, so a short
+test clock is unaffected either way, and pacing can never eat into the time a
+bot is actually given to act.
 
 ## Seven levels, five tiers in one function
 `decide` takes a level, default 4. **Level 4 is the bot that existed before

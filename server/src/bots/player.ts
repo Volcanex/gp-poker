@@ -1,8 +1,11 @@
-import { DEFAULT_BOT_LEVEL, speedOf, type BotLevel, type ClientMsg, type MatchFormat, type ServerMsg, type TableView } from '@opentable/protocol';
+import { DEFAULT_BOT_LEVEL, type BotLevel, type ClientMsg, type ServerMsg, type TableView } from '@opentable/protocol';
 import { decide, type BotDecision, type Rng } from './strategy.js';
 import { decideSolver, observeSolverResult, thinkingTier } from './solver.js';
 import { NEUTRAL_PERSONA, type Persona } from './persona.js';
 import type { ChatProfile } from './population-roster.js';
+import { spotThinkMs, thinkRange } from './pacing.js';
+
+export { thinkRange } from './pacing.js';
 
 /* One bot at the table. It has no socket: the hub routes its messages to
    `receive` instead, so it sees exactly the same `state` views a browser
@@ -10,49 +13,36 @@ import type { ChatProfile } from './population-roster.js';
    back through the ordinary client router. Nothing about the match, the
    clock or persistence knows it is not a person.
 
-   It thinks for a random moment before acting, both so a hand is watchable
-   and so its timing is not a tell. The delay is capped against the decision
-   clock, which is what makes a test running a 300ms clock finish this
-   decade; it never runs out of time, because the decision is already made
-   when the timer is set.
+   It thinks for a moment before acting, both so a hand is watchable and so
+   its timing is not a tell. `pacing.ts` owns the two questions that answer
+   how long: which range applies (the format, and whether anyone at the
+   table is not a bot) and, on a standard or fast table, where inside it a
+   real decision lands (how big the decision reads: the street, and the
+   price). Practice keeps the plain roll it always had, on purpose: see
+   `pacing.ts` and `CLAUDE.md` for why. The delay is capped against the
+   decision clock, which is what makes a test running a 300ms clock finish
+   this decade; it never runs out of time, because the decision is already
+   made when the timer is set.
 
-   The ranges are chosen from the format on every decision rather than fixed
-   at construction: the same BotPlayer instance plays a rated queue fill, a
+   The range is chosen from the format on every decision rather than fixed at
+   construction: the same BotPlayer instance plays a rated queue fill, a
    practice table and a ladder match across its lifetime, one after another,
-   and a practice table alone is paced for a person to follow.
+   and a practice table alone is paced for a person to follow. `humanAtMatch`
+   is asked the same way and for the same reason: whether this particular
+   match has anyone at it who is not a bot loaded in this process. It has to
+   be asked rather than read off the view, because the wire's own `bot` field
+   on a seat is masked to false for the whole population once it is public
+   (`shownAsBot`, `config.ts`) - the room is meant to read as people, which
+   means a bot cannot tell a human from another bot by its own view either.
+   `bots/index.ts` is the one place that knows which user ids are bots at
+   all, so it is the one that answers this, injected the same way `dispatch`
+   is: this module does not reach up to ask it directly.
 
    The thinking tiers are the ones whose decision takes real time, so every
    decision is awaited and whatever it spent comes off the pause afterwards: a
    bot that solved for a second and then waited its usual two would read as
    broken. It still cannot run out of time, because the pause is capped against
    the clock and the solve's own budget is a quarter of it. */
-
-const THINK_MIN_MS = 600;
-const THINK_MAX_MS = 1800;
-const QUICK_MIN_MS = 100;
-const QUICK_MAX_MS = 400;
-
-// A practice table is a person against bots, so bots there think longer than
-// they need to: fast enough not to be dull, slow enough that a hand reads as
-// something happening rather than a wall of text. The quick range (a check,
-// a call that costs nothing) is roughly doubled rather than left alone, for
-// the same reason.
-const PRACTICE_THINK_MIN_MS = 1400;
-const PRACTICE_THINK_MAX_MS = 3200;
-const PRACTICE_QUICK_MIN_MS = 200;
-const PRACTICE_QUICK_MAX_MS = 800;
-
-// A standard table is the slow game: a twenty second clock, blinds that sit
-// still, a match measured in hands rather than in minutes. A bot answering
-// it in under a second is the tell, whoever is at the table and whether they
-// are playing or spectating, so a standard seat is paced like somebody
-// actually looking at the board. The fast tables keep the ranges above:
-// there the point is that it is over quickly, and a considered pause reads
-// as lag rather than as thought.
-const STANDARD_THINK_MIN_MS = 1200;
-const STANDARD_THINK_MAX_MS = 3400;
-const STANDARD_QUICK_MIN_MS = 300;
-const STANDARD_QUICK_MAX_MS = 900;
 
 const CLOCK_FRACTION = 4; // never think for longer than a quarter of the clock
 
@@ -63,26 +53,6 @@ const CLOCK_FRACTION = 4; // never think for longer than a quarter of the clock
 // the only way bots met one before.
 const READY_ACCEPT_MIN_MS = 300;
 const READY_ACCEPT_MAX_MS = 1200;
-
-// Exported for the test suite: proving the ranges actually differ by format
-// does not need a live match, timers and a socket around it.
-export function thinkRange(format: MatchFormat, trivial: boolean): [number, number] {
-  if (format.practice === true) {
-    return trivial
-      ? [PRACTICE_QUICK_MIN_MS, PRACTICE_QUICK_MAX_MS]
-      : [PRACTICE_THINK_MIN_MS, PRACTICE_THINK_MAX_MS];
-  }
-  // The ladder is bots playing each other in the gaps with nobody watching,
-  // so it is the one standard table still tuned for throughput: pacing it
-  // for a spectator who is not there would halve the matches it gets through
-  // in a night for nothing.
-  if (format.ladder !== true && speedOf(format) === 'standard') {
-    return trivial
-      ? [STANDARD_QUICK_MIN_MS, STANDARD_QUICK_MAX_MS]
-      : [STANDARD_THINK_MIN_MS, STANDARD_THINK_MAX_MS];
-  }
-  return trivial ? [QUICK_MIN_MS, QUICK_MAX_MS] : [THINK_MIN_MS, THINK_MAX_MS];
-}
 
 export type Dispatch = (userId: string, msg: ClientMsg) => void;
 
@@ -105,7 +75,13 @@ export class BotPlayer {
     readonly level: BotLevel = DEFAULT_BOT_LEVEL,
     private rng: Rng = Math.random,
     readonly persona: Persona = NEUTRAL_PERSONA,
-    private chat: ChatProfile | null = null
+    private chat: ChatProfile | null = null,
+    // Whether a match has anyone at it who is not a bot: see the class
+    // comment above for why this has to be asked rather than read off the
+    // view. Defaults to always-true so a caller that never supplies one (a
+    // test constructing a `BotPlayer` directly) gets the paced-for-a-person
+    // behaviour rather than silently the fast one.
+    private humanAtMatch: (matchId: string) => boolean = () => true
   ) {}
 
   receive(msg: ServerMsg): void {
@@ -176,10 +152,21 @@ export class BotPlayer {
     if (!this.pending.has(key)) return;
     const me = view.seats[view.you];
     const trivial = decision.a === 'x' || me.stack === 0 || me.stack <= view.legal.call;
-    const [lo, hi] = thinkRange(view.format, trivial);
+    const [lo, hi] = thinkRange(view.format, trivial, this.humanAtMatch(view.m));
     const cap = Math.max(1, Math.floor(view.format.clockMs / CLOCK_FRACTION));
+    // A free decision lands anywhere in its (already short) range, and so
+    // does a practice table's: practice is a new visitor's first look at
+    // this site, and weighing a decision by how big it reads only pushes the
+    // slower half of an already generous range up further, which is the
+    // wrong direction to move a page somebody might bounce off. Everywhere
+    // else a real decision is weighed by how big the spot reads,
+    // `pacing.ts`'s job because it already knows the street and the price.
+    const target =
+      trivial || view.format.practice === true
+        ? lo + this.rng() * (hi - lo)
+        : spotThinkMs(view, decision, lo, hi, this.rng);
     const thought = Date.now() - started;
-    const delay = Math.max(0, Math.min(cap, lo + this.rng() * (hi - lo)) - thought);
+    const delay = Math.max(0, Math.min(cap, target) - thought);
 
     const timer = setTimeout(() => {
       this.timers.delete(timer);

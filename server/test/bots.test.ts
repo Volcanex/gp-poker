@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { formatFor, type MatchFormat, type Mode } from '@opentable/protocol';
+import { formatFor, type MatchFormat, type Mode, type TableView } from '@opentable/protocol';
 import { looksRealistic } from '@opentable/identity';
 import {
   acceptReady,
@@ -12,9 +12,11 @@ import {
   driveRandomPlay,
   testFormat,
 } from './helpers.js';
-import { configureMatchmaking, resetMatchmakingConfig, setFormatResolver, tick } from '../src/matchmaking.js';
+import { configureMatchmaking, createMatchForPlayers, resetMatchmakingConfig, setFormatResolver, tick } from '../src/matchmaking.js';
 import { getHandsForMatch, getMatchById, sql } from '../src/db.js';
 import { thinkRange } from '../src/bots/player.js';
+import { spotThinkMs, spotWeight } from '../src/bots/pacing.js';
+import { matchHasHuman } from '../src/bots/index.js';
 
 // The queue path builds its own format, so the test replaces the resolver
 // rather than passing one in: small stacks and a short clock, which also
@@ -148,6 +150,20 @@ describe('bots', () => {
     },
     240_000
   );
+
+  it('matchHasHuman reads false for a match seating only loaded bots, true the moment a human is in it', async () => {
+    const bots = await sql<{ id: string }[]>`select id from users where bot limit 2`;
+    expect(bots.length).toBe(2);
+    const human = await mintGuestSession(app);
+    createdUserIds.push(human.id);
+
+    const botMatch = await createMatchForPlayers(bots.map((b) => b.id), testFormat({ hands: 1, stack: 20 }));
+    const mixedMatch = await createMatchForPlayers([bots[0].id, human.id], testFormat({ hands: 1, stack: 20 }));
+    createdMatchIds.push(botMatch, mixedMatch);
+
+    expect(matchHasHuman(botMatch)).toBe(false);
+    expect(matchHasHuman(mixedMatch)).toBe(true);
+  });
 });
 
 describe('bot pacing', () => {
@@ -167,15 +183,25 @@ describe('bot pacing', () => {
     expect(standardHi).toBeGreaterThan(fastHi);
   });
 
-  it('paces a standard table for somebody watching it, fast or ladder for throughput', () => {
+  it('paces a standard table for somebody watching it, fast for throughput once nobody real is there', () => {
     const [standardLo, standardHi] = thinkRange(RATED, false);
     const [fastLo, fastHi] = thinkRange(FAST, false);
-    const [ladderLo, ladderHi] = thinkRange(LADDER, false);
 
-    // A ladder table is standard speed too, and is the one that keeps the
-    // throughput ranges: nobody is watching it.
+    // A ladder match is standard speed too and has no human at it, which is
+    // what actually earns it the throughput ranges: passing humanPresent as
+    // false is what a ladder table gets from `bots/index.ts`'s
+    // `matchHasHuman`, not the format's own `ladder` flag.
+    const [ladderLo, ladderHi] = thinkRange(LADDER, false, false);
     expect([ladderLo, ladderHi]).toEqual([fastLo, fastHi]);
     expect(standardLo).toBeGreaterThan(ladderLo);
+
+    // The same table, still standard speed, still not the ladder, reads
+    // exactly the same way the moment nobody at it is real: a population
+    // match two bots land in together through the ordinary queue. Without
+    // this the rating pool would pace itself for a spectator that is never
+    // there.
+    const [bareLo, bareHi] = thinkRange(RATED, false, false);
+    expect([bareLo, bareHi]).toEqual([fastLo, fastHi]);
   });
 
   it('slows the quick range on practice and standard tables too', () => {
@@ -194,5 +220,78 @@ describe('bot pacing', () => {
       const [, hi] = thinkRange(format, false);
       expect(hi).toBeLessThan(format.clockMs);
     }
+  });
+
+  it('defaults humanPresent to true, so a caller that asks for nothing gets the paced answer', () => {
+    expect(thinkRange(RATED, false)).toEqual(thinkRange(RATED, false, true));
+  });
+});
+
+describe('spot weight', () => {
+  const you = 0;
+  function view(overrides: Partial<TableView> & { legal: TableView['legal'] }): TableView {
+    return {
+      m: 'm',
+      h: 1,
+      n: 1,
+      street: 'flop',
+      board: [],
+      pot: 100,
+      pots: [],
+      seats: [
+        { i: 0, uid: 'u0', name: 'p0', rating: 1500, stack: 500, bet: 0, cards: null, folded: false, allin: false, button: false, acting: true, connected: true, bot: true, out: false, place: null, last: null },
+        { i: 1, uid: 'u1', name: 'p1', rating: 1500, stack: 500, bet: 0, cards: null, folded: false, allin: false, button: false, acting: false, connected: true, bot: false, out: false, place: null, last: null },
+      ],
+      you,
+      clock: null,
+      seedHash: 'x',
+      seed: null,
+      format: testFormat(),
+      blinds: { sb: 1, bb: 2 },
+      handsPlayed: 0,
+      last: null,
+      result: null,
+      ...overrides,
+    };
+  }
+
+  it('reads a river decision as bigger than the same shape preflop', () => {
+    const legal = { actions: ['f', 'c'] as const, call: 50, min: 0, max: 500 };
+    const pre = spotWeight(view({ street: 'pre', legal }), { a: 'c' });
+    const river = spotWeight(view({ street: 'river', legal }), { a: 'c' });
+    expect(river).toBeGreaterThan(pre);
+  });
+
+  it('reads a call for most of the stack as bigger than a cheap one', () => {
+    const legal = { actions: ['f', 'c'] as const, call: 10, min: 0, max: 500 };
+    const cheap = spotWeight(view({ street: 'turn', legal }), { a: 'c' });
+    const legalBig = { actions: ['f', 'c'] as const, call: 450, min: 0, max: 500 };
+    const big = spotWeight(view({ street: 'turn', legal: legalBig }), { a: 'c' });
+    expect(big).toBeGreaterThan(cheap);
+  });
+
+  it('reads a min-raise as smaller than a shove at the same street', () => {
+    const legal = { actions: ['f', 'c', 'r'] as const, call: 20, min: 40, max: 500 };
+    const minRaise = spotWeight(view({ street: 'turn', legal }), { a: 'r', v: 40 });
+    const shove = spotWeight(view({ street: 'turn', legal }), { a: 'r', v: 500 });
+    expect(shove).toBeGreaterThan(minRaise);
+  });
+
+  it('reads an all-in as the biggest stake there is, even though it carries no v', () => {
+    const legal = { actions: ['f', 'c', 'a'] as const, call: 20, min: 40, max: 500 };
+    const minRaise = spotWeight(view({ street: 'turn', legal }), { a: 'r', v: 40 });
+    const allIn = spotWeight(view({ street: 'turn', legal }), { a: 'a' });
+    expect(allIn).toBeGreaterThan(minRaise);
+    expect(allIn).toBe(spotWeight(view({ street: 'turn', legal }), { a: 'r', v: 500 }));
+  });
+
+  it('lands closer to the top of the range for a bigger spot, jitter and all', () => {
+    const legal = { actions: ['f', 'c'] as const, call: 480, min: 0, max: 500 };
+    const rng = () => 0.5; // dead centre: jitter contributes nothing either way
+    const big = spotThinkMs(view({ street: 'river', legal }), { a: 'c' }, 1000, 2000, rng);
+    const small = spotThinkMs(view({ street: 'pre', legal: { ...legal, call: 5 } }), { a: 'c' }, 1000, 2000, rng);
+    expect(big).toBeGreaterThan(small);
+    expect(big).toBeLessThanOrEqual(2000);
+    expect(small).toBeGreaterThanOrEqual(1000);
   });
 });

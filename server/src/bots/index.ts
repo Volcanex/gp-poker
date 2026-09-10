@@ -18,7 +18,7 @@ import {
   type UserRow,
 } from '../db.js';
 import { hub } from '../ws/hub.js';
-import { roomForPlayer } from '../match/rooms.js';
+import { getRoom, roomForPlayer } from '../match/rooms.js';
 import { BotPlayer, type Dispatch } from './player.js';
 import { generatePopulation, levelForIndex, type PopulationBot } from './population-roster.js';
 
@@ -149,7 +149,8 @@ export async function ensureBots(count = config.botCount): Promise<void> {
       bot.level,
       Math.random,
       bot.persona,
-      bot.chat
+      bot.chat,
+      matchHasHuman
     );
     players.set(user.id, player);
     hub.attachVirtual(user.id, (msg) => player.receive(msg));
@@ -160,6 +161,30 @@ export async function ensureBots(count = config.botCount): Promise<void> {
 // answer; this is the one that does not need a query.
 export function levelOf(userId: string): BotLevel | null {
   return levels.get(userId) ?? null;
+}
+
+/* Whether a match seats anyone who is not a bot loaded in this process. What
+   `bots/player.ts` asks, injected, to pace a decision: the wire's own `bot`
+   field on a seat is masked to false for the whole population once it is
+   public (`shownAsBot`, `config.ts`), so a bot reading its own view cannot
+   tell a human from another bot, and neither could this function if it read
+   the view. `players` is the one place that knows which user ids are really
+   bots, which is what makes this the one place that can answer for real.
+
+   This is also what replaced the old `format.ladder` special case in
+   `pacing.ts`: a ladder match never has a human either, so it already reads
+   `false` here without asking about the ladder specifically - one mechanism
+   for every bot-only table, including a population match two bots land in
+   together through the ordinary queue when no person wanted the same table,
+   which the ladder flag never knew about. A room that cannot be found (a
+   decision timer outliving its match, `player.ts`'s own `pending` guard
+   should make this rare) defaults to true: assuming a human costs a little
+   throughput on a table that no longer exists rather than risking the
+   opposite on one that still does. */
+export function matchHasHuman(matchId: string): boolean {
+  const room = getRoom(matchId);
+  if (!room) return true;
+  return room.playerIds.some((uid) => !players.has(uid));
 }
 
 // The population spec for a loaded bot, or null for a human (or a bot not
