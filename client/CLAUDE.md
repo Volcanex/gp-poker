@@ -115,3 +115,16 @@ silently. `src/table/best-five.ts` exists only because of this rule.
   does this itself through `respectMotionPreference`.
 - Data tables scroll inside their own `.table-wrap`; the page never scrolls
   horizontally, including at 390 px.
+- **The vitest suite reads the same `.env` the dev server does.** A worktree
+  whose `.env` sets `POPULATION_ENABLED=false` (or the other population/
+  ladder/arena knobs off, to keep a dev server quiet) silently breaks the
+  ~41 server test files that expect the population running, rather than
+  failing loudly with a clear cause. Check `.env` before chasing a server
+  test failure that looks unrelated to whatever was actually changed.
+- **`playwright.config.ts`'s `webServer` is a fixed port, 4173, with
+  `reuseExistingServer: true`.** Harmless with one worktree; with several
+  running e2e at once, whichever `vite preview` claims the port first is
+  the build every other worktree's suite measures against, silently. A run
+  that looks wrong, or a screenshot diff that makes no sense against the
+  local diff, is worth checking `lsof -i :4173` for before assuming the
+  code is the problem.
