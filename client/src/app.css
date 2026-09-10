@@ -1339,6 +1339,15 @@
 @container (max-width: 420px) {
   .seat-rating { display: none; }
 }
+/* Narrower again, the compact seat's own fixed column (179px at 390, two to
+   a row): the rating is already gone and a bot's own badge is the next
+   thing this line can afford to give up before the name does, the same
+   priority order the phone-as-rows geometry uses for its own name line. A
+   flesh-and-blood name still lost a third of itself at this width with
+   both gone; there is no more to spend without cutting into the cards. */
+@container (max-width: 200px) {
+  .seat-bot { display: none; }
+}
 
 /* The action square. Empty it is a quiet outline; with a word in it, the
    word's colour on a tint of the same, the three colours every action has
@@ -1643,8 +1652,13 @@
    at the top of this rule already clear down to 560. */
 @media (min-height: 690px) {
   @container (max-width: 560px) {
+    /* --seat-card stays close to its base value: it is the one number here
+       that also eats the compact seat's own fixed 179px column (two cards
+       plus their gap come straight out of the identity block's room), and a
+       name already down to a third of itself at this width cannot spend
+       more of it on bigger cards. */
     .felt:not([data-rows]) {
-      --seat-h: 60px; --seat-card: 22px; --board-card: 42px;
+      --seat-h: 60px; --seat-card: 18px; --board-card: 42px;
       --chip: 18px; --pot-w: 96px;
     }
   }
