@@ -71,7 +71,7 @@ const LEARN_PAGES: { slug: string; title: string; description: string }[] = [
   { slug: 'ranges', title: 'Ranges', description: 'The 169 starting hands, the grid everyone draws them on, and the baseline chart this site scores against.' },
   { slug: 'rating', title: 'How the rating works', description: 'Glicko-2 in plain words: 1500, the deviation, and why six-max is one rating period.' },
   { slug: 'fair', title: 'Provably fair', description: 'The deck is committed to before it is dealt, and you can check it afterwards.' },
-  { slug: 'formats', title: 'The two formats', description: 'Heads-up best of 25, the six-max sit-and-go, the clock, and practice against bots.' },
+  { slug: 'formats', title: 'The two formats', description: 'The heads-up match, the six-max sit-and-go, the clock, and practice against bots.' },
 ];
 
 export const STATIC_PAGES: Record<string, PageMeta> = {

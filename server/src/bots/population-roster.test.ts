@@ -30,12 +30,23 @@ describe('generatePopulation', () => {
     expect(names.size).toBe(500);
   });
 
-  it('cycles levels 1..5 by roster index, unchanged from the old roster', () => {
-    for (let i = 0; i < 20; i++) {
-      expect(levelForIndex(i)).toBe(((i % 5) + 1) as 1 | 2 | 3 | 4 | 5);
-    }
-    const bots = generatePopulation(20);
+  it('puts nobody below the tight tier and half the roster on the sharp one', () => {
+    // The population is who a player meets in the queue, so it is the top
+    // three synchronous tiers only. The weak ones are the practice ladder's,
+    // chosen on purpose, and are not sat in front of anybody by this roster.
+    const bots = generatePopulation(120);
+    const public_ = bots.filter((b) => !(b.index in THINKING_SEATS));
+    expect(Math.min(...public_.map((b) => b.level))).toBe(3);
+    const sharp = public_.filter((b) => b.level === 5).length;
+    expect(sharp / public_.length).toBeGreaterThanOrEqual(0.45);
     expect(bots.map((b) => b.level)).toEqual(bots.map((b) => levelForIndex(b.index)));
+  });
+
+  it('cycles the levels down the roster rather than sitting them in blocks', () => {
+    // Ten consecutive seats cover all three tiers, so the first bots ever
+    // created are spread across them instead of piling into one.
+    const first = Array.from({ length: 10 }, (_, i) => levelForIndex(i));
+    expect(new Set(first)).toEqual(new Set([3, 4, 5]));
   });
 
   /* The seats that think. Rare on purpose, at the end of the default
@@ -51,10 +62,10 @@ describe('generatePopulation', () => {
     }
     const bots = generatePopulation(120);
     expect(bots.filter((b) => b.level >= 6)).toHaveLength(thinking.length);
-    // Every other seat is on the cycle it was on before they existed.
+    // Every other seat is on the cycle, and the cycle repeats every ten.
     for (const bot of bots) {
       if (bot.index in THINKING_SEATS) continue;
-      expect(bot.level).toBe(((bot.index % 5) + 1) as 1 | 2 | 3 | 4 | 5);
+      expect(bot.level).toBe(levelForIndex(bot.index % 10));
     }
   });
 

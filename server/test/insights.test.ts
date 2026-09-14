@@ -14,10 +14,22 @@ import { MIN_INSIGHT_HANDS } from '../src/insights.js';
    Both seats check and call and never raise, so no one can bust and the
    match runs its full cap. That makes the hand count exact, every hand a
    showdown, and the button's rotation the only thing that changes between
-   them. */
+   them.
+
+   One level, so the blinds never move. The product's heads-up schedule climbs
+   every few hands, and a per-hand figure normalised by the blinds that hand
+   was dealt at cannot be weighted back up by one number when there are
+   several. This file is about whether the counts survive Postgres, so it
+   holds the stakes still and leaves the schedule to speed.test.ts. */
 
 const HANDS = MIN_INSIGHT_HANDS;
-const TEST_FORMAT: MatchFormat = testFormat({ hands: HANDS, stack: 200, clockMs: 500, graceMs: 500 });
+const TEST_FORMAT: MatchFormat = testFormat({
+  hands: HANDS,
+  stack: 200,
+  clockMs: 500,
+  graceMs: 500,
+  levels: [{ sb: 1, bb: 2 }],
+});
 
 async function drivePassive(
   conn: Awaited<ReturnType<typeof connectWs>>,

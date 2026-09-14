@@ -135,16 +135,35 @@ test clock is unaffected either way, and pacing can never eat into the time a
 bot is actually given to act.
 
 ## Seven levels, five tiers in one function
-`decide` takes a level, default 4. **Level 4 is the bot that existed before
-levels did, byte for byte**: `server/test/strategy.test.ts` pins it and must
-keep passing untouched. Every other level reuses the same `Ctx`, the same
-`handStrength` and the same action helpers (`aggressive`, `passive`,
-`giveUp`), and differs only in named constants and which rule it reaches for.
+`decide` takes a level, **default 5** (`DEFAULT_BOT_LEVEL`). It was 4, which is
+the bot that existed before levels did, and which most people beat by their
+second session; 5 is the hardest tier that is still one pure function of the
+view, so the default costs exactly the same processor as the one it replaced.
+Every level reuses the same `Ctx`, the same `handStrength` and the same action
+helpers (`aggressive`, `passive`, `giveUp`), and differs only in named
+constants and which rule it reaches for.
 
 - 1 and 2 replace the chart read with a percentile threshold and lose by
   calling too much; 3 is the same read but price-aware and too passive.
 - 5 is level 4 plus semi-bluffs, a continuation bet, board-aware sizing,
-  thinner river value, an occasional 3-bet bluff, and a margin on its calls.
+  a thin river value bet, an occasional 3-bet bluff, and a margin on its calls.
+
+**`handStrength` answers against one opponent, and `vsField` is what makes
+that true multiway.** The number is the fraction of remaining two-card
+holdings this hand beats; against n opponents the hand has to beat all of
+them, so the tiers that read it (`solid` and `sharp`) raise it to the power of
+the field first. Top pair is 0.82 against one and 0.37 against five, which is
+what it is worth, and stacking off with it five handed was the single largest
+leak either tier had. `bluffChance` does the same job for the bluffing spots,
+decaying each one by 0.55 per extra opponent, because a bluff has to get
+through everybody. **Heads-up the exponent is 1 and the decay is 1**, so the
+heads-up game is untouched by both and the ordering test does not move.
+
+Measured on `simulate.ts` six handed, new against old at the same level over
+36k hands a side: **level 4 +277 bb/100, level 5 +235 bb/100** (SE ~46). The
+preflop half of that is `preflopMultiway` no longer using one threshold to
+cold-call an open and to call a raise (`CALL_VS_RAISE`, and both scaled by
+`lateness` the way the raise threshold always was).
 
 `decide` maps a thinking tier onto `sharp` rather than falling through to its
 default branch, so a view that reaches the pure function with a tier it does
@@ -156,6 +175,16 @@ the field it actually plays there is almost no folding equity to win: the
 money is in value bets and in not paying off. Turning the bluff frequencies up
 makes level 5 lose to level 2. This is tuned against these opponents, not
 against a solver.
+
+The same measurement says so twice over. Heads-up, level 5 against itself over
+6k hands a side: raising `SHARP_CBET_CHANCE` from 0.3 to 0.45 was worth
++2 bb/100 against an SE of 13, i.e. nothing, and extending the flop
+continuation bet to a turn barrel was **-5**. What did pay was the opposite
+direction on value: `SHARP_RIVER_VALUE` 0.7 -> **0.78** is +32, +45 and +22
+bb/100 on three seeds. Thinner river value betting is actively bad here
+(0.62 measured **-112**), because the hands that call are the ones that beat
+it. Before tuning a constant in this file, measure it; the intuition is
+usually wrong about which direction is the improvement.
 
 ## The two tiers that think
 
@@ -317,8 +346,26 @@ from the fixed seed `opentable-population` by `population-roster.ts`'s
 **growing the roster only appends**: bot 0 is always bot 0 no matter how large
 `count` grows, which is what lets the original fifteen keep their id, rating
 and history under a bigger population. Roster index `i` plays at
-`(i % 5) + 1` (`levelForIndex`, unchanged from the original roster), so
-levels cycle rather than sitting in blocks.
+`LEVEL_CYCLE[i % 10]` (`levelForIndex`), so levels cycle rather than sitting
+in blocks.
+
+**The population is the top three synchronous tiers only**, weighted to the
+top: half sharp, a third solid, the rest tight. It used to be `(i % 5) + 1`,
+an even fifth on each tier, which put nearly half the bots anybody ever met on
+`station` or `loose` - the calling station, and the one that raises only the
+nuts. That is what "the bots are bad" was describing, and it was a fair
+reading of a queue filled that way. The weak tiers have not gone anywhere:
+they are the practice ladder's, where a beginner picks them on purpose. They
+are simply not sat in front of anybody by this roster.
+
+`ensureBotUser` updates `bot_level` on an existing row whenever the roster
+disagrees with it, so changing `LEVEL_CYCLE` re-levels the live population at
+the next boot. **Their ratings do not follow.** A bot that spent months
+earning a rating as a calling station keeps it and now plays sharp, so the
+ladder is wrong until the population has played itself back into shape. That
+is a deliberate trade against resetting a live rating table; if it ever needs
+forcing, it is a truncate of `ratings` for `bot = true` and not a code
+change.
 
 **Except for three seats.** `THINKING_SEATS` puts indexes 117 and 118 on the
 regular tier and 119 on the solver tier, so a ranked six-max table sometimes
@@ -489,7 +536,7 @@ so the ladder is what a box running with the population off (or with
   relaxed rather than enforced when everyone free has just played.
 - **Format** is the mode's rated format with `ladder: true`, a 5 s clock and
   `holdMs` 1 s, so a hand nobody is watching does not pause four seconds.
-  Everything else is the product format: 25 hands, 200 units, rated, stored,
+  Everything else is the product format: 200 units, no hand cap, rated, stored,
   replayable. That is the point, because a human beating a level 3 bot should
   beat a number that was earned the same way theirs is.
 - **Off under vitest** unless a test calls `configureLadder({enabled: true})`.

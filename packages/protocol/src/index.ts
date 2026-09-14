@@ -229,14 +229,14 @@ export function matchCeilingMs(format: MatchFormat): number {
    At the top level the big blind is the whole table, so both seats are
    all-in the moment the blinds are posted and one hand settles it: 15:00 plus
    one forced hand, comfortably inside twenty minutes. In practice a bust
-   arrives around level 6 or 7. The 25 hand cap stays, so a fast heads-up
-   match is still "best of 25 or bust", now with a clock behind it. */
+   arrives around level 6 or 7. There is no hand cap: the match is over when
+   somebody is, and the schedule is what guarantees that happens. */
 export const HEADS_UP_FAST: MatchFormat = {
   mode: 'heads-up',
   speed: 'fast',
   players: 2,
   rated: true,
-  hands: 25,
+  hands: null,
   stack: 200,
   sb: 1,
   bb: 2,
@@ -311,41 +311,65 @@ export const SIX_MAX_FAST: MatchFormat = {
   graceMs: 8_000,
 };
 
-/* Standard heads-up. The match this site started with: 200 units a seat, blinds
-   1/2, best of 25 hands or bust, a twenty second clock. The 25 hand cap is
-   what normally ends it, around the twenty minute mark.
+/* Standard heads-up. 200 units a seat, blinds 1/2, a twenty second clock, and
+   played until somebody busts. There is no hand cap: a match that stopped at
+   hand 25 and handed it to whoever happened to be ahead was a hand count
+   deciding a poker match, and a level table was scored a draw.
 
-   The ladder below is a backstop and nothing else. It climbs every 30 minutes,
-   which is past the end of any match played at a normal pace, and it exists so
-   that a match nobody is actually playing, two people letting the clock and
-   the reconnect grace run on every decision, still cannot outlive two hours.
+   Ending on a bust means the schedule has to be the thing that ends it, so
+   this is a real schedule now rather than the four-level backstop that was
+   here while the cap did the work. Six hands a level, the same eleven levels
+   the fast game climbs on a clock.
 
-     level  blinds    starts at   table total in bb
-       1     1/2        0:00           400
-       2     5/10      30:00            40
-       3     30/60     60:00             6.6
-       4    200/400    90:00             1      <- top
+     level  blinds    at hand   at time   avg stack in bb   table total in bb
+       1     1/2          1       0:00         100                200
+       2     2/4          7      10:00          50                100
+       3     3/6         13      20:00          33                 66
+       4     5/10        19      30:00          20                 40
+       5     8/16        25      40:00          12.5               25
+       6    12/25        31      50:00           8                 16
+       7    20/40        37      60:00           5                 10
+       8    30/60        43      70:00           3.3                6.6
+       9    50/100       49      80:00           2                  4
+      10   100/200       55      90:00           1                  2
+      11   200/400       61     100:00           0.5                1    <- top
 
-   90:00 plus one forced hand. `levelHands` stays at 25, which is the whole
-   match, so the hand basis never moves the blinds: only the clock does, and
-   only when the clock has been abused. */
+   At the top level the big blind is every chip on the table, so both seats are
+   all-in from the post and one hand settles it: 100:00 plus one forced hand,
+   inside the two hour ceiling. In practice a bust arrives around level 5 to 8,
+   which is hand 25 to 48 and a match of much the same length as the one the
+   cap used to end, with the difference that somebody won it.
+
+   The level is whichever basis is further along, and at anything like a normal
+   pace that is the hand basis the whole way: six hands takes well under ten
+   minutes. The clock only leads on a table running slower than 100 seconds a
+   hand, which is a table letting the clock and the reconnect grace run on
+   every decision, and it is there so that table still cannot outlive two
+   hours. */
 export const HEADS_UP_STANDARD: MatchFormat = {
   mode: 'heads-up',
   speed: 'standard',
   players: 2,
   rated: true,
-  hands: 25,
+  hands: null,
   stack: 200,
   sb: 1,
   bb: 2,
   levels: [
     { sb: 1, bb: 2 },
+    { sb: 2, bb: 4 },
+    { sb: 3, bb: 6 },
     { sb: 5, bb: 10 },
+    { sb: 8, bb: 16 },
+    { sb: 12, bb: 25 },
+    { sb: 20, bb: 40 },
     { sb: 30, bb: 60 },
+    { sb: 50, bb: 100 },
+    { sb: 100, bb: 200 },
     { sb: 200, bb: 400 },
   ],
-  levelHands: 25,
-  levelSeconds: 1_800,
+  levelHands: 6,
+  levelSeconds: 600,
   clockMs: 20_000,
   graceMs: 15_000,
 };
@@ -561,7 +585,13 @@ export function tierOf(level: BotLevel): BotTier {
   return LEVEL_TIER[level];
 }
 
-export const DEFAULT_BOT_LEVEL: BotLevel = 4;
+/* What a bot plays at when nothing says otherwise: a home game's unfilled
+   seat, a friend's table, a practice table that named no level. Was `solid`,
+   which reads the charts and the pot odds and does nothing else, and which
+   most people beat by the second session. `sharp` is the hardest tier that is
+   still one pure function of the view, so it costs the same processor as the
+   one it replaces: the two tiers above it think, and those stay opt-in. */
+export const DEFAULT_BOT_LEVEL: BotLevel = 5;
 
 export interface BotLevelInfo {
   level: BotLevel;
@@ -603,12 +633,14 @@ export function botLevelInfo(level: number): BotLevelInfo {
 /* The home page's three quick presets, one table so the button row and the
    bots setup page cannot describe "hard" differently. Hard is the regular,
    the first tier that reads you; the solver above it is on the setup page
-   for whoever goes looking. */
+   for whoever goes looking. Easy is `tight` rather than `loose`, and medium is
+   `sharp` rather than `solid`: every rung moved up one when the population
+   did, because "easy" meant a bot that called every bet with anything. */
 export type PracticePreset = 'easy' | 'medium' | 'hard';
 
 export const PRACTICE_PRESETS: Record<PracticePreset, BotLevel> = {
-  easy: 2,
-  medium: 4,
+  easy: 3,
+  medium: 5,
   hard: 6,
 };
 

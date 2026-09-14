@@ -287,10 +287,21 @@ describe('the last hand', () => {
     expect(isLastHand(view([seat({ i: 0, stack: 100 }), seat({ i: 1, stack: 100 })]))).toBe(false);
   });
 
-  it('knows a heads-up match ends at its distance', () => {
+  it('never promises an end to a heads-up match on the hand count', () => {
+    // Heads-up has no distance any more: it is over when somebody's stack is,
+    // so the dock must not count down to a result at hand 25 or at hand 250.
     const seats = [seat({ i: 0, stack: 100 }), seat({ i: 1, stack: 100 })];
-    expect(isLastHand(view(seats, { h: 25 }))).toBe(true);
-    expect(isLastHand(view(seats, { h: 24 }))).toBe(false);
+    expect(isLastHand(view(seats, { h: 25 }))).toBe(false);
+    expect(isLastHand(view(seats, { h: 250 }))).toBe(false);
+  });
+
+  it('still ends a format that does carry a distance', () => {
+    // The mechanism stays, and a stored match from before the cap was dropped
+    // still reads correctly on its own format.
+    const seats = [seat({ i: 0, stack: 100 }), seat({ i: 1, stack: 100 })];
+    const capped = { ...formatFor('heads-up', true), hands: 25 };
+    expect(isLastHand(view(seats, { h: 25, format: capped }))).toBe(true);
+    expect(isLastHand(view(seats, { h: 24, format: capped }))).toBe(false);
   });
 
   it('never promises an end to a sit and go that has players left', () => {

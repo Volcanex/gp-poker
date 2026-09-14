@@ -39,10 +39,10 @@ export function Formats() {
 
       <h2>Heads-up</h2>
       <p>
-        Two players, {hu.stack} units each. It is best of <strong>{hu.hands}</strong> hands: whoever
-        has more chips after {hu.hands} hands wins, unless somebody busts first, and exactly equal
-        stacks at the end is a draw. The button alternates, so you play the same number of hands from
-        each seat.
+        Two players, {hu.stack} units each, played until one of you has all of them. There is no
+        hand limit: the blinds climb every {hu.levelHands} hands, and by the top of the schedule a
+        big blind is every chip on the table, so the match ends on a bust and not on a count. The
+        button alternates, so you play the same number of hands from each seat.
       </p>
 
       <h2>Fast and standard</h2>
@@ -122,9 +122,9 @@ export function Formats() {
       </Figure>
 
       <p>
-        Fast heads-up keeps the {huFast.hands} hand cap and adds the same kind of ladder behind it,
-        so it ends on hands, on a bust, or on the clock, whichever arrives first. The worst case is{' '}
-        {mins(matchCeilingMs(huFast))} minutes.
+        Fast heads-up climbs on the clock instead, a level every{' '}
+        {secs((huFast.levelSeconds ?? 0) * 1000)} seconds, so it ends on a bust or on the schedule
+        catching up with it. The worst case is {mins(matchCeilingMs(huFast))} minutes.
       </p>
 
       <h2>The clock</h2>

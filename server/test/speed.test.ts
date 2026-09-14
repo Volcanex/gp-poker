@@ -66,8 +66,14 @@ describe('blind schedules', () => {
   it('puts a fast heads-up table inside twenty minutes', () => {
     expect(terminalLevelMs(HEADS_UP_FAST)).toBe(10 * 90 * 1_000);
     expect(matchCeilingMs(HEADS_UP_FAST)).toBeLessThanOrEqual(20 * 60_000);
-    // The 25 hand cap stays: a fast heads-up match is still best of 25.
-    expect(HEADS_UP_FAST.hands).toBe(25);
+  });
+
+  it('plays every heads-up match to a bust rather than to a hand count', () => {
+    // No cap on either heads-up format: the schedule ends the match, which is
+    // what the two tests above prove it can. A format that grew a cap again
+    // would be a match decided by counting rather than by poker.
+    expect(HEADS_UP_FAST.hands).toBeNull();
+    expect(HEADS_UP_STANDARD.hands).toBeNull();
   });
 
   it('keeps a standard table inside two hours', () => {
@@ -104,13 +110,19 @@ describe('which level is in play', () => {
     expect(levelAt(SIX_MAX_STANDARD, 3, 30 * 60_000)).toBe(3);
   });
 
-  it('never moves a standard heads-up table inside a normal match', () => {
-    // Twenty five hands is the whole match, and the first time-keyed level
-    // does not arrive for half an hour.
-    for (let hand = 1; hand <= 25; hand++) {
-      expect(blindsAt(HEADS_UP_STANDARD, hand, 20 * 60_000)).toEqual({ sb: 1, bb: 2 });
-    }
-    expect(blindsAt(HEADS_UP_STANDARD, 1, 30 * 60_000)).toEqual({ sb: 5, bb: 10 });
+  it('climbs a standard heads-up table on hands, with the clock behind it', () => {
+    // Six hands a level, so the blinds have moved four times by the hand the
+    // old cap used to end the match on.
+    expect(blindsAt(HEADS_UP_STANDARD, 1)).toEqual({ sb: 1, bb: 2 });
+    expect(blindsAt(HEADS_UP_STANDARD, 6)).toEqual({ sb: 1, bb: 2 });
+    expect(blindsAt(HEADS_UP_STANDARD, 7)).toEqual({ sb: 2, bb: 4 });
+    expect(blindsAt(HEADS_UP_STANDARD, 25)).toEqual({ sb: 8, bb: 16 });
+    // The top level is reached on hands alone, which is what makes a bust
+    // certain without the clock having to be involved at all.
+    expect(levelAt(HEADS_UP_STANDARD, 61)).toBe(HEADS_UP_STANDARD.levels.length - 1);
+    // And a table crawling slower than 100 seconds a hand is pulled up by the
+    // clock instead: one hand played in fifty minutes is already level 6.
+    expect(levelAt(HEADS_UP_STANDARD, 1, 50 * 60_000)).toBe(5);
   });
 
   it('stops at the top level rather than running off the end', () => {

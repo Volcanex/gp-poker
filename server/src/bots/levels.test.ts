@@ -91,7 +91,7 @@ describe('bot levels', () => {
     60_000
   );
 
-  it('leaves level 4 as the default', () => {
+  it('plays the sharp tier when nothing names a level', () => {
     const state = createHand({
       seats: [
         { id: 's0', stack: STACK },
@@ -103,6 +103,6 @@ describe('bot levels', () => {
       seed: seedFrom(mulberry32(11)),
     });
     const view = viewOf(state, state.toAct!, { format: FORMAT });
-    expect(decide(view, () => 0.5)).toEqual(decide(view, () => 0.5, 4));
+    expect(decide(view, () => 0.5)).toEqual(decide(view, () => 0.5, 5));
   });
 });

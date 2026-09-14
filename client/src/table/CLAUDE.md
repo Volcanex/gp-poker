@@ -1128,7 +1128,8 @@ an unscoped absolute rule stood that one in the top left corner of `.match`.
 
 `StatsBox` in `table.tsx`: a `dl` under the board, labels left in
 `--text-secondary`, values right, tabular, one type size, every value a grid
-cell. Hand ("9 of 25"), Street, Blinds ("1/2, level 1"), Next level (only on
+cell. Hand ("9", or "9 of 25" on a stored match that had a cap), Street,
+Blinds ("1/2, level 1"), Next level (only on
 a format with levels, which is settled before the first card), To call. On a
 phone the same box is one row of pairs and the next-level pair is hidden.
 The practice table's live stats stay in `.practice-strip` under the felt: the

@@ -3,7 +3,7 @@
 **Owner:** Gabriel Penman
 **What:** Open Table, free ranked no-limit hold'em at
 poker.gabrielpenman.com: six-max sit-and-go (the main game) and heads-up
-(best of 25), each fast or standard and each rated or casual, with bots filling
+(played to a bust), each fast or standard and each rated or casual, with bots filling
 empty seats in casual play. Lichess for poker: no money, no chips to buy, no
 rake, no ads. Chips are table units that reset every match; the scarce
 currency is Glicko-2 rating. Instant play as a guest, claim the account
@@ -70,8 +70,12 @@ files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
 
 ## Decisions
 - Modes: **six-max is the main game** (6 seats, last player standing, places
-  by elimination order) with heads-up beside it (200 units, best of 25 hands
-  or bust, equal stacks is a draw). Every table is 200 units a seat.
+  by elimination order) with heads-up beside it (200 units, last one
+  standing). **Neither mode has a hand cap**: `format.hands` is null on all
+  four, the blind schedule is what ends a match, and a heads-up match is
+  therefore always won rather than sometimes awarded on a count or chopped on
+  a level stack. The mechanism stays on the format for the stored matches that
+  used it. Every table is 200 units a seat.
   `DEFAULT_FORMAT` and a bare `queue` message both mean standard six-max.
 - **Speed is the second dimension**: `format.speed`, fast or standard, so there
   are four formats and eight queues (mode x rated x speed). A **standard** table
@@ -117,15 +121,19 @@ files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
   `BotTier` and `LEVEL_TIER` in the protocol are the map, and nothing branches
   on the number, so renumbering the ladder is a one-table edit. Seven tiers
   today (`users.bot_level`, `BOT_LEVELS`): station, loose, tight, solid, sharp,
-  regular, solver. Solid is the bot that existed before levels and is still the
-  default. The first five are one pure function of the view; **the last two
+  regular, solver. **Sharp is the default** (`DEFAULT_BOT_LEVEL`, 5): it is the
+  hardest tier that is still one pure function of the view, so it costs no more
+  processor than solid, which was the default until the bots were judged too
+  easy. The first five are one pure function of the view; **the last two
   think**, tracking both ranges through the hand and running CFR+
   (`packages/solver`) on the main thread in slices, because a worker would need
   a second bundle in production and a TypeScript loader in a worker in dev.
   `regular` plays the sharp tier everywhere except the river, which it solves
   exactly on a 400ms budget, and leans on measured reads of the particular
   opponent throughout; `solver` solves every postflop street on 1500ms. The
-  population cycles the instant tiers by roster index; `THINKING_SEATS` gives
+  population cycles the top three instant tiers by roster index, weighted to
+  sharp, so nobody in the queue is a calling station; the weak tiers are the
+  practice ladder's, picked on purpose. `THINKING_SEATS` gives
   three of its hundred and twenty a tier that thinks (two regular, one solver),
   so a ranked table sometimes seats a hard bot without the box paying for a
   hundred of them. The ordering of the instant tiers is proved by a seeded

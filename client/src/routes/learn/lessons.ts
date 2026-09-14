@@ -72,7 +72,7 @@ export const LESSONS: Lesson[] = [
   {
     slug: 'formats',
     title: 'The two formats',
-    blurb: 'Heads-up best of 25, the six-max sit-and-go, the clock, and practice against bots.',
+    blurb: 'The heads-up match, the six-max sit-and-go, the clock, and practice against bots.',
     Icon: Timer,
     practice: { to: '/', label: 'Start a match' },
   },

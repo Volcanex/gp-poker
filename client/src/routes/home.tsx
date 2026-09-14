@@ -53,7 +53,7 @@ export function modeBlurb(mode: Mode, speed: Speed = 'standard'): string {
   const shape =
     mode === 'six-max'
       ? `Last player standing. ${f.players} seats, ${f.stack} units each.`
-      : `Best of ${f.hands} hands. ${f.stack} units each.`;
+      : `Two seats, last one standing. ${f.stack} units each.`;
   return `${shape} ${scheduleLine(f)}`;
 }
 

@@ -75,12 +75,25 @@ export interface PopulationBot {
    LEVEL_TIER, and to nothing else. */
 export const THINKING_SEATS: Record<number, BotLevel> = { 117: 6, 118: 6, 119: 7 };
 
-// Levels cycle down the roster rather than sitting in blocks, so the first
-// bots ever created are spread across all five instead of piling into one.
-// Unchanged from the original fifteen-bot roster, apart from the thinking
-// seats above.
+/* What the population plays at. This used to be `(i % 5) + 1`, an even fifth
+   of the roster on each of the five synchronous tiers, which put nearly half
+   the bots a player ever met on `station` or `loose`: the calling station and
+   the one that raises only the nuts. A table filled from that roster is not a
+   game, and "the bots are bad" was the correct reading of it.
+
+   So the public population is the top three tiers only, weighted to the top:
+   half sharp, a third solid, the rest tight. The weak tiers have not gone
+   anywhere - they are still the whole point of the practice ladder, where a
+   beginner chooses them on purpose - they are simply not who is sitting in
+   the queue any more.
+
+   Still a cycle down the roster rather than blocks, so the first bots ever
+   created are spread across the tiers instead of piling into one, and still
+   index-keyed, so growing `POPULATION_SIZE` only appends. */
+const LEVEL_CYCLE: BotLevel[] = [5, 4, 5, 3, 5, 4, 5, 4, 3, 5];
+
 export function levelForIndex(i: number): BotLevel {
-  return THINKING_SEATS[i] ?? (((i % 5) + 1) as BotLevel);
+  return THINKING_SEATS[i] ?? LEVEL_CYCLE[i % LEVEL_CYCLE.length];
 }
 
 function pick<T>(rng: Rng, list: T[]): T {

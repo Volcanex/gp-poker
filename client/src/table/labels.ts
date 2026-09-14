@@ -94,12 +94,13 @@ export function blindText(
     level ?? Math.min(format.levels.length - 1, Math.floor((hand - 1) / Math.max(1, per)));
 
   /* Two questions, and a schedule the player is not climbing answers no to
-     both. The hand basis fires only when a level is shorter than the match;
-     standard heads-up sets it to the whole 25, which can never come round.
-     The clock basis is a level the player meets only on a fast table, where
-     it is the whole idea; on a standard one it is a backstop half an hour
-     away that a normal match ends long before, and printing "Level 1" for
-     the whole of one is a schedule nobody is on. */
+     both. The hand basis fires only when a level is shorter than the match,
+     which is every format the site deals now; a stored match whose format
+     capped the hands at the length of one level is the case it answers no
+     for. The clock basis is a level the player meets only on a fast table,
+     where it is the whole idea; on a standard one it is a backstop an hour
+     of stalling away, and printing "Level 1" for the whole of a match nobody
+     is climbing is a schedule nobody is on. */
   const climbsOnHands = per > 0 && (format.hands === null || per < format.hands);
   const climbsOnClock = speedOf(format) === 'fast';
   if (!climbsOnHands && !climbsOnClock) {

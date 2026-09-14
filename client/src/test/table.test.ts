@@ -119,14 +119,20 @@ describe('hand header', () => {
     expect(blindText(flat, { sb: 1, bb: 2 }, 7)).toBe('Blinds 1/2');
   });
 
-  it('names no level on a schedule the player is not climbing', () => {
-    // Long heads-up has a ladder, but its hand basis is the whole 25 hand
-    // match and its clock basis is a half hour backstop, so a player never
-    // meets a level: the header says what the blinds are and stops.
-    expect(blindText(HEADS_UP_FORMAT, { sb: 1, bb: 2 }, 7)).toBe('Blinds 1/2');
-    // Even once the backstop has fired, which is a fact rather than a place
-    // in a schedule anybody was following.
-    expect(blindText(HEADS_UP_FORMAT, { sb: 5, bb: 10 }, 7, 1)).toBe('Blinds 5/10');
+  it('names the level on a long heads-up table, which now climbs on hands', () => {
+    // Six hands a level and no cap, so a player does meet a level and the
+    // header counts down to the next one the way the sit-and-go's does.
+    expect(blindText(HEADS_UP_FORMAT, { sb: 2, bb: 4 }, 7)).toBe('Level 2, blinds 2/4, next in 6 hands');
+    expect(blindText(HEADS_UP_FORMAT, { sb: 2, bb: 4 }, 12)).toBe('Level 2, blinds 2/4, next in 1 hand');
+  });
+
+  it('names no level on a stored match whose cap was the whole schedule', () => {
+    // The shape standard heads-up had while it was best of 25: one level as
+    // long as the match, so the player never met a second one and the header
+    // said what the blinds were and stopped.
+    const capped = { ...HEADS_UP_FORMAT, hands: 25, levelHands: 25, levelSeconds: 1_800 };
+    expect(blindText(capped, { sb: 1, bb: 2 }, 7)).toBe('Blinds 1/2');
+    expect(blindText(capped, { sb: 5, bb: 10 }, 7, 1)).toBe('Blinds 5/10');
   });
 
   it('names the level on a short table, where the clock is the schedule', () => {

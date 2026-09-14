@@ -231,7 +231,8 @@ Two modes and two speeds, each rated or casual, so **eight** independent
 queues. `formatFor(mode, rated, speed)` in the protocol builds the
 `MatchFormat`; **the server never invents one.** Six-max is the main game and
 `DEFAULT_MODE`: six seats, `hands: null`, blinds climbing so it always ends.
-Heads-up is two seats, best of 25 or bust.
+Heads-up is two seats and also `hands: null`: it climbs six hands a level
+until a big blind is the whole table, so it ends on a bust too.
 
 **Speed is a real third dimension of the queue and not a tag on a shared
 one.** `bucketKey(mode, rated, speed)` is what keeps the eight apart. It is

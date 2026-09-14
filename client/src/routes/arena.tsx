@@ -224,7 +224,7 @@ function HeroCard({
         <span className={`badge ${clock.kind === 'ends' ? 'badge-ok' : 'badge-plain'}`}>{clock.label}</span>
       </div>
       <span className="muted">
-        Best of {format.hands} hands, {format.stack} units each. Every match is rated, and a bot fills
+        Two seats, last one standing, {format.stack} units each. Every match is rated, and a bot fills
         the seat when nobody else is waiting.
       </span>
       <span className="tags">

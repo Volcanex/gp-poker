@@ -65,6 +65,16 @@ const JITTER = 3;
 const RAISE_EARLY = 12;
 const RAISE_BUTTON = 25;
 const CALL_OPEN = 40;
+/* Calling a raise is not calling a limp, and the one number used to do both
+   was the widest leak left in this tier: top 40% cold-calling an open plays a
+   dominated hand for a raised pot from wherever it happens to be sitting. */
+const CALL_VS_RAISE = 18;
+/* What the two call thresholds shrink to under the gun. A hand that is a fine
+   call on the button is a hand that plays every street out of position from
+   first seat, so both are scaled by `lateness`: as written on the button, half
+   of that in the small blind. The raise threshold above has always been
+   position-aware; these now are too. */
+const CALL_EARLY_FRACTION = 0.5;
 const THREE_BET = 6;
 const CALL_THREE_BET = 12;
 const SHORT_STACK_BB = 12;
@@ -140,7 +150,7 @@ const TIGHT_RAISE_STRONG = 0.35;
 const SHARP_DRY = 0.5;
 const SHARP_WET = 0.85;
 const SHARP_VALUE_EXTRA = 0.2; // added to the pot fraction once the hand is a clear favourite
-const SHARP_RIVER_VALUE = 0.7;
+const SHARP_RIVER_VALUE = 0.78;
 const SHARP_CBET_CHANCE = 0.3;
 const SHARP_SEMI_BLUFF_CHANCE = 0.4;
 const SHARP_THREE_BET_BLUFF = 0.12;
@@ -339,6 +349,35 @@ function potOddsOk(ctx: Ctx, strength: number): boolean {
   return call / (ctx.pot + call) < strength;
 }
 
+/* `handStrength` answers against **one** opponent: the fraction of the two-card
+   holdings still out there that this hand beats. Against a field of n it has to
+   beat all of them, and their hands are near enough independent of each other
+   for the bot's purposes, so the chance of that is the one-opponent number to
+   the power of n.
+
+   This is the difference between a hand that is fine heads-up and a hand that
+   is a donation five handed, and it is one line because every threshold in the
+   two tiers below is expressed against the same number: top pair reads 0.82
+   against one opponent and 0.37 against five, which is what it is worth. Heads
+   up the exponent is 1 and nothing changes at all, which is why the ordering
+   test does not move. */
+function vsField(ctx: Ctx, strength: number): number {
+  const opponents = Math.max(1, ctx.inHand.length - 1);
+  return opponents === 1 ? strength : strength ** opponents;
+}
+
+/* A bluff has to get through everybody, so its chance of working falls off
+   with the field the same way a hand's does, and the bots fold out one player
+   far more often than five. Each extra opponent roughly halves how often the
+   tiers below try it; heads-up this is exactly the chance as written. */
+const FIELD_BLUFF_DECAY = 0.55;
+
+function bluffChance(ctx: Ctx, chance: number): number {
+  const opponents = Math.max(1, ctx.inHand.length - 1);
+  const scaled = chance * ctx.persona.bluffChance * FIELD_BLUFF_DECAY ** (opponents - 1);
+  return Math.min(1, scaled);
+}
+
 // Postflop order, small blind first and the button last, over the seats
 // still in the hand. Lateness is 1 on the button and 0 in the small blind.
 function lateness(ctx: Ctx): number {
@@ -388,20 +427,22 @@ function preflopMultiway(ctx: Ctx, percentile: number): BotDecision {
     return giveUp(ctx);
   }
 
-  const raiseThreshold = RAISE_EARLY + (RAISE_BUTTON - RAISE_EARLY) * lateness(ctx);
+  const here = lateness(ctx);
+  const raiseThreshold = RAISE_EARLY + (RAISE_BUTTON - RAISE_EARLY) * here;
+  const positional = (threshold: number) => threshold * (CALL_EARLY_FRACTION + (1 - CALL_EARLY_FRACTION) * here);
   const raised = ctx.currentBet > ctx.bb;
   const aggressors = ctx.inHand.filter((s) => s.bet > ctx.bb).length;
 
   if (!raised) {
     if (percentile <= raiseThreshold) return aggressive(ctx, 2 * ctx.bb);
     if (ctx.legal.call === 0) return { a: 'x' };
-    if (percentile <= CALL_OPEN && ctx.legal.call <= 2 * ctx.bb) return passive(ctx);
+    if (percentile <= positional(CALL_OPEN) && ctx.legal.call <= 2 * ctx.bb) return passive(ctx);
     return giveUp(ctx);
   }
 
   if (aggressors < 2) {
     if (percentile <= THREE_BET) return aggressive(ctx, 2 * ctx.currentBet);
-    if (percentile <= CALL_OPEN && ctx.legal.call <= 0.25 * ctx.myTotal) return passive(ctx);
+    if (percentile <= positional(CALL_VS_RAISE) && ctx.legal.call <= 0.25 * ctx.myTotal) return passive(ctx);
     return giveUp(ctx);
   }
 
@@ -410,7 +451,7 @@ function preflopMultiway(ctx: Ctx, percentile: number): BotDecision {
 }
 
 function postflop(ctx: Ctx): BotDecision {
-  const strength = handStrength(ctx.hole, ctx.view.board);
+  const strength = vsField(ctx, handStrength(ctx.hole, ctx.view.board));
   const checkedTo = ctx.legal.call === 0;
 
   if (strength > STRONG) return aggressive(ctx, Math.max(ctx.bb, Math.round(ctx.pot * 0.66)));
@@ -422,7 +463,7 @@ function postflop(ctx: Ctx): BotDecision {
 
   if (checkedTo) {
     const lateStreet = ctx.view.street === 'turn' || ctx.view.street === 'river';
-    if (lateStreet && ctx.rng() < BLUFF_CHANCE * ctx.persona.bluffChance) {
+    if (lateStreet && ctx.rng() < bluffChance(ctx, BLUFF_CHANCE)) {
       return aggressive(ctx, Math.max(ctx.bb, Math.round(ctx.pot * 0.5)));
     }
     return { a: 'x' };
@@ -537,7 +578,7 @@ function postflopTightPassive(ctx: Ctx): BotDecision {
    raise fits, a semi-bluff with a real draw in position, and a river value bet
    with a hand level 4 would only check. */
 function postflopSharp(ctx: Ctx): BotDecision {
-  const strength = handStrength(ctx.hole, ctx.view.board);
+  const strength = vsField(ctx, handStrength(ctx.hole, ctx.view.board));
   const texture = readTexture(ctx.hole, ctx.view.board);
   const checkedTo = ctx.legal.call === 0;
   const river = ctx.view.street === 'river';
@@ -557,7 +598,7 @@ function postflopSharp(ctx: Ctx): BotDecision {
 
   const drawing = texture.flushDraw || texture.openEnder;
   if (checkedTo) {
-    if (drawing && !river && inPosition(ctx) && ctx.rng() < Math.min(1, SHARP_SEMI_BLUFF_CHANCE * ctx.persona.bluffChance)) {
+    if (drawing && !river && inPosition(ctx) && ctx.rng() < bluffChance(ctx, SHARP_SEMI_BLUFF_CHANCE)) {
       return aggressive(ctx, sized(ctx, SHARP_DRY));
     }
     // The flop is the one street where the bot's last action is still its
@@ -565,11 +606,11 @@ function postflopSharp(ctx: Ctx): BotDecision {
     // be read straight off the view.
     const wasAggressor = ctx.me.last !== null && ['b', 'r', 'a'].includes(ctx.me.last.a);
     const boardFits = texture.wetness < 0.5 || texture.overcards || texture.madePair;
-    if (ctx.view.street === 'flop' && wasAggressor && boardFits && ctx.rng() < Math.min(1, SHARP_CBET_CHANCE * ctx.persona.bluffChance)) {
+    if (ctx.view.street === 'flop' && wasAggressor && boardFits && ctx.rng() < bluffChance(ctx, SHARP_CBET_CHANCE)) {
       return aggressive(ctx, sized(ctx, SHARP_DRY * 0.8));
     }
     const lateStreet = ctx.view.street === 'turn' || river;
-    if (lateStreet && ctx.rng() < Math.min(1, BLUFF_CHANCE * ctx.persona.bluffChance)) return aggressive(ctx, sized(ctx, 0.5));
+    if (lateStreet && ctx.rng() < bluffChance(ctx, BLUFF_CHANCE)) return aggressive(ctx, sized(ctx, 0.5));
     return { a: 'x' };
   }
 
