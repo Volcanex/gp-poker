@@ -1,68 +1,51 @@
 # admin
 
-The admin layer: a bar, an annotation mode and the tickets it writes. It exists
-so noticing that something is wrong and filing it are the same gesture, on the
-page it is wrong on, with the context attached rather than remembered.
-
-Everything here is gated on `me.admin`, which `/api/me` only sends to the one
-account that has the column. See `../../../server/src/CLAUDE.md` for the gate
-and the ticket shape.
+The g-admin ticket pages: `/admin/tickets` and `/admin/tickets/:id`. The bar,
+the annotate mode and the edit mode that used to live here are gone -
+replaced by g-system's vendored g-admin overlay (`agents/g-admin-contract.md`
+at the repo root, `client/public/g/g-admin.js`/`.css`, injected by the stub
+inside `g-ui.js`). Arm it with `?gadmin=1` on any page, or the `off` control
+in its own bar clears `localStorage['g-admin']` again. **Nothing writes to
+source**: every saved annotation or edit becomes a ticket
+(`server/src/gadmin.ts`), and a baking agent applies it afterwards, guided by
+`/api/gadmin/tickets/:id/brief`.
 
 | File | What |
 | --- | --- |
-| `bar.tsx` | the 28px bar above `.top`, the shortcut, and the lazy handle on the overlay |
-| `annotate.tsx` | the overlay: the highlighter, the pen, the note and the save |
-| `tickets.tsx` | `/admin/tickets` and `/admin/tickets/:id` |
-| `admin.css` | all three, tokens only |
+| `tickets.tsx` | `/admin/tickets` and `/admin/tickets/:id`: review what the overlay has written, filter by status, dismiss or reopen, pull a brief |
+| `admin.css` | tokens only, for the two pages above |
+
+Everything here is gated on `me.admin`, which `/api/me` only sends to the one
+account that has the column - see `../../../server/src/CLAUDE.md`. The
+overlay's own gate is separate: its stub fetches `/api/gadmin/verify`
+independently, so a page never needs `me.admin` to decide whether to inject
+it.
 
 ## Nothing admin reaches anyone else
 
-`AdminBar` returns null for a player, so the bar is not a hidden node, it is not
-a node. The overlay is a lazy chunk loaded on the first annotation, and both
-ticket pages are lazy routes registered in `../app.tsx` beside the replay, so
-none of this is in the bundle everybody downloads to play. A player who guesses
-`/admin/tickets` gets `../routes/not-found.tsx`, the same page a dead link
-gets: "you are not allowed here" and "there is nothing here" should look the
-same to somebody who was never meant to find it.
+Both ticket pages are lazy routes registered in `../app.tsx` beside the
+replay, so neither is in the bundle everybody downloads to play. A player who
+guesses `/admin/tickets` gets `../routes/not-found.tsx`, the same page a dead
+link gets: "you are not allowed here" and "there is nothing here" should look
+the same to somebody who was never meant to find it.
 
 `NotFound` lives in `../routes/not-found.tsx` rather than in `../app.tsx` for
-exactly that reuse. Importing it out of `app.tsx` would have put the whole app
-module in the admin chunk's import graph.
+exactly that reuse. Importing it out of `app.tsx` would have put the whole
+app module in this chunk's import graph.
 
-## The overlay takes every pointer event
+## Status is open, baked or dismissed
 
-The highlighter reads the element under the pointer with
-`document.elementsFromPoint`, skipping anything inside the overlay's own root.
-That only works because the overlay covers the viewport and consumes the
-gesture: the page underneath is a picture for as long as annotation mode is up,
-so a click cannot be both "highlight this" and whatever the page does with a
-click. Page scroll is locked for the same reason, one step further on. **Every
-box stored on a target is in viewport coordinates**, and a scroll under the
-overlay would leave them pointing at the wrong thing the moment they were read
-back.
+Baking is the brief flow's job: an agent reads `/brief`, applies the change
+to source, and PATCHes the ticket to `baked` with a reply describing the
+commit. This page can only move a ticket between `open` and `dismissed` - a
+baked ticket shows a plain badge here, not a button, because clicking
+something on this page was never what baked it.
 
-The canvas is sized in device pixels and scaled back, so a stroke is a stroke
-rather than a staircase on a retina screen. The stroke colour is read off the
-root element with `getComputedStyle`, because a canvas cannot resolve a custom
-property and the accent has to come from the token like everything else.
+## Server-side field names are snake_case
 
-The two tools answer different questions and a ticket usually carries both. The
-highlighter says *which element*, as a selector, a box and the text in it, which
-is what a fix needs to find it again. The pen says *what about it*, which no
-selector can say.
-
-## The shortcut
-
-Cmd+Shift+K on a Mac, Ctrl+Shift+K everywhere else, read off
-`navigator.platform`. It is deprecated and still the only thing that answers
-this without guessing at a user-agent string. The listener is bound only for an
-admin, and it deliberately **does not** use `isTextEntry` from `../ui/bits.tsx`:
-that guard is for single-key shortcuts, and the thing being annotated is often
-the field that has focus.
-
-## The open count
-
-The bar's badge is the length of the open list, refetched on a
-`ot:ticket-saved` window event that both the overlay and the tickets page
-dispatch. A window event rather than shared state because there is one producer
-and one consumer, and the producer is usually not mounted.
+`net/types.ts`'s `Ticket`/`TicketSummary` (and the nested `page`, `viewport`,
+`elements`, `edits` shapes) mirror the contract's own JSON exactly, unlike
+this codebase's usual camelCase, because it is the one wire shape shared with
+gcommand's tickets panel and a baking agent's own `/brief` fetch. See
+`../../../server/src/gadmin.ts` for why the table underneath still stores
+those same fields camelCase.

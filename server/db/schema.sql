@@ -466,3 +466,54 @@ create table if not exists tournament_tables (
   primary key (tournament_id, round, table_no)
 );
 create index if not exists tournament_tables_match on tournament_tables(match_id);
+
+-- g-admin (agents/g-admin-contract.md): the vendored admin overlay replaces
+-- this repo's bespoke annotation layer, and the tickets it writes grow a
+-- richer shape than the old bar/annotate flow needed. `url`, `path`, `title`,
+-- `viewport` and `drawing` are unchanged and are what `page`/`viewport`/
+-- `drawing` in the contract's ticket JSON are built from; `targets` is kept
+-- under its old name and served as `elements`, since nothing about its column
+-- identity needs to change for the API shape to. `updated_at` is new because
+-- the contract's PATCH endpoint is the first thing here that needs to say
+-- when a ticket last changed, not just when it was opened.
+alter table tickets add column if not exists updated_at timestamptz;
+update tickets set updated_at = created_at where updated_at is null;
+alter table tickets alter column updated_at set not null;
+alter table tickets alter column updated_at set default now();
+
+-- Every existing ticket came from the annotate flow with nothing to say what
+-- kind or how severe it is, so the defaults below are the sensible middle of
+-- each enum, not a guess at what any one of them actually was.
+alter table tickets add column if not exists scope text;
+update tickets set scope = 'page' where scope is null;
+alter table tickets alter column scope set not null;
+alter table tickets alter column scope set default 'page';
+
+alter table tickets add column if not exists kind text;
+update tickets set kind = 'idea' where kind is null;
+alter table tickets alter column kind set not null;
+alter table tickets alter column kind set default 'idea';
+
+alter table tickets add column if not exists severity text;
+update tickets set severity = 'minor' where severity is null;
+alter table tickets alter column severity set not null;
+alter table tickets alter column severity set default 'minor';
+
+alter table tickets add column if not exists edits jsonb not null default '[]';
+alter table tickets add column if not exists replies jsonb not null default '[]';
+
+-- Who filed it: always 'human' until something other than the browser
+-- overlay is allowed to POST a ticket (the contract's token tier cannot).
+alter table tickets add column if not exists source text;
+update tickets set source = 'human' where source is null;
+alter table tickets alter column source set not null;
+alter table tickets alter column source set default 'human';
+
+-- Who baked it: 'human' or 'agent', mirroring `source`. Null until a PATCH
+-- sets status to baked.
+alter table tickets add column if not exists baked_by text;
+
+-- The status enum grows a third value (dismissed) and renames its second
+-- (done -> baked, since baking into source is what "done" always meant for
+-- this layer). Idempotent: a second boot finds nothing left in 'done'.
+update tickets set status = 'baked' where status = 'done';

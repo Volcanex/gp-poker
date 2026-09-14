@@ -308,8 +308,8 @@ the entry point; the detail lives down the tree.
   `client/src/puzzles/`, `client/src/chat/`, `client/src/ui/`,
   `client/src/admin/`, `client/src/sound/` and `client/e2e/`
 - `server/CLAUDE.md`, and under it `server/src/`, `server/src/match/`,
-  `server/src/ws/`, `server/src/bots/`, `server/src/tournaments/` and
-  `server/test/`
+  `server/src/ws/`, `server/src/bots/`, `server/src/tournaments/`,
+  `server/test/` and `server/db/`
 - one per workspace package: `packages/engine/`, `packages/equity/`,
   `packages/identity/`, `packages/preflop/`, `packages/protocol/`,
   `packages/rating/`, `packages/solver/`
@@ -326,4 +326,8 @@ the entry point; the detail lives down the tree.
   `client/src/app.css` uses `--gutter` and `--col-content`/`--col-page` rather
   than a hand-rolled max-width and padding; the phone breakpoint keeps a
   literal `--sp-3` on purpose, one step tighter than the system default.
+  g-system 1.2.0 (re-vendored 2026-09-14) adds the g-admin overlay
+  (`g-admin.js`/`.css`, vendored alongside `g.css`/`g-ui.js` in the same
+  `node scripts/vendor.mjs` run) - see `server/src/CLAUDE.md`'s g-admin
+  section and `client/src/admin/CLAUDE.md`.
 - `phe` ranks: lower is better (1 = royal flush, 7462 = worst high card).

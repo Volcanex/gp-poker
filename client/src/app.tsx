@@ -18,7 +18,6 @@ import { learnRoutes } from './routes/learn/index.tsx';
 import { puzzlesRoutes } from './puzzles/index.tsx';
 import { toolsRoutes } from './tools/index.tsx';
 import { NotFound } from './routes/not-found.tsx';
-import { AdminBar } from './admin/bar.tsx';
 import { SiteShell } from './ui/shell.tsx';
 import { SiteFooter } from './ui/site-footer.tsx';
 import { PageEnter } from './ui/enter.tsx';
@@ -64,7 +63,6 @@ export function App() {
             account before it can ask for anything, and the shell's own badge
             and every page under it read the same copy of it. */}
         <FriendsProvider>
-          <AdminBar />
           <SiteShell>
             <PageEnter />
             <MatchFoundAlert />

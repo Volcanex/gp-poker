@@ -2,7 +2,7 @@ import type {
   Arena, ArenaListing, BotRow, Challenge, CreatedChallenge, CreatedHomeGame, CreatedInvite, Explorer,
   ExplorerFacing, ExplorerPlayers, FeedMatch, FriendsPayload, Hand, HomeGame, Insights, LeaderboardRow,
   LiveMatch, Match, MatchReview, Me, PlayedPerson, PositionKey, Profile, PuzzleHand, SiteStats,
-  StartedHomeGame, Ticket, TicketSummary, TicketTarget, TicketViewport, Tournament, TournamentListing,
+  StartedHomeGame, Ticket, TicketStatus, TicketSummary, Tournament, TournamentListing,
 } from './types.ts';
 import type { InviteKind, Mode, Speed, UserSummary } from '@opentable/protocol';
 
@@ -155,23 +155,17 @@ export const api = {
     post<{ ok: true }>(`/api/tournaments/${encodeURIComponent(id)}/register`),
   withdrawTournament: (id: string) =>
     post<{ ok: true }>(`/api/tournaments/${encodeURIComponent(id)}/withdraw`),
-  /* The admin layer. Every one of these is 403 for anybody but the admin, so
-     nothing here is ever called from a page a player can reach. Creating a
-     ticket is the one call with a body worth anything: the drawing is a PNG
-     data URL and the server caps it at 1.5 MB. */
-  createTicket: (t: {
-    url: string;
-    path: string;
-    note: string;
-    viewport: TicketViewport;
-    targets: TicketTarget[];
-    drawing: string | null;
-    build: string | null;
-  }) => post<{ id: string }>('/api/tickets', t),
-  tickets: (status: 'open' | 'done') => req<TicketSummary[]>(`/api/admin/tickets?status=${status}`),
-  ticket: (id: string) => req<Ticket>(`/api/admin/tickets/${encodeURIComponent(id)}`),
-  setTicketStatus: (id: string, status: 'open' | 'done') =>
-    req<{ id: string; status: string }>(`/api/admin/tickets/${encodeURIComponent(id)}`, {
+  /* The g-admin ticket API (agents/g-admin-contract.md at the repo root).
+     Every one of these is 401 for anybody but the admin cookie session, so
+     nothing here is ever called from a page a player can reach. Filing and
+     editing tickets happens through the vendored overlay
+     (`?gadmin=1`/`localStorage['g-admin']`), not this client's own code;
+     these calls are what `/admin/tickets` reads and acts on afterwards. */
+  tickets: (status: TicketStatus) =>
+    req<{ tickets: TicketSummary[] }>(`/api/gadmin/tickets?status=${status}`).then((r) => r.tickets),
+  ticket: (id: string) => req<Ticket>(`/api/gadmin/tickets/${encodeURIComponent(id)}`),
+  setTicketStatus: (id: string, status: TicketStatus) =>
+    req<Ticket>(`/api/gadmin/tickets/${encodeURIComponent(id)}`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     }),

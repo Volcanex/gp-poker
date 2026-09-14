@@ -1,4 +1,4 @@
-/* g-system@1.1.0, vendored, do not edit. Update: node scripts/vendor.mjs from the g-system repo. */
+/* g-system@1.2.0, vendored, do not edit. Update: node scripts/vendor.mjs from the g-system repo. */
 /* g-tokens fonts — Inter (UI), Space Grotesk (display, optional), JetBrains Mono. */
 
 @font-face {
@@ -2307,6 +2307,205 @@ dialog.cmdk {
 .progress-readout { display: inline-flex; align-items: baseline; gap: var(--sp-2); font-family: var(--font-mono); font-size: 11px; line-height: var(--lh-1); color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .progress-readout .pct { font-weight: 500; color: var(--text-primary); }
 
+/* g-menubar: a horizontal application menubar. Each item is a button whose
+   popovertarget names a shipped .menu; menubar.js adds the menubar
+   behaviours (hover-to-switch while one is open, left and right arrows,
+   Escape back to the item). The dropdown itself is the ordinary .menu. */
+
+.g-menubar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: var(--h-3);
+  padding: 0 var(--sp-1);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-subtle);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-ui);
+  user-select: none;
+}
+
+.g-menubar-item {
+  height: var(--h-2);
+  padding: 0 var(--sp-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  cursor: default;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.g-menubar-item:hover,
+.g-menubar-item[aria-expanded="true"] { background: var(--fill-hover); }
+.g-menubar-item:active { background: var(--fill-active); }
+.g-menubar-item:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+
+/* A menubar's menus drop from the item edge with no gap, so the row reads
+   as one surface; menubar.js positions them. */
+.g-menubar-menu { min-width: 220px; }
+
+/* Group heading inside any .menu: a label row, not an item. */
+.menu-heading {
+  padding: var(--sp-2) var(--sp-2) 2px;
+  font-size: 11px;
+  line-height: var(--lh-1);
+  color: var(--text-placeholder);
+  user-select: none;
+}
+.menu-item:disabled { color: var(--text-placeholder); cursor: default; }
+.menu-item:disabled:hover { background: none; }
+
+/* g-pane-stack: an inspector column of titled sections. Each .g-pane is a
+   title button plus a body; the title's aria-expanded is the state and the
+   body's hidden attribute follows it (pane.js). A .g-splitter between the
+   column and its neighbour resizes it by pointer. Built for editors and
+   inspectors: panes never float, never overlap, and the column scrolls
+   when the window is short. */
+
+.g-pane-stack {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--surface-2);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-ui);
+}
+
+.g-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  min-height: 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+/* the one pane that takes the slack (a layers list, a log) */
+.g-pane[data-fill] { flex: 1 1 auto; }
+.g-pane[data-fill] > .g-pane-body { flex: 1 1 auto; overflow: auto; }
+
+.g-pane-title {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  height: var(--h-3);
+  padding: 0 var(--sp-2);
+  border: none;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-ui);
+  font-weight: 500;
+  text-align: left;
+  cursor: default;
+  user-select: none;
+}
+.g-pane-title:hover { background: var(--fill-hover); }
+.g-pane-title:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.g-pane-title::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 5px;
+  height: 5px;
+  margin: 0 3px 0 1px;
+  border-right: 1.5px solid var(--text-secondary);
+  border-bottom: 1.5px solid var(--text-secondary);
+  rotate: -45deg;
+  transition: rotate var(--dur-fast) var(--ease-out);
+}
+.g-pane-title[aria-expanded="true"]::before { rotate: 45deg; margin-top: -3px; }
+.g-pane-title .kbd { margin-left: auto; }
+.g-pane-title .badge { margin-left: auto; }
+.g-pane-title .kbd + .badge, .g-pane-title .badge + .kbd { margin-left: 0; }
+
+.g-pane-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-3) var(--sp-3);
+}
+/* a body that is a list (a .g-tree) wants no side padding */
+.g-pane-body[data-flush] { padding: 0 0 var(--sp-1); }
+
+.g-splitter {
+  flex: 0 0 5px;
+  position: relative;
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+}
+.g-splitter::after {
+  content: "";
+  position: absolute;
+  inset: 0 2px;
+  border-radius: 1px;
+  background: transparent;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+/* at rest the splitter is the hairline between the two regions */
+.g-splitter::before {
+  content: "";
+  position: absolute;
+  inset: 0 2px;
+  background: var(--border-subtle);
+}
+.g-splitter:hover::after,
+.g-splitter[data-active]::after { background: var(--border-hover); }
+.g-splitter[data-axis="row"] { cursor: row-resize; }
+.g-splitter[data-axis="row"]::after { inset: 2px 0; }
+
+/* g-segmented: two to four joined options, one chosen. Native radios do the
+   state, so a form reads it and the keyboard works with no script. A label
+   per option, the input inside it, visually hidden but still focusable. */
+
+.g-segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--well-bg);
+  font-family: var(--font-ui);
+}
+.g-segmented[data-block] { display: flex; }
+.g-segmented[data-block] > label { flex: 1 1 0; }
+
+.g-segmented > label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: calc(var(--h-2) - 6px);
+  padding: 0 var(--sp-2);
+  border-radius: calc(var(--radius) - 2px);
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.g-segmented > label > input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.g-segmented > label:hover { color: var(--text-primary); }
+.g-segmented > label:has(input:checked) { background: var(--fill-active); color: var(--text-primary); }
+.g-segmented > label:has(input:focus-visible) { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.g-segmented > label:has(input:disabled) { opacity: 0.45; cursor: default; }
+.g-segmented > label svg { width: 14px; height: 14px; }
+
+.g-segmented-sm > label { height: calc(var(--h-1) - 6px); padding: 0 var(--sp-1); font-size: 11px; }
+
 /* g-select and g-combobox, a listbox popup on the Popover API, wired by
    select.js. The control wears the .input recipe; the popup wears the .menu
    recipe. `.g-select` is the custom one; `.select` stays the native element. */
@@ -2439,3 +2638,204 @@ dialog.cmdk {
     transition-duration: var(--dur-base) !important;
   }
 }
+
+/* g-swatch: a button that shows one colour. The colour is data, not design,
+   so it arrives as an inline custom property (style="--swatch: oklch(...)").
+   Alpha shows over a checkerboard drawn from the alpha fills, so it reads
+   the same on both themes. The picker that changes the colour is the
+   consumer's (a .menu popover, a dialog); the swatch is the part every
+   consumer shares. */
+
+.g-swatch {
+  --swatch: transparent;
+  position: relative;
+  display: inline-block;
+  flex: 0 0 auto;
+  width: var(--h-2);
+  height: var(--h-2);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background-color: var(--surface-2);
+  background-image: conic-gradient(var(--fill-active) 25%, transparent 0 50%, var(--fill-active) 0 75%, transparent 0);
+  background-size: 8px 8px;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+.g-swatch::after { content: ""; position: absolute; inset: 0; background: var(--swatch); }
+.g-swatch:hover { border-color: var(--border-hover); }
+.g-swatch:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.g-swatch[aria-pressed="true"],
+.g-swatch[aria-expanded="true"] { border-color: var(--accent-edge); box-shadow: 0 0 0 1px var(--accent-edge); }
+.g-swatch:disabled { opacity: 0.45; cursor: default; }
+
+.g-swatch-sm { width: 18px; height: 18px; border-radius: 3px; }
+.g-swatch-lg { width: var(--h-4); height: var(--h-4); border-radius: var(--radius); }
+
+/* Primary over secondary, paint-program style. The swap sits in the free
+   corner; the consumer wires its click. */
+.g-swatch-pair {
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 46px;
+}
+.g-swatch-pair > .g-swatch { position: absolute; width: 30px; height: 30px; }
+.g-swatch-pair > .g-swatch:first-child { top: 0; left: 0; z-index: 1; }
+.g-swatch-pair > .g-swatch:nth-child(2) { right: 0; bottom: 0; }
+.g-swatch-pair > .g-swatch-swap {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.g-swatch-pair > .g-swatch-swap svg { width: 14px; height: 14px; }
+.g-swatch-pair > .g-swatch-swap:hover { color: var(--text-primary); background: var(--fill-hover); }
+.g-swatch-pair > .g-swatch-swap:focus-visible { outline: 2px solid var(--focus-ring); }
+
+.g-swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18px, 1fr));
+  gap: 3px;
+}
+.g-swatch-grid > .g-swatch { width: auto; height: auto; aspect-ratio: 1; border-radius: 3px; }
+
+/* g-tree: a flat list of rows that reads as a tree. Depth is a CSS variable
+   on the row (--depth), so the consumer keeps whatever flat, reorderable
+   model it already has (a layers panel, a file list) and the tree never
+   needs nested markup. Drop targets and drag state are attributes the
+   consumer sets from its own pointer logic; tree.js only adds keyboard
+   movement and the caret event. */
+
+.g-tree {
+  --g-tree-indent: 14px;
+  display: flex;
+  flex-direction: column;
+  padding: 2px 0;
+  font-family: var(--font-ui);
+  font-size: var(--font-size-ui);
+}
+
+.g-tree-row {
+  --_inset: calc(var(--sp-2) + var(--depth, 0) * var(--g-tree-indent));
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  height: var(--h-2);
+  padding: 0 var(--sp-2) 0 var(--_inset);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  cursor: default;
+  user-select: none;
+  outline: none;
+}
+.g-tree-row:hover { background: var(--fill-hover); }
+.g-tree-row[aria-selected="true"] { background: var(--fill-active); }
+.g-tree-row:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.g-tree-row[data-muted] .g-tree-label,
+.g-tree-row[data-muted] .g-tree-icon { color: var(--text-placeholder); }
+.g-tree-row[data-dragging] { opacity: 0.5; }
+
+/* Drop feedback: a line above the row for "insert before", an inset ring
+   for "drop into" (a group). Both keyed off the same --_inset so the line
+   starts where the row's own content does. */
+.g-tree-row[data-drop="before"]::before {
+  content: "";
+  position: absolute;
+  left: var(--_inset);
+  right: var(--sp-2);
+  top: -1px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent-fill);
+}
+.g-tree-row[data-drop="into"] { outline: 2px solid var(--accent-edge); outline-offset: -2px; }
+
+.g-tree-caret {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.g-tree-caret::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  margin-left: -2px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  rotate: -45deg;
+  transition: rotate var(--dur-fast) var(--ease-out);
+}
+.g-tree-row[aria-expanded="true"] > .g-tree-caret::before { rotate: 45deg; margin-left: 0; margin-top: -2px; }
+/* a leaf keeps the caret's width so labels line up within a depth */
+.g-tree-row:not([aria-expanded]) > .g-tree-caret { visibility: hidden; }
+
+.g-tree-icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  color: var(--text-secondary);
+}
+.g-tree-icon svg { width: 100%; height: 100%; }
+
+.g-tree-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* an in-place rename: the label slot swapped for an input of the same height */
+.g-tree-row .g-tree-edit {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: calc(var(--h-2) - 6px);
+  padding: 0 var(--sp-1);
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius-sm);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font: inherit;
+}
+
+.g-tree-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--text-secondary);
+}
+.g-tree-actions .btn-icon { width: 22px; height: 22px; }
+.g-tree-actions .btn-icon svg { width: 14px; height: 14px; }
+
+.g-tree-grip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  width: 14px;
+  height: 16px;
+  color: var(--text-placeholder);
+  cursor: grab;
+  touch-action: none;
+}
+.g-tree-grip svg { width: 100%; height: 100%; }
+.g-tree-grip:active { cursor: grabbing; }

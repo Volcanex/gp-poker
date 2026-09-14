@@ -77,9 +77,12 @@ the test a `push` so it can be the server. That is how the ready check modal is
 driven with no server at all. Push nothing before the socket exists: it is
 opened only once `/api/me` has answered, which is why `push` waits for it.
 
-`admin.spec.ts` is the one spec that stubs `/api/me` as an admin, which it does
-by registering its own handler **after** `stubApi`, for the reason below. Every
-other spec sees the ordinary player, so the bar is not in any other baseline.
+No spec here stubs `/api/me` as an admin: `admin.spec.ts` (the bar, the
+annotate flow and the tickets pages) was retired when the g-admin overlay
+replaced this repo's own bar/annotate code (`../src/admin/CLAUDE.md`) - it is
+vendored, framework-free and tested in g-system itself, and `/admin/tickets`
+has no e2e coverage of its own yet. Every spec here sees the ordinary player,
+so the overlay is not in any baseline.
 
 **A theme has to be stamped into `ot.prefs`, not into g's key.** The app's
 `applyPrefs` reads `ot.prefs` on mount and reapplies it, overwriting whatever
@@ -123,7 +126,6 @@ it.
 | `odds.spec.ts` | the pot odds trainer's reserved boxes across an answer, at 390 and 1366, and axe in both themes. No baselines: the assertion is the geometry |
 | `puzzles.spec.ts` | the preflop chart's entrance: every cell ends visible, on the first spot and the next, and the page does not reflow while it runs |
 | `shell.spec.ts` | the sidebar as a named landmark and the section you are in, the sheet on a phone opening and shutting by toggle, Escape, scrim and a link with the focus put back, a shut sheet out of the tab order, and a table keeping the whole window |
-| `admin.spec.ts` | the admin bar, the annotate flow from shortcut to posted ticket, the tickets pages, and that a player gets none of it |
 | `screenshots.spec.ts` | 198 baselines: sixteen states at 360, 390, 430, 768, 1366 and 1920 in dark and light, and three at 390 and 1366 in the games room |
 
 ## Reading a baseline diff
