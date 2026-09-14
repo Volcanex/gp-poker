@@ -21,7 +21,7 @@ exactly one of them.
 | `tournaments/` | its sibling: three fixtures on a calendar, a field funnelling to a final. Own doc |
 | `ladder.ts` | bots playing each other so their ratings spread out |
 | `chat.ts` | the pure half of table chat: `cleanChatText` and `ChatLimiter` |
-| `admin.ts` | the admin gate's own routes: the tickets the annotation layer writes |
+| `gadmin.ts` | the g-admin overlay's ticket API (agents/g-admin-contract.md at the repo root): the tickets the vendored bar/annotate/edit overlay writes |
 | `avatars.ts` | the pure half of profile pictures: the size cap, the magic-number sniff and the per-user rate limit |
 | `insights.ts` | the pure derivation behind `/api/users/:name/insights` |
 | `match-review.ts` | the pure derivation behind `/api/matches/:id/review`, folding one match's hands through the same `computeInsights` per seat |
@@ -63,39 +63,59 @@ Password hashing is `crypto.scrypt`, stored as `salt:hash` hex.
 The websocket path uses `resolveSessionUser` instead and does not mint
 (`ws/CLAUDE.md`).
 
-## The admin gate and tickets
+## The admin gate and g-admin
 
 `users.admin` is one boolean and one person has it. It is granted in
 `../db/schema.sql` by an `update ... where id = '...' and admin = false`, which
 re-runs harmlessly on every boot: a deploy is where a grant belongs, and nobody
 has to touch the live rows by hand to make one.
 
-`requireAdmin` in `auth.ts` sits beside `requireUser` and differs from it in one
-way that matters: **it never mints**. `requireUser` exists so a link works for
-somebody who has never been here, which is exactly wrong for a route that is
-about to refuse them anyway. It sends its own 403 and answers null, so a route
-hands the reply straight back to Fastify. `/api/me` adds `admin: true` for an
-admin and **omits the key entirely** otherwise, so nothing about the admin layer
-is on the wire for a player at all.
+`requireAdmin` and `resolveSessionUser` in `auth.ts` are what `gadmin.ts` builds
+its own cookie check on. `resolveSessionUser` never mints: a route about to
+refuse a caller anyway should not first mint them a guest account. `/api/me`
+adds `admin: true` for an admin and **omits the key entirely** otherwise, so
+nothing about the admin layer is on the wire for a player at all.
 
-`admin.ts` holds every route behind that gate: `POST /api/tickets` and
-`GET|PATCH /api/admin/tickets[/:id]`. A ticket is an annotation made on the
-running site, and its shape is all context: the `url` and `path` it was made on,
-the `viewport` (width, height, dpr, theme) it was seen at, `targets` (a CSS
-selector path, the box, the trimmed text and the aria label for each element
-that was pointed at), and `drawing`, a PNG data URL of the strokes drawn over
-them. `title` is the note's first line, derived on the way in so a list reads as
-sentences rather than as truncated paragraphs. `page_shot` is a slot nothing
-writes yet.
+`gadmin.ts` implements the g-admin overlay's contract
+(`agents/g-admin-contract.md` at the repo root; the reference server is
+g-system's `packages/g-admin/server/gadmin.py`, this is its TypeScript port
+against this project's Postgres `tickets` table instead of that file's own
+SQLite). It replaced this repo's own bar/annotate/tickets code: the overlay is
+vendored now, and only `client/src/admin/tickets.tsx` remains, pointed at the
+new endpoints. Every route is behind either the admin cookie (full access) or
+`X-Gadmin-Token` (`GADMIN_TOKEN` env var, checked with `timingSafeEqual`; GET
+everywhere and PATCH status/reply, never create or edit a note).
 
-Three limits are worth knowing. The drawing is capped at **1.5 MB**, and the
-route carries its own `bodyLimit` well above that so the refusal is ours and
-carries a sentence rather than being Fastify's generic payload error. Ticket
-creation is limited to **one a second per user**, which is about a stuck save
-button rather than about abuse; `clearTicketRate()` is the seam the suite uses,
-since writing several tickets in a row is exactly what the limiter refuses. And
-**the list never selects `drawing`**: twenty tickets would otherwise be twenty
-PNGs nobody is looking at.
+A ticket's shape is all context: `scope`/`kind`/`severity` classify it, `page`
+(url/path/title), `viewport` (w/h/dpr/theme) and `elements` (a CSS selector,
+the full DOM path, an HTML snippet and a rect for each element pointed at) say
+where and at what, `edits` is a token-snapped spacing/typography change table,
+and `drawing` is a PNG data URL of any strokes. **`db.ts` stores the nested
+`elements`/`edits` fields camelCase, not the contract's own snake_case
+(`domPath` not `dom_path`, `tokenTo` not `token_to`)**: `sql`'s
+`transform: postgres.camel` recursively re-cases jsonb content on every round
+trip, not just column names, so a snake_case key written into a jsonb column
+comes back silently mangled. `gadmin.ts` converts to and from the contract's
+wire shape only at the API boundary. The table itself is still the old
+annotation layer's: `url`/`path`/`title` back `page`, `targets` (kept under its
+old name) backs `elements`, only `scope`/`kind`/`severity`/`edits`/`replies`/
+`baked_by`/`updated_at`/`source` are new columns (`../db/CLAUDE.md`).
+
+Three limits are worth knowing. The drawing is capped at **1.5 MB** and an
+element's `html` at **10k chars**, both hard 400s rather than a silent
+truncation - the client is expected to enforce these before sending. Ticket
+creation is limited to **one a second, project-wide** (not per caller, unlike
+the old annotation layer): `clearTicketRate()` is the seam the suite uses,
+since writing several tickets in a row is exactly what the limiter refuses.
+And **the list never selects `drawing`**: twenty tickets would otherwise be
+twenty PNGs nobody is looking at.
+
+`GET /api/gadmin/overrides.css` is public, no auth, `Cache-Control: no-store`,
+and empty unless `GADMIN_REAPPLY=1` (`config.gadminReapply`, on for this
+project): CSS generated from open tickets' `edits`, so an unbaked
+spacing/typography change survives a reload. It is linked last in
+`client/index.html`'s `<body>`, after Vite's own injected stylesheet
+wherever that lands, rather than relying on tag order in `<head>`.
 ## Profile pictures
 
 Three columns on `users`: `avatar bytea`, `avatar_type text` and

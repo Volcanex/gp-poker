@@ -77,7 +77,7 @@ import {
   tournamentView,
   withdrawFromTournament,
 } from './tournaments/index.js';
-import { registerAdminRoutes } from './admin.js';
+import { registerGadminRoutes } from './gadmin.js';
 import { AVATAR_MAX_BYTES, AvatarLimiter, sniffAvatar } from './avatars.js';
 
 function err(reply: { code: (n: number) => { send: (b: unknown) => unknown } }, status: number, message: string) {
@@ -89,9 +89,10 @@ export function registerRoutes(app: FastifyInstance): void {
   // body. See health.ts for the contract.
   app.get('/health', async () => health());
 
-  // The admin layer lives in its own file: every route in it is behind the
-  // admin gate, and none of it is part of the game.
-  registerAdminRoutes(app);
+  // The g-admin overlay's ticket API lives in its own file: every route in
+  // it is behind the admin gate (cookie or X-Gadmin-Token), and none of it
+  // is part of the game. See agents/g-admin-contract.md at the repo root.
+  registerGadminRoutes(app);
 
   app.get('/api/me', async (request, reply) => {
     const user = await requireUser(request, reply);

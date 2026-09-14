@@ -99,6 +99,11 @@ export const config = {
      ordering guarantee that a single-match suite cannot violate is ten
      seconds of nothing. */
   explorerLagMs: Number(process.env.EXPLORER_LAG_MS ?? (inTest ? 0 : 10_000)),
+  // g-admin's overrides.css (server/src/gadmin.ts): whether unbaked edits
+  // reapply on reload. Off by default per the contract - a project opts in.
+  // This project's .env sets it, so admins editing the live site keep seeing
+  // their own unbaked spacing/typography tweaks after a refresh.
+  gadminReapply: process.env.GADMIN_REAPPLY === '1',
 };
 
 /* Whether a bot account is shown as one. While the population plays in public

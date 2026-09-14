@@ -17,8 +17,9 @@ export interface Me extends UserSummary {
   wins: number;
   losses: number;
   draws: number;
-  /* Absent for everybody but the one account that has it. The admin bar and
-     the annotation layer are the only things that read it. */
+  /* Absent for everybody but the one account that has it. Gates the g-admin
+     overlay (the stub's own `/api/gadmin/verify` fetch decides that
+     independently) and this client's own `/admin/tickets` pages. */
   admin?: boolean;
   /* Whether rated play is open: one finished casual or practice match is what
      opens it. Optional because a client can outlive the server it talks to,
@@ -41,41 +42,70 @@ export interface Me extends UserSummary {
   playing?: string | null;
 }
 
-/* An annotation made on the running site: what is wrong, where it was seen,
-   which elements were pointed at and what was drawn over them. Written by
-   src/admin/annotate.tsx and read by src/admin/tickets.tsx. */
-export interface TicketTarget {
-  selector: string;
-  rect: { x: number; y: number; width: number; height: number };
-  text: string;
-  label: string | null;
+/* A ticket the g-admin overlay writes (agents/g-admin-contract.md at the
+   repo root), read here by src/admin/tickets.tsx. Field names are
+   snake_case, matching the contract's own JSON exactly rather than this
+   file's usual camelCase, since this is the one wire shape shared with
+   gcommand's tickets panel and a baking agent's `/brief` fetch. */
+export interface TicketPage {
+  url: string;
+  path: string;
+  title: string;
 }
 
 export interface TicketViewport {
-  width: number;
-  height: number;
+  w: number;
+  h: number;
   dpr: number;
   theme: string;
 }
+
+export interface TicketElement {
+  selector: string;
+  dom_path: string;
+  html: string;
+  rect: { x: number; y: number; w: number; h: number };
+}
+
+export interface TicketEdit {
+  selector: string;
+  prop: string;
+  from: string | null;
+  to: string | null;
+  token_from: string | null;
+  token_to: string | null;
+}
+
+export interface TicketReply {
+  at: string;
+  by: 'human' | 'agent';
+  text: string;
+}
+
+export type TicketStatus = 'open' | 'baked' | 'dismissed';
 
 /* What a list row carries. The drawing is deliberately not on it: a page of
    titles must not be a page of PNGs. */
 export interface TicketSummary {
   id: string;
-  createdAt: string;
-  url: string;
-  path: string;
-  title: string;
-  note: string;
+  created_at: string;
+  updated_at: string;
+  status: TicketStatus;
+  scope: 'page' | 'site';
+  kind: 'edit' | 'bug' | 'visual' | 'content' | 'idea';
+  severity: 'critical' | 'major' | 'minor' | 'polish';
+  page: TicketPage;
   viewport: TicketViewport;
-  targets: TicketTarget[];
-  status: 'open' | 'done';
-  build: string | null;
+  elements: TicketElement[];
+  edits: TicketEdit[];
+  note: string;
+  replies: TicketReply[];
+  source: 'human' | 'agent';
+  baked_by: string | null;
 }
 
 export interface Ticket extends TicketSummary {
   drawing: string | null;
-  pageShot: string | null;
 }
 
 export interface MatchSeat {

@@ -1,4 +1,4 @@
-/* g-system@1.1.0, vendored, do not edit. Update: node scripts/vendor.mjs from the g-system repo. */
+/* g-system@1.2.0, vendored, do not edit. Update: node scripts/vendor.mjs from the g-system repo. */
 /* g-icons — generated from packages/g-icons/icons/*.svg. Do not edit. */
 (() => {
   const g = (window.g = window.g || {});
@@ -667,6 +667,39 @@
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", () => init());
   else init();
+})();
+
+/* g-admin activation stub: the only part of the admin overlay that ships in
+   the public bundle, and the only one a visitor ever downloads.
+
+   It does nothing until somebody arms it, which is a deliberate act: loading
+   any page with ?gadmin=1 writes localStorage["g-admin"], and the bar's "off"
+   control clears it again. Public visitors therefore generate no probe
+   traffic at all, and an armed browser still gets nothing unless the server
+   says this session is an admin.
+
+   The rest of the overlay is g-admin.js and g-admin.css, built as separate
+   dist files and vendored beside g-ui.js. Only the script is injected here:
+   g-admin.js links its own stylesheet inside its shadow root, because a
+   stylesheet in document head would not reach it. */
+(() => {
+  const KEY = "g-admin";
+  const self = document.currentScript;
+  let armed = false;
+  try {
+    if (new URLSearchParams(location.search).get("gadmin") === "1") localStorage.setItem(KEY, "1");
+    armed = localStorage.getItem(KEY) === "1";
+  } catch { /* storage refused: never armed, which is the safe direction */ }
+  if (!armed) return;
+  const meta = document.querySelector('meta[name="g-admin-base"]');
+  const base = (meta?.content || "/api/gadmin").replace(/\/+$/, "");
+  fetch(base + "/verify", { credentials: "same-origin" }).then((r) => {
+    if (!r.ok) return;
+    const s = document.createElement("script");
+    s.src = new URL("g-admin.js", self?.src || location.href).href;
+    s.defer = true;
+    document.head.append(s);
+  }).catch(() => { /* no admin api on this project: stay invisible */ });
 })();
 
 /* g.chart, dependency-free SVG charts. Every renderer takes (el, data,
@@ -1396,6 +1429,169 @@
   });
 })();
 
+/* g-menubar behaviour on top of the shipped .menu popovers. Items carry
+   popovertarget; this fragment adds what a menubar needs and a lone menu
+   does not: hovering a sibling item while a menu is open switches to it,
+   ArrowLeft and ArrowRight walk the bar (from the bar or from inside an
+   open menu), Escape closes and hands focus back to the item. */
+(() => {
+  const g = (window.g = window.g || {});
+
+  function initMenubar(bar) {
+    const items = [...bar.querySelectorAll(".g-menubar-item[popovertarget]")];
+    const menuOf = (item) => document.getElementById(item.getAttribute("popovertarget"));
+    const openItem = () => items.find((i) => i.getAttribute("aria-expanded") === "true");
+
+    const open = (item) => {
+      const menu = menuOf(item);
+      if (!menu) return;
+      const cur = openItem();
+      if (cur && cur !== item) menuOf(cur)?.hidePopover();
+      if (!menu.matches(":popover-open")) menu.showPopover();
+    };
+    const close = (item, refocus) => {
+      menuOf(item)?.hidePopover();
+      if (refocus) item.focus();
+    };
+    const step = (from, dir) => {
+      const i = items.indexOf(from);
+      const next = items[(i + dir + items.length) % items.length];
+      const wasOpen = !!openItem();
+      next.focus();
+      if (wasOpen) open(next);
+    };
+
+    items.forEach((item) => {
+      const menu = menuOf(item);
+      if (!menu) return;
+      menu.classList.add("g-menubar-menu");
+      item.setAttribute("aria-haspopup", "menu");
+      item.setAttribute("aria-expanded", "false");
+      menu.addEventListener("toggle", (e) => {
+        item.setAttribute("aria-expanded", e.newState === "open" ? "true" : "false");
+        if (e.newState !== "open") return;
+        /* flush with the bar: initMenu leaves a 4px gap meant for buttons */
+        const r = item.getBoundingClientRect();
+        menu.style.top = r.bottom + "px";
+        menu.style.left = Math.min(r.left, innerWidth - menu.offsetWidth - 8) + "px";
+      });
+      item.addEventListener("pointerenter", () => {
+        const cur = openItem();
+        if (cur && cur !== item) open(item);
+      });
+      item.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowRight") { e.preventDefault(); step(item, 1); }
+        if (e.key === "ArrowLeft") { e.preventDefault(); step(item, -1); }
+        if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          open(item);
+          menu.querySelector(".menu-item:not(:disabled)")?.focus();
+        }
+      });
+      menu.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowRight") { e.preventDefault(); step(item, 1); }
+        if (e.key === "ArrowLeft") { e.preventDefault(); step(item, -1); }
+        if (e.key === "Escape") { e.preventDefault(); close(item, true); }
+      });
+    });
+  }
+
+  g.use((root) => {
+    root.querySelectorAll(".g-menubar").forEach((bar) => {
+      if (bar.hasAttribute("data-menubar-init")) return;
+      bar.setAttribute("data-menubar-init", "");
+      initMenubar(bar);
+    });
+  });
+})();
+
+/* g-pane behaviour: the title toggles its body, the splitter resizes its
+   target. Both report through events so a consumer can persist layout.
+
+   Pane: click or Enter on .g-pane-title flips aria-expanded and the body's
+   hidden attribute, then dispatches bubbling "g-pane:toggle" with
+   {pane, expanded}. The body is aria-controls' target or the next sibling.
+
+   Splitter: pointer drag on .g-splitter resizes data-target (a selector,
+   default the previous sibling; data-side="after" picks the next one),
+   clamped to data-min and data-max (px), along data-axis (col, the
+   default, or row). The size is written inline and reported as
+   "g-splitter:resize" with {target, size}. */
+(() => {
+  const g = (window.g = window.g || {});
+
+  function bodyOf(title) {
+    const id = title.getAttribute("aria-controls");
+    return (id && document.getElementById(id)) || title.nextElementSibling;
+  }
+
+  function initPane(pane) {
+    const title = pane.querySelector(":scope > .g-pane-title");
+    if (!title) return;
+    const body = bodyOf(title);
+    if (!title.hasAttribute("aria-expanded")) title.setAttribute("aria-expanded", body?.hidden ? "false" : "true");
+    if (body) body.hidden = title.getAttribute("aria-expanded") !== "true";
+    title.addEventListener("click", () => {
+      const expanded = title.getAttribute("aria-expanded") !== "true";
+      title.setAttribute("aria-expanded", expanded ? "true" : "false");
+      if (body) body.hidden = !expanded;
+      pane.dispatchEvent(new CustomEvent("g-pane:toggle", { bubbles: true, detail: { pane, expanded } }));
+    });
+  }
+
+  function initSplitter(el) {
+    const axis = el.getAttribute("data-axis") === "row" ? "row" : "col";
+    const target = () => {
+      const sel = el.getAttribute("data-target");
+      if (sel) return document.querySelector(sel);
+      return el.getAttribute("data-side") === "after" ? el.nextElementSibling : el.previousElementSibling;
+    };
+    el.addEventListener("pointerdown", (e) => {
+      const t = target();
+      if (!t || e.button !== 0) return;
+      e.preventDefault();
+      el.setPointerCapture(e.pointerId);
+      el.setAttribute("data-active", "");
+      const after = el.getAttribute("data-side") === "after";
+      const min = +el.getAttribute("data-min") || 0;
+      const max = +el.getAttribute("data-max") || Infinity;
+      const start = axis === "col" ? t.getBoundingClientRect().width : t.getBoundingClientRect().height;
+      const origin = axis === "col" ? e.clientX : e.clientY;
+      const prop = axis === "col" ? "width" : "height";
+      let size = start;
+      const move = (ev) => {
+        const d = (axis === "col" ? ev.clientX : ev.clientY) - origin;
+        size = Math.round(Math.min(max, Math.max(min, after ? start - d : start + d)));
+        t.style[prop] = size + "px";
+        t.style.flexBasis = size + "px";
+      };
+      const up = () => {
+        el.removeEventListener("pointermove", move);
+        el.removeEventListener("pointerup", up);
+        el.removeEventListener("pointercancel", up);
+        el.removeAttribute("data-active");
+        el.dispatchEvent(new CustomEvent("g-splitter:resize", { bubbles: true, detail: { target: t, size } }));
+      };
+      el.addEventListener("pointermove", move);
+      el.addEventListener("pointerup", up);
+      el.addEventListener("pointercancel", up);
+    });
+  }
+
+  g.use((root) => {
+    root.querySelectorAll(".g-pane").forEach((pane) => {
+      if (pane.hasAttribute("data-pane-init")) return;
+      pane.setAttribute("data-pane-init", "");
+      initPane(pane);
+    });
+    root.querySelectorAll(".g-splitter").forEach((el) => {
+      if (el.hasAttribute("data-splitter-init")) return;
+      el.setAttribute("data-splitter-init", "");
+      initSplitter(el);
+    });
+  });
+})();
+
 /* g-select and g-combobox, listbox popups on the Popover API.
 
    The popups are manual popovers, not auto ones: light dismiss fires on the
@@ -1736,5 +1932,79 @@
   g.use((root) => {
     root.querySelectorAll(".g-select").forEach(initGSelect);
     root.querySelectorAll(".g-combobox").forEach(initGCombobox);
+  });
+})();
+
+/* g-tree behaviour: roving focus with the arrow keys, and one event.
+   ArrowUp and ArrowDown move between visible rows, ArrowRight expands and
+   ArrowLeft collapses a row that has a caret, Enter and Space click the
+   row. A caret click (or those arrows) dispatches a bubbling, cancelable
+   "g-tree:toggle" with {row, expanded}; when nobody cancels it the row's
+   aria-expanded flips so plain markup works, while a consumer that owns
+   the state can preventDefault and re-render instead. Selection, renaming
+   and drag stay with the consumer, which knows what the rows mean. */
+(() => {
+  const g = (window.g = window.g || {});
+
+  const rowsOf = (tree) => [...tree.querySelectorAll(".g-tree-row:not([hidden])")];
+
+  function toggle(row, expanded) {
+    if (!row.hasAttribute("aria-expanded")) return;
+    const ok = row.dispatchEvent(new CustomEvent("g-tree:toggle", {
+      bubbles: true, cancelable: true, detail: { row, expanded },
+    }));
+    if (ok) row.setAttribute("aria-expanded", expanded ? "true" : "false");
+  }
+
+  function initTree(tree) {
+    tree.setAttribute("role", tree.getAttribute("role") || "tree");
+    const rove = () => {
+      const rows = rowsOf(tree);
+      const active = rows.find((r) => r.getAttribute("aria-selected") === "true") || rows[0];
+      rows.forEach((r) => {
+        r.setAttribute("role", "treeitem");
+        r.tabIndex = r === active ? 0 : -1;
+      });
+    };
+    rove();
+    new MutationObserver(rove).observe(tree, { childList: true, subtree: true, attributes: true, attributeFilter: ["aria-selected", "hidden"] });
+
+    tree.addEventListener("click", (e) => {
+      const caret = e.target.closest(".g-tree-caret");
+      if (!caret) return;
+      e.stopPropagation();
+      const row = caret.closest(".g-tree-row");
+      toggle(row, row.getAttribute("aria-expanded") !== "true");
+    });
+
+    tree.addEventListener("keydown", (e) => {
+      const row = e.target.closest(".g-tree-row");
+      if (!row) return;
+      const rows = rowsOf(tree);
+      const i = rows.indexOf(row);
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        const next = rows[e.key === "ArrowDown" ? Math.min(i + 1, rows.length - 1) : Math.max(i - 1, 0)];
+        next?.focus();
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        toggle(row, true);
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        toggle(row, false);
+      } else if (e.key === "Enter" || e.key === " ") {
+        if (e.target !== row) return; /* an input or button inside keeps its keys */
+        e.preventDefault();
+        row.click();
+      }
+    });
+  }
+
+  g.use((root) => {
+    root.querySelectorAll(".g-tree").forEach((tree) => {
+      if (tree.hasAttribute("data-tree-init")) return;
+      tree.setAttribute("data-tree-init", "");
+      initTree(tree);
+    });
   });
 })();

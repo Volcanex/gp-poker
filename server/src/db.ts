@@ -2271,40 +2271,81 @@ export async function countTournamentPlayers(ids: string[]): Promise<Map<string,
   return new Map(rows.map((r) => [r.tournamentId, r.n]));
 }
 
-/* Tickets: the annotation layer's rows. `drawing` is a PNG data URL and is the
-   only large column here, so a list never selects it: a page of ticket titles
-   is a page of ticket titles, not a megabyte of strokes each. */
-export interface TicketTarget {
+/* Tickets: what the g-admin overlay writes (agents/g-admin-contract.md at the
+   repo root). `drawing` is a PNG data URL and the only large column, so a
+   list never selects it: a page of tickets is a page of tickets, not a
+   megabyte of strokes each.
+
+   The contract's ticket JSON nests `page`, `viewport` and `elements`
+   objects; this table keeps them under the flat columns the old annotate
+   layer already had (`url`/`path`/`title`, `viewport`, `targets`), so the
+   migration that added the g-admin fields (scope, kind, severity, edits,
+   replies, baked_by, updated_at, source) needed no rename. gadmin.ts
+   assembles the nested contract shape only at the API boundary. */
+// Field names here are camelCase, unlike the contract's own JSON (dom_path,
+// token_from, token_to), because `sql`'s `transform: postgres.camel`
+// recursively camelizes/decamelizes jsonb content on every round trip, not
+// just top-level column names: a snake_case key stored here comes back
+// re-cased, silently. gadmin.ts converts to and from the contract's wire
+// shape at the API boundary instead of fighting the transform.
+export interface GadminElement {
   selector: string;
-  rect: { x: number; y: number; width: number; height: number };
-  text: string;
-  label: string | null;
+  domPath: string;
+  html: string;
+  rect: { x: number; y: number; w: number; h: number };
 }
 
-export interface TicketViewport {
-  width: number;
-  height: number;
+export interface GadminEdit {
+  selector: string;
+  prop: string;
+  from: string | null;
+  to: string | null;
+  tokenFrom: string | null;
+  tokenTo: string | null;
+}
+
+export interface GadminReply {
+  at: string;
+  by: 'human' | 'agent';
+  text: string;
+}
+
+export interface GadminViewport {
+  w: number;
+  h: number;
   dpr: number;
   theme: string;
 }
 
+export type TicketStatus = 'open' | 'baked' | 'dismissed';
+export type TicketScope = 'page' | 'site';
+export type TicketKind = 'edit' | 'bug' | 'visual' | 'content' | 'idea';
+export type TicketSeverity = 'critical' | 'major' | 'minor' | 'polish';
+export type TicketSource = 'human' | 'agent';
+
 export interface TicketRow {
   id: string;
   createdAt: Date;
+  updatedAt: Date;
   userId: string;
   url: string;
   path: string;
   title: string;
+  status: TicketStatus;
+  scope: TicketScope;
+  kind: TicketKind;
+  severity: TicketSeverity;
+  viewport: GadminViewport;
+  targets: GadminElement[];
+  edits: GadminEdit[];
   note: string;
-  viewport: TicketViewport;
-  targets: TicketTarget[];
   drawing: string | null;
-  pageShot: string | null;
-  status: string;
-  build: string | null;
+  replies: GadminReply[];
+  source: TicketSource;
+  bakedBy: string | null;
 }
 
-export type TicketListRow = Omit<TicketRow, 'drawing' | 'pageShot'>;
+export type TicketListRow = Omit<TicketRow, 'drawing'>;
 
 export interface NewTicket {
   id: string;
@@ -2312,29 +2353,42 @@ export interface NewTicket {
   url: string;
   path: string;
   title: string;
+  scope: TicketScope;
+  kind: TicketKind;
+  severity: TicketSeverity;
+  viewport: GadminViewport;
+  targets: GadminElement[];
+  edits: GadminEdit[];
   note: string;
-  viewport: TicketViewport;
-  targets: TicketTarget[];
   drawing: string | null;
-  build: string | null;
+  source: TicketSource;
 }
+
+const TICKET_LIST_COLUMNS = sql`
+  id, created_at, updated_at, user_id, url, path, title, status, scope, kind,
+  severity, viewport, targets, edits, note, replies, source, baked_by
+`;
 
 export async function insertTicket(ticket: NewTicket): Promise<TicketRow> {
   const [row] = await sql<TicketRow[]>`
-    insert into tickets (id, user_id, url, path, title, note, viewport, targets, drawing, build)
+    insert into tickets (
+      id, user_id, url, path, title, scope, kind, severity, viewport, targets,
+      edits, note, drawing, source
+    )
     values (
       ${ticket.id}, ${ticket.userId}, ${ticket.url}, ${ticket.path}, ${ticket.title},
-      ${ticket.note}, ${sql.json(jsonb(ticket.viewport))}, ${sql.json(jsonb(ticket.targets))},
-      ${ticket.drawing}, ${ticket.build}
+      ${ticket.scope}, ${ticket.kind}, ${ticket.severity},
+      ${sql.json(jsonb(ticket.viewport))}, ${sql.json(jsonb(ticket.targets))},
+      ${sql.json(jsonb(ticket.edits))}, ${ticket.note}, ${ticket.drawing}, ${ticket.source}
     )
     returning *
   `;
   return row;
 }
 
-export async function getTickets(status: string | null, limit = 200): Promise<TicketListRow[]> {
+export async function getTickets(status: TicketStatus | null, limit = 200): Promise<TicketListRow[]> {
   return sql<TicketListRow[]>`
-    select id, created_at, user_id, url, path, title, note, viewport, targets, status, build
+    select ${TICKET_LIST_COLUMNS}
     from tickets
     ${status ? sql`where status = ${status}` : sql``}
     order by created_at desc
@@ -2347,9 +2401,33 @@ export async function getTicketById(id: string): Promise<TicketRow | null> {
   return row ?? null;
 }
 
-export async function setTicketStatus(id: string, status: string): Promise<TicketRow | null> {
+export interface TicketPatchFields {
+  status?: TicketStatus;
+  note?: string;
+  appendReply?: GadminReply;
+  bakedBy?: string | null;
+}
+
+/* One statement for every PATCH, because a status change, a note edit and a
+   reply can all land in the same request. `baked_by` follows status exactly
+   as the reference server does: set the moment a PATCH first turns a ticket
+   baked, cleared the moment a PATCH turns it anything else. */
+export async function patchTicket(id: string, patch: TicketPatchFields): Promise<TicketRow | null> {
+  const current = await getTicketById(id);
+  if (!current) return null;
+  const status = patch.status ?? current.status;
+  const note = patch.note ?? current.note;
+  const replies = patch.appendReply ? [...current.replies, patch.appendReply] : current.replies;
+  let bakedBy = current.bakedBy;
+  if (patch.status === 'baked' && current.status !== 'baked') bakedBy = patch.bakedBy ?? null;
+  else if (patch.status !== undefined && patch.status !== 'baked') bakedBy = null;
+
   const [row] = await sql<TicketRow[]>`
-    update tickets set status = ${status} where id = ${id} returning *
+    update tickets set
+      status = ${status}, note = ${note}, replies = ${sql.json(jsonb(replies))},
+      baked_by = ${bakedBy}, updated_at = now()
+    where id = ${id}
+    returning *
   `;
   return row ?? null;
 }

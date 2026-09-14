@@ -38,7 +38,7 @@ bundle time. Nothing needs copying alongside it for the bundle to find them.
 | `src/bots/` | the bot population (names, personas, schedules), the scheduler that queues them, one bot's message loop and the pure decision function |
 | `src/tournaments/` | the fixture calendar, the draw and the scheduler that runs a field down to a final |
 | `test/` | the suite, the test database rule and the seams it drives |
-| `db/schema.sql` | applied idempotently at start by `applySchema()` |
+| `db/schema.sql` | applied idempotently at start by `applySchema()`; `db/CLAUDE.md` for the numbered-migration exception |
 
 ## Four invariants
 
@@ -89,6 +89,9 @@ The hand runner owns the translation and stores the map on the hand row as
 `db/schema.sql` is applied idempotently on every boot, so every column and table
 added since v1 went in additively and re-applies harmlessly: `users.bot`,
 `matches.places`, `match_players.place`, `hands.live_seats`,
-`rating_history.mode`, the `ratings` table, and the three `tournaments` tables. `packages/protocol` is the wire
+`rating_history.mode`, the `ratings` table, the three `tournaments` tables, and
+the g-admin fields on `tickets` (`scope`, `kind`, `severity`, `edits`,
+`replies`, `baked_by`, `updated_at`, `source`). `packages/protocol` is the wire
 contract and `PROTOCOL_VERSION` is bumped on change; read the current number off
-that constant.
+that constant. `db/CLAUDE.md` covers the one exception: a change reversible
+enough to also get a numbered, manually-runnable migration pair.

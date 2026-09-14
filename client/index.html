@@ -18,6 +18,10 @@
          useful to serve offline and a stale cached shell would only hide a
          deploy. -->
     <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- The g-admin overlay's stub (inside g-ui.js) reads this to label the
+         bar and to know which project it is talking to; the base path stays
+         the contract's default (/api/gadmin), so no g-admin-base tag. -->
+    <meta name="g-admin-project" content="poker" />
     <title>Open Table</title>
     <link rel="stylesheet" href="/g/g.css" />
     <!-- Six attribute writes before the first paint, so a chosen theme, a
@@ -61,5 +65,14 @@
       Open Table needs JavaScript. The table, the replays and the tools all run in your browser.
     </noscript>
     <script type="module" src="/src/main.tsx"></script>
+    <!-- g-admin's reapply layer (this project sets GADMIN_REAPPLY=1): CSS
+         generated from open tickets' unbaked edits, so a spacing/typography
+         change made in edit mode survives a reload before it is baked. Public,
+         no auth, empty when there is nothing to reapply. Placed last in the
+         document - after the build's own stylesheet, wherever Vite ends up
+         emitting that - so an override always wins the cascade tie the
+         contract expects, rather than depending on where a bundler's own
+         injected <link> lands in <head>. -->
+    <link rel="stylesheet" href="/api/gadmin/overrides.css" />
   </body>
 </html>
