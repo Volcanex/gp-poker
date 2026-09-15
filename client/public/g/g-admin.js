@@ -716,6 +716,15 @@
   sideFoot.append(pendingCount, el("span", "ga-spacer"), revertBtn, saveEditsBtn);
   side.append(sideHead, sideBody, sideFoot);
 
+  /* overscroll-behavior only contains a wheel while the body actually
+     overflows; when the panes fit, the chain skips the panel and scrolls the
+     page under the pointer. A devtools panel never does that, so the wheel
+     is consumed here whether or not there is anywhere for it to go. */
+  side.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    sideBody.scrollTop += e.deltaY;
+  }, { passive: false });
+
   function pane(title, body) {
     const section = el("section", "g-pane");
     const head = el("button", "g-pane-title", title);
