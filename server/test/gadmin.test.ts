@@ -16,7 +16,7 @@ function body(note: string, extra: Record<string, unknown> = {}) {
     scope: 'page',
     kind: 'visual',
     severity: 'minor',
-    page: { url: 'https://poker.gabrielpenman.com/leaderboard', path: '/leaderboard', title: 'Leaderboard' },
+    page: { url: 'https://everyonepoker.com/leaderboard', path: '/leaderboard', title: 'Leaderboard' },
     viewport: { w: 1366, h: 768, dpr: 2, theme: 'dark' },
     elements: [
       {
@@ -98,7 +98,7 @@ describe('g-admin tickets', () => {
     const ticket = created.json();
     expect(ticket.status).toBe('open');
     expect(ticket.source).toBe('human');
-    expect(ticket.page).toEqual({ url: 'https://poker.gabrielpenman.com/leaderboard', path: '/leaderboard', title: 'Leaderboard' });
+    expect(ticket.page).toEqual({ url: 'https://everyonepoker.com/leaderboard', path: '/leaderboard', title: 'Leaderboard' });
     expect(ticket.viewport).toEqual({ w: 1366, h: 768, dpr: 2, theme: 'dark' });
     expect(ticket.baked_by).toBeNull();
     const id = ticket.id as string;

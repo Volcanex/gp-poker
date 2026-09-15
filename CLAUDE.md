@@ -2,7 +2,7 @@
 
 **Owner:** Gabriel Penman
 **What:** Open Table, free ranked no-limit hold'em at
-poker.gabrielpenman.com: six-max sit-and-go (the main game) and heads-up
+everyonepoker.com: six-max sit-and-go (the main game) and heads-up
 (played to a bust), each fast or standard and each rated or casual, with bots filling
 empty seats in casual play. Lichess for poker: no money, no chips to buy, no
 rake, no ads. Chips are table units that reset every match; the scarce
@@ -12,7 +12,21 @@ provably fair shuffle and preflop accuracy scoring.
 
 ## Run
 systemd unit `opentable`, port 8130, `node release/server/index.js`. nginx
-vhost proxies `/` and upgrades `/ws`. Local: Postgres on 5432 (`docker
+vhost proxies `/` and upgrades `/ws`.
+
+The site moved from `poker.gabrielpenman.com` to `everyonepoker.com` on
+2026-09-15. The old subdomain is now a 301 to the new one and keeps its own
+certificate, so every match URL ever shared still resolves; don't retire that
+vhost. Because the redirect swallows `/.well-known/acme-challenge/` and hands
+it to the app on the new domain, an HTTP-01 renewal there validates against
+the wrong host and fails. Both certs therefore renew over DNS-01
+(`authenticator = dns-cloudflare`, credentials at
+`/root/.secrets/cloudflare.ini`) — if you ever rebuild either vhost with
+`certbot --nginx`, it will silently switch the authenticator back and the
+cert will expire 90 days later. Both domains are DNS-only in Cloudflare
+(grey cloud), pointed straight at h.
+
+Local: Postgres on 5432 (`docker
 compose up -d db` if there is none), copy `.env.example` to `.env`, then
 `npm install && npm run dev` (builds the client, starts the server with
 tsx, serves everything on one port). Tests: `npm test` (vitest in every

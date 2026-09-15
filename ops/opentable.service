@@ -1,5 +1,5 @@
 [Unit]
-Description=Open Table, free ranked no-limit hold'em (poker.gabrielpenman.com)
+Description=Open Table, free ranked no-limit hold'em (everyonepoker.com)
 After=network-online.target postgresql.service
 Wants=network-online.target
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy poker.gabrielpenman.com from committed HEAD, never from the working
+# Deploy everyonepoker.com from committed HEAD, never from the working
 # tree: agents build in the working tree while the site is live, so the
 # service serves a release copy under release/ that only this script writes.
 set -euo pipefail
