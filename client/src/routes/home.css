@@ -279,10 +279,10 @@ main.page.home-page { max-width: 1180px; }
 .way { display: flex; flex-direction: column; gap: var(--sp-2); }
 .way-go {
   display: flex;
-  /* The label and the note are two sizes of plain text sharing a line, so
-     they align by baseline like any other sentence; the icon is not text
-     and keeps its own centring below. */
-  align-items: baseline;
+  /* Everything on the row centres in the 32px control: baseline alignment
+     glued the label to the cap line and read as top-stuck (g-admin ticket
+     5r5tyf9b measured 1px over, 11px under). */
+  align-items: center;
   gap: var(--sp-2);
   width: 100%;
   justify-content: flex-start;
