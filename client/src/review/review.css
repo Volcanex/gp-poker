@@ -24,17 +24,17 @@
 .review-player { display: flex; flex-direction: column; gap: var(--sp-4); }
 .review-player[data-you] { border-color: var(--accent-edge, var(--border)); }
 
-.rp-head { display: flex; align-items: center; gap: var(--sp-3); }
-.rp-who { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-.rp-name {
+.rvp-head { display: flex; align-items: center; gap: var(--sp-3); }
+.rvp-who { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.rvp-name {
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.rp-sub { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.rvp-sub { display: flex; align-items: center; gap: 6px; font-size: 12px; }
 
-.rp-reads {
+.rvp-reads {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -43,24 +43,24 @@
   font-size: 12px;
   color: var(--text-secondary);
 }
-.rp-reads li::marker { color: var(--text-placeholder); }
+.rvp-reads li::marker { color: var(--text-placeholder); }
 
-.rp-streets { display: flex; flex-direction: column; gap: var(--sp-2); }
-.rp-street-track {
+.rvp-streets { display: flex; flex-direction: column; gap: var(--sp-2); }
+.rvp-street-track {
   display: flex;
   height: 14px;
   border-radius: var(--radius-sm);
   overflow: hidden;
   background: var(--fill-active);
 }
-.rp-street-track .seg { min-width: 0; }
-.rp-street-track .seg[data-street='preflop'] { background: var(--chart-1); }
-.rp-street-track .seg[data-street='flop'] { background: var(--chart-2); }
-.rp-street-track .seg[data-street='turn'] { background: var(--chart-3); }
-.rp-street-track .seg[data-street='river'] { background: var(--chart-4); }
-.rp-street-track .seg[data-street='showdown'] { background: var(--chart-6); }
+.rvp-street-track .seg { min-width: 0; }
+.rvp-street-track .seg[data-street='preflop'] { background: var(--chart-1); }
+.rvp-street-track .seg[data-street='flop'] { background: var(--chart-2); }
+.rvp-street-track .seg[data-street='turn'] { background: var(--chart-3); }
+.rvp-street-track .seg[data-street='river'] { background: var(--chart-4); }
+.rvp-street-track .seg[data-street='showdown'] { background: var(--chart-6); }
 
-.rp-career { font-size: 12px; }
+.rvp-career { font-size: 12px; }
 
 /* The little i. Plain and inline rather than a g button: g ships no inline
    info-glyph component, only the data-tip behaviour a trigger element hangs
@@ -153,7 +153,7 @@
    deuteranopia). Small multiples sidestep the problem rather than working
    around it: there is never more than one series in view, so there is
    nothing for colour to have to separate. */
-.rp-chips { display: flex; flex-direction: column; gap: var(--sp-2); }
+.rvp-chips { display: flex; flex-direction: column; gap: var(--sp-2); }
 .chip-spark { display: flex; flex-direction: column; gap: 4px; }
 .cs-graph svg { width: 100%; height: 56px; display: block; }
 .cs-zero { stroke: var(--border); stroke-width: 1; }

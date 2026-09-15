@@ -40,11 +40,11 @@ export function PlayerCard({
 
   return (
     <div className="card review-player" data-result={seat.result} data-you={you ? '' : undefined}>
-      <div className="rp-head">
+      <div className="rvp-head">
         <Avatar seed={seat.userId} name={seat.name} size={32} avatarV={avatarVersion(seat.avatarV)} />
-        <div className="rp-who">
-          <Link className="rp-name" to={`/u/${encodeURIComponent(seat.name)}`}>{seat.name}</Link>
-          <span className="rp-sub">
+        <div className="rvp-who">
+          <Link className="rvp-name" to={`/u/${encodeURIComponent(seat.name)}`}>{seat.name}</Link>
+          <span className="rvp-sub">
             {seat.bot && <span className="seat-bot">Bot</span>}
             {you && <span className="seat-you">You</span>}
             {seat.place !== null && <span className="muted">{ordinal(seat.place)}</span>}
@@ -54,7 +54,7 @@ export function PlayerCard({
         {seat.result === 'draw' && <span className="badge">Draw</span>}
       </div>
 
-      <div className="rp-chips">
+      <div className="rvp-chips">
         <span className="muted">Chips by hand</span>
         <ChipSpark seat={seat} maxChips={maxChips} you={you} />
       </div>
@@ -62,7 +62,7 @@ export function PlayerCard({
       <Spider raw={seat.raw} label={seat.name} />
 
       {bullets.length > 0 && (
-        <ul className="rp-reads">
+        <ul className="rvp-reads">
           {bullets.map((b) => (
             <li key={b}>{b}</li>
           ))}
@@ -74,10 +74,10 @@ export function PlayerCard({
       </div>
 
       {streets && (
-        <div className="rp-streets">
+        <div className="rvp-streets">
           <span className="muted">Where this seat's hands ended</span>
           <div
-            className="rp-street-track"
+            className="rvp-street-track"
             role="img"
             aria-label={STREET_ORDER.map((s) => `${s.label} ${fmtPct(streets[s.key], 0)}`).join(', ')}
           >
@@ -91,7 +91,7 @@ export function PlayerCard({
       )}
 
       {seat.insights.preflop && (
-        <div className="rp-career">
+        <div className="rvp-career">
           <span className="muted">
             Over {seat.insights.sample.hands} hands in {seat.insights.sample.matches}{' '}
             {seat.insights.sample.matches === 1 ? 'match' : 'matches'} at this mode

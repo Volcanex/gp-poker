@@ -9,6 +9,12 @@ export { MODES };
    unaffected, this is display text only. */
 export const MODE_NAME: Record<Mode, string> = { 'six-max': '6X', 'heads-up': 'Heads-up' };
 
+/* The superscript riding on a rating figure, own request: "Heads-up" set
+   that small reads as a smear, where six-max's own short code reads fine at
+   the same size. Display text only, next to MODE_NAME rather than replacing
+   it there, since every other reader of MODE_NAME wants the full word. */
+export const MODE_CODE: Record<Mode, string> = { 'six-max': '6X', 'heads-up': 'HSP' };
+
 /* What a search that has not named one calls itself. One word, and the same
    word for both dimensions: two controls saying "any" are saying one thing. */
 export const ANY_NAME = 'Any';

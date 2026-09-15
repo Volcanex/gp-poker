@@ -19,7 +19,7 @@ import { api, ApiError } from '../net/api.ts';
 import { avatarSeed, avatarVersion, mainModeOf, modeRating } from '../net/adapt.ts';
 import type { ArenaListing, CreatedChallenge, LeaderboardRow, LiveMatch, Me } from '../net/types.ts';
 import { readPlayChoice, useSession } from '../net/session.tsx';
-import { MODE_NAME, modeInline, modeTabLabel, speedChoiceName } from '../ui/mode-tabs.tsx';
+import { MODE_CODE, MODE_NAME, modeInline, modeTabLabel, speedChoiceName } from '../ui/mode-tabs.tsx';
 import { Segmented } from '../ui/segmented.tsx';
 import { elapsed, useNow } from '../ui/bits.tsx';
 import { arenaCardLine } from './arena-bits.ts';
@@ -355,7 +355,7 @@ function PlayerBar({ me, mode }: { me: Me | null; mode: Mode }) {
             "Gabriel 1567", not a name and then a number a foot away from it. */}
         {r.matches === 0 ? (
           <span className="muted">
-            No ranked matches yet <span className="pb-mode">{MODE_NAME[mode]}</span>
+            No ranked matches yet <span className="pb-mode">{MODE_CODE[mode]}</span>
           </span>
         ) : (
           <>
@@ -364,7 +364,7 @@ function PlayerBar({ me, mode }: { me: Me | null; mode: Mode }) {
               {/* Own request: the mode reads as a superscript on the rating
                   it belongs to, the default now rather than a flat badge a
                   baseline row could never quite line up with. */}
-              <span className="pb-mode">{MODE_NAME[mode]}</span>
+              <span className="pb-mode">{MODE_CODE[mode]}</span>
             </span>
             {r.provisional && <span className="badge badge-warn">Provisional</span>}
           </>
@@ -829,20 +829,34 @@ function WatchCard() {
     </div>
   );
 }
-/* One flat row per release: the version, its date, and what changed at the
-   table. The data is `updates.ts`; the top entry is the running version. */
+/* A bulleted column for the running version's notes, its header flowing
+   flat above. The data is `updates.ts`; the top entry is the running
+   version. Long lists collapse behind a Read more toggle rather than
+   growing the card to fit whatever a release happens to change. */
+const UPDATE_LOG_COLLAPSED = 4;
+
 function UpdateLog() {
   const current = UPDATES[0];
+  const [expanded, setExpanded] = useState(false);
+  const overflowing = current.notes.length > UPDATE_LOG_COLLAPSED;
+  const notes = expanded ? current.notes : current.notes.slice(0, UPDATE_LOG_COLLAPSED);
   return (
     <div className="card update-log">
-      <span className="t">Update log</span>
-      <span className="badge badge-plain">{current.version}</span>
-      <span className="muted ul-date">{current.date}</span>
+      <div className="ul-head">
+        <span className="t">Update log</span>
+        <span className="badge badge-plain">{current.version}</span>
+        <span className="muted ul-date">{current.date}</span>
+      </div>
       <ul className="ul-notes">
-        {current.notes.map((note) => (
+        {notes.map((note) => (
           <li key={note}>{note}</li>
         ))}
       </ul>
+      {overflowing && (
+        <button type="button" className="btn btn-tertiary btn-sm ul-more" onClick={() => setExpanded((v) => !v)}>
+          {expanded ? 'Show less' : 'Read more'}
+        </button>
+      )}
     </div>
   );
 }

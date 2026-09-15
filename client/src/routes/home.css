@@ -236,15 +236,15 @@ main.page.home-page { max-width: 1180px; }
 .pb-who .muted { font-size: 12px; }
 /* Beside the name, not a display number of its own: the name is what a
    reader looks for first, and the rating is the second fact about it. */
-.pb-rating { font-size: 19px; font-weight: 500; letter-spacing: -0.01em; }
+.pb-rating { font-size: 20px; font-weight: 500; letter-spacing: -0.01em; }
 /* A true superscript on the rating it names, own request: sat as a flat
    sibling on the row's own baseline it read a few pixels high against the
    19px figures either side of it, however that baseline was nudged. Raised
    and set small against the number it rides on instead, which is what a
    superscript is for and needs no alignment rule of its own. */
 .pb-mode {
-  font-size: 11px; font-weight: 500; letter-spacing: normal;
-  vertical-align: super; margin-left: 2px;
+  font-size: 11px; font-weight: 400; letter-spacing: normal;
+  vertical-align: super;
   color: var(--text-secondary);
 }
 .muted .pb-mode { color: inherit; }
@@ -268,26 +268,34 @@ main.page.home-page { max-width: 1180px; }
 .tourney-home { grid-area: tourn; }
 .update-log { grid-area: log; align-self: start; }
 
-/* Flat and wide: one row, the notes flowing after the version, wrapping
-   where the row runs out rather than growing tall. */
+/* The header runs flat and wide; the notes below it are a real bulleted
+   list, one change per line, collapsing behind a Read more button rather
+   than growing the card to fit whatever a release happens to change. */
 .update-log {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.update-log .ul-head {
+  display: flex;
   align-items: baseline;
   flex-wrap: wrap;
   gap: var(--sp-2) var(--sp-3);
 }
-.update-log > .t { font-size: 15px; font-weight: 500; letter-spacing: -0.01em; }
+.update-log .ul-head > .t { font-size: 15px; font-weight: 500; letter-spacing: -0.01em; }
 .update-log .ul-date { flex: none; }
 .update-log .ul-notes {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-1) var(--sp-5);
+  flex-direction: column;
+  gap: var(--sp-1);
   margin: 0;
   padding: 0;
   list-style: none;
   color: var(--text-secondary);
 }
+.update-log .ul-notes li { display: flex; gap: var(--sp-2); }
+.update-log .ul-notes li::before { content: '-'; flex: none; }
+.update-log .ul-more { align-self: flex-start; }
 
 .play-panel { display: flex; flex-direction: column; gap: var(--sp-3); }
 .play-panel > .t { font-size: 15px; font-weight: 500; letter-spacing: -0.01em; }
