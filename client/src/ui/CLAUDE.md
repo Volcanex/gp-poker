@@ -8,7 +8,17 @@ The furniture that is not the table: `shell.tsx` (the site's chrome),
 `picture-dialog.tsx`, `flag.tsx` with `country-picker.tsx` and the generated
 `countries.ts`, `rating-graph.tsx`, `board-text.tsx`, `mode-tabs.tsx`,
 `share-link.tsx`, `site-footer.tsx`, `segmented.tsx`, `bits.tsx`, `format.ts`,
-`grid-entrance.ts` and `title.ts`.
+`grid-entrance.ts`, `logo.tsx` and `title.ts`.
+
+`logo.tsx` is the brand mark, and it is deliberately a project file rather than
+anything in g-system: a logo belongs to the product, not to the shared
+language. It exports the path as a constant and a `<Logo>` that draws it with
+`fill="currentColor"`, so it inherits the colour of whatever it sits in and
+needs no per-theme rule. The EP is cut out of the spade with `fill-rule
+evenodd` rather than painted on top in white, which is the only reason the mark
+survives the dark ground. `client/public/logo.svg`, the favicon and every icon
+PNG are exports of that same constant: regenerate them, never hand-edit them,
+or the shape drifts from the one the site draws.
 
 `segmented.tsx` is the two option switcher the home page's play panel is built
 from, and `mode-tabs.tsx` is now that component with the modes in it. It is
