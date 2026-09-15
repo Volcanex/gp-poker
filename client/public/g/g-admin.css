@@ -2857,13 +2857,13 @@ dialog.cmdk {
 .ga-bar a { color: var(--text-secondary); text-decoration: none; }
 .ga-bar a:hover { color: var(--text-primary); text-decoration: underline; }
 .ga-bar .ga-count { display: inline-flex; align-items: center; gap: var(--sp-2); }
-.ga-bar .ga-xray-toggle { flex: none; gap: var(--sp-2); font-size: 11px; }
+.ga-bar .ga-tool-toggle { flex: none; gap: var(--sp-2); font-size: 11px; }
 /* A 34px switch in a 28px bar: the track is the tallest thing in the strip,
    so it scales down rather than the bar growing around it. */
-.ga-bar .ga-xray-toggle .switch { width: 28px; height: 16px; }
-.ga-bar .ga-xray-toggle .switch::after { width: 10px; height: 10px; }
-.ga-bar .ga-xray-toggle .switch:checked::after { translate: 12px 0; }
-.ga-bar .ga-xray-toggle .switch:active:not(:disabled)::after { width: 12px; }
+.ga-bar .ga-tool-toggle .switch { width: 28px; height: 16px; }
+.ga-bar .ga-tool-toggle .switch::after { width: 10px; height: 10px; }
+.ga-bar .ga-tool-toggle .switch:checked::after { translate: 12px 0; }
+.ga-bar .ga-tool-toggle .switch:active:not(:disabled)::after { width: 12px; }
 
 /* Under 720px the bar keeps the controls and drops the identification, which
    is the part you can work out from the page you are looking at. */
@@ -2884,6 +2884,7 @@ dialog.cmdk {
 }
 .ga-hit { position: absolute; inset: 0; cursor: crosshair; }
 .ga-stage[data-tool="pen"] .ga-hit { cursor: cell; }
+.ga-stage[data-text] .ga-hit { cursor: text; }
 .ga-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .ga-boxes { position: absolute; inset: 0; pointer-events: none; }
 
@@ -2902,8 +2903,49 @@ dialog.cmdk {
   background: color-mix(in srgb, var(--accent-fill) 14%, transparent);
 }
 /* An element already taken: the difference from the live outline is the thing
-   to see, so dashed and no fill. */
+   to see, so dashed and no fill. The rest of a multi-selection wears the same
+   box with the selection's own tint behind it, because it is selected and the
+   box being measured against, which is also dashed, is not. */
 .ga-pick { border: 2px dashed var(--accent-edge); }
+.ga-pick-sel { background: color-mix(in srgb, var(--accent-fill) 8%, transparent); }
+
+/* While a line of text is open the outline keeps its edge and drops its fill:
+   the thing under it is the thing being read and retyped. */
+.ga-out[data-editing] { background: none; }
+
+/* The element a measurement is taken against is not the selection, and the
+   two have to stay apart at a glance: same box, dashed, no fill, and a tag
+   that is not the accent. */
+.ga-out-ghost { border-style: dashed; background: none; }
+.ga-out-ghost .ga-tag {
+  background: var(--overlay-bg);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+/* A gap drawn as the line it would be if it were a thing: the distance, and
+   the stop it is nearest. Off the scale takes the warning tint, the same
+   signal the steppers give, because a gap of 13 is the one worth a second
+   look. The label centres on the line and is allowed to overflow it: the
+   line is a pixel wide and the number never is. */
+.ga-gap { position: absolute; background: var(--accent-edge); pointer-events: none; }
+.ga-gap-val {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-fill);
+  color: var(--accent-fg);
+  font-size: 10px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ga-gap[data-off] { background: var(--warn-text); }
+.ga-gap[data-off] .ga-gap-val { background: var(--warn-text); color: var(--bg); }
 
 /* Box-model shading, drawn outside and inside the border box. Two meanings,
    two colours, both derived tokens rather than scale steps. */
@@ -2926,6 +2968,7 @@ dialog.cmdk {
 .ga-margin.ga-flash { animation: ga-flash-margin calc(var(--dur-slow) * 2) var(--ease-out); }
 .ga-pad.ga-flash { animation: ga-flash-pad calc(var(--dur-slow) * 2) var(--ease-out); }
 .ga-out.ga-flash { animation: ga-flash-edge calc(var(--dur-slow) * 2) var(--ease-out); }
+.ga-pick.ga-flash { animation: ga-flash-edge calc(var(--dur-slow) * 2) var(--ease-out); }
 .ga-val.ga-flash { animation: ga-flash-value calc(var(--dur-slow) * 2) var(--ease-out); }
 @media (prefers-reduced-motion: reduce) {
   .ga-flash { animation: none; }
@@ -3011,6 +3054,51 @@ dialog.cmdk {
   box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--accent-edge) 22%, transparent);
 }
 
+/* ------------------------------------------------------------------ help */
+
+/* Every binding on one sheet, over a scrim, because a tool driven by single
+   letters that never says what they are is a tool nobody drives. The panes
+   are the shipped ones; the sheet only has to place them. */
+.ga-help {
+  position: fixed;
+  inset: 0;
+  z-index: 2147482900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-5);
+}
+/* The shipped scrim is opaque only inside an open app shell, and this is not
+   one. */
+.ga-help .g-scrim { opacity: 1; pointer-events: auto; }
+.ga-help-card {
+  position: relative;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  width: 420px;
+  max-width: 100%;
+  max-height: 100%;
+  padding: 0;
+  overflow: hidden;
+}
+.ga-help-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.ga-help-head .ga-help-title { color: var(--text-primary); font-weight: 500; }
+.ga-help-head .ga-spacer { flex: 1; }
+.ga-help .g-pane-stack { flex: 1 1 auto; min-height: 0; }
+.ga-help-row { display: flex; align-items: center; gap: var(--sp-3); }
+/* A fixed key column, so the descriptions line up and a row with two keys in
+   it does not push its own text out of the list. */
+.ga-help-row .ga-help-keys { flex: 0 0 116px; display: flex; gap: 2px; }
+.ga-help-row .ga-help-what { color: var(--text-secondary); font-size: 12px; }
+
 /* -------------------------------------------------------------- composer */
 
 .ga-panel {
@@ -3071,6 +3159,9 @@ dialog.cmdk {
   overflow-wrap: anywhere;
 }
 .ga-side-head .ga-dims { color: var(--text-secondary); font-size: 11px; }
+/* Only present while more than one element is selected, which is the one
+   state where the controls write somewhere the head is not pointing. */
+.ga-side-head .ga-multi { color: var(--accent-edge); font-size: 11px; line-height: var(--lh-1); }
 
 /* The ancestry, oldest first, scrolled to the end because the end is where
    the selection is. One line that never wraps: a chain that grew two rows
@@ -3132,6 +3223,8 @@ dialog.cmdk {
 .ga-row { display: flex; align-items: center; gap: var(--sp-2); }
 .ga-row > .ga-key { flex: 0 0 48px; color: var(--text-secondary); font-size: 12px; }
 .ga-row > .g-segmented { flex: 1 1 auto; }
+.ga-row > .select-wrap { flex: 1 1 auto; min-width: 0; }
+.ga-row > .select-wrap .select { width: 100%; }
 
 .ga-step { display: flex; align-items: center; gap: 2px; flex: 1 1 auto; min-width: 0; }
 .ga-step .btn { flex: none; }
@@ -3170,5 +3263,15 @@ dialog.cmdk {
 .ga-pending { display: flex; flex-direction: column; gap: var(--sp-1); font-size: 11px; }
 .ga-pending .ga-edit { display: flex; gap: var(--sp-2); color: var(--text-secondary); }
 .ga-pending .ga-edit .ga-prop { flex: 0 0 96px; font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; }
-.ga-pending .ga-edit .ga-to { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+/* A text edit puts a whole line in this column, so it truncates rather than
+   wrapping the pending list into the save button. */
+.ga-pending .ga-edit .ga-to {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .ga-empty { color: var(--text-placeholder); font-size: 12px; }
