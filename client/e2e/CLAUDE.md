@@ -115,6 +115,7 @@ it.
 | `ergonomics.spec.ts` | phone target sizes, the primary action in the bottom quarter, the sizing model and clamping, a pre-action firing, and the ring at 768, 1280 and 1920 |
 | `hero-band.spec.ts` | the v2 band's one footprint through a hand at 390 and 1280, sitting out, the felt giving up your seat, the decision line, the sizes and the keys, and the hand's three layouts and three sizes: ten pictures, the card at the size the setting names, and the cards ending before the controls start |
 | `showdown.spec.ts` | your cards face up through a lost showdown and after the end, the winning five, the award chip clear of the pot label |
+| `collect.spec.ts` | the pot collects before the street deals: on `?collect=1`, the wire's own shape at a street boundary, the flop and the turn each land a beat after the chips they were dealt with. Timing rather than a picture, because the thing under test is an order of events |
 | `access.spec.ts` | axe-core per state with zero serious or critical, a keyboard-only decision, tab reachability, and typing in the field not triggering the shortcuts |
 | `practice.spec.ts` | the strip is on a practice table and off a rated one, that it reads, and that a practice table keeps one footprint with zero layout shift |
 | `chat.spec.ts` | opening, sending and closing the panel leave the header, felt and dock in identical boxes, at both widths |

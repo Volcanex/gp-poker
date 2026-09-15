@@ -17,7 +17,12 @@ const ACT_SOUND: Record<string, SoundEvent> = {
 
 const CLOCK_WARNING_MS = 5_000;
 
-export function useTableSounds(view: TableView | null): void {
+/* `onTable` is how many board cards the felt has actually drawn, which is the
+   whole board except for the beat a new street waits while the pot collects
+   (`collect.ts`). The noise has to land with the card, not with the frame that
+   carried it: a street sound a beat ahead of the street is the desync this
+   screen spends its whole stylesheet avoiding. */
+export function useTableSounds(view: TableView | null, onTable?: number): void {
   const lastEvent = useRef<string | null>(null);
   const lastTurn = useRef<string | null>(null);
   const lastHandEnd = useRef<number | null>(null);
@@ -30,11 +35,15 @@ export function useTableSounds(view: TableView | null): void {
        three streets without an action between them: the seq is the same for
        all three, and a key without the board played the flop's card and then
        sat silent through the turn and the river. */
-    const key = `${view.h}:${view.n}:${view.last.k}:${view.board.length}`;
+    const shown = onTable ?? view.board.length;
+    const key = `${view.h}:${view.n}:${view.last.k}:${shown}`;
     if (lastEvent.current === key) return;
-    lastEvent.current = key;
 
     const e = view.last;
+    /* The cards this event is about are not on the table yet. Left unkeyed on
+       purpose, so the same event plays when they land. */
+    if (e.k === 'street' && shown < view.board.length) return;
+    lastEvent.current = key;
     if (e.k === 'newhand' || e.k === 'deal') void sound.play('deal');
     else if (e.k === 'street') void sound.play('cardPlace');
     else if (e.k === 'award') void sound.play('chipsCollect');
@@ -42,7 +51,7 @@ export function useTableSounds(view: TableView | null): void {
       const name = ACT_SOUND[e.a];
       if (name) void sound.play(name);
     }
-  }, [view]);
+  }, [view, onTable]);
 
   /* Your turn, once per decision. */
   useEffect(() => {

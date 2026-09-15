@@ -5,6 +5,7 @@ import { COLUMN_ROWS, columnSizes, dealFrom, dealOrder, layoutMode, placeOf, sea
 import { blindText, handText, ordinal } from '../table/labels.ts';
 import { rankSeats } from '../table/results.ts';
 import { SITTING_OUT_TEXT, sittingOutNow } from '../table/sitout.ts';
+import { potCollects, type Dealt } from '../table/collect.ts';
 import type { Match } from '../net/types.ts';
 
 describe('seat rotation', () => {
@@ -300,5 +301,44 @@ describe('the sit-out prompt', () => {
 
   it('says the two things it has to say, and asks in sentence case', () => {
     expect(SITTING_OUT_TEXT).toBe('You are sitting out. Press to come back');
+  });
+});
+
+describe('the pot collecting before the street deals', () => {
+  const at = (extra: Partial<Dealt> = {}): Dealt =>
+    ({ h: 4, board: 0, pot: 3, street: 'pre', runout: false, ...extra });
+
+  it('waits when the closing action put chips in and dealt the next street', () => {
+    // One frame of the wire carries both, which is the whole complaint.
+    expect(potCollects(at({ pot: 9 }), at({ board: 3, pot: 14, street: 'flop' }))).toBe(true);
+    expect(potCollects(
+      at({ board: 3, pot: 14, street: 'flop' }),
+      at({ board: 4, pot: 18, street: 'turn' }),
+    )).toBe(true);
+  });
+
+  it('does not wait for a street everybody checked through', () => {
+    expect(potCollects(
+      at({ board: 3, pot: 14, street: 'flop' }),
+      at({ board: 4, pot: 14, street: 'turn' }),
+    )).toBe(false);
+  });
+
+  it('does not wait on the first view it is given, or across a new hand', () => {
+    expect(potCollects(null, at({ board: 3, pot: 14, street: 'flop' }))).toBe(false);
+    expect(potCollects(at({ h: 4, board: 5, pot: 90, street: 'river' }), at({ h: 5 }))).toBe(false);
+  });
+
+  it('leaves the hand end and a paced run-out alone', () => {
+    // Both deal a board with the betting already over, and the hand-end
+    // sequence and the server's own pacing each own their felt.
+    expect(potCollects(
+      at({ board: 0, pot: 400 }),
+      at({ board: 5, pot: 402, street: 'done' }),
+    )).toBe(false);
+    expect(potCollects(
+      at({ board: 0, pot: 400, runout: true }),
+      at({ board: 3, pot: 402, street: 'flop', runout: true }),
+    )).toBe(false);
   });
 });

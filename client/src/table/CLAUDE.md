@@ -5,7 +5,7 @@ it: `seat.tsx`, `playing-card.tsx`, `turn-clock.tsx`, `chip-stack.tsx` and
 `dock.tsx` on a live table, `result-panel.tsx` under a finished one and
 `match-summary.tsx` for a match opened cold from its URL. `sizing.ts`,
 `preactions.ts`, `best-five.ts`, `chips.ts`, `keys.ts`, `labels.ts`,
-`layout.ts`, `sitout.ts` and
+`layout.ts`, `sitout.ts`, `collect.ts` and
 `results.ts` are pure and unit tested from `../test/`. `sounds.ts` is the
 table's side of `../sound/`.
 
@@ -836,6 +836,56 @@ collecting a street moves nothing. At the pay step the pot ticks to nothing and
 the winner's stack ticks up. The figures beside the stacks snap, and never
 roll while chips tick. The mini stack is off on a phone, where its width is a
 name's.
+
+### The pot collects, then the street deals
+
+**A street the betting put chips into waits 400 ms for them before its cards
+come out.** `collect.ts` is the rule and `useDealt` in `table.tsx` is the beat;
+`COLLECT_MS` is the number.
+
+It exists because the wire gives the felt no beat of its own. The engine deals
+the next street inside the action that closes the betting (`afterAction` in
+`@opentable/engine`), and the runner broadcasts once per action, so **one view
+carries both the caller's chips and the flop**: the pot's rack was still
+ticking up while the cards landed over it, and two things were moving at once
+on the one screen whose rule is that one thing moves at a time. Tickets
+g7hfddbc and d62s9bgx are that, reported two days apart. Observed on a live
+table before it was changed, every street: `pot 9 -> 14, board 0 -> 3, one
+frame`.
+
+**The beat is the felt's and cannot be the wire's.** Holding the board back on
+the server would hold it back from the bots too, which decide off the same
+view, and from the clocks that are already running on it. So the table is told
+everything at once, as it always was, and the felt draws it in the order the
+eye needs — exactly the bargain "Hand end" above makes with `result`.
+
+- **Nothing waits for a street nobody bet on.** A flop checked through moves no
+  chips, so the turn deals at once: a beat in which nothing moves is a beat.
+- **The hand end and a paced run-out are left alone.** Both deal a board with
+  the betting already over, and each owns its own sequence.
+- **Anything else landing ends it early.** A quick bot's floor is 100 ms
+  (`server/src/bots/pacing.ts`), so the next action can arrive inside the hold,
+  and a seat may not be shown acting on a street whose cards are not on the
+  table.
+- **`onTable` is the only reading of the board while it runs**, and every
+  consumer takes it: the five slots, the practice readings (`LiveStats` naming
+  the flop's hand before the flop is drawn would be telling the player the
+  card), and `sounds.ts`, which takes it as a second argument so the card's
+  noise lands with the card rather than a beat ahead of it.
+- **The replay and reduced motion snap.** A scrubber dragging through frames
+  has no use for a beat between two of them.
+
+The rule is enforced, not remembered: `../../e2e/collect.spec.ts` samples the
+felt every 25 ms through that script and asserts the flop and the turn each
+land a beat after the chips they arrived with. It watches the clock rather
+than taking a picture, because what is under test is an order of events and
+not a box.
+
+`/m/mock?collect=1` is the script, its own for the reason the run-out's is its
+own: the ordinary heads-up script splits the call and the flop over two steps,
+which is the felt everybody wanted rather than the one the server sends, so it
+could never have caught this. It deals two streets off a bet and its last one
+off a check-through, so both halves of the rule are in one script.
 
 ## The v2 felt (cards and chips as SVG)
 

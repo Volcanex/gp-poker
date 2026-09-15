@@ -15,6 +15,7 @@ import { blindsRow, cardsOf, faceUp, handText, streetText } from './labels.ts';
 import { dealFrom, dealOrder, layoutMode, placeOf, seatOrder } from './layout.ts';
 import { amountToCall } from './preactions.ts';
 import { readShowdown } from './best-five.ts';
+import { potCollects, type Dealt } from './collect.ts';
 import { useTableSounds } from './sounds.ts';
 import { useGamePanelOpen, useMedia, useRootAttr, useTableInfo, useGInit } from '../ui/bits.tsx';
 import { updatePrefs } from '../ui/prefs.ts';
@@ -85,6 +86,12 @@ const REVEAL_MS = 0;
 const HIGHLIGHT_MS = 400;
 const SETTLE_MS = 700;
 
+/* How long the next street waits for the pot to collect. Long enough to read
+   as two events rather than one, and short enough that a table does not feel
+   held up: the rack it is waiting for is two or three chips, which tick in at
+   60 ms each. See `collect.ts` for when it is waited at all. */
+const COLLECT_MS = 400;
+
 const EASE_OUT = [0.2, 0, 0, 1] as const;
 
 /* The award line is written in rather than faded in: a mask that opens from
@@ -97,7 +104,10 @@ const AWARD_OPEN = { '--wipe': '0%' };
 export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', onNext, onBack, onLeave }: TableProps) {
   const reduced = useReducedMotion();
   const headRef = useRef<HTMLSpanElement>(null);
-  useTableSounds(bare ? null : view);
+  /* The replay snaps: it is scrubbed, and a beat between two frames a slider
+     is dragging through is a beat in the wrong place. */
+  const onTable = useDealt(view, Boolean(reduced) || Boolean(bare));
+  useTableSounds(bare ? null : view, onTable);
   /* The site's own top bar, portalled the actions into its middle: null until
      it has mounted, which is the one render this waits out. `useGInit` fires
      once on this component's own mount, before the slot exists, so `head-acts`
@@ -163,7 +173,13 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
   const deal = dealOrder(view.seats, button);
   const dealt = Math.max(1, deal.size);
 
-  const board = Array.from({ length: BOARD_SLOTS }, (_, i) => view.board[i] ?? null);
+  /* `onTable` and not `view.board`, here and everywhere the board is read
+     from: while the pot is collecting there is a beat in which the table
+     holds a card the felt has not dealt yet, and every reading of the board
+     has to be the one the player can see. A readings column that named the
+     flop's hand before the flop was drawn would be telling them the card. */
+  const shown = view.board.slice(0, onTable);
+  const board = Array.from({ length: BOARD_SLOTS }, (_, i) => shown[i] ?? null);
   /* Practice tables carry the analysis strip. It is a row of the same grid as
      the header, the felt and the dock, with a height of its own, so the felt
      divides once and stays divided: a strip that appeared when the flop came
@@ -407,7 +423,7 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
 
       {strip && !inBand && (
         <div className="practice-strip">
-          {hole && <LiveStats hole={hole} board={view.board} opponents={opponents} />}
+          {hole && <LiveStats hole={hole} board={shown} opponents={opponents} />}
         </div>
       )}
 
@@ -426,7 +442,7 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
               onNext={onNext}
               onBack={onBack}
               stats={inBand && hole
-                ? <LiveStats hole={hole} board={view.board} opponents={opponents} />
+                ? <LiveStats hole={hole} board={shown} opponents={opponents} />
                 : null}
             />
           ) : (
@@ -566,6 +582,42 @@ function holeOf(seat: SeatView | null): [Card, Card] | null {
 /* Which step of the hand-end sequence we are on: 0 reveal, 1 highlight,
    2 settle. Reduced motion lands on the last step immediately, which is the
    same information with none of the staging. */
+/* The cards the table has been shown, which is the whole board except for the
+   beat a new street waits while the pot collects (`collect.ts`).
+
+   **The hold is the felt's and cannot be the wire's.** Masking the board on
+   the server would mask it from the bots as well, which decide off the same
+   view, and from their clocks. So the table is told everything at once, the
+   way it always was, and draws it in the order the eye needs it: exactly the
+   bargain the hand-end sequence above makes with `result`.
+
+   The beat ends early if anything else happens, because a seat cannot be
+   shown acting on a street whose cards are not on the table: a quick bot's
+   floor is 100 ms and the next action can land inside the hold. */
+function useDealt(view: TableView, snap: boolean): number {
+  const full = view.board.length;
+  const seen = useRef<Dealt | null>(null);
+  const [shown, setShown] = useState(full);
+
+  useEffect(() => {
+    const was = seen.current;
+    const now: Dealt = {
+      h: view.h, board: full, pot: view.pot, street: view.street, runout: Boolean(view.runout),
+    };
+    seen.current = now;
+    if (was === null || snap || !potCollects(was, now)) {
+      setShown(full);
+      return;
+    }
+    setShown(was.board);
+    const timer = setTimeout(() => setShown(full), COLLECT_MS);
+    return () => clearTimeout(timer);
+  }, [view, full, snap]);
+
+  // A hand that has just been dealt holds fewer cards than the one before it.
+  return Math.min(shown, full);
+}
+
 function useHandEnd(key: string | null, reduced: boolean | null): number {
   const [phase, setPhase] = useState(0);
   useEffect(() => {
