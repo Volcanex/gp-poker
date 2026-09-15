@@ -84,7 +84,7 @@ describe('provenance', () => {
 describe('persistence', () => {
   it('falls back to defaults with nothing stored', async () => {
     const mod = await import('../sound/index.ts');
-    expect(mod.sound.state).toEqual({ enabled: false, volume: 0.6, pack: 'felt' });
+    expect(mod.sound.state).toEqual({ enabled: true, volume: 0.6, pack: 'felt' });
   });
 
   it('loads persisted state on init', async () => {
@@ -110,7 +110,7 @@ describe('persistence', () => {
   it('ignores a garbage stored value rather than throwing', async () => {
     window.localStorage.setItem(STORAGE_KEY, 'not json');
     const mod = await import('../sound/index.ts');
-    expect(mod.sound.state).toEqual({ enabled: false, volume: 0.6, pack: 'felt' });
+    expect(mod.sound.state).toEqual({ enabled: true, volume: 0.6, pack: 'felt' });
   });
 });
 

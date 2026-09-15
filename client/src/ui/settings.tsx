@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { GearSix } from '@phosphor-icons/react';
 import { useGInit, useMedia } from './bits.tsx';
-import { ACCENTS, CARD_LAYOUTS, CARD_SIZES, HAND_METAS, PALETTES, TABLE_INFO, THEMES, applyPrefs, defaultAccentFor, readPrefs, writePrefs, SEAT_DETAILS } from './prefs.ts';
-import type { AccentId, CardLayout, CardSize, HandMeta, PaletteId, Prefs, TableInfo, ThemeChoice, SeatDetail } from './prefs.ts';
+import { ACCENTS, BOARD_SIZES, CARD_LAYOUTS, CARD_SIZES, HAND_METAS, PALETTES, TABLE_INFO, THEMES, applyPrefs, defaultAccentFor, readPrefs, writePrefs, SEAT_DETAILS } from './prefs.ts';
+import type { AccentId, BoardSize, CardLayout, CardSize, HandMeta, PaletteId, Prefs, TableInfo, ThemeChoice, SeatDetail } from './prefs.ts';
 import { Segmented } from './segmented.tsx';
 import { useSoundSettings } from '../sound/react.ts';
 import { PictureDialog } from './picture-dialog.tsx';
@@ -266,21 +266,21 @@ export function SettingsMenu() {
           />
         </label>
 
-        {/* Own request: much bigger community cards. Desktop only, both in
-            what it does (`--board-card` above 561px in `../app.css`) and in
-            what it offers: a phone has no room to spend on the board any
-            bigger than it already draws it, so the row is not here at all
-            rather than a switch that would answer no. */}
+        {/* How big the community cards are drawn. Desktop only, both in what
+            it does (`--board-card` above 561px in `../app.css`) and in what it
+            offers: a phone has no room to spend on the board any bigger than
+            it already draws it, so the row is not here at all rather than a
+            control that would answer no. */}
         {!phone && (
-          <label className="switch-row">
-            <span className="label">Big community cards</span>
-            <input
-              type="checkbox"
-              className="switch"
-              checked={prefs.bigBoard}
-              onChange={(e) => update({ bigBoard: e.target.checked })}
+          <div className="seg-row">
+            <span className="label">Community cards</span>
+            <Segmented
+              options={BOARD_SIZES.map((b) => ({ value: b.id, label: b.label }))}
+              value={prefs.boardSize}
+              onPick={(v) => update({ boardSize: v as BoardSize })}
+              label="Community card size"
             />
-          </label>
+          </div>
         )}
 
         {/* Where the hand's facts and the match's actions are read from: one

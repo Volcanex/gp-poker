@@ -36,7 +36,7 @@ export interface SoundState {
 }
 
 const STORAGE_KEY = 'ot.sound';
-const DEFAULT_STATE: SoundState = { enabled: false, volume: 0.6, pack: 'felt' };
+const DEFAULT_STATE: SoundState = { enabled: true, volume: 0.6, pack: 'felt' };
 
 function isPackId(value: unknown): value is PackId {
   return typeof value === 'string' && PACK_META.some((p) => p.id === value);

@@ -815,10 +815,10 @@
   --seat-w: calc(var(--seat-body) + var(--seat-card) * 2);
   --felt-w: calc(var(--seat-w) * 2 + var(--mid-w) + var(--sp-4) * 2);
 }
-/* Community cards, much bigger: own request, desktop only. `--board-card` is
+/* Community cards, three sizes, desktop only. `--board-card` is
    the one number the board, its row height, the pot's box and the middle
    column's own width are all derived from above, so this is the whole
-   feature. `:root[data-big-board]` beats the plain `.match` rule above on
+   feature. `:root[data-board-size]` beats the plain `.match` rule above on
    specificity regardless of source order, and every var that reads
    `--board-card` picks the new value up live, the same way the phone's own
    container queries already override it further down. Gated in a plain media
@@ -826,7 +826,8 @@
    it whatever a table's own width does: the setting is not offered there
    (`../ui/settings.tsx`) and this is what makes that true even if it were. */
 @media (min-width: 561px) {
-  :root[data-big-board] .match { --board-card: 64px; }
+  :root[data-board-size="medium"] .match { --board-card: 64px; }
+  :root[data-board-size="big"] .match { --board-card: 78px; }
 }
 .bar-in { width: 100%; max-width: var(--felt-w); margin: 0 auto; }
 

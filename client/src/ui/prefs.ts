@@ -42,6 +42,15 @@ export type TableInfo = 'seat' | 'panel';
 
 export type SeatDetail = 'normal' | 'detailed';
 
+/* How big the five community cards are drawn. Desktop only, the same way the
+   single toggle this replaces was: a phone has no width to spend on the board
+   beyond what it already gives it. `medium` is the default and is the exact
+   size the old `bigBoard` switch turned on, so a table looks the same to
+   somebody who had it on and bigger to everybody else, which is the point.
+   `big` is a further step again for a wide screen. The geometry is one number
+   in `../app.css` (`--board-card`); nothing here knows a pixel. */
+export type BoardSize = 'regular' | 'medium' | 'big';
+
 /* Where the hand's own line stands on the v2 band: the name, the button
    marker, the stack, its rack of chips and the last action. `cards` is the
    original, under your own two cards on their edge. `acts` moves it over the
@@ -92,7 +101,7 @@ export interface Prefs {
      a `(min-width: 561px)` block for that reason; not a setting a phone even
      offers, in `settings.tsx`. Applies to the live table and the replay
      alike, since both read the same variable off `.match`. */
-  bigBoard: boolean;
+  boardSize: BoardSize;
 }
 
 export const PREFS_KEY = 'ot.prefs';
@@ -100,7 +109,7 @@ export const PREFS_KEY = 'ot.prefs';
 export const DEFAULT_PREFS: Prefs = {
   theme: 'room', palette: 'slate', accent: 'default', fourColour: false, hand: 'right',
   cards: 'stacked', cardSize: 'large', seatCards: 'large', seatDetail: 'normal', tableInfo: 'panel',
-  handMeta: 'cards', keyLegend: true, gamePanel: 'open', bigBoard: false,
+  handMeta: 'cards', keyLegend: true, gamePanel: 'open', boardSize: 'medium',
 };
 
 export const THEMES: { id: ThemeChoice; label: string }[] = [
@@ -150,11 +159,20 @@ export const CARD_LAYOUTS: { id: CardLayout; label: string }[] = [
   { id: 'ajar', label: 'Ajar' },
 ];
 
+export const BOARD_SIZES: { id: BoardSize; label: string }[] = [
+  { id: 'regular', label: 'Regular' },
+  { id: 'medium', label: 'Medium' },
+  { id: 'big', label: 'Big' },
+];
+
 export const CARD_SIZES: { id: CardSize; label: string }[] = [
   { id: 'regular', label: 'Regular' },
   { id: 'large', label: 'Large' },
   { id: 'huge', label: 'Huge' },
 ];
+
+const isBoardSize = (v: unknown): v is BoardSize =>
+  v === 'regular' || v === 'medium' || v === 'big';
 
 const isCardLayout = (v: unknown): v is CardLayout =>
   typeof v === 'string' && CARD_LAYOUTS.some((c) => c.id === v);
@@ -198,7 +216,10 @@ export function readPrefs(store: Storage | null = safeStorage()): Prefs {
     return { ...DEFAULT_PREFS };
   }
   if (!raw || typeof raw !== 'object') return { ...DEFAULT_PREFS };
-  const r = raw as Partial<Prefs>;
+  /* `bigBoard` is not a field of Prefs any more, but a record written before
+     the board had three sizes still carries it, so the shape read off storage
+     is the current one plus the keys this build only migrates. */
+  const r = raw as Partial<Prefs> & { bigBoard?: unknown };
   return {
     theme: isTheme(r.theme) ? r.theme : DEFAULT_PREFS.theme,
     palette: isPalette(r.palette) ? r.palette : DEFAULT_PREFS.palette,
@@ -213,7 +234,13 @@ export function readPrefs(store: Storage | null = safeStorage()): Prefs {
     handMeta: isHandMeta(r.handMeta) ? r.handMeta : DEFAULT_PREFS.handMeta,
     keyLegend: typeof r.keyLegend === 'boolean' ? r.keyLegend : DEFAULT_PREFS.keyLegend,
     gamePanel: r.gamePanel === 'shut' ? 'shut' : DEFAULT_PREFS.gamePanel,
-    bigBoard: typeof r.bigBoard === 'boolean' ? r.bigBoard : DEFAULT_PREFS.bigBoard,
+    /* A record written before the board had three sizes carries `bigBoard`.
+       On maps to `medium`, which is the same geometry under a new name, and
+       off maps to `regular`: somebody who turned it off chose the small board
+       and should not be handed the new default instead. */
+    boardSize: isBoardSize(r.boardSize) ? r.boardSize
+      : typeof r.bigBoard === 'boolean' ? (r.bigBoard ? 'medium' : 'regular')
+      : DEFAULT_PREFS.boardSize,
   };
 }
 
@@ -259,8 +286,8 @@ export function applyPrefs(prefs: Prefs, root: HTMLElement, store: Storage | nul
   if (prefs.hand === 'left') root.setAttribute('data-hand', 'left');
   else root.removeAttribute('data-hand');
 
-  if (prefs.bigBoard) root.setAttribute('data-big-board', '');
-  else root.removeAttribute('data-big-board');
+  if (prefs.boardSize !== 'regular') root.setAttribute('data-board-size', prefs.boardSize);
+  else root.removeAttribute('data-board-size');
 
   /* Two attributes rather than one, because they are two independent choices:
      a layout is where the second card sits and a size is how big both are. The

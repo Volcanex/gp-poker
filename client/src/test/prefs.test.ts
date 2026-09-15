@@ -39,12 +39,12 @@ describe('settings persistence', () => {
     writePrefs({
       theme: 'light', palette: 'felt', accent: 'jade', fourColour: true, hand: 'left',
       cards: 'ajar', cardSize: 'huge', seatCards: 'regular', seatDetail: 'detailed', tableInfo: 'seat',
-      handMeta: 'acts', keyLegend: false, gamePanel: 'shut', bigBoard: true,
+      handMeta: 'acts', keyLegend: false, gamePanel: 'shut', boardSize: 'big',
     }, store);
     expect(readPrefs(store)).toEqual({
       theme: 'light', palette: 'felt', accent: 'jade', fourColour: true, hand: 'left',
       cards: 'ajar', cardSize: 'huge', seatCards: 'regular', seatDetail: 'detailed', tableInfo: 'seat',
-      handMeta: 'acts', keyLegend: false, gamePanel: 'shut', bigBoard: true,
+      handMeta: 'acts', keyLegend: false, gamePanel: 'shut', boardSize: 'big',
     });
   });
 
@@ -53,12 +53,12 @@ describe('settings persistence', () => {
     writePrefs({
       theme: 'system', palette: 'sky', accent: 'clay', fourColour: false, hand: 'right',
       cards: 'side', cardSize: 'regular', seatCards: 'huge', seatDetail: 'normal', tableInfo: 'seat',
-      handMeta: 'cards', keyLegend: true, gamePanel: 'open', bigBoard: false,
+      handMeta: 'cards', keyLegend: true, gamePanel: 'open', boardSize: 'regular',
     }, store);
     expect(store.getItem(PREFS_KEY)).toBe(
       '{"theme":"system","palette":"sky","accent":"clay","fourColour":false,"hand":"right"'
       + ',"cards":"side","cardSize":"regular","seatCards":"huge","seatDetail":"normal","tableInfo":"seat"'
-      + ',"handMeta":"cards","keyLegend":true,"gamePanel":"open","bigBoard":false}',
+      + ',"handMeta":"cards","keyLegend":true,"gamePanel":"open","boardSize":"regular"}',
     );
   });
 
@@ -75,8 +75,20 @@ describe('settings persistence', () => {
     expect(readPrefs(store)).toEqual({
       theme: 'room', palette: 'slate', accent: 'violet', fourColour: false, hand: 'right',
       cards: 'stacked', cardSize: 'large', seatCards: 'large', seatDetail: 'normal', tableInfo: 'panel',
-      handMeta: 'cards', keyLegend: true, gamePanel: 'open', bigBoard: false,
+      handMeta: 'cards', keyLegend: true, gamePanel: 'open', boardSize: 'medium',
     });
+  });
+
+  /* The board's single switch became three sizes. A record that predates that
+     still has to open the table at the size its owner chose, and `medium` is
+     the old switch's on state under a new name. */
+  it('reads an old bigBoard switch as a board size', () => {
+    const on = fakeStore({ [PREFS_KEY]: '{"bigBoard":true}' });
+    expect(readPrefs(on).boardSize).toBe('medium');
+    const off = fakeStore({ [PREFS_KEY]: '{"bigBoard":false}' });
+    expect(readPrefs(off).boardSize).toBe('regular');
+    /* And a record that never mentioned it takes the new default. */
+    expect(readPrefs(fakeStore({ [PREFS_KEY]: '{"accent":"violet"}' })).boardSize).toBe('medium');
   });
 
   /* The two card settings are the newest keys here, so every stored record
@@ -200,7 +212,7 @@ describe('applying settings', () => {
       {
         theme: 'light', palette: 'felt', accent: 'ocean', fourColour: true, hand: 'left',
         cards: 'side', cardSize: 'huge', seatCards: 'huge', seatDetail: 'detailed', tableInfo: 'seat',
-        handMeta: 'acts', keyLegend: false, gamePanel: 'shut', bigBoard: true,
+        handMeta: 'acts', keyLegend: false, gamePanel: 'shut', boardSize: 'big',
       },
       root, fakeStore(),
     );
@@ -209,7 +221,7 @@ describe('applying settings', () => {
     expect(root.getAttribute('data-accent')).toBe('ocean');
     expect(root.getAttribute('data-deck')).toBe('four');
     expect(root.getAttribute('data-hand')).toBe('left');
-    expect(root.getAttribute('data-big-board')).toBe('');
+    expect(root.getAttribute('data-board-size')).toBe('big');
     expect(root.getAttribute('data-seat-detail')).toBe('detailed');
     expect(root.getAttribute('data-cards')).toBe('side');
     expect(root.getAttribute('data-card-size')).toBe('huge');
