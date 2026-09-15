@@ -163,15 +163,17 @@
    `.match`, above the band and the practice strip, so it costs the grid
    nothing and the footprint suites never see it. The count sits on its
    shoulder in the same circle the header's word carries. */
+/* Above the narration bar, not over it: the felt's bottom edge is the bar's
+   now, and a round button in that corner sat on the end of a long sentence. */
 .chat-fab {
   position: absolute; z-index: 4;
   right: var(--sp-3);
-  bottom: calc(var(--dock-h) + var(--sp-3));
+  bottom: calc(var(--dock-h) + var(--narrate-h) + var(--sp-3));
   width: 44px; height: 44px; padding: 0;
   border-radius: var(--radius-full);
   box-shadow: var(--shadow-overlay);
 }
-.match[data-practice] .chat-fab { bottom: calc(var(--dock-h) + var(--strip-h) + var(--sp-3)); }
+.match[data-practice] .chat-fab { bottom: calc(var(--dock-h) + var(--strip-h) + var(--narrate-h) + var(--sp-3)); }
 /* A bigger table read as strips fills the felt to the band, and the last
    strip's action square is exactly the corner this button stands in; there
    it stands in the top right instead, beside the board, which is the one

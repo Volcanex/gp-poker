@@ -628,6 +628,19 @@
   position: relative;
   --dock-h: 128px;
   --keys-h: 24px;
+  /* The narration bar along the bottom of the felt (`table/narration.ts`). A
+     step above the pot's figure, which is the biggest thing the felt prints,
+     because this is the line meant to be read from across the room; its box
+     is reserved whether or not there is anything in it.
+
+     It stands here rather than on `.felt` for the reason `--felt-w` does:
+     the chat button floats over the felt from `.match`, and it has to stand
+     clear of a bar it cannot see the height of. A plain media query and not
+     the felt's container one, because the only thing that draws this felt in
+     a column of its own is the replay, which has no narration and no chat
+     button either. */
+  --narrate-h: 40px;
+  --narrate-size: 22px;
   --stats-h: var(--strip-h);
   --watch-h: 32px;
   --dock-r1: 28px; /* pills and presets */
@@ -958,6 +971,54 @@
    what grows is a pill and not a rectangle. It is paint, not layout, so the
    zone's reserved height still holds the felt still. */
 .award-chip { clip-path: inset(0 var(--wipe, 0%) 0 0 round var(--radius-full)); }
+
+/* ------------------------------------------------------------- narration */
+
+/* **The board owns the top of the felt and this owns the bottom.** One line
+   of the table's own commentary, typed out: who is to act and what they are
+   facing, and at the end of a hand who won it and how (`table/narration.ts`).
+   The decision line over the clock keeps the second person and the price you
+   have to answer; this is the table talking about everybody at it, the owner
+   included.
+
+   It is a **reserved slot**, not a thing that appears: the height stands
+   whether or not there is a line in it, so nothing above it ever moves. A
+   sibling of `.felt-in` rather than a row of its grid, because `.felt-in` has
+   six templates between the two arrangements, the band and the phone's rows,
+   and a slot that has to be added to all six is a slot that will be missing
+   from one of them. The auto margins that centre `.felt-in` split what is
+   left over it, so this sits on the felt's own bottom edge. */
+.narrate {
+  flex: none;
+  width: 100%; max-width: var(--felt-w); margin: 0 auto;
+  height: var(--narrate-h);
+  display: flex; align-items: center; justify-content: safe center;
+  overflow: hidden;
+}
+/* `--text-primary` and not a white of its own: it is white on the green felt
+   and in the games room, and it is the one token that stays legible when the
+   felt palette swings to its light scale, where a hard white would be ink on
+   paper the same colour. */
+.narrate-line {
+  color: var(--text-primary);
+  font-size: var(--narrate-size); line-height: var(--narrate-h);
+  font-weight: 500; letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  /* The longest sentence this bar can say is a long name, a four figure pot
+     and a two pair named in full, and at 360 that does not fit however small
+     the type goes. So it reads from the start and trails off, exactly as the
+     decision line under it does with the same fact: `safe center` centres a
+     line that fits and stands one that does not against the left edge instead
+     of clipping both of its ends, and the ellipsis is then the band's own. */
+  max-width: 100%; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* The half that has not been typed yet still takes its room, so a character
+   arrives where it is going to stand instead of pushing the sentence along in
+   front of it. Hidden rather than absent for exactly the reason the button
+   marker and the flag slot are (see `table/CLAUDE.md`), and invisible to the
+   layout-shift observer as well as to the eye. */
+.narrate-rest { visibility: hidden; }
 
 /* The facts about the hand. Above 1060 it stands in the bottom right seat
    position: six-max leaves that corner of its right wing empty (the hero
@@ -1647,6 +1708,16 @@
   }
 }
 
+/* And the same trade downwards. The compact geometry had no short-screen
+   tier at all, because before the narration bar it filled a 640 tall phone
+   exactly; the bar is 20 px there and the three seat rows are where it comes
+   from, the same order of giving-up the detailed reading's own tiers keep. */
+@media (max-height: 660px) {
+  @container felt (max-width: 560px) {
+    .felt:not([data-rows]) { --seat-h: 40px; --board-card: 28px; }
+  }
+}
+
 /* A six-max table not in the detailed reading (own request; also a
    spectator's felt, which keeps this compact geometry always) had a third
    of a tall phone's felt in fixed rows and the rest in dead green, split
@@ -1665,7 +1736,11 @@
        base value here and the reclaimed height goes to the seat's own row
        and the board in the middle, where growing does say something. */
     .felt:not([data-rows]) {
-      --seat-h: 60px; --board-card: 42px;
+      /* 56 and 40 rather than the 60 and 42 this grew to before the felt had
+         a narration bar along its bottom: the slack a tall phone has is the
+         same slack the bar came out of, and a six-max table at 414 by 736
+         went from filling its felt exactly to overflowing it by three. */
+      --seat-h: 56px; --board-card: 40px;
       --chip: 18px; --pot-w: 96px;
     }
   }
@@ -1924,6 +1999,12 @@
   .match {
     --stats-h: 60px;
     --dock-h: 150px;
+    /* The narration comes down with everything else, and further than most:
+       the longest thing it says is a name, a figure and a hand's own
+       description, and 16 px is what holds that on one line at 360. It is
+       still half again the size of a seat's name here. */
+    --narrate-h: 24px;
+    --narrate-size: 16px;
     --keys-h: 0px;
     --dock-r1: 24px;
     --dock-r2: 28px;
@@ -1947,6 +2028,18 @@
   .dock-acts > .btn { grid-row: 1; height: 100%; }
   .dock-acts > .btn[data-primary] { grid-row: 2; grid-column: 1 / -1; }
 
+}
+
+/* **A reserved slot has to be paid for somewhere**, and on a short phone the
+   narration bar pays out of itself before it asks the seats for anything: the
+   line is the thing allowed to be smaller, since it is read once a beat where
+   a seat is read continuously, and 14 px is still a step above the seat line
+   it sits over. Later in the file than the phone block above rather than
+   tucked in with the felt's own height tiers, so it wins the range both match
+   rather than the two fighting over source order: that is the same bargain
+   the felt's 640 px tier spells out against its 760 px one. */
+@media (max-width: 560px) and (max-height: 700px) {
+  .match { --narrate-h: 20px; --narrate-size: 14px; }
 }
 
 .whoami { text-decoration: none; }

@@ -115,6 +115,7 @@ it.
 | `ergonomics.spec.ts` | phone target sizes, the primary action in the bottom quarter, the sizing model and clamping, a pre-action firing, and the ring at 768, 1280 and 1920 |
 | `hero-band.spec.ts` | the v2 band's one footprint through a hand at 390 and 1280, sitting out, the felt giving up your seat, the decision line, the sizes and the keys, and the hand's three layouts and three sizes: ten pictures, the card at the size the setting names, and the cards ending before the controls start |
 | `showdown.spec.ts` | your cards face up through a lost showdown and after the end, the winning five, the award chip clear of the pot label |
+| `narration.spec.ts` | the felt's narration bar: the line types itself out at a readable pace and only ever shows characters belonging to the sentence the table is saying now, nothing inside the felt shifts while it types, the slot is the same height empty as full, the felt names you where the band talks to you, reduced motion carries the whole line at once, and a six-max felt still fits four phone sizes with the bar on it |
 | `collect.spec.ts` | the pot collects before the street deals: on `?collect=1`, the wire's own shape at a street boundary, the flop and the turn each land a beat after the chips they were dealt with. Timing rather than a picture, because the thing under test is an order of events |
 | `access.spec.ts` | axe-core per state with zero serious or critical, a keyboard-only decision, tab reachability, and typing in the field not triggering the shortcuts |
 | `practice.spec.ts` | the strip is on a practice table and off a rated one, that it reads, and that a practice table keeps one footprint with zero layout shift |
@@ -127,7 +128,7 @@ it.
 | `odds.spec.ts` | the pot odds trainer's reserved boxes across an answer, at 390 and 1366, and axe in both themes. No baselines: the assertion is the geometry |
 | `puzzles.spec.ts` | the preflop chart's entrance: every cell ends visible, on the first spot and the next, and the page does not reflow while it runs |
 | `shell.spec.ts` | the sidebar as a named landmark and the section you are in, the sheet on a phone opening and shutting by toggle, Escape, scrim and a link with the focus put back, a shut sheet out of the tab order, and a table keeping the whole window |
-| `screenshots.spec.ts` | 198 baselines: sixteen states at 360, 390, 430, 768, 1366 and 1920 in dark and light, and three at 390 and 1366 in the games room |
+| `screenshots.spec.ts` | 218 baselines: sixteen states at 360, 390, 430, 768, 1366 and 1920 in dark and light, and three at 390 and 1366 in the games room |
 
 ## Reading a baseline diff
 

@@ -6,6 +6,7 @@ import { blindText, handText, ordinal } from '../table/labels.ts';
 import { rankSeats } from '../table/results.ts';
 import { SITTING_OUT_TEXT, sittingOutNow } from '../table/sitout.ts';
 import { potCollects, type Dealt } from '../table/collect.ts';
+import { narrationLine } from '../table/narration.ts';
 import type { Match } from '../net/types.ts';
 
 describe('seat rotation', () => {
@@ -340,5 +341,169 @@ describe('the pot collecting before the street deals', () => {
       at({ board: 0, pot: 400, runout: true }),
       at({ board: 3, pot: 402, street: 'flop', runout: true }),
     )).toBe(false);
+  });
+});
+
+/* The felt's own voice along its bottom edge: whose action it is and what
+   they are facing, and at the end of a hand who won it and how. Everybody is
+   named, the viewer included, because the band's decision line already says
+   the same fact to them in the second person. */
+describe('the narration bar', () => {
+  const seat = (i: number, extra: Partial<SeatView> = {}): SeatView => ({
+    i,
+    uid: `u${i}`,
+    name: ['kestrel', 'riverrat', 'PoliteSaxophone'][i] ?? `seat ${i}`,
+    rating: 1500,
+    stack: 200,
+    bet: 0,
+    cards: null,
+    folded: false,
+    allin: false,
+    button: false,
+    acting: false,
+    connected: true,
+    bot: false,
+    out: false,
+    place: null,
+    last: null,
+    ...extra,
+  });
+
+  const view = (extra: Partial<TableView> = {}): TableView => ({
+    m: 'm1',
+    h: 1,
+    n: 0,
+    street: 'pre',
+    board: [],
+    pot: 0,
+    pots: [],
+    seats: [seat(0), seat(1)],
+    you: 0,
+    legal: null,
+    clock: null,
+    seedHash: 'hash',
+    seed: null,
+    format: HEADS_UP_FORMAT,
+    blinds: { sb: 1, bb: 2 },
+    handsPlayed: 0,
+    last: null,
+    result: null,
+    ...extra,
+  });
+
+  /* The felt is showing everything the wire has, which is every moment except
+     the beat a street waits for the pot. */
+  const drawn = (v: TableView, phase = 0) =>
+    narrationLine(v, { onTable: v.board.length, phase });
+
+  it('says who is to act and what it costs them', () => {
+    expect(drawn(view({ seats: [seat(0, { bet: 2 }), seat(1, { bet: 6, acting: true })] })))
+      .toBe('riverrat to act');
+    expect(drawn(view({ seats: [seat(0, { bet: 2, acting: true }), seat(1, { bet: 6 })] })))
+      .toBe('kestrel to call 4');
+  });
+
+  it('names an all in to call rather than numbering it, the way the band does', () => {
+    const v = view({
+      seats: [seat(0, { bet: 0, stack: 40, acting: true }), seat(1, { bet: 60, stack: 140 })],
+    });
+    expect(drawn(v)).toBe('kestrel to call all in');
+  });
+
+  it('narrates your own turn in the third person, like everybody else', () => {
+    const v = view({
+      you: 0,
+      seats: [seat(0, { bet: 2, acting: true }), seat(1, { bet: 6 })],
+    });
+    expect(drawn(v)).toBe('kestrel to call 4');
+  });
+
+  it('says who won and with what, off the award the engine sent', () => {
+    const v = view({
+      street: 'done',
+      board: ['7h', '2c', 'Jh', 'Td', '4h'],
+      result: { awards: [{ seat: 0, amount: 132, hand: 'Flush, King High' }], shown: {} },
+    });
+    expect(drawn(v, 1)).toBe('kestrel wins 132 with flush, king high');
+  });
+
+  it('says only who won when nobody showed a hand', () => {
+    const v = view({
+      street: 'done',
+      result: { awards: [{ seat: 1, amount: 40 }], shown: {} },
+    });
+    expect(drawn(v, 2)).toBe('riverrat wins 40');
+  });
+
+  it('holds the result until the felt has shown why', () => {
+    const v = view({
+      street: 'done',
+      result: { awards: [{ seat: 1, amount: 40 }], shown: {} },
+    });
+    // Phase 0: the cards are still turning over, so the bar keeps its line.
+    expect(drawn(v, 0)).toBe(null);
+  });
+
+  it('sums a main pot and a side pot into one sentence about one player', () => {
+    const v = view({
+      street: 'done',
+      result: {
+        awards: [
+          { seat: 0, amount: 90, hand: 'Two Pair' },
+          { seat: 0, amount: 30, hand: 'Two Pair' },
+        ],
+        shown: {},
+      },
+    });
+    expect(drawn(v, 1)).toBe('kestrel wins 120 with two pair');
+  });
+
+  it('names both halves of a split pot', () => {
+    const v = view({
+      street: 'done',
+      seats: [seat(0), seat(1), seat(2)],
+      result: {
+        awards: [
+          { seat: 0, amount: 66, hand: 'Straight' },
+          { seat: 2, amount: 66, hand: 'Straight' },
+        ],
+        shown: {},
+      },
+    });
+    expect(drawn(v, 1)).toBe('kestrel wins 66 with straight and PoliteSaxophone wins 66 with straight');
+  });
+
+  it('says why nobody is acting while a run-out is being dealt', () => {
+    const v = view({
+      street: 'flop',
+      board: ['7h', '2c', 'Jh'],
+      seats: [seat(0, { allin: true, stack: 0 }), seat(1, { allin: true, stack: 0 })],
+      runout: { next: 'turn', in: 2 },
+    });
+    expect(drawn(v)).toBe('All in, running out the board');
+  });
+
+  /* Null is not the empty line: it means the table has nothing new to say and
+     the bar keeps what it is holding, which is what stops a hand retyping the
+     same sentence every time a beat passes with nobody acting. */
+  it('says nothing new between the streets of a run-out', () => {
+    const v = view({
+      street: 'flop',
+      board: ['7h', '2c', 'Jh'],
+      seats: [seat(0, { allin: true, stack: 0 }), seat(1, { allin: true, stack: 0 })],
+    });
+    expect(drawn(v)).toBe(null);
+  });
+
+  /* The collect beat: the wire has dealt the flop and the felt has not. A seat
+     may not be narrated as acting on a street the player cannot see. */
+  it('narrates the street the felt is showing rather than the one the wire has', () => {
+    const v = view({
+      street: 'flop',
+      board: ['7h', '2c', 'Jh'],
+      seats: [seat(0, { acting: true }), seat(1)],
+    });
+    expect(narrationLine(v, { onTable: 0, phase: 0 })).toBe(null);
+    expect(narrationLine(v, { onTable: 3, phase: 0 })).toBe('kestrel to act');
   });
 });
