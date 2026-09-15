@@ -5,13 +5,14 @@ it: `seat.tsx`, `playing-card.tsx`, `turn-clock.tsx`, `chip-stack.tsx` and
 `dock.tsx` on a live table, `result-panel.tsx` under a finished one and
 `match-summary.tsx` for a match opened cold from its URL. `sizing.ts`,
 `preactions.ts`, `best-five.ts`, `chips.ts`, `keys.ts`, `labels.ts`,
-`layout.ts`, `sitout.ts`, `collect.ts` and
+`layout.ts`, `narration.ts`, `sitout.ts`, `collect.ts` and
 `results.ts` are pure and unit tested from `../test/`. `sounds.ts` is the
 table's side of `../sound/`.
 
 **One thing moves at a time on the felt.** What moves: the deal, a showdown
-flip, the winning five's outline, chips ticking between stacks, and the award
-line's wipe. Nothing else. No figure rolls, nothing fades, no colour
+flip, the winning five's outline, chips ticking between stacks, the award
+line's wipe, and the narration bar typing itself out along the bottom edge.
+Nothing else. No figure rolls, nothing fades, no colour
 transitions, nothing flies. The owner's complaint that this rebuild answers
 was "overlapping animations" and "the eyes don't know where to look", and
 every animation that is not on that list is one more thing asking to be
@@ -736,6 +737,91 @@ board and the stats box. It is masked from its leading edge over 220 ms
 (`--wipe` on `.award-chip` in `app.css` is how much is still covered) and it
 is paint, not layout, so the zone's height holds the felt still. Reduced
 motion draws it in place.
+
+## The narration bar
+
+**The board owns the top of the felt and the narration owns the bottom.**
+`narration.ts` is what it says and `NarrationBar` in `table.tsx` is how it is
+written: one line of the table's own commentary, typed out a character at a
+time. Whose action it is and what they are facing ("riverrat to call 40"), and
+at the end of the hand who won it and how ("kestrel wins 132 with flush, king
+high"). Ticket 72dpkt89, in the owner's own words: *the bar on the table would
+say Gabriel to Call or Taylor to Call. Or Jeff wins with a straight flush.*
+
+**It is the table's voice, and the band's decision line is yours.** The line
+over the clock keeps the second person and the price you have to answer ("34
+to call", "You win 132 with flush, king high"); the felt names everybody,
+**including you**. Two lines saying one fact in two grammars is what the
+band's own one-line rule was written to stop, and the owner filed this in the
+third person about himself. The money labels in the middle are untouched: the
+award zone still says "132 to kestrel" in chips-and-figures, and this says it
+in words.
+
+**No second namer.** A showdown's hand is the description the engine sent with
+the award, lowercased at the display site like every other reading of it, so
+this cannot drift from `best-five.ts` or from the result panel. Awards are
+summed per seat first, because a main pot and a side pot are two awards to one
+player and one sentence about them; a pot that was genuinely split names both,
+joined with "and". A hand nobody showed has no description and the clause is
+simply not there.
+
+**Null is not the empty line.** `narrationLine` answers null when the table
+has nothing *new* to say and the bar keeps what it is holding: between two
+streets, through the collect beat, while a run-out's count ticks. A bar that
+blanked in those gaps would retype the same sentence two or three times a
+hand, which is the one thing a typewriter must not do. It is empty only when
+nothing has been said yet, which on a live table is the first beat of the
+first hand and in the suite is a frozen `?step=`.
+
+**It narrates the felt, not the wire.** The reading is `onTable` and the
+hand-end `phase`, both handed in from `table.tsx`: a seat may not be narrated
+as acting on a street whose cards are not on the table (`collect.ts`), and who
+won is not said until the felt has shown why, which is the highlight step at
+400 ms rather than the result's arrival. So the sentence lands with the
+winning five's outline and finishes over the chips.
+
+**Nothing moves while it types.** The whole line is laid out from the first
+character and the part not yet typed is `visibility: hidden`, so a character
+arrives in the place it will finally stand rather than pushing the sentence
+along in front of it, and a hidden box is invisible to the layout-shift
+observer as well as to the eye. The line and the typed half are each keyed on
+their own value, because a centred box as wide as its string moves both its
+edges when the string changes: the observer caught that the day this bar
+existed, and a fresh node is content arriving rather than a node that moved.
+28 ms a character. Reduced motion takes the whole line at once; a line that
+changes mid-type is abandoned where it stands rather than finished, because
+the bar says what the table says now.
+
+**A reserved slot, and a sibling of `.felt-in` rather than a row of its
+grid.** The height stands whether or not there is a line in it. `.felt-in` has
+six templates between the two arrangements, the band and the phone's rows, and
+a slot that has to be added to all six is a slot that will be missing from one
+of them; the auto margins that centre `.felt-in` split what is left over it,
+so this sits on the felt's own bottom edge in every one of them. The replay
+(`bare`) has no narration.
+
+**`--narrate-h` and `--narrate-size` stand on `.match`**, not on `.felt`, for
+the reason `--felt-w` does: the chat button floats over the felt from `.match`
+and has to stand clear of a bar it cannot otherwise measure. 40 px and 22 px
+wide, a step above the pot's figure, which is the biggest thing the felt
+prints; 24 and 16 on a phone, 20 and 14 on a phone under 700 px tall. White is
+`--text-primary` and not a white of its own: it is white on the green felt and
+in the games room, and the one token that stays legible when the felt palette
+swings to its light scale, where a hard white would be ink on paper the same
+colour. The longest sentence the site can say does not fit at 360 however
+small the type goes, so the line reads from the start and trails off with the
+decision line's own ellipsis rather than clipping both of its ends.
+
+**And it is paid for.** A phone's felt had nothing spare: a six-max table at
+414 by 736 filled its felt to the pixel before this existed. The bar shrinks
+under 700 px of height, the compact geometry gained the short-screen tier it
+never had (`--seat-h` and `--board-card` step down under 660, the same order
+of giving-up the detailed reading's own tiers keep), and the tall-phone growth
+tier came down from 60/42 to 56/40, which is the slack the bar came out of.
+`../../e2e/narration.spec.ts` pins a six-max felt fitting at four phone sizes
+with the bar on it. The **detailed** reading is not in that list: it overflows
+a short phone by fifty odd pixels with no narration at all, which is older
+than this bar and untouched by it.
 
 ## The all-in run-out
 

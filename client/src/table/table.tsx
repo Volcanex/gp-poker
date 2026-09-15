@@ -16,6 +16,7 @@ import { dealFrom, dealOrder, layoutMode, placeOf, seatOrder } from './layout.ts
 import { amountToCall } from './preactions.ts';
 import { readShowdown } from './best-five.ts';
 import { potCollects, type Dealt } from './collect.ts';
+import { narrationLine } from './narration.ts';
 import { useTableSounds } from './sounds.ts';
 import { useGamePanelOpen, useMedia, useRootAttr, useTableInfo, useGInit } from '../ui/bits.tsx';
 import { updatePrefs } from '../ui/prefs.ts';
@@ -100,6 +101,11 @@ const EASE_OUT = [0.2, 0, 0, 1] as const;
 const AWARD_MS = 220;
 const AWARD_SHUT = { '--wipe': '100%' };
 const AWARD_OPEN = { '--wipe': '0%' };
+
+/* How fast the narration types, a character at a time. Fast enough that the
+   line is never behind the table by more than about a second, slow enough to
+   read as writing rather than as a string arriving. */
+const TYPE_MS = 28;
 
 export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', onNext, onBack, onLeave }: TableProps) {
   const reduced = useReducedMotion();
@@ -215,6 +221,12 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
 
   const result = view.street === 'done' ? view.result : null;
   const phase = useHandEnd(result ? `${view.m}:${view.h}` : null, reduced);
+
+  /* What the felt is saying along its bottom edge. `onTable` and `phase` are
+     handed in because the bar narrates the table the player can see and not
+     the wire: the street the felt has dealt, and who won only once the felt
+     has shown why. See `narration.ts`. */
+  const narration = useNarration(view, onTable, phase);
 
   /* An all-in run-out turns every live hand over before the board is
      finished, so the flip is keyed on a seat's cards being face up rather
@@ -419,6 +431,12 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
               strip, under the pot, below it. */}
           {!panelMode && <StatsBox view={view} />}
         </div>
+
+        {/* The felt's own bottom edge, mirroring the board along its top: one
+            line of the table's own commentary, typed out. A reserved slot
+            like every other on this screen, so an empty one is the same
+            height as a full one and nothing above it ever moves. */}
+        {!bare && <NarrationBar line={narration} snap={Boolean(reduced)} />}
       </div>
 
       {strip && !inBand && (
@@ -486,6 +504,41 @@ function StatsBox({ view }: { view: TableView }) {
         </Fragment>
       ))}
     </dl>
+  );
+}
+
+/* The narration bar: the table's own voice along the bottom of the felt, the
+   way the community cards are its top. What it says is `narration.ts`; this
+   is only how it is written.
+
+   **Typed, and the box never moves while it types.** The whole line is laid
+   out from the first character and the part that has not been typed yet is
+   `visibility: hidden` (`../app.css`), so every character arrives in the
+   place it will finally stand rather than sliding the sentence along as it
+   grows, and a hidden box is invisible to the layout-shift observer as well
+   as to the eye.
+
+   The reader is told the line once and whole. `aria-live` on a sentence
+   arriving a character at a time would be a sentence read out thirty times,
+   so the spoken copy is the finished line and the typed one is hidden from
+   the tree. */
+function NarrationBar({ line, snap }: { line: string; snap: boolean }) {
+  const typed = useTyped(line, snap);
+  return (
+    <div className="narrate" aria-live="polite" aria-atomic="true">
+      <span className="sr-only">{line}</span>
+      {/* Keyed on the sentence, and the typed half on its own length. A
+          centred box as wide as its string moves both its edges when the
+          string changes, which is the defect this screen is built to refuse
+          and which the layout-shift observer caught the moment this bar
+          existed: a fresh node is content arriving rather than a node that
+          moved, the same bargain the pot's figure and every stats value
+          make. */}
+      <span className="narrate-line" key={line} aria-hidden="true">
+        <span className="narrate-typed" key={typed}>{line.slice(0, typed)}</span>
+        <span className="narrate-rest">{line.slice(typed)}</span>
+      </span>
+    </div>
   );
 }
 
@@ -616,6 +669,45 @@ function useDealt(view: TableView, snap: boolean): number {
 
   // A hand that has just been dealt holds fewer cards than the one before it.
   return Math.min(shown, full);
+}
+
+/* The line the bar is holding. `narrationLine` answers null when the table has
+   nothing **new** to say, which is not the same as having nothing to say, so
+   the last line stands rather than the bar blanking between two of them: a
+   hand would otherwise retype the same sentence every time a beat passed with
+   nobody acting. */
+function useNarration(view: TableView, onTable: number, phase: number): string {
+  const line = narrationLine(view, { onTable, phase });
+  const [held, setHeld] = useState(line ?? '');
+  useEffect(() => {
+    if (line != null) setHeld(line);
+  }, [line]);
+  return line ?? held;
+}
+
+/* How much of the line has been typed. Keyed on the line itself, so a line
+   that has not changed is never retyped however often the view does, and a
+   line that changes mid-type is abandoned where it stands rather than
+   finished: the bar says what the table says now, and a sentence about a spot
+   that has passed is a sentence nobody wants read out. Reduced motion takes
+   the whole line at once. */
+function useTyped(line: string, snap: boolean): number {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (snap || line === '') {
+      setN(line.length);
+      return undefined;
+    }
+    setN(0);
+    let i = 0;
+    const id = setInterval(() => {
+      i += 1;
+      setN(i);
+      if (i >= line.length) clearInterval(id);
+    }, TYPE_MS);
+    return () => clearInterval(id);
+  }, [line, snap]);
+  return snap ? line.length : Math.min(n, line.length);
 }
 
 function useHandEnd(key: string | null, reduced: boolean | null): number {
