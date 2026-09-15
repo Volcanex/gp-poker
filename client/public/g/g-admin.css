@@ -2857,6 +2857,13 @@ dialog.cmdk {
 .ga-bar a { color: var(--text-secondary); text-decoration: none; }
 .ga-bar a:hover { color: var(--text-primary); text-decoration: underline; }
 .ga-bar .ga-count { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.ga-bar .ga-xray-toggle { flex: none; gap: var(--sp-2); font-size: 11px; }
+/* A 34px switch in a 28px bar: the track is the tallest thing in the strip,
+   so it scales down rather than the bar growing around it. */
+.ga-bar .ga-xray-toggle .switch { width: 28px; height: 16px; }
+.ga-bar .ga-xray-toggle .switch::after { width: 10px; height: 10px; }
+.ga-bar .ga-xray-toggle .switch:checked::after { translate: 12px 0; }
+.ga-bar .ga-xray-toggle .switch:active:not(:disabled)::after { width: 12px; }
 
 /* Under 720px the bar keeps the controls and drops the identification, which
    is the part you can work out from the page you are looking at. */
@@ -2880,6 +2887,11 @@ dialog.cmdk {
 .ga-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .ga-boxes { position: absolute; inset: 0; pointer-events: none; }
 
+/* The x-ray sheet sits under the drawing and the selection boxes: it is the
+   blueprint they annotate, and every colour in it is painted by the canvas
+   pass, which reads the same tokens the shading rules below use. */
+.ga-xray { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+
 .ga-out, .ga-pick {
   position: absolute;
   border-radius: var(--radius-sm);
@@ -2897,6 +2909,27 @@ dialog.cmdk {
    two colours, both derived tokens rather than scale steps. */
 .ga-margin { position: absolute; background: color-mix(in srgb, var(--warn-text) 16%, transparent); pointer-events: none; }
 .ga-pad { position: absolute; background: color-mix(in srgb, var(--chart-2) 26%, transparent); pointer-events: none; }
+
+/* An applied edit flashes what it changed. A 4px step is a real change that
+   can look like nothing happened, and "nothing happened" is indistinguishable
+   from a broken tool, which is exactly how it was read in live use. */
+/* Each one starts loud and settles into the value it already had: a keyframe
+   block with only a `from` takes the element's own style as its `to`, so the
+   flash can never leave anything behind. Twice --dur-slow, because the thing
+   it has to beat is a glance at a busy page. */
+@keyframes ga-flash-margin { from { background: color-mix(in srgb, var(--warn-text) 55%, transparent); } }
+@keyframes ga-flash-pad { from { background: color-mix(in srgb, var(--chart-2) 70%, transparent); } }
+@keyframes ga-flash-edge { from { background: color-mix(in srgb, var(--accent-fill) 45%, transparent); } }
+@keyframes ga-flash-value {
+  from { border-color: var(--accent-edge); background: color-mix(in srgb, var(--accent-fill) 35%, transparent); }
+}
+.ga-margin.ga-flash { animation: ga-flash-margin calc(var(--dur-slow) * 2) var(--ease-out); }
+.ga-pad.ga-flash { animation: ga-flash-pad calc(var(--dur-slow) * 2) var(--ease-out); }
+.ga-out.ga-flash { animation: ga-flash-edge calc(var(--dur-slow) * 2) var(--ease-out); }
+.ga-val.ga-flash { animation: ga-flash-value calc(var(--dur-slow) * 2) var(--ease-out); }
+@media (prefers-reduced-motion: reduce) {
+  .ga-flash { animation: none; }
+}
 
 .ga-tag {
   position: absolute;
@@ -2931,6 +2964,51 @@ dialog.cmdk {
   box-shadow: var(--overlay-shadow);
   color: var(--text-secondary);
   font-size: 12px;
+}
+
+/* The legend names the two tints and the warning, and carries the count, so
+   the blueprint says what it is without a card next to it. Bottom centre: the
+   composer owns bottom left and the inspector owns the right edge. */
+.ga-legend {
+  position: fixed;
+  z-index: 2147482600;
+  bottom: var(--sp-4);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  height: var(--h-2);
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--overlay-bg);
+  box-shadow: var(--overlay-shadow);
+  color: var(--text-secondary);
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+/* The inspector owns 320px of the right edge whenever something is selected,
+   so the legend centres itself in what is left rather than sitting under it. */
+.ga-side:not([hidden]) ~ .ga-legend { left: calc(50% - 160px); }
+
+.ga-legend .ga-legend-item { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.ga-legend .ga-legend-count { color: var(--text-placeholder); }
+.ga-legend .ga-sw {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  border: 1px solid transparent;
+}
+.ga-legend .ga-sw-margin { background: color-mix(in srgb, var(--warn-text) 40%, transparent); }
+.ga-legend .ga-sw-pad { background: color-mix(in srgb, var(--chart-2) 55%, transparent); }
+.ga-legend .ga-sw-off { background: transparent; border-color: var(--danger-text); }
+/* Depth is drawn as outline weight, so the swatch is two outlines. */
+.ga-legend .ga-sw-depth {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--accent-edge) 60%, transparent);
+  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--accent-edge) 22%, transparent);
 }
 
 /* -------------------------------------------------------------- composer */
@@ -2979,6 +3057,7 @@ dialog.cmdk {
   box-shadow: var(--overlay-shadow);
 }
 .ga-side-head {
+  flex: none;
   display: flex;
   flex-direction: column;
   gap: var(--sp-1);
@@ -2992,8 +3071,51 @@ dialog.cmdk {
   overflow-wrap: anywhere;
 }
 .ga-side-head .ga-dims { color: var(--text-secondary); font-size: 11px; }
-.ga-side-body { flex: 1 1 auto; overflow: auto; }
+
+/* The ancestry, oldest first, scrolled to the end because the end is where
+   the selection is. One line that never wraps: a chain that grew two rows
+   tall would move every control under it each time the selection changed. */
+.ga-crumbs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: var(--sp-1);
+  overflow-x: auto;
+  scrollbar-width: none;
+  white-space: nowrap;
+}
+.ga-crumbs::-webkit-scrollbar { display: none; }
+.ga-crumbs .ga-crumb-sep { flex: none; color: var(--text-placeholder); font-size: 10px; }
+.ga-crumbs .ga-crumb {
+  flex: none;
+  height: var(--h-1);
+  padding: 0 var(--sp-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+.ga-crumbs .ga-crumb:hover { background: var(--fill-hover); color: var(--text-primary); }
+.ga-crumbs .ga-crumb[aria-current] { background: var(--fill-active); color: var(--text-primary); }
+.ga-crumbs .ga-crumb:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+/* min-height: 0 is the whole fix for a panel that would not scroll: a flex
+   child's default minimum is its content, so without it the body grows past
+   the sidebar instead of scrolling inside it, and on a short viewport the
+   lower panes are simply unreachable. overscroll-behavior keeps a wheel that
+   reaches the end of this list from carrying on into the page underneath,
+   which moves every box the overlay has drawn. */
+.ga-side-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 .ga-side-foot {
+  flex: none;
   display: flex;
   align-items: center;
   gap: var(--sp-2);
@@ -3011,7 +3133,7 @@ dialog.cmdk {
 .ga-row > .ga-key { flex: 0 0 48px; color: var(--text-secondary); font-size: 12px; }
 .ga-row > .g-segmented { flex: 1 1 auto; }
 
-.ga-step { display: flex; align-items: center; gap: 2px; }
+.ga-step { display: flex; align-items: center; gap: 2px; flex: 1 1 auto; min-width: 0; }
 .ga-step .btn { flex: none; }
 .ga-step .ga-val {
   width: 48px;
@@ -3027,7 +3149,18 @@ dialog.cmdk {
   text-align: center;
 }
 .ga-step .ga-val:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
-.ga-step .ga-token { flex: 0 0 auto; width: 60px; font-size: 11px; white-space: nowrap; color: var(--text-placeholder); }
+/* The token name is the widest thing a project can change about this row, so
+   the strip takes what the row has left rather than a fixed 60px, and a name
+   too long even for that ellipses with the full text on its title. */
+.ga-step .ga-token {
+  flex: 1 1 60px;
+  min-width: 0;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-placeholder);
+}
 
 /* Off the scale is allowed and never silent: the escape hatch says so in
    place, so a raw value cannot be mistaken for a snapped one. */
