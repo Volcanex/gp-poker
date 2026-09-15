@@ -12,7 +12,7 @@ import { playerList } from '../table/dock.tsx';
 import { MODE_NAME } from '../ui/mode-tabs.tsx';
 import { StakeBadge } from './feed.tsx';
 import { useTitle } from '../ui/title.ts';
-import { mockChat, mockScript } from '../dev/mock.ts';
+import { mockChat, mockScript, type MockShape } from '../dev/mock.ts';
 import { useMatchChat, useMockChat } from '../chat/use-chat.ts';
 import { MatchReview } from '../review/match-review.tsx';
 import '../review/review.css';
@@ -37,8 +37,13 @@ export function Match() {
      tested without a table that has actually timed you out. */
   const sitout = params.get('sitout') === '1';
   /* `?runout=1` runs the all-in run-out script instead of either ordinary
-     one: both hands up, the board arriving a street at a time behind a count. */
-  const runout = params.get('runout') === '1';
+     one: both hands up, the board arriving a street at a time behind a count.
+     `?collect=1` runs the street-boundary script, where the action that closes
+     the betting and the street it deals arrive in one view, the way the server
+     actually sends them. */
+  const shape: MockShape = params.get('runout') === '1'
+    ? 'runout'
+    : params.get('collect') === '1' ? 'collect' : 'hand';
   return isMock ? (
     <MockMatch
       step={numOrNull(params.get('step'))}
@@ -49,7 +54,7 @@ export function Match() {
       v2={v2}
       hold={hold}
       sitout={sitout}
-      runout={runout}
+      shape={shape}
     />
   ) : (
     <LiveMatch id={id} />
@@ -330,15 +335,15 @@ function LiveMatch({ id }: { id: string }) {
 /* ----------------------------------------------------------------- mock */
 
 function MockMatch(
-  { step, mode, rated, practice, watch, v2, hold, sitout, runout }:
+  { step, mode, rated, practice, watch, v2, hold, sitout, shape }:
   {
     step: number | null; mode: Mode; rated: boolean; practice: boolean;
-    watch: boolean; v2: boolean; hold: boolean; sitout: boolean; runout: boolean;
+    watch: boolean; v2: boolean; hold: boolean; sitout: boolean; shape: MockShape;
   },
 ) {
   const script = useMemo(
-    () => mockScript(mode, rated, practice, runout),
-    [mode, rated, practice, runout],
+    () => mockScript(mode, rated, practice, shape),
+    [mode, rated, practice, shape],
   );
   const start = step == null ? 0 : Math.max(0, Math.min(script.length - 1, step));
   const [i, setI] = useState(start);
@@ -407,8 +412,10 @@ function MockMatch(
   const replay = useCallback(() => {
     setI(0);
     setEnteredAt(Date.now());
-    nav(runout ? '/m/mock?runout=1' : mode === 'six-max' ? '/m/mock?mode=six-max' : '/m/mock');
-  }, [nav, mode, runout]);
+    nav(shape === 'hand'
+      ? (mode === 'six-max' ? '/m/mock?mode=six-max' : '/m/mock')
+      : `/m/mock?${shape}=1`);
+  }, [nav, mode, shape]);
 
   if (!view) return <Pending text="Loading the mock table" />;
 

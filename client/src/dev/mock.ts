@@ -118,10 +118,20 @@ function viewer(players: Player[], you: number, hole: Card[], format: MatchForma
   };
 }
 
+/* Which hand the mock deals. `hand` is the ordinary one for the mode; the
+   other two are shapes an ordinary hand cannot reach and every spec that
+   freezes a step addresses by number, so they are scripts rather than steps
+   spliced into it. */
+export type MockShape = 'hand' | 'runout' | 'collect';
+
 export function mockScript(
-  mode: Mode = 'heads-up', rated = true, practice = false, runout = false,
+  mode: Mode = 'heads-up', rated = true, practice = false, shape: MockShape = 'hand',
 ): MockStep[] {
-  const steps = runout ? runoutScript() : mode === 'six-max' ? sixMaxScript() : headsUpScript();
+  const steps = shape === 'runout'
+    ? runoutScript()
+    : shape === 'collect'
+      ? collectScript()
+      : mode === 'six-max' ? sixMaxScript() : headsUpScript();
   /* A practice table is a casual table with the flag the client reads to show
      the analysis strip. Stamped over the finished script rather than threaded
      through both builders: the flag changes nothing about how a hand plays.
@@ -523,6 +533,141 @@ function runoutScript(): MockStep[] {
           shown: { [OPP]: HU_OPP_CARDS, [YOU]: HU_HOLE },
         },
         last: { k: 'showdown', seat: OPP, a: 'c', v: 194 },
+      }),
+    },
+  ];
+}
+
+/* ------------------------------------------------------------- collect */
+
+/* The wire's own shape at a street boundary, which neither script above has.
+   The engine deals the next street inside the action that closes the betting,
+   so the caller's chips and the flop arrive in **one** view: the heads-up
+   script splits them over two steps, which is the felt everybody wanted and
+   not the felt the server sends. Tickets g7hfddbc and d62s9bgx are that
+   difference, reported twice.
+
+   Its own script for the reason the run-out has its own: a step spliced into
+   the heads-up one moves every picture after it.
+
+   The last street is dealt by a check-through on purpose. It moves no chips,
+   so nothing waits for it, and the two halves of the rule are in one script. */
+function collectScript(): MockStep[] {
+  const format = formatFor('heads-up', true);
+  const view = viewer(HU, YOU, HU_HOLE, format, () => ({ sb: format.sb, bb: format.bb }));
+  const board = (n: number) => HU_BOARD.slice(0, n);
+
+  return [
+    {
+      delay: 1400,
+      label: 'Blinds posted, you act first preflop',
+      view: view({
+        n: 1, street: 'pre', board: board(0), pot: 3,
+        seats: [{ stack: 198, bet: 2 }, { stack: 199, bet: 1, acting: true, button: true }],
+        legal: { actions: ['f', 'c', 'r'], call: 1, min: 4, max: 200 },
+        clockSeat: YOU,
+        last: { k: 'deal' },
+      }),
+    },
+    {
+      delay: 1400,
+      label: 'You raise to 6',
+      view: view({
+        n: 2, street: 'pre', board: board(0), pot: 8,
+        seats: [
+          { stack: 198, bet: 2, acting: true },
+          { stack: 194, bet: 6, button: true, last: { a: 'r', v: 6 } },
+        ],
+        clockSeat: OPP,
+        last: { k: 'act', seat: YOU, a: 'r', v: 6 },
+      }),
+    },
+    {
+      delay: 1800,
+      label: 'The call and the flop, in one view: the pot collects, then it deals',
+      view: view({
+        n: 3, street: 'flop', board: board(3), pot: 12,
+        seats: [{ stack: 194, acting: true }, { stack: 194, button: true }],
+        clockSeat: OPP,
+        last: { k: 'street', cards: board(3) },
+      }),
+    },
+    {
+      delay: 1400,
+      label: 'Opponent checks',
+      view: view({
+        n: 4, street: 'flop', board: board(3), pot: 12,
+        seats: [
+          { stack: 194, last: { a: 'x' } },
+          { stack: 194, acting: true, button: true },
+        ],
+        legal: { actions: ['x', 'b'], call: 0, min: 2, max: 194 },
+        clockSeat: YOU,
+        last: { k: 'act', seat: OPP, a: 'x' },
+      }),
+    },
+    {
+      delay: 1400,
+      label: 'You bet 8',
+      view: view({
+        n: 5, street: 'flop', board: board(3), pot: 20,
+        seats: [
+          { stack: 194, acting: true, last: { a: 'x' } },
+          { stack: 186, bet: 8, button: true, last: { a: 'b', v: 8 } },
+        ],
+        clockSeat: OPP,
+        last: { k: 'act', seat: YOU, a: 'b', v: 8 },
+      }),
+    },
+    {
+      delay: 1800,
+      label: 'The call and the turn, in one view again',
+      view: view({
+        n: 6, street: 'turn', board: board(4), pot: 28,
+        seats: [{ stack: 186, acting: true }, { stack: 186, button: true }],
+        clockSeat: OPP,
+        last: { k: 'street', cards: HU_BOARD.slice(3, 4) },
+      }),
+    },
+    {
+      delay: 1400,
+      label: 'Opponent checks the turn',
+      view: view({
+        n: 7, street: 'turn', board: board(4), pot: 28,
+        seats: [
+          { stack: 186, last: { a: 'x' } },
+          { stack: 186, acting: true, button: true },
+        ],
+        legal: { actions: ['x', 'b'], call: 0, min: 2, max: 186 },
+        clockSeat: YOU,
+        last: { k: 'act', seat: OPP, a: 'x' },
+      }),
+    },
+    {
+      delay: 1800,
+      label: 'You check and the river deals at once: nothing was collected',
+      view: view({
+        n: 8, street: 'river', board: board(5), pot: 28,
+        seats: [{ stack: 186, acting: true }, { stack: 186, button: true }],
+        clockSeat: OPP,
+        last: { k: 'street', cards: HU_BOARD.slice(4, 5) },
+      }),
+    },
+    {
+      delay: 0,
+      label: 'Checked down, and the flush takes it',
+      view: view({
+        n: 9, street: 'done', board: board(5), pot: 28,
+        seed: SEED1,
+        seats: [
+          { stack: 186, cards: HU_OPP_CARDS, last: { a: 'x' } },
+          { stack: 214, button: true, last: { a: 'x' } },
+        ],
+        result: {
+          awards: [{ seat: YOU, amount: 28, hand: 'flush, king high' }],
+          shown: { [OPP]: HU_OPP_CARDS, [YOU]: HU_HOLE },
+        },
+        last: { k: 'showdown', seat: YOU, a: 'x' },
       }),
     },
   ];
