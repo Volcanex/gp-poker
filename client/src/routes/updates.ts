@@ -16,6 +16,7 @@ export const UPDATES: Update[] = [
       'The bots play a harder game',
       'The pot collects before the next street deals',
       'Seat cards carry avatars, chips and ratings again',
+      'The felt narrates the hand along its bottom edge',
     ],
   },
 ];
