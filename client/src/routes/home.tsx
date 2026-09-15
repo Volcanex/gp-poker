@@ -33,6 +33,7 @@ import { RecentMatches, StatsStrip } from './feed.tsx';
 import { FriendsCard } from './friends.tsx';
 import { TournamentsCard } from './tournament-card.tsx';
 import { ShareLink } from '../ui/share-link.tsx';
+import { UPDATES } from './updates.ts';
 
 /* The same line for a search that has not named one game. A promise cannot be
    made from a format when two of them would do, so it says what is being
@@ -275,19 +276,19 @@ export function Home() {
           </div>
         )}
 
-        <div className="home-right">
-          <div className="home-side">
-            <PuzzlesCard />
-            <LearnCard />
-            <WatchCard />
-          </div>
-          {/* Under the three teasers: the people you play with, and the
-              tournaments coming up. Each card fetches for itself. */}
-          <div className="home-under">
-            <FriendsCard />
-            <TournamentsCard />
-          </div>
+        <div className="home-side">
+          <PuzzlesCard />
+          <LearnCard />
+          <WatchCard />
         </div>
+        {/* Under the three teasers: the people you play with, and the
+            tournaments coming up. Each card fetches for itself. The cards
+            place themselves on home-top's areas, so the update log can run
+            flat under the play panel and friends while tournaments keeps
+            the right edge. */}
+        <FriendsCard />
+        <TournamentsCard />
+        <UpdateLog />
       </section>
 
       <StatsStrip />
@@ -828,6 +829,24 @@ function WatchCard() {
     </div>
   );
 }
+/* One flat row per release: the version, its date, and what changed at the
+   table. The data is `updates.ts`; the top entry is the running version. */
+function UpdateLog() {
+  const current = UPDATES[0];
+  return (
+    <div className="card update-log">
+      <span className="t">Update log</span>
+      <span className="badge badge-plain">{current.version}</span>
+      <span className="muted ul-date">{current.date}</span>
+      <ul className="ul-notes">
+        {current.notes.map((note) => (
+          <li key={note}>{note}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 /* The peek follows the mode the panel is pinned to, so the board underneath
    is the ladder the button above it plays for. */
 function Leaderboard({ mode }: { mode: Mode }) {

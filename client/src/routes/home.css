@@ -251,9 +251,42 @@ main.page.home-page { max-width: 1180px; }
 
 .home-top {
   display: grid;
-  grid-template-columns: minmax(420px, 500px) minmax(0, 1fr);
+  /* Named areas rather than flow, because the update log runs flat across
+     the space under the play panel and friends while tournaments holds the
+     whole right edge: a shape document order cannot make. */
+  grid-template-columns: minmax(420px, 500px) minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    'play side    side'
+    'play friends tourn'
+    'log  log     tourn';
   gap: var(--sp-3);
   align-items: start;
+}
+.play-panel, .searching-card { grid-area: play; }
+.home-side { grid-area: side; }
+.friends-card { grid-area: friends; }
+.tourney-home { grid-area: tourn; }
+.update-log { grid-area: log; align-self: start; }
+
+/* Flat and wide: one row, the notes flowing after the version, wrapping
+   where the row runs out rather than growing tall. */
+.update-log {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-3);
+}
+.update-log > .t { font-size: 15px; font-weight: 500; letter-spacing: -0.01em; }
+.update-log .ul-date { flex: none; }
+.update-log .ul-notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-secondary);
 }
 
 .play-panel { display: flex; flex-direction: column; gap: var(--sp-3); }
@@ -312,8 +345,6 @@ main.page.home-page { max-width: 1180px; }
 
 .home-right { display: grid; gap: var(--sp-3); align-content: start; }
 .home-side { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3); align-content: start; }
-/* Two taller cards under the three: friends and tournaments. */
-.home-under { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); align-items: start; }
 .side-card { display: flex; flex-direction: column; gap: var(--sp-2); }
 .side-card > .t { font-size: 15px; font-weight: 500; letter-spacing: -0.01em; display: flex; align-items: center; gap: var(--sp-2); }
 /* The same icon the sidebar gives the word, so the teaser and the nav item
@@ -331,12 +362,14 @@ main.page.home-page { max-width: 1180px; }
      stat that does not want to shrink), so the track grew past the page's
      own padding and the document scrolled sideways by five pixels. The zero
      floor is what lets the track actually shrink to the column instead. */
-  .home-top { grid-template-columns: minmax(0, 1fr); }
+  .home-top {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'play' 'side' 'friends' 'tourn' 'log';
+  }
   .home-side { grid-template-columns: repeat(3, 1fr); }
 }
 
 @media (max-width: 620px) {
   .home-side { grid-template-columns: 1fr; }
-  .home-under { grid-template-columns: 1fr; }
   .player-bar { flex-wrap: wrap; }
 }
