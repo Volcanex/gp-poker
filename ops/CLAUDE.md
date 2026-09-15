@@ -1,6 +1,6 @@
 # ops
 
-The systemd units for Open Table, tracked here and copied to
+The systemd units for EveryonePoker, tracked here and copied to
 `/etc/systemd/system/` on h. The repo is the source; the installed copies are
 disposable, so a unit edited only in `/etc` will be silently reverted by the
 next install.

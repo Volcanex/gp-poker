@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-const SUFFIX = 'Open Table';
+const SUFFIX = 'EveryonePoker';
 
 /* Pass the page's own name; the product name is appended here so it is spelled
    one way. Pass null on a page that is still loading its name. */

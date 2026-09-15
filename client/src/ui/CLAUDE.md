@@ -520,7 +520,7 @@ would point at the page being read, which is the rule the playing pill follows.
   dropzone, slider, buttons and avatar arranged around a canvas. **Promotion:
   the crop stage alone, maybe.** Cropping a square to a circle with a drag and a
   zoom is a thing more than one project wants; the rest of this file is
-  Open Table's own copy and its own upload route.
+  EveryonePoker's own copy and its own upload route.
 
 The table's own candidates are in `../table/CLAUDE.md`.
 

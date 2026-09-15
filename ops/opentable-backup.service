@@ -1,5 +1,5 @@
 [Unit]
-Description=Open Table — daily Postgres dump
+Description=EveryonePoker, daily Postgres dump
 After=postgresql.service
 Wants=postgresql.service
 

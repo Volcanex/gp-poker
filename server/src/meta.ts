@@ -31,7 +31,7 @@ import { homeGameView } from './home-games.js';
    that is having a moment: all of them fall back to the generic shell with a
    200, and the SPA renders its own not-found. */
 
-export const SITE_NAME = 'Open Table';
+export const SITE_NAME = 'EveryonePoker';
 
 // The one description the site has when a page has nothing more specific to
 // say. Kept identical to the tag in client/index.html so the shell reads the
@@ -166,7 +166,7 @@ export function shellLoaded(): boolean {
 
 /* One card image for the whole site: the wordmark and what the site is. It
    is the same picture on every page because the alternative is rendering one
-   per match, and a card that says "Open Table" under a title that already
+   per match, and a card that says "EveryonePoker" under a title that already
    says who beat whom is the honest version of that. Absolute, because a
    crawler is not required to resolve a relative one. Rendered from
    client/public/favicon.svg and shipped in client/public. */

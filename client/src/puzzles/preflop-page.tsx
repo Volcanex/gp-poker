@@ -2,7 +2,7 @@
 
    What is graded here is agreement with a heuristic chart, and the page says
    so under every answer rather than in a footnote. There is no solver behind
-   Open Table and pretending otherwise would be the dishonest part; the chart
+   EveryonePoker and pretending otherwise would be the dishonest part; the chart
    is still the same one the accuracy figure on a finished match is measured
    against, so practising against it is practising against the thing that
    scores you. */

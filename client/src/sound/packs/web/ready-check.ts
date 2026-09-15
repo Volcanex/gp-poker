@@ -8,5 +8,5 @@ export const readyCheckSound: SoundAsset = {
   duration: 0.280,
   format: "wav",
   license: "CC0",
-  author: "Open Table",
+  author: "EveryonePoker",
 };

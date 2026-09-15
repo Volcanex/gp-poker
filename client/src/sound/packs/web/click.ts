@@ -8,5 +8,5 @@ export const clickSound: SoundAsset = {
   duration: 0.060,
   format: "wav",
   license: "CC0",
-  author: "Open Table",
+  author: "EveryonePoker",
 };

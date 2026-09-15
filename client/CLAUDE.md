@@ -1,6 +1,6 @@
 # client
 
-React 19 + Vite front end for Open Table. Served by the server from
+React 19 + Vite front end for EveryonePoker. Served by the server from
 `client/dist` in production; in development `vite` proxies `/api` and `/ws` to
 `127.0.0.1:8130`. See the repo root `CLAUDE.md` for the product and the wire.
 

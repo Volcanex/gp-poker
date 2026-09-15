@@ -1,6 +1,6 @@
 # server
 
-Fastify REST + WebSocket + `postgres` driver for Open Table. Owns sessions,
+Fastify REST + WebSocket + `postgres` driver for EveryonePoker. Owns sessions,
 matchmaking, match orchestration, clocks, persistence, and serving
 `client/dist`. See the repo root `CLAUDE.md` for the product and the decisions
 that span both halves of it.

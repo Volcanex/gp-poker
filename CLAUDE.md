@@ -1,7 +1,7 @@
 # opentable
 
 **Owner:** Gabriel Penman
-**What:** Open Table, free ranked no-limit hold'em at
+**What:** EveryonePoker, free ranked no-limit hold'em at
 everyonepoker.com: six-max sit-and-go (the main game) and heads-up
 (played to a bust), each fast or standard and each rated or casual, with bots filling
 empty seats in casual play. Lichess for poker: no money, no chips to buy, no

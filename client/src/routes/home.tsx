@@ -21,6 +21,7 @@ import type { ArenaListing, CreatedChallenge, LeaderboardRow, LiveMatch, Me } fr
 import { readPlayChoice, useSession } from '../net/session.tsx';
 import { MODE_CODE, MODE_NAME, modeInline, modeTabLabel, speedChoiceName } from '../ui/mode-tabs.tsx';
 import { Segmented } from '../ui/segmented.tsx';
+import { Logo } from '../ui/logo.tsx';
 import { elapsed, useNow } from '../ui/bits.tsx';
 import { arenaCardLine } from './arena-bits.ts';
 import { int } from '../ui/format.ts';
@@ -152,6 +153,17 @@ export function Home() {
 
   return (
     <main className="page wide stack home-page">
+      {/* The masthead. Only this page carries the mark at size: everywhere
+          else it rides at text height in the top bar, and a logo repeated
+          large on every screen stops being a landmark. */}
+      <header className="home-brand">
+        <Logo className="home-brand-mark" size={76} />
+        <span className="home-brand-text">
+          <span className="home-brand-name">EveryonePoker</span>
+          <span className="home-brand-line">Free ranked poker. No money, no rake, no ads.</span>
+        </span>
+      </header>
+
       <PlayerBar me={me} mode={modesFor(mode)[0]} />
 
       {offline && ready && (

@@ -8,5 +8,5 @@ export const clockWarningSound: SoundAsset = {
   duration: 0.220,
   format: "wav",
   license: "CC0",
-  author: "Open Table",
+  author: "EveryonePoker",
 };

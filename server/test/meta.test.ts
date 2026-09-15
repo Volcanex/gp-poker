@@ -162,9 +162,9 @@ describe('link previews and crawl basics', () => {
   it('gives the home page the site title and description', async () => {
     const { status, html } = await shell('/');
     expect(status).toBe(200);
-    expect(title(html)).toBe('Open Table');
+    expect(title(html)).toBe('EveryonePoker');
     expect(meta(html, 'name', 'description')).toBe(escapeHtml(SITE_DESCRIPTION));
-    expect(meta(html, 'property', 'og:site_name')).toBe('Open Table');
+    expect(meta(html, 'property', 'og:site_name')).toBe('EveryonePoker');
     expect(meta(html, 'name', 'twitter:card')).toBe('summary_large_image');
     // One title and one description, not the shell's plus the injected one.
     expect(html.match(/<title>/g)).toHaveLength(1);
@@ -209,7 +209,7 @@ describe('link previews and crawl basics', () => {
   it('titles a finished match with its result and escapes the names', async () => {
     const { status, html } = await shell(`/m/${finished}`);
     expect(status).toBe(200);
-    expect(title(html)).toBe(`Match: ${winner.name} beat Rude&lt;b&gt;${tag}, 25 hands, Open Table`);
+    expect(title(html)).toBe(`Match: ${winner.name} beat Rude&lt;b&gt;${tag}, 25 hands, EveryonePoker`);
     expect(meta(html, 'property', 'og:title')).toBe(`Match: ${winner.name} beat Rude&lt;b&gt;${tag}, 25 hands`);
     expect(meta(html, 'name', 'description')).toMatch(/Heads-up, rated/);
     expect(meta(html, 'property', 'og:url')).toMatch(new RegExp(`/m/${finished}$`));
@@ -221,25 +221,25 @@ describe('link previews and crawl basics', () => {
 
   it('says a live match is live', async () => {
     const { html } = await shell(`/m/${live}`);
-    expect(title(html)).toBe(`${winner.name} and ${loser.name}, live now, Open Table`);
+    expect(title(html)).toBe(`${winner.name} and ${loser.name}, live now, EveryonePoker`);
     expect(meta(html, 'name', 'description')).toMatch(/Heads-up, casual\. On hand 7 right now/);
   });
 
   it('titles a hand with its number and puts the board in the description', async () => {
     const { html } = await shell(`/m/${finished}/h/1`);
-    expect(title(html)).toBe(`Hand 1, ${winner.name} vs Rude&lt;b&gt;${tag}, Open Table`);
+    expect(title(html)).toBe(`Hand 1, ${winner.name} vs Rude&lt;b&gt;${tag}, EveryonePoker`);
     expect(meta(html, 'name', 'description')).toMatch(/^Board Ah Kd 7c\. .* won 42\./);
   });
 
   it('titles a profile with the player name', async () => {
     const { html } = await shell(`/u/${winner.name}`);
-    expect(title(html)).toBe(`${winner.name}, Open Table`);
+    expect(title(html)).toBe(`${winner.name}, EveryonePoker`);
     expect(meta(html, 'name', 'description')).toMatch(/No finished matches yet/);
   });
 
   it('says who is challenging you', async () => {
     const { html } = await shell(`/c/${challenge}`);
-    expect(title(html)).toBe(`Play ${winner.name}, Open Table`);
+    expect(title(html)).toBe(`Play ${winner.name}, EveryonePoker`);
     expect(meta(html, 'name', 'description')).toBe(
       `${winner.name} wants to play you heads-up, rated. Open the link and you are at the table: no signup, no money, no chips to buy.`
     );
@@ -249,7 +249,7 @@ describe('link previews and crawl basics', () => {
     // The possessive comes back as an entity, which is what escaping the head
     // means: every reader of a title decodes it, and nothing else has to know
     // which characters a name may hold.
-    const own = `Join ${escapeHtml(`${winner.name}'s`)} home game, Open Table`;
+    const own = `Join ${escapeHtml(`${winner.name}'s`)} home game, EveryonePoker`;
     const open = await shell(`/g/${lobby}`);
     expect(title(open.html)).toBe(own);
     expect(meta(open.html, 'name', 'description')).toBe(
@@ -262,10 +262,10 @@ describe('link previews and crawl basics', () => {
 
   it('gives a static page its own title', async () => {
     const { html } = await shell('/learn/rules');
-    expect(title(html)).toBe('How a hand plays, Open Table');
+    expect(title(html)).toBe('How a hand plays, EveryonePoker');
     expect(meta(html, 'property', 'og:type')).toBe('article');
     const leaderboard = await shell('/leaderboard');
-    expect(title(leaderboard.html)).toBe('Leaderboard, Open Table');
+    expect(title(leaderboard.html)).toBe('Leaderboard, EveryonePoker');
     expect(meta(leaderboard.html, 'property', 'og:type')).toBe('website');
   });
 
@@ -273,7 +273,7 @@ describe('link previews and crawl basics', () => {
     for (const url of ['/m/no-such-match', '/m/no-such-match/h/3', '/u/nobody', '/c/no-such-link', '/g/no-such-table', '/nothing/here']) {
       const { status, html } = await shell(url);
       expect(status).toBe(200);
-      expect(title(html)).toBe('Open Table');
+      expect(title(html)).toBe('EveryonePoker');
       expect(meta(html, 'name', 'description')).toBe(escapeHtml(SITE_DESCRIPTION));
     }
   });

@@ -2,7 +2,7 @@
   "name": "opentable",
   "private": true,
   "version": "0.1.0",
-  "description": "Open Table: free ranked heads-up poker (everyonepoker.com)",
+  "description": "EveryonePoker: free ranked heads-up poker (everyonepoker.com)",
   "type": "module",
   "workspaces": ["packages/*", "server", "client"],
   "scripts": {

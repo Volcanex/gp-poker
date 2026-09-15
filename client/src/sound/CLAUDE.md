@@ -85,7 +85,7 @@ pack the file matched by name in soundcn's assets mirror; five sounds
 (marked `Kenney (unmirrored)`) aren't present in that mirror by filename
 but are independently verified via soundcn's registry metadata (author,
 licence, category all clean). The `web` pack's 18 sounds are not vendored at
-all: they are synthesised in this repo and carry `author: "Open Table"`,
+all: they are synthesised in this repo and carry `author: "EveryonePoker"`,
 which is why the provenance test checks the author per pack rather than
 expecting Kenney everywhere.
 

@@ -8,5 +8,5 @@ export const tickSound: SoundAsset = {
   duration: 0.070,
   format: "wav",
   license: "CC0",
-  author: "Open Table",
+  author: "EveryonePoker",
 };

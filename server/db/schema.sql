@@ -1,4 +1,4 @@
--- Open Table schema. Applied idempotently on server start (every statement
+-- EveryonePoker schema. Applied idempotently on server start (every statement
 -- is IF NOT EXISTS). Additive changes go here; anything destructive gets a
 -- numbered migration file beside this one.
 

@@ -8,5 +8,5 @@ export const betSound: SoundAsset = {
   duration: 0.110,
   format: "wav",
   license: "CC0",
-  author: "Open Table",
+  author: "EveryonePoker",
 };

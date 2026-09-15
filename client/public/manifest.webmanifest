@@ -1,13 +1,13 @@
 {
   "id": "/",
-  "name": "Open Table",
-  "short_name": "Open Table",
+  "name": "EveryonePoker",
+  "short_name": "EveryonePoker",
   "description": "Free ranked no-limit hold'em, heads-up or six handed. No money, no ads, no rake.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "theme_color": "#14100c",
-  "background_color": "#14100c",
+  "theme_color": "#111113",
+  "background_color": "#111113",
   "icons": [
     { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" },
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },

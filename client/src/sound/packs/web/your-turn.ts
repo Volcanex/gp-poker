@@ -8,5 +8,5 @@ export const yourTurnSound: SoundAsset = {
   duration: 0.300,
   format: "wav",
   license: "CC0",
-  author: "Open Table",
+  author: "EveryonePoker",
 };

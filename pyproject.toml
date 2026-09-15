@@ -1,7 +1,7 @@
 [project]
 name = "opentable"
 version = "0.1.0"
-description = "Open Table: free ranked heads-up no-limit hold'em, Lichess-style (everyonepoker.com)"
+description = "EveryonePoker: free ranked heads-up no-limit hold'em, Lichess-style (everyonepoker.com)"
 
 [tool.gcore]
 design = "g-system@1.1.0"

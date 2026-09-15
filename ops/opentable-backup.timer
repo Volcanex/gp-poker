@@ -1,5 +1,5 @@
 [Unit]
-Description=Daily Open Table database backup
+Description=Daily EveryonePoker database backup
 
 [Timer]
 OnCalendar=*-*-* 04:30:00

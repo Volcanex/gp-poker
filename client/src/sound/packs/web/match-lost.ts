@@ -8,5 +8,5 @@ export const matchLostSound: SoundAsset = {
   duration: 0.350,
   format: "wav",
   license: "CC0",
-  author: "Open Table",
+  author: "EveryonePoker",
 };

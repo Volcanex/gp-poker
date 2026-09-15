@@ -31,7 +31,7 @@ export function Ranges() {
 
       <h2>The chart this site uses</h2>
       <p>
-        Below is the real baseline chart Open Table scores your preflop decisions against: the small
+        Below is the real baseline chart EveryonePoker scores your preflop decisions against: the small
         blind opening heads-up with a deep stack, which is the very first decision of most hands you
         will play here. Green is raise, amber is limp, and the rest is fold.
       </p>

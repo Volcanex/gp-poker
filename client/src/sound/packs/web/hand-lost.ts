@@ -8,5 +8,5 @@ export const handLostSound: SoundAsset = {
   duration: 0.210,
   format: "wav",
   license: "CC0",
-  author: "Open Table",
+  author: "EveryonePoker",
 };

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
+import { Logo } from './logo.tsx';
 import {
   Cards, Eye, GraduationCap, Medal, PuzzlePiece, Ranking, Trophy, Users, Wrench,
 } from '@phosphor-icons/react';
@@ -146,7 +147,10 @@ export function SiteShell({ children }: { children: ReactNode }) {
           data-icon="list"
           onClick={() => (open ? close() : setOpen(true))}
         />
-        <Link className="wordmark" to="/">Open Table</Link>
+        <Link className="wordmark" to="/">
+          <Logo className="wordmark-mark" size="1.15em" />
+          EveryonePoker
+        </Link>
         <span className="spacer" />
         {/* A match's own actions, portalled in from wherever one is open. Empty
             everywhere else, which is why it costs the bar nothing: an empty
