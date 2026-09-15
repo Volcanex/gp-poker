@@ -2885,6 +2885,9 @@ dialog.cmdk {
 .ga-hit { position: absolute; inset: 0; cursor: crosshair; }
 .ga-stage[data-tool="pen"] .ga-hit { cursor: cell; }
 .ga-stage[data-text] .ga-hit { cursor: text; }
+/* A gap chip is a target, and the hit layer is the only thing the pointer ever
+   reaches, so the cursor has to be said there rather than on the chip. */
+.ga-stage[data-gap] .ga-hit { cursor: pointer; }
 .ga-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .ga-boxes { position: absolute; inset: 0; pointer-events: none; }
 
@@ -2946,6 +2949,9 @@ dialog.cmdk {
 }
 .ga-gap[data-off] { background: var(--warn-text); }
 .ga-gap[data-off] .ga-gap-val { background: var(--warn-text); color: var(--bg); }
+/* Under the pointer, and a ring rather than a movement: this is a hover-only
+   affordance on a chip that is already sixteen pixels tall. */
+.ga-gap-val.ga-gap-on { outline: 1px solid var(--text-primary); outline-offset: 1px; }
 
 /* Box-model shading, drawn outside and inside the border box. Two meanings,
    two colours, both derived tokens rather than scale steps. */
@@ -2965,11 +2971,17 @@ dialog.cmdk {
 @keyframes ga-flash-value {
   from { border-color: var(--accent-edge); background: color-mix(in srgb, var(--accent-fill) 35%, transparent); }
 }
+/* Jumping to what owns a gap lands on one row of eight, none of which moved,
+   so the row says which one it was. The pane takes it instead where the
+   property has no row of its own, which is the container's own gap. */
+@keyframes ga-flash-row { from { background: color-mix(in srgb, var(--accent-fill) 35%, transparent); } }
 .ga-margin.ga-flash { animation: ga-flash-margin calc(var(--dur-slow) * 2) var(--ease-out); }
 .ga-pad.ga-flash { animation: ga-flash-pad calc(var(--dur-slow) * 2) var(--ease-out); }
 .ga-out.ga-flash { animation: ga-flash-edge calc(var(--dur-slow) * 2) var(--ease-out); }
 .ga-pick.ga-flash { animation: ga-flash-edge calc(var(--dur-slow) * 2) var(--ease-out); }
 .ga-val.ga-flash { animation: ga-flash-value calc(var(--dur-slow) * 2) var(--ease-out); }
+.ga-row.ga-flash,
+.ga-side .g-pane.ga-flash { animation: ga-flash-row calc(var(--dur-slow) * 2) var(--ease-out); }
 @media (prefers-reduced-motion: reduce) {
   .ga-flash { animation: none; }
 }
@@ -3161,7 +3173,15 @@ dialog.cmdk {
 .ga-side-head .ga-dims { color: var(--text-secondary); font-size: 11px; }
 /* Only present while more than one element is selected, which is the one
    state where the controls write somewhere the head is not pointing. */
-.ga-side-head .ga-multi { color: var(--accent-edge); font-size: 11px; line-height: var(--lh-1); }
+.ga-side-head .ga-multi {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  color: var(--accent-edge);
+  font-size: 11px;
+  line-height: var(--lh-1);
+}
 
 /* The ancestry, oldest first, scrolled to the end because the end is where
    the selection is. One line that never wraps: a chain that grew two rows
@@ -3220,7 +3240,8 @@ dialog.cmdk {
 /* A control row: a fixed label column so the four sides line up, then the
    stepper. The label column keeps its width when a row is empty, so nothing
    moves as the selection changes. */
-.ga-row { display: flex; align-items: center; gap: var(--sp-2); }
+/* The radius is only ever seen by the flash, which paints the whole row. */
+.ga-row { display: flex; align-items: center; gap: var(--sp-2); border-radius: var(--radius-sm); }
 .ga-row > .ga-key { flex: 0 0 48px; color: var(--text-secondary); font-size: 12px; }
 .ga-row > .g-segmented { flex: 1 1 auto; }
 .ga-row > .select-wrap { flex: 1 1 auto; min-width: 0; }

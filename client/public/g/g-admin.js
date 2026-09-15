@@ -572,6 +572,7 @@
       ["[", "Walk out to the container"],
       ["]", "Walk into the first child"],
       ["hover", "Measure the gap from the selection"],
+      ["gap click", "Jump to the property that owns a gap"],
     ]],
     ["Editing", [
       ["arrows", "Nudge the margin by a pixel"],
@@ -698,9 +699,15 @@
   const sideSel = el("div", "ga-sel");
   const sideDims = el("div", "ga-dims");
   /* Said in words rather than counted off the boxes: a multi-selection is the
-     one state where the controls write somewhere the head is not pointing. */
+     one state where the controls write somewhere the head is not pointing, and
+     what the set has in common is the thing worth saying about it. */
   const sideMulti = el("div", "ga-multi");
   sideMulti.hidden = true;
+  const sideShape = el("span");
+  const selectAllBtn = el("button", "btn btn-sm btn-tertiary");
+  selectAllBtn.type = "button";
+  selectAllBtn.hidden = true;
+  sideMulti.append(sideShape, selectAllBtn);
   const crumbs = el("nav", "ga-crumbs");
   crumbs.setAttribute("aria-label", "Ancestry");
   sideHead.append(sideSel, sideDims, sideMulti, crumbs);
@@ -898,6 +905,7 @@
       if (fresh) { selected = fresh; node = fresh; }
     }
     boxes.replaceChildren();
+    gapHits = [];
     if (!node || !node.isConnected) { drawExtras(flashing); return; }
     const rect = rectOf(node);
     /* Hidden, by an edit of ours or by the page itself. There is no box to
@@ -938,7 +946,13 @@
   const measureTag = el("span", "ga-tag");
   measureOutline.append(measureTag);
 
-  function gapLine(x, y, horizontal, dist, stops) {
+  /* The chips drawn by the last measurement, with the thunk that works out
+     what owns each one. A thunk rather than an answer: the owner costs several
+     computed-style reads and the pointer redraws this on every frame it
+     moves, where a click happens once. */
+  let gapHits = [];
+
+  function gapLine(x, y, horizontal, dist, stops, owner) {
     if (dist < 0.5) return; /* touching edges: a zero-length line says nothing */
     const line = el("div", "ga-gap");
     line.style.left = x + "px";
@@ -959,10 +973,12 @@
     label.title = off < 0.5 ? `${round}px` : (name ? `${round}px, nearest ${name}` : `${round}px, off the spacing scale`);
     line.append(label);
     boxes.append(line);
+    if (owner) gapHits.push({ label, owner });
   }
 
   function drawMeasure(a, b) {
     boxes.replaceChildren();
+    gapHits = [];
     const ra = rectOf(a), rb = rectOf(b);
     place(editOutline, ra);
     editTag.textContent = selectorFor(a).split(" > ").pop();
@@ -980,19 +996,128 @@
     };
     const ax2 = ra.x + ra.w, ay2 = ra.y + ra.h, bx2 = rb.x + rb.w, by2 = rb.y + rb.h;
     if (Math.min(ax2, bx2) > Math.max(ra.x, rb.x) && Math.min(ay2, by2) > Math.max(ra.y, rb.y)) {
+      /* Four edge offsets, which is the padding question asked from outside,
+         so the owner is a container-and-child question wherever the DOM says
+         one of these is inside the other. */
+      const inside = a.contains(b) ? [a, b] : b.contains(a) ? [b, a] : null;
+      const at = (side) => () => (inside ? insideOwner(inside[0], inside[1], side) : overlapOwner(a, b, side));
       const x = mid(ra.x, ax2, rb.x, bx2), y = mid(ra.y, ay2, rb.y, by2);
-      gapLine(x, Math.min(ra.y, rb.y), false, Math.abs(ra.y - rb.y), stops);
-      gapLine(x, Math.min(ay2, by2), false, Math.abs(ay2 - by2), stops);
-      gapLine(Math.min(ra.x, rb.x), y, true, Math.abs(ra.x - rb.x), stops);
-      gapLine(Math.min(ax2, bx2), y, true, Math.abs(ax2 - bx2), stops);
+      gapLine(x, Math.min(ra.y, rb.y), false, Math.abs(ra.y - rb.y), stops, at("top"));
+      gapLine(x, Math.min(ay2, by2), false, Math.abs(ay2 - by2), stops, at("bottom"));
+      gapLine(Math.min(ra.x, rb.x), y, true, Math.abs(ra.x - rb.x), stops, at("left"));
+      gapLine(Math.min(ax2, bx2), y, true, Math.abs(ax2 - bx2), stops, at("right"));
       return;
     }
+    /* Two boxes facing each other across a gap: whichever comes first owns the
+       facing side, unless the container is spacing them. */
     const y = mid(ra.y, ay2, rb.y, by2);
-    if (rb.x >= ax2) gapLine(ax2, y, true, rb.x - ax2, stops);
-    else if (ra.x >= bx2) gapLine(bx2, y, true, ra.x - bx2, stops);
+    if (rb.x >= ax2) gapLine(ax2, y, true, rb.x - ax2, stops, () => betweenOwner(a, b, "right"));
+    else if (ra.x >= bx2) gapLine(bx2, y, true, ra.x - bx2, stops, () => betweenOwner(b, a, "right"));
     const x = mid(ra.x, ax2, rb.x, bx2);
-    if (rb.y >= ay2) gapLine(x, ay2, false, rb.y - ay2, stops);
-    else if (ra.y >= by2) gapLine(x, by2, false, ra.y - by2, stops);
+    if (rb.y >= ay2) gapLine(x, ay2, false, rb.y - ay2, stops, () => betweenOwner(a, b, "bottom"));
+    else if (ra.y >= by2) gapLine(x, by2, false, ra.y - by2, stops, () => betweenOwner(b, a, "bottom"));
+  }
+
+  /* --------------------------------------------------------- gap ownership */
+
+  /* A measured gap is a number until you know which declaration produced it,
+     and changing it is the reason to have measured. Clicking the chip answers
+     that: it selects the element the gap belongs to, opens the pane the
+     property lives in and flashes the row, which is the same walk a person
+     would do by hand from the number.
+
+     The precedence is the order the browser resolves these in, and the answer
+     is never dressed up as more certain than it is: where a second declaration
+     is also adding to the gap, the hint names it rather than leaving the first
+     reading to look complete. */
+
+  const FACING = { top: "bottom", bottom: "top", left: "right", right: "left" };
+  const axisRow = (side) => (side === "left" || side === "right" ? justify.row : alignItems.row);
+
+  /* A gap between a child and the edge of what contains it. */
+  function insideOwner(container, child, side) {
+    const cs = getComputedStyle(container);
+    const pad = px(cs.getPropertyValue("padding-" + side));
+    const mar = px(getComputedStyle(child).getPropertyValue("margin-" + side));
+    const childMargin = `${crumbLabel(child)}'s margin-${side}`;
+    if (pad > 0) {
+      return { el: container, pane: paddingPane, row: paddings[side].row,
+        why: `That gap is ${crumbLabel(container)}'s padding-${side}${mar > 0 ? `, and ${childMargin} on top of it` : ""}.` };
+    }
+    if (mar > 0) {
+      return { el: child, pane: marginPane, row: margins[side].row,
+        why: `That gap is ${childMargin}. The container declares no padding on that side.` };
+    }
+    /* Nothing is declared on either box, so a flex or grid container placed
+       the child there and the Alignment pane is where it moves. */
+    if (/flex|grid/.test(cs.display)) {
+      return { el: container, pane: alignPane, row: axisRow(side),
+        why: `${crumbLabel(container)} places this one, so that gap is its alignment, or ${childMargin}.` };
+    }
+    return { el: container, pane: paddingPane, row: paddings[side].row,
+      why: `Nothing declares that gap. The container's padding-${side} is where to put it, or ${childMargin}.` };
+  }
+
+  /* A gap between two boxes that face each other, first in document order
+     first. */
+  function betweenOwner(first, second, side) {
+    const other = FACING[side];
+    const firstMargin = px(getComputedStyle(first).getPropertyValue("margin-" + side));
+    const secondMargin = px(getComputedStyle(second).getPropertyValue("margin-" + other));
+    const parent = first.parentElement;
+    if (parent && second.parentElement === parent) {
+      const ps = getComputedStyle(parent);
+      if (/flex|grid/.test(ps.display)) {
+        const own = px(side === "left" || side === "right" ? ps.columnGap : ps.rowGap);
+        if (own > 0) {
+          return { el: parent, pane: alignPane, row: null,
+            why: `This gap comes from the container's gap, on ${crumbLabel(parent)}${firstMargin || secondMargin ? ", with a margin added to it" : ""}.` };
+        }
+      }
+    }
+    /* The first box's facing margin is the usual answer, but naming a margin
+       of zero while the other box declares exactly this gap is not a
+       diagnosis, so the one that is actually there wins. */
+    const takeSecond = !firstMargin && secondMargin > 0;
+    const owner = takeSecond ? second : first;
+    const ownSide = takeSecond ? other : side;
+    const alt = takeSecond ? first : second;
+    const altSide = takeSecond ? side : other;
+    return { el: owner, pane: marginPane, row: margins[ownSide].row,
+      why: `That gap is ${crumbLabel(owner)}'s margin-${ownSide}, or ${crumbLabel(alt)}'s margin-${altSide}.` };
+  }
+
+  /* Two boxes that overlap without one containing the other. Something placed
+     them there, and on this shape it is nearly always a positioned box sitting
+     on its inset, which the inspector has no control for: the margin pane is
+     where it says so. */
+  function overlapOwner(a, b, side) {
+    const placed = [b, a].find((node) => /absolute|fixed/.test(getComputedStyle(node).position));
+    if (!placed) return betweenOwner(a, b, side);
+    return { el: placed, pane: marginPane, row: margins[side].row,
+      why: `${crumbLabel(placed)} is positioned, so that offset is its ${side} inset, or a margin shifting it from there.` };
+  }
+
+  /* The chip under a point, with a few pixels of slop: the line is one pixel
+     wide and the label is the part anybody aims at. */
+  function gapAt(x, y) {
+    for (const spot of gapHits) {
+      const r = spot.label.getBoundingClientRect();
+      if (x >= r.left - 4 && x <= r.right + 4 && y >= r.top - 4 && y <= r.bottom + 4) return spot;
+    }
+    return null;
+  }
+
+  function jumpToGap(owner) {
+    if (!owner) return;
+    stage.removeAttribute("data-gap");
+    if (owner.el && owner.el !== currentTarget()) walkTo(owner.el);
+    else { hovered = null; paintBoxes(); }
+    focusPane(owner.pane);
+    /* The same signal an applied edit gives, for the same reason: the pane it
+       scrolled to holds eight rows and none of them moved. */
+    flash(owner.row || owner.pane);
+    say(owner.why);
   }
 
   /* One decision about what the box layer is showing, so the scheduled redraw
@@ -1020,6 +1145,14 @@
   }
 
   function editPointerMove(e) {
+    /* Reaching a gap chip means crossing the gap, and what is under a gap is
+       not what was being measured, so the whole reading holds while the
+       pointer is on a chip. Without that the chip walks away from the pointer
+       on its way to it. */
+    const spot = gapAt(e.clientX, e.clientY);
+    stage.toggleAttribute("data-gap", !!spot);
+    for (const other of gapHits) other.label.classList.toggle("ga-gap-on", other === spot);
+    if (spot) return;
     /* The text tool outlines what it would take, which is the topmost element
        whose whole content is text, not the topmost element. */
     const node = textOn
@@ -1035,10 +1168,12 @@
      down the stack instead: that is the only way to reach an element another
      element covers, and covered is where the layout problems live. */
   function editPointerUp(e) {
+    const spot = gapAt(e.clientX, e.clientY);
+    if (spot) { jumpToGap(spot.owner()); return; }
     const stack = stackUnder(e.clientX, e.clientY);
     if (!stack.length) return;
     if (textOn) { startText(stack); return; }
-    if (e.shiftKey && selected) { addToSelection(stack[0]); return; }
+    if ((e.shiftKey || e.metaKey || e.ctrlKey) && selected) { addToSelection(stack[0]); return; }
     const repeat = lastPoint && Math.abs(lastPoint.x - e.clientX) <= CLICK_SLOP && Math.abs(lastPoint.y - e.clientY) <= CLICK_SLOP;
     const at = selected ? stack.indexOf(selected) : -1;
     const next = (e.altKey || repeat) && at !== -1 ? stack[(at + 1) % stack.length] : stack[0];
@@ -1084,11 +1219,72 @@
     refreshControls();
   }
 
-  function renderSelection() {
-    const n = extras.length + 1;
-    sideMulti.textContent = `${n} elements selected. Spacing, alignment and type apply to all of them.`;
-    sideMulti.hidden = !extras.length;
+  /* What a multi-selection has in common is the thing worth knowing about it:
+     three boxes that are all button.btn.btn-secondary are one class waiting to
+     be changed, and three of three different tags are three separate edits
+     that happen to be selected together. The signature is the tag every
+     element shares plus the classes all of them carry, in the primary's own
+     order, and null the moment the tags disagree. */
+  function sharedSignature(nodes = selection()) {
+    if (nodes.length < 2) return null;
+    const tag = nodes[0].tagName;
+    if (!nodes.every((node) => node.tagName === tag)) return null;
+    const classes = [...nodes[0].classList].filter((c) => nodes.every((node) => node.classList.contains(c)));
+    const name = tag.toLowerCase();
+    return {
+      classes,
+      label: name + classes.map((c) => "." + c).join(""),
+      selector: name + classes.map((c) => "." + CSS.escape(c)).join(""),
+    };
   }
+
+  const tagsIn = (nodes) => [...new Set(nodes.map((node) => node.tagName.toLowerCase()))].join(", ");
+
+  /* Everything on the page wearing the signature. Ours is in the shadow root,
+     so leaving it out is one containment check, the same as stackUnder. */
+  function likeThis(sig) {
+    try {
+      return [...document.querySelectorAll(sig.selector)].filter((node) => node !== host && !shadow.contains(node));
+    } catch { return []; /* a class the page can no longer escape */ }
+  }
+
+  function renderSelection() {
+    sideMulti.hidden = !extras.length;
+    if (!extras.length) return;
+    const nodes = selection();
+    const sig = sharedSignature(nodes);
+    sideShape.textContent = `${nodes.length} elements selected, ${sig ? `all ${sig.label}` : `mixed (${tagsIn(nodes)})`}. Spacing, alignment and type apply to all of them.`;
+    /* Offered only where it would add something. A signature with no class is
+       every div on the page, and a page holding nothing else like this has
+       nothing left to add. */
+    const rest = sig && sig.classes.length ? likeThis(sig) : [];
+    selectAllBtn.hidden = rest.length <= nodes.length;
+    if (!selectAllBtn.hidden) selectAllBtn.textContent = `Select all ${rest.length} like this on the page`;
+  }
+
+  /* The cap belongs to the ticket rather than to the page, so it is said when
+     it bites rather than silently obeyed: a selection that stopped at eight
+     without saying so would be a ticket quietly missing half its subject. */
+  function selectAllLike() {
+    const sig = sharedSignature();
+    if (!sig || !sig.classes.length) return;
+    const rest = likeThis(sig);
+    const already = new Set(selection());
+    let capped = false;
+    for (const node of rest) {
+      if (already.has(node)) continue;
+      if (extras.length + 1 >= MAX_ELEMENTS) { capped = true; break; }
+      extras.push({ el: node, selector: selectorFor(node) });
+    }
+    hovered = null;
+    drawEditBoxes(selected);
+    renderSelection();
+    refreshControls();
+    const n = extras.length + 1;
+    if (capped) say(`A ticket carries ${MAX_ELEMENTS} elements at most, so ${n} of the ${rest.length} like this are selected.`);
+    else say(`${n} elements selected, every ${sig.label} on the page.`);
+  }
+  selectAllBtn.addEventListener("click", selectAllLike);
 
   /* Live references to everything a control writes to, primary first. */
   function selection() {
@@ -1437,7 +1633,7 @@
     for (const record of records) {
       const row = el("div", "ga-edit");
       row.append(el("span", "ga-prop", record.prop));
-      row.append(el("span", "ga-to", record.token_to || record.to));
+      row.append(el("span", "ga-to", record.token_to ? record.token_to.replace("--", "") : record.to));
       pendingList.append(row);
     }
   }
@@ -1619,7 +1815,7 @@
 
   const marginPane = pane("Margin", marginBody);
   const paddingPane = pane("Padding", paddingBody);
-  pane("Alignment", alignBody);
+  const alignPane = pane("Alignment", alignBody);
   pane("Type", typeBody);
   pane("Pending edits", pendingList);
 
@@ -1734,6 +1930,20 @@
     error.hidden = true;
   }
 
+  /* A multi-selection that shares a signature is a class-level intention, and
+     the summary is free text, which is the only place the contract leaves to
+     say so. Claimed only where it is true of every element the edits touched:
+     a shape that covers three of four elements is worse than no shape. */
+  function editShape() {
+    const sig = sharedSignature();
+    if (!sig || touched.size < 2) return "";
+    for (const [selector, node] of touched) {
+      const target = live(node, selector);
+      try { if (!target || !target.matches(sig.selector)) return ""; } catch { return ""; }
+    }
+    return `, all ${sig.label}`;
+  }
+
   saveEditsBtn.addEventListener("click", () => {
     const records = [...pending.values()];
     if (!records.length) return;
@@ -1741,7 +1951,7 @@
       /* A set of edits that is nothing but text is a content change, and the
          kind is what routes the ticket to the right kind of fix. */
       kind: records.every((r) => r.prop === TEXT_PROP) ? "content" : "edit",
-      summary: `${records.length} ${records.length === 1 ? "edit" : "edits"} on ${touched.size} ${touched.size === 1 ? "element" : "elements"}`,
+      summary: `${records.length} ${records.length === 1 ? "edit" : "edits"} on ${touched.size} ${touched.size === 1 ? "element" : "elements"}${editShape()}`,
       /* The HTML in a ticket has to be the element as it stands now, not as a
          reference that a re-render left behind. */
       elements: [...touched.entries()].map(([selector, node]) => snapshot(live(node, selector) || node)),
@@ -1816,7 +2026,9 @@
     closeHelp();
     revertAll();
     stage.hidden = true;
+    stage.removeAttribute("data-gap");
     boxes.replaceChildren();
+    gapHits = [];
     panel.hidden = true;
     side.hidden = true;
     hint.hidden = true;
@@ -1877,7 +2089,7 @@
     hit.onpointerup = editPointerUp;
     sevSelect.value = "minor";
     renderPending();
-    say("Click an element to select it, then hover another to measure the gap. Shift adds to the selection, and ? lists every key.", true);
+    say("Click an element to select it, then hover another to measure the gap. Click a gap to jump to what owns it, and ? lists every key.", true);
   }
 
   /* "Off" is not a fourth mode, it is leaving: the overlay goes away and the
