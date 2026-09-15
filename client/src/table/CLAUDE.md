@@ -933,27 +933,30 @@ unit tested:
 - **The felt's width is derived from the seat, and the seat from its cards.**
   `--seat-w` is `--seat-body` plus its two cards and `--felt-w` is two seats,
   the middle and the two gutters, so Other seats is one setting rather than a
-  card size and a width kept in step by hand: 476 and 1184 at the default
-  46 px card, and at huge the felt grows by exactly what the bigger cards
+  card size and a width kept in step by hand: 406 and 1044 at the default
+  28 px card, and at huge the felt grows by exactly what the bigger cards
   take rather than the cards growing into room the name was using. `--seat-card`, `--board-card` and the widths
   derived from them are declared on `.match` and not on `.felt` for that
   reason: `.match` cannot read a variable declared on its own child. The
   phone's container queries still override the two card sizes on `.felt`,
   which is where they want them, because `--felt-w` is a max-width no phone
   reaches and `--mid-w` is not used below 1060 at all.
-- **The picture stands clear of both its neighbours by the same amount.** 6 px
-  of margin either side of `.seat > .avatar`, which makes the gap to the cards
-  and the gap to the identity block 12 apiece while the two gaps further along
-  the row keep the row's own 6. Equal by construction rather than by two
-  declarations that can drift, and the 12 is in `--seat-body` so a seat did
-  not pay for it out of the name.
-- **The rack sits on the block's own left edge**, level with the flag slot
-  above it rather than indented past it to meet the name's first letter. Set
-  in by the flag's 22 px it hung to the right of everything it belongs to.
-  `.seat-line` (the row above it: the flag, the name, the rating, the badges)
-  carries its own 6 px of further indent past that edge, own request, so the
-  two rows read as the name standing a little clear of the picture and the
-  rack standing under it rather than under the flag.
+- **The card is what the seat is built round, but 60 is where it starts.**
+  `--seat-h` is `max(60px, --seat-card * 1.4 + 18px)`, so only a card big
+  enough to need more than the identity block takes more. Derived without the
+  floor and off a 46 px default card, the seat stood 80 px tall holding 34 of
+  content and the owner's word for it was that it looks like shit: a face
+  down back carries no information at any size, so the Other seats setting is
+  a reading preference (22, 28, 36) and not a scale the felt hangs from.
+- **The identity block reads back from the action square.** Both its rows are
+  right aligned against it, because the square is the one fixed thing on that
+  end of the row. The name's line is the flag slot, the name, the rating and
+  the badges; under it the stack's figure with the rack it is worth beside it,
+  on one line. A rack and a number are one reading, and a row of its own for
+  the chips split a number from the chips that are worth it and cost the seat
+  a third of its height for nothing. The rack stands in the room the figure's
+  reserved digits leave (`margin-right: calc(5ch + 6px)`), so it does not
+  slide every time a stack gains or loses one.
 - **Only `.seat-name` may shrink in `.seat-line`.** It alone carries
   `min-width: 0` and an ellipsis; the flag, the rating and both badges (`Bot`,
   `You`) all carry `flex: none`. They did not always: `.seat-bot` and
@@ -961,13 +964,24 @@ unit tested:
   six-max seat two to a row below 1060, a long name) flex's default shrink
   gave them a sliver of box while their text kept its full size and painted
   straight over the name beside them. "Shit is overlapping" was this.
-- **A seat is also its own container**, `.pos { container-type: inline-size }`
-  in `../app.css`, queried below 420px to drop `.seat-rating` the same way the
-  felt-wide `@container (max-width: 560px)` rule already does. The two columns
-  below 1060 put a seat two to a row rather than one, which can squeeze a
-  seat's own width well past what the felt-wide rule waits for: a name
+- **A seat is also its own container, and both containers are named.**
+  `.match` is `felt` and `.pos` is `seat`, in `../app.css`. **Every
+  `@container` on this screen has to say which**, because a seat sits inside
+  both and an unnamed query resolves against the nearer one: the day `.pos`
+  became a container, the felt-wide phone tier at 560 started firing on every
+  desktop seat, which is a 476 px panel wearing the layout half a phone gets.
+  The picture, the rack, the flag slot and the rating all vanished from a
+  desktop felt and the figure went to the bottom right corner of a box with
+  nothing else in it. Nothing in the CSS was wrong on its own; the query just
+  asked the wrong box how wide it was.
+- **The `seat` container drops the rating below 390px.** A seat gets its own
+  full column (406 at the default card, never below 398 while the wings are
+  wings), so under 390 it really is in the two-to-a-row arrangement with
+  something else beside it: 360 at 768, 179 on half a phone. There the rating
+  is worth more to the name than to itself, which is the same order the
+  felt-wide rule drops things in; the `Bot` badge follows it below 200. A name
   disappeared behind its own rating (`min-width: 0` shrinking it to nothing,
-  not just tight) before this existed, at widths nowhere near 560.
+  not just tight) before this tier existed, at widths nowhere near 560.
 - **The board's own track carries `--board-clear` past `--board-h`** (own
   request, 20px): `align-items: start` on `.felt-in` sits the board at the
   top of the taller track it now has, so the extra height lands between the
@@ -1091,9 +1105,12 @@ stack figure under the name with its small chip stack beside it, then the
 
 `seat.rating` sits beside the name, muted, the same figure the profile and
 `PlayerBar` show, unrounded on the wire and rounded once at the display site
-by `int()`. It is the first thing the felt gives up under 560px: half a phone
-is 179px and a name is what a seat is read by there, so `.seat-rating` joins
-the flag slot and the bot line off `.seat-line`'s reserved space.
+by `int()`. It is the first thing a seat gives up when it is short of room,
+at 390px of its own container and again on the felt-wide rule under 560: half
+a phone is 179px and a name is what a seat is read by there, so `.seat-rating`
+joins the flag slot off `.seat-line`'s reserved space. It arrived on that line
+after `--seat-body` was set, and the 34px it costs was added there rather than
+taken out of the name.
 
 The square is `--seat-h` on a side and always rendered, empty as a quiet
 outline, so a word arriving in it moves nothing. It shows what the player just
@@ -1230,8 +1247,8 @@ being poker-specific, build it in g-system, not here.
   and moved the word above it.
 - The felt's inner box is `.felt-in`; `--felt-w` caps it and centres it,
   except in `bare` mode (the replay), which fills the card it sits in. The cap
-  follows the Other seats setting (above): 1144 at regular, 1184 at large,
-  1224 at huge.
+  follows the Other seats setting (above): 1020 at regular, 1044 at large,
+  1076 at huge.
 - A six-max match carries no hand count (`format.hands` is null) and the stats
   box says "12" without "of". `blindsRow` in `labels.ts` adds the level and a
   next-level row whenever `format.levels` holds more than one; `blindText` is

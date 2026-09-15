@@ -17,6 +17,6 @@ test('v2 draws every card from the sprite and every chip from the chip symbol', 
   await expect(page.locator('.pot-chips .chip').first()).toBeVisible();
   /* And a stack beside the opponent's number, which is where a bet leaves
      from: chips tick between the two stacks, nothing flies. */
-  await expect(page.locator('.pos[data-k="1"] .stack-chips .chip').first()).toBeVisible();
+  await expect(page.locator('.pos[data-k="1"] .seat-chips .chip').first()).toBeVisible();
   await expect(page.locator('.chip-flights')).toHaveCount(0);
 });

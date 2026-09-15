@@ -594,8 +594,18 @@
    fall back to a header row of this screen's own, `.hand-head`, which is
    why that row is optional rather than fixed like every other one here (see
    `../table/CLAUDE.md`, "Leaving a game"). */
+/* **Named, because the felt holds a second container inside it.** `.pos` is
+   one too (below), so every unnamed `@container` a seat matched resolved
+   against the seat's own column instead of the felt: the phone tier at 560
+   fired on every desktop seat, which is a full size 476px panel wearing the
+   layout half a phone gets. The picture, the rack, the flag and the rating
+   all disappeared off a desktop seat the day `.pos` became a container, and
+   the figure went to the bottom right corner of a box with nothing else in
+   it. Felt-wide rules say `felt`, per-seat rules say `seat`, and neither can
+   be caught by the other's threshold again. */
 .match {
   container-type: inline-size;
+  container-name: felt;
   flex: 1;
   display: grid;
   /* **The table is one screen and never the page's scrollbar.** Every fixed
@@ -710,13 +720,24 @@
   /* Everybody else's cards, from the Cards setting, and **the seat is built
      round them**: the card is the thing being sized and the seat is the card
      it is held in, so the panel grows with the setting rather than the cards
-     growing inside a panel that does not. */
-  --seat-h: calc(var(--seat-card) * 1.4 + 16px);
-  /* The identity block: two rows and the gap between them. The avatar is cut
-     to it, so the picture is exactly as tall as the name and the rack it
-     stands beside. */
+     growing inside a panel that does not.
+
+     **With a floor, which is where it starts.** The identity block is two
+     16 px rows and the seat is read by them, so 60 is the height a seat wants
+     whatever its cards are doing, and only a card big enough to need more
+     than that takes more. Derived without the floor, the default card stood a
+     seat 80 px tall holding 34 px of content, which is the dead space the
+     owner read as a box with a name in the corner of it. */
+  --seat-h: max(60px, calc(var(--seat-card) * 1.4 + 18px));
+  /* The identity block: the name's line, the rack's line and the gap between
+     them. The rack's is the taller of the two and is reserved rather than
+     measured, because an empty rack draws no chips and a seat busting out may
+     not change the height of the row it is in: a 10 px chip and three more at
+     3 px of pitch is the tallest column `denominate` can build (`./chips.ts`),
+     which is what `--chip-rows: 4` on `.seat-chips` also says. */
   --seat-row: 16px;
-  --seat-id-h: calc(var(--seat-row) * 2 + 2px);
+  --seat-rack-h: 19px;
+  --seat-id-h: calc(var(--seat-row) + var(--seat-rack-h) + 2px);
   --board-h: calc(var(--board-card) * 1.4); /* the board's row, and the pot's box under it */
   --board-clear: 20px; /* air between the board's row and the seats below it, own request */
   --pot-w: 108px; /* five chips of the pot's size and their gaps */
@@ -761,14 +782,18 @@
   --mid-w: calc(var(--board-w) - var(--sp-4) * 2);
   /* Everybody else's cards, from the Other seats setting. The seat is built
      round them: the card is the thing being sized and the seat is the card
-     it is held in. */
-  --seat-card: 46px;
+     it is held in. **A back carries no information at any size**, so the
+     three steps are a reading preference and not a scale the felt is hung
+     from: at 28 the two of them are what a seat's picture, name, rack and
+     figure can stand beside without any of them giving anything up. */
+  --seat-card: 28px;
   /* The room a seat gives everything that is not its two cards: the padding,
-     the picture, the identity block, the figure and the action square. The
-     12 px of air added either side of the picture is in here, because a
-     seat that absorbed it would have paid for it out of the name, and the
-     name is what a seat is read by. */
-  --seat-body: 384px;
+     the picture, the identity block and the action square. 316 is what the
+     row needs for a name to read whole with a flag, a button marker and a bot
+     tag beside it; the rating (ticket 6t3p7j6j) arrived on that line after
+     the number was set and costs it 34 more, which is paid here rather than
+     out of the name, because the name is what a seat is read by. */
+  --seat-body: 350px;
   --seat-w: calc(var(--seat-body) + var(--seat-card) * 2);
   --felt-w: calc(var(--seat-w) * 2 + var(--mid-w) + var(--sp-4) * 2);
 }
@@ -810,7 +835,10 @@
    layout assumes while the felt itself is still nowhere near the 560px that
    used to be the only width this screen asked a seat about. Queried below,
    at the seat's own edge rather than the whole table's. */
-.pos { grid-row: var(--r); grid-column: var(--c); display: flex; min-width: 0; container-type: inline-size; }
+.pos {
+  grid-row: var(--r); grid-column: var(--c); display: flex; min-width: 0;
+  container-type: inline-size; container-name: seat;
+}
 /* Both columns hug the middle, so the table gathers round the board rather
    than spreading to the felt's edges. */
 .pos[data-col="left"] { justify-content: flex-end; }
@@ -855,7 +883,7 @@
 /* Below 1060 the middle cannot fit between two seats that hold a name, so it
    goes across the top and the columns start under it. The same lines, the
    same elements, one extra row. */
-@container (max-width: 1060px) {
+@container felt (max-width: 1060px) {
   .felt-in {
     grid-template-columns: [l] minmax(0, 1fr) [r] minmax(0, 1fr) [end];
     grid-template-rows:
@@ -959,7 +987,7 @@
 }
 .stats dt:nth-of-type(2), .stats dt:nth-of-type(3) { display: none; }
 .stats .stats-next, .stats dt:last-of-type, .stats dd:last-of-type { display: none; }
-@container (max-width: 1060px) {
+@container felt (max-width: 1060px) {
   .stats {
     grid-column: l / end; grid-row: topstats; justify-self: center;
     width: 100%; max-width: 264px; height: var(--box-h); margin-top: var(--sp-2);
@@ -1011,7 +1039,7 @@
   border: 1px solid var(--border-subtle); border-radius: var(--radius-card);
   background: var(--surface-2);
 }
-@container (max-width: 1060px) {
+@container felt (max-width: 1060px) {
   .game-panel { position: static; justify-self: end; z-index: auto; }
 }
 .gp-div { flex: none; height: 1px; background: var(--border-subtle); }
@@ -1155,14 +1183,16 @@
   box-sizing: border-box;
   width: 100%; max-width: var(--seat-w); height: var(--seat-h);
   display: grid;
-  /* Cards, picture, identity, stack, action. The action square is the seat's
-     height, capped: past 64px it stops being a square with a word in it and
-     starts being width the name wanted. */
+  /* Picture, cards, identity, action. Four columns and not five: the figure
+     is the identity block's second row beside its own rack, not a column of
+     its own, so the block keeps the width a column for one number cost it.
+     The action square is the seat's height, capped: past 64px it stops being
+     a square with a word in it and starts being width the name wanted. */
   grid-template-columns:
-    auto auto minmax(0, 1fr) auto min(calc(var(--seat-h) - 2px), 64px);
+    auto auto minmax(0, 1fr) min(calc(var(--seat-h) - 2px), 64px);
   align-items: center;
-  column-gap: 6px;
-  padding-left: var(--sp-3);
+  column-gap: var(--sp-2);
+  padding-left: var(--sp-2);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-card);
   background: var(--surface-2);
@@ -1181,6 +1211,15 @@
   border-color: var(--accent-fill);
   background: color-mix(in oklab, var(--accent-fill) 22%, var(--surface-2));
 }
+/* The lit ground is not `--surface-2` any more, and the muted marks on the
+   name line fail AA against it: axe's serious set flags `.seat-rating` on a
+   `data-won` seat, which is what `../../e2e/access.spec.ts` catches on the
+   result state. They take the primary ink on a winning seat instead: the same
+   marks in the same boxes, one colour brighter, which is the seat already
+   changing colour rather than a second thing happening. */
+.seat[data-won] .seat-rating,
+.seat[data-won] .seat-you,
+.seat[data-won] .seat-bot { color: var(--text-primary); }
 
 .avatar { width: var(--avatar-size, 26px); height: var(--avatar-size, 26px); overflow: hidden; flex: none; }
 .avatar img { width: 100%; height: 100%; display: block; }
@@ -1194,104 +1233,69 @@
 .avatar[data-size="28"] { --avatar-size: 28px; }
 .avatar[data-size="56"] { --avatar-size: 56px; }
 
-:root[data-seat-cards="regular"] .match { --seat-card: 36px; }
-:root[data-seat-cards="huge"] .match { --seat-card: 56px; }
+:root[data-seat-cards="regular"] .match { --seat-card: 22px; }
+:root[data-seat-cards="huge"] .match { --seat-card: 36px; }
 
 .seat-cards { display: flex; gap: 4px; }
 .seat .pcard { --card-w: var(--seat-card); }
-/* Two rows on one edge: the name over the rack, both starting where the
-   picture ends. Left aligned, because a name and the chips under it are one
-   block and a block reads from its own edge. */
+/* Two rows on one edge: the name, and the stack's figure with its rack under
+   it. Right aligned, against the action square, because the square is the
+   one fixed thing on this end of the row and both lines are read back from
+   it. */
 .seat-id {
-  display: flex; flex-direction: column; align-items: flex-start;
+  display: flex; flex-direction: column; align-items: flex-end;
   gap: 2px; min-width: 0; height: var(--seat-id-h);
 }
 /* Both lines span the block, whatever is in them: a box that shrinks to its
    content is a box the observer sees move when the content does. */
 .seat-line {
-  display: flex; align-items: center; justify-content: flex-start;
+  display: flex; align-items: center; justify-content: flex-end;
   gap: 6px; min-width: 0; width: 100%; height: var(--seat-row);
-  /* Own request: the flag and the name read as too close to the picture.
-     The rack below keeps the block's own left edge (see the note on
-     `.seat-sub`), so only this line's own start moves. */
-  padding-left: 6px;
 }
-/* Cut to the two rows it stands beside, and standing clear of both its
-   neighbours by the same amount. **The margin rather than the row's own
-   `column-gap`**, which is one number for four gaps: the picture wants more
-   air than the figure does, and 6 px on each side of it makes the gap either
-   side 12 while the two gaps further along the row keep theirs. Equal by
-   construction rather than by two declarations that can drift. The owner's
-   note was that the picture was touching the cards on one side and the name
-   on the other. */
-.seat > .avatar { --avatar-size: var(--seat-id-h); margin: 0 6px; }
 .seat-name {
   font-size: 13px; line-height: 16px; font-weight: 500; color: var(--text-primary);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
 }
-/* The rack's own row, between the name and the figure it is worth. Its height
-   is reserved by the empty slots inside it, and it is smaller and shallower
-   here than in the pot: three rows have to live in a 60px seat, and a rack
-   beside a name is read for its shape rather than counted. */
-/* Four rows and no more: `denominate` rolls four ones into a five, four fives
-   into a twenty five, three twenty fives into a hundred and four hundreds
-   into a five hundred, and a table holding 1200 never stacks three of those.
-   So four is the tallest column the felt can produce, and reserving exactly
-   it is what keeps a rack off the seat's `overflow: hidden` edge. */
-/* The second row: the rack on the block's own left edge, level with the flag
-   slot above it rather than indented past it to meet the name, and the seat's
-   own marks pushed to the far end. A rack set in by the flag's 22 px hung to
-   the right of everything it belongs to, which is what the owner read as the
-   chips being out of line. */
-.seat-sub {
-  display: flex; align-items: center; gap: 6px;
-  width: 100%; height: var(--seat-row); min-width: 0;
-}
-.seat-sub .btn-marker { margin-left: auto; }
-.seat-sub .seat-bot + .btn-marker { margin-left: 0; }
-.seat-sub .seat-bot { margin-left: auto; }
+/* The rack, beside the figure it is worth: every denomination, so a bet of
+   any size is seen leaving. It is the same component as the pot's stack and
+   ticks on the same clock, which is what makes a bet read as chips moving
+   from one place to the other.
 
-/* The rack, under the name and on the same edge: every denomination, so a bet
-   of any size is seen leaving. It is the same component as the pot's stack and
-   ticks on the same clock, which is what makes a bet read as chips moving from
-   one place to the other. Four rows and no more, because that is the tallest
-   column `denominate` can build. */
+   Small and shallow, because a rack beside a number is read for its shape
+   rather than counted. Four rows and no more: `denominate` rolls four ones
+   into a five, four fives into a twenty five, three twenty fives into a
+   hundred and four hundreds into a five hundred, and a table holding 1200
+   never stacks three of those. So four is the tallest column the felt can
+   produce, and reserving exactly it is what keeps a rack off the seat's own
+   `overflow: hidden` edge.
+
+   It stands in the room the figure's reserved digits leave, so the rack does
+   not slide every time a stack gains or loses one. */
 .seat-chips {
-  display: flex; align-items: flex-end; justify-content: flex-start;
-  height: var(--seat-row);
-  --chip: 11px; --chip-rows: 4;
+  display: inline-flex; align-items: flex-end; flex: none;
+  height: var(--seat-rack-h);
+  margin-right: calc(5ch + 6px);
+  --chip: 10px; --chip-rows: 4;
 }
 .seat-chips .chips { gap: 2px; }
 
-/* The figure, in a column of its own and centred on the seat. Bigger than
-   anything else on the row: it is the one number read from across the table,
-   and beside the rack it is worth rather than under it. */
+/* The figure and the rack on one line, always. They are one reading: a row of
+   its own for the chips split a number from the chips that are worth it and
+   cost the seat a third of its height for nothing. */
 .seat-stack {
   position: relative;
-  display: flex; align-items: baseline; justify-content: center; gap: 6px;
-  /* Room on both sides of the figure: pressed against the action square it
-     read as part of it, and the word that shares its box needs somewhere to
-     be that is not touching the digits. Every pixel here is one the name
-     beside it does not get, so it is the smaller step. */
-  padding: 0 var(--sp-2);
-  font-size: 22px; line-height: 24px; font-weight: 500; letter-spacing: -0.015em;
+  display: flex; align-items: flex-end; justify-content: flex-end; gap: 6px;
+  width: 100%; height: var(--seat-rack-h);
+  font-size: 15px; line-height: 16px; font-weight: 500; letter-spacing: -0.015em;
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }
-/* "all in" lands in a slot the figure always leaves open, out of the flow, so
-   nothing moves when it does. "out" takes the same slot in the flow, because
-   a busted seat's figure is rebuilt anyway. */
+/* "All in" lands in the slot the chips always leave open, out of the flow, so
+   nothing moves when it does. "Out" takes the same slot, because a busted
+   seat's row is rebuilt anyway. */
 .seat-stack .u { font-size: 11px; line-height: 16px; color: var(--text-secondary); font-weight: 400; }
-/* **Under the figure, not beside it.** It used to sit against the digits'
-   own edge, back when the rack shared their line and left a slot open; the
-   figure has a column to itself now, so the word goes under it, centred on
-   the same middle. Out of the flow either way, so a hand going all in moves
-   nothing. "All in" and "Out" share the slot. */
-.seat-stack .u-allin {
-  position: absolute; left: 0; right: 0; bottom: -14px;
-  text-align: center; white-space: nowrap;
-}
-/* Room for every stack a table can hold, so nothing beside the digits moves
-   when the figure gains one. */
+.seat-stack .u-allin { position: absolute; right: calc(4ch + 6px); bottom: 0; }
+/* Room for every stack a table can hold, so the chips beside the digits never
+   move when the figure gains one. */
 .stack-v { display: inline-block; min-width: 4ch; text-align: right; }
 
 .btn-marker {
@@ -1324,19 +1328,33 @@
   padding: 0 4px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
   flex: none;
 }
-.seat-off { color: var(--danger-text); font-size: 11px; line-height: 16px; white-space: nowrap; }
+.seat-off {
+  color: var(--danger-text); font-size: 11px; line-height: 16px; white-space: nowrap;
+  flex: none;
+}
 
 /* A seat whose own column has been squeezed well past what the full desktop
    row assumes, short of the width the felt-wide compact rules wait for
-   (`@container (max-width: 560px)` on `.match`, below): between roughly 560
+   (`@container felt (max-width: 560px)` on `.match`, below): between roughly 560
    and 1060 the wings sit two seats to a row instead of one, and a seat can
    be narrower than the rating, the flag and the name all need before the
    felt itself is anywhere near 560. Every flex: none sibling on the name's
    own line was holding its ground and the name, the one flexible thing in
    the row, was giving up every pixel of it, down to nothing: `riverrat`
    disappeared behind `1642` rather than reading as either. The rating goes
-   first, the same one thing the felt-wide rule drops first. */
-@container (max-width: 420px) {
+   first, the same one thing the felt-wide rule drops first.
+
+   **390, and it is `seat` and not `felt`.** A seat gets its own full column
+   (406 at the default card) everywhere the wings are wings: 398 is the
+   narrowest that column ever is before 1060 hands the felt to the two-column
+   arrangement, so a threshold above 398 is not "squeezed past what the row
+   assumes", it is every seat on the site. That is what 420 did here, and with
+   an unnamed query resolving against this container rather than the felt it
+   took the picture, the rack and the flag with it. Under 390 a seat really is
+   in the stacked arrangement with something else beside it (360 at 768), and
+   there the rating is the one thing on the line worth more to the name than
+   to itself. */
+@container seat (max-width: 390px) {
   .seat-rating { display: none; }
 }
 /* Narrower again, the compact seat's own fixed column (179px at 390, two to
@@ -1345,7 +1363,7 @@
    priority order the phone-as-rows geometry uses for its own name line. A
    flesh-and-blood name still lost a third of itself at this width with
    both gone; there is no more to spend without cutting into the cards. */
-@container (max-width: 200px) {
+@container seat (max-width: 200px) {
   .seat-bot { display: none; }
 }
 
@@ -1407,7 +1425,7 @@
    half of a phone can hold. The avatar goes, the button goes to the seat's
    corner, the stats box becomes one row. Container queries rather than media
    queries, because the replay draws this felt in a column of its own. */
-@container (max-width: 560px) {
+@container felt (max-width: 560px) {
   .felt {
     padding: var(--sp-2) var(--sp-3);
     --seat-h: 44px; --seat-card: 16px; --board-card: 30px;
@@ -1417,41 +1435,29 @@
   .middle { gap: 4px; }
   .board { gap: 4px; }
   /* Half a phone is 179 px, and a name is what a seat is read by, so the
-     line gives everything else up: the avatar goes, the empty flag slot goes
+     line gives everything else up: the picture goes, the empty flag slot goes
      (a seat's flag cannot change mid-match, so hiding the empty box moves
-     nothing), the bot badge drops to the stack line and the button goes to
-     the seat's corner, with the cards set in past it. */
-  /* Cards, the identity block, the action square: three columns, and the
-     figure is not one of them. It has a column of its own on the desktop
-     seat, and with it the name on half a phone was down to five letters, so
-     here it stands out of the flow in the identity block's bottom right
-     corner, under the end of the name, on the line the bot badge and the
-     marker share. Before this the square was the fourth child of a three
-     column grid and wrapped under the cards, where the seat's own overflow
-     cut the word in half. */
+     nothing), the rating goes, the rack goes and the button goes to the
+     seat's corner, with the cards set in past it. The identity block keeps
+     its two rows either way, so what is left is the name over the figure and
+     nothing else: three columns, cards, block, square. */
   .seat { grid-template-columns: auto minmax(0, 1fr) 36px; column-gap: 5px; padding-left: 15px; }
   .seat > .avatar { display: none; }
-  .seat-id { height: auto; align-self: start; padding-top: 6px; }
-  .seat-stack {
-    position: absolute; right: 41px; bottom: 5px;
-    padding: 0; font-size: 12px; line-height: 14px; gap: 4px;
-  }
+  .seat-id { height: auto; gap: 0; }
+  .seat-stack { height: auto; font-size: 12px; line-height: 14px; gap: 4px; }
   /* The word stands to the figure's left, out of the flow: inline, it
      widened a right-anchored box and the observer counted the left edge
-     moving. */
+     moving. The rack is gone here, so it takes the slot the rack's own
+     margin held open on the desktop seat. */
   .seat-stack .u-allin {
-    position: absolute; left: auto; right: 100%; bottom: 0; margin-right: 4px;
+    right: calc(4ch + 4px); bottom: 0;
     font-size: 9px; line-height: 14px; white-space: nowrap;
   }
   .seat-cards { gap: 3px; }
   .seat-name { font-size: 11px; line-height: 14px; }
-  .seat-line { gap: 4px; }
+  .seat-line { height: auto; gap: 4px; }
   .seat-line .flag-empty { display: none; }
   .seat-chips { display: none; }
-  /* The rack that padding lined up with the name is gone at this width, and
-     the badges left in the row read from the block's own edge, not the
-     rack's. */
-  .seat-sub { padding-left: 0; }
   .seat-bot { font-size: 9px; padding: 0 3px; line-height: 12px; }
   .seat-rating { display: none; }
   /* The seat's own marker only: the band draws one on its name line too, and
@@ -1509,7 +1515,7 @@
    rows pack; the hero's own seat, drawn again once the band is gone, takes
    the last row, full width, so the finished table reads opponents, board,
    you. */
-@container (max-width: 560px) {
+@container felt (max-width: 560px) {
   .felt[data-rows] {
     --seat-h: 56px; --seat-card: 28px; --board-card: 56px;
     --chip: 16px; --pot-w: 96px;
@@ -1569,21 +1575,20 @@
      the rack's line. Not the rating: on 366 px it cost the name its last
      three letters, and it is on the profile the name links to. */
   .felt[data-rows] .seat {
-    grid-template-columns: auto auto minmax(0, 1fr) auto calc(var(--seat-h) - 2px);
+    grid-template-columns: auto auto minmax(0, 1fr) calc(var(--seat-h) - 2px);
     column-gap: 8px; padding-left: var(--sp-3);
   }
   .felt[data-rows] .seat > .avatar { display: block; }
   .felt[data-rows] .seat-cards { gap: 4px; }
   .felt[data-rows] .seat-name { font-size: 13px; line-height: 16px; }
-  .felt[data-rows] .seat-line { gap: 6px; }
-  .felt[data-rows] .seat-chips { display: flex; }
-  .felt[data-rows] .seat-id { height: var(--seat-id-h); align-self: center; padding-top: 0; }
+  .felt[data-rows] .seat-line { height: var(--seat-row); gap: 6px; }
+  .felt[data-rows] .seat-chips { display: inline-flex; }
+  .felt[data-rows] .seat-id { height: var(--seat-id-h); gap: 2px; }
   .felt[data-rows] .seat-stack {
-    position: relative; right: auto; bottom: auto;
-    padding: 0 var(--sp-2); font-size: 20px; line-height: 24px; gap: 6px;
+    height: var(--seat-rack-h); font-size: 15px; line-height: 16px; gap: 6px;
   }
   .felt[data-rows] .seat-stack .u-allin {
-    position: absolute; left: 0; right: 0; bottom: -14px; font-size: 11px; line-height: 16px;
+    right: calc(4ch + 6px); bottom: 0; font-size: 11px; line-height: 16px;
   }
   .felt[data-rows] .seat-bot { font-size: 10px; padding: 0 4px; line-height: 14px; }
   .felt[data-rows] .seat .btn-marker {
@@ -1608,7 +1613,7 @@
    above already go to nought before anything else does), and only once
    that is spent do the rows themselves give something up. */
 @media (max-height: 760px) {
-  @container (max-width: 560px) {
+  @container felt (max-width: 560px) {
     .felt[data-rows][data-mode="stack"] { --board-card: 48px; }
     .felt[data-rows][data-mode="ring"] {
       --seat-h: 42px; --seat-card: 20px; --board-card: 32px; --chip: 13px;
@@ -1622,7 +1627,7 @@
    row. Later in the file than the tier above, so it wins the range both
    match rather than the two fighting over source order. */
 @media (max-height: 640px) {
-  @container (max-width: 560px) {
+  @container felt (max-width: 560px) {
     .felt[data-rows][data-mode="ring"] {
       --seat-h: 34px; --seat-card: 17px; --board-card: 24px; --chip: 10px;
     }
@@ -1633,7 +1638,7 @@
 /* A phone shorter than any of these three actually ship, kept for a browser
    window resized small or a split screen rather than a real handset. */
 @media (max-height: 570px) {
-  @container (max-width: 560px) {
+  @container felt (max-width: 560px) {
     .felt[data-rows][data-mode="ring"] {
       --seat-h: 28px; --seat-card: 14px; --board-card: 20px; --chip: 9px;
     }
@@ -1651,7 +1656,7 @@
    the auto margins clawing the room back as scroll, which the fixed sizes
    at the top of this rule already clear down to 560. */
 @media (min-height: 690px) {
-  @container (max-width: 560px) {
+  @container felt (max-width: 560px) {
     /* --seat-card is not one of these: it is the one number here that also
        eats the compact seat's own fixed 179px column (two cards plus their
        gap come straight out of the identity block's room), and "a name is
