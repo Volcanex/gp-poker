@@ -126,18 +126,33 @@ export async function resolveSessionUser(request: FastifyRequest): Promise<UserR
   return user;
 }
 
+/* Resolves the current user for REST calls, minting a guest and setting the
+   cookie when there is no valid session, and answers the session token with
+   it. Only the Google flow wants the token: it binds the `state` it issues to
+   this browser's session, and a guest minted here has its token on the reply
+   rather than on the request, so reading the cookie back would find nothing.
+   `requireUser` is this without the token, which is what every other route
+   wants. */
+export async function requireSession(
+  request: FastifyRequest,
+  reply: FastifyReply
+): Promise<{ user: UserRow; token: string }> {
+  const token = request.cookies[SESSION_COOKIE];
+  const existing = token ? await getSessionUser(token) : null;
+  if (existing && token) {
+    await touchLastSeen(existing.id);
+    return { user: existing, token };
+  }
+  const guest = await mintGuest();
+  const session = await createSessionForUser(guest.id);
+  setSessionCookie(request, reply, session.token);
+  return { user: guest, token: session.token };
+}
+
 // Resolves the current user for REST calls, minting a guest and setting the
 // cookie when there is no valid session. /api/me and friends use this.
 export async function requireUser(request: FastifyRequest, reply: FastifyReply): Promise<UserRow> {
-  const existing = await resolveSessionUser(request);
-  if (existing) {
-    await touchLastSeen(existing.id);
-    return existing;
-  }
-  const guest = await mintGuest();
-  const { token } = await createSessionForUser(guest.id);
-  setSessionCookie(request, reply, token);
-  return guest;
+  return (await requireSession(request, reply)).user;
 }
 
 // The admin gate. Unlike requireUser it never mints: an admin route asked for

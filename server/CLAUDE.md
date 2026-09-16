@@ -32,7 +32,7 @@ bundle time. Nothing needs copying alongside it for the bundle to find them.
 ## Where things are
 | Directory | What, and its own doc |
 | --- | --- |
-| `src/` | the modules, and the subsystems that live in one file each: auth, the queue, arenas, the ladder, the shared links, insights, the match review, the explorer, link previews |
+| `src/` | the modules, and the subsystems that live in one file each: auth, Google sign-in, the queue, arenas, the ladder, the shared links, insights, the match review, the explorer, link previews |
 | `src/match/` | one live match: the room, the hand runner, the seam between them, and how a result becomes a rating |
 | `src/ws/` | the connection registry and the message router, including bots' virtual connections |
 | `src/bots/` | the bot population (names, personas, schedules), the scheduler that queues them, one bot's message loop and the pure decision function |
@@ -89,9 +89,10 @@ The hand runner owns the translation and stores the map on the hand row as
 `db/schema.sql` is applied idempotently on every boot, so every column and table
 added since v1 went in additively and re-applies harmlessly: `users.bot`,
 `matches.places`, `match_players.place`, `hands.live_seats`,
-`rating_history.mode`, the `ratings` table, the three `tournaments` tables, and
-the g-admin fields on `tickets` (`scope`, `kind`, `severity`, `edits`,
-`replies`, `baked_by`, `updated_at`, `source`). `packages/protocol` is the wire
+`rating_history.mode`, the `ratings` table, the three `tournaments` tables, the
+g-admin fields on `tickets` (`scope`, `kind`, `severity`, `edits`,
+`replies`, `baked_by`, `updated_at`, `source`), and Google sign-in's
+`users.google_sub` with the `oauth_states` table. `packages/protocol` is the wire
 contract and `PROTOCOL_VERSION` is bumped on change; read the current number off
 that constant. `db/CLAUDE.md` covers the one exception: a change reversible
 enough to also get a numbered, manually-runnable migration pair.

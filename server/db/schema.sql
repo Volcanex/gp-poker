@@ -517,3 +517,36 @@ alter table tickets add column if not exists baked_by text;
 -- (done -> baked, since baking into source is what "done" always meant for
 -- this layer). Idempotent: a second boot finds nothing left in 'done'.
 update tickets set status = 'baked' where status = 'done';
+
+-- Google sign-in. The subject id (`sub`) is the join key and the only thing
+-- kept: it is the one identifier Google promises is stable for a given
+-- account, while the email on it can be changed or re-pointed at a different
+-- person entirely, so an email is never what says who somebody is here. The
+-- column is null on every account that has never used Google, which is why
+-- the uniqueness is a partial-by-nature unique index (Postgres lets nulls
+-- repeat) rather than a constraint on the column: two accounts sharing one
+-- Google identity is the one thing this must not allow, and it is refused by
+-- the database rather than only by the route that writes it.
+alter table users add column if not exists google_sub text;
+create unique index if not exists users_google_sub on users(google_sub);
+
+-- One row per authorization request in flight: the CSRF `state`, the PKCE
+-- verifier whose challenge went to Google, the nonce the id_token has to come
+-- back carrying, and the session cookie the request was started from, which
+-- is what binds the callback to the browser that opened it. The row is
+-- deleted when it is read, so a state is single use and a replayed callback
+-- finds nothing.
+--
+-- `redirect_to` is a same-origin path, validated before it is written here
+-- (`../src/google.ts`): it is where the browser lands afterwards, and a value
+-- that could name another origin would be an open redirect signed by us.
+create table if not exists oauth_states (
+  state text primary key,
+  code_verifier text not null,
+  nonce text not null,
+  session_token text not null references sessions(token) on delete cascade,
+  redirect_to text not null default '/',
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null
+);
+create index if not exists oauth_states_expires on oauth_states(expires_at);

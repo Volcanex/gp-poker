@@ -78,6 +78,7 @@ import {
   withdrawFromTournament,
 } from './tournaments/index.js';
 import { registerGadminRoutes } from './gadmin.js';
+import { googleConfigured, registerGoogleRoutes } from './google.js';
 import { AVATAR_MAX_BYTES, AvatarLimiter, sniffAvatar } from './avatars.js';
 
 function err(reply: { code: (n: number) => { send: (b: unknown) => unknown } }, status: number, message: string) {
@@ -93,6 +94,11 @@ export function registerRoutes(app: FastifyInstance): void {
   // it is behind the admin gate (cookie or X-Gadmin-Token), and none of it
   // is part of the game. See agents/g-admin-contract.md at the repo root.
   registerGadminRoutes(app);
+
+  /* Google sign-in. Two browser navigations rather than anything under /api:
+     the flow's whole point is that the browser goes to Google's own page and
+     comes back, which an XHR cannot do. `google.ts` holds all of it. */
+  registerGoogleRoutes(app);
 
   app.get('/api/me', async (request, reply) => {
     const user = await requireUser(request, reply);
@@ -827,6 +833,12 @@ function meBody(user: UserRow, ratings: Record<Mode, RatingRow>, unlocked: boole
     // Only ever true for an admin. The key is absent for everybody else, so
     // nothing about the admin layer is on the wire for a player at all.
     ...(user.admin ? { admin: true } : {}),
+    /* Whether this box can offer the Google button at all: it needs both
+       halves of a credential, and a button that fails at Google is worse
+       than no button. The key is absent when it cannot, the way `admin` is,
+       so a client with no Google support and a server with no credentials
+       agree without either knowing about the other. */
+    ...(googleConfigured() ? { googleAuth: true } : {}),
     /* Whether rated play is open yet: one finished casual or practice match
        is what opens it. Sent rather than derived on the client, because the
        counters on `ratings` do not say which matches were rated and the

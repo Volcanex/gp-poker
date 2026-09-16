@@ -1,5 +1,5 @@
-import { useId, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useId, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../net/api.ts';
 import { useSession } from '../net/session.tsx';
 import { useGInit } from './bits.tsx';
@@ -8,6 +8,91 @@ import { modeInline } from './mode-tabs.tsx';
 import { int } from './format.ts';
 import { Avatar } from './avatar.tsx';
 import { Flag } from './flag.tsx';
+
+/* The second way to claim, beside the name and password: Google's own sign-in
+   page. It is a link and not a button with an onClick because the browser has
+   to end up at Google, which no fetch can do; `/auth/google/start` mints the
+   state, remembers where this person was, and sends them on
+   (`server/src/google.ts`).
+
+   `next` is the page they are on, so the flow ends where it began rather than
+   on the home page. The server accepts only a same-origin path, so nothing
+   here has to be trusted to build one.
+
+   Rendered only when the server says it has credentials (`me.googleAuth`): a
+   button that fails at Google is worse than a form. */
+function GoogleClaimButton() {
+  const { me } = useSession();
+  const location = useLocation();
+  if (!me?.googleAuth) return null;
+  const next = `${location.pathname}${location.search}`;
+  return (
+    <div className="row-actions">
+      <a className="btn btn-secondary" href={`/auth/google/start?next=${encodeURIComponent(next)}`}>
+        Continue with Google
+      </a>
+    </div>
+  );
+}
+
+/* What the callback's `?ot_auth=` code says out loud. The code is the wire and
+   the wording is here, so the server never puts a message on our page and the
+   copy can change without a deploy of both halves. Every failure says what
+   happened and what to do next; none of them apologises. */
+const GOOGLE_RESULTS: Record<string, { title: string; desc?: string; kind?: string }> = {
+  ok: { title: 'Signed in with Google', kind: 'ok' },
+  denied: { title: 'Google sign-in stopped', desc: 'Nothing changed. Start it again whenever you like.' },
+  state: {
+    title: 'That sign-in had gone stale',
+    desc: 'Continue with Google again to start a fresh one.',
+    kind: 'danger',
+  },
+  google: {
+    title: 'Google could not confirm that sign-in',
+    desc: 'Nothing changed. Continue with Google again.',
+    kind: 'danger',
+  },
+  linked: {
+    title: 'That Google account belongs to another account here',
+    desc: 'Log out of this one first, then continue with Google to reach it.',
+    kind: 'danger',
+  },
+  'account-linked': {
+    title: 'This account already signs in with a different Google account',
+    desc: 'Log out, then continue with Google to reach the other one.',
+    kind: 'danger',
+  },
+  off: {
+    title: 'Google sign-in is not set up here',
+    desc: 'Claim the account with a name and a password instead.',
+    kind: 'danger',
+  },
+};
+
+/* Mounted once in the shell, because the flow can land on any page: the
+   callback sends the browser back where it started with one query parameter,
+   and this is what turns that parameter into a toast and takes it back out of
+   the URL. Stripping it matters, since a reload or a shared link would
+   otherwise say the same thing again about a sign-in that is long over. */
+export function GoogleAuthResult() {
+  const { refreshMe } = useSession();
+  const location = useLocation();
+  const navigate = useNavigate();
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const result = params.get('ot_auth');
+    if (!result) return;
+    params.delete('ot_auth');
+    const search = params.toString();
+    navigate(
+      { pathname: location.pathname, search: search ? `?${search}` : '', hash: location.hash },
+      { replace: true }
+    );
+    if (result === 'ok') void refreshMe();
+    window.g?.toast(GOOGLE_RESULTS[result] ?? GOOGLE_RESULTS.google);
+  }, [location.hash, location.pathname, location.search, navigate, refreshMe]);
+  return null;
+}
 
 /* Shown on your own profile while the account is still a guest. The point it
    has to make is that nothing is lost by claiming: the rating is already
@@ -52,8 +137,9 @@ export function ClaimCard({ onClaimed, flat }: { onClaimed?: () => void; flat?: 
         <div className="claim-copy">
           <span className="card-title">Claim this account</span>
           <span className="muted">
-            Pick a name and a password. Your rating, matches and hand histories stay exactly as they
-            are; claiming only lets you log back in from another browser.
+            Pick a name and a password, or continue with Google. Your rating, matches and hand
+            histories stay exactly as they are; claiming only lets you log back in from another
+            browser.
           </span>
         </div>
       )}
@@ -84,6 +170,7 @@ export function ClaimCard({ onClaimed, flat }: { onClaimed?: () => void; flat?: 
           Claim this account
         </button>
       </div>
+      <GoogleClaimButton />
       {error && <span className="error">{error}</span>}
     </form>
   );
@@ -205,8 +292,9 @@ function LoginDialog({ ref }: { ref: React.RefObject<HTMLDialogElement | null> }
         <div className="dlg-body">
           <span className="dlg-title">Log in</span>
           <span className="dlg-desc">
-            Logging in replaces the guest account this browser is using. The guest's rating stays
-            with the guest.
+            Logging in with a name and a password replaces the guest account this browser is using,
+            and the guest's rating stays with the guest. Continuing with Google claims this guest
+            instead, unless that Google account already has an account here.
           </span>
           <div className="field">
             <label className="label" htmlFor={nameId}>Name</label>
@@ -216,6 +304,10 @@ function LoginDialog({ ref }: { ref: React.RefObject<HTMLDialogElement | null> }
             <label className="label" htmlFor={passId}>Password</label>
             <input className="input" id={passId} type="password" value={password} autoComplete="current-password" onChange={(e) => setPassword(e.target.value)} />
           </div>
+          {/* The same one button as the claim card: it signs into the account
+              this Google identity already has, or claims the guest browsing
+              here if it has none. */}
+          <GoogleClaimButton />
           {error && <span className="error">{error}</span>}
         </div>
         <div className="dlg-foot">
