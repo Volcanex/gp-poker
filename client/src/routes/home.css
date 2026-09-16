@@ -213,7 +213,17 @@
    three cards beside it are a real two column layout and 960 is not enough
    for both. The selector carries the element as well as both classes so it
    beats `.page.wide` whichever order the two sheets land in. */
-main.page.home-page { max-width: 1180px; }
+/* Tighter than the rest of the site on purpose. This page is a dashboard
+   rather than a document: every block on it is a card the eye is meant to
+   take in together, so it runs on a 16px rhythm and a shorter top margin
+   instead of the 24 and 32 `.stack` and `.page` hand every other screen. It
+   is what keeps the play panel, the four cards and the update log inside one
+   16:9 screen rather than slicing the last card at the fold. */
+main.page.home-page {
+  max-width: 1180px;
+  padding-top: var(--sp-5);
+  gap: var(--sp-4);
+}
 
 
 

@@ -352,12 +352,13 @@ function PlayerBar({ me, mode }: { me: Me | null; mode: Mode }) {
         </h1>
         {/* The rating reads beside the name it belongs to, not off on its own
             at the far edge of the row: the one number that matters here is
-            "Gabriel 1567", not a name and then a number a foot away from it. */}
-        {r.matches === 0 ? (
-          <span className="muted">
-            No ranked matches yet <span className="pb-mode">{MODE_CODE[mode]}</span>
-          </span>
-        ) : (
+            "Gabriel 1567", not a name and then a number a foot away from it.
+
+            Before the first rated match there is no rating, and the row says
+            nothing rather than saying so: "No ranked matches yet" is a fact
+            the player already knows, printed where their rating will go, and
+            the play panel below already explains how ranked opens. */}
+        {r.matches > 0 && (
           <>
             <span className="pb-rating num">
               {int(r.rating)}
