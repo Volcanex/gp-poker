@@ -153,15 +153,11 @@ export function Home() {
 
   return (
     <main className="page wide stack home-page">
-      {/* The masthead. Only this page carries the mark at size: everywhere
-          else it rides at text height in the top bar, and a logo repeated
-          large on every screen stops being a landmark. */}
+      {/* The masthead: the mark on its own. Only this page carries it at size,
+          and the name is not set beside it because the top bar is already
+          carrying the name two rows up. */}
       <header className="home-brand">
         <Logo className="home-brand-mark" />
-        <span className="home-brand-text">
-          <span className="home-brand-name">EveryonePoker</span>
-          <span className="home-brand-line">Free ranked poker. No money, no rake, no ads.</span>
-        </span>
       </header>
 
       <PlayerBar me={me} mode={modesFor(mode)[0]} />

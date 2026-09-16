@@ -215,36 +215,18 @@
    beats `.page.wide` whichever order the two sheets land in. */
 main.page.home-page { max-width: 1180px; }
 
-/* The masthead. The mark takes currentColor from the block, so it is the
-   theme's primary text in both modes with nothing to override. */
+/* The masthead: the mark alone, so it is sized on its own terms rather than
+   against a line of type. The mark's box is its ink exactly, which is why
+   this is a plain height and not a box that needs padding trimmed off it. */
 .home-brand {
-  display: flex; align-items: center; gap: var(--sp-5);
+  display: flex;
   color: var(--text-primary);
-  padding-block: var(--sp-2) var(--sp-3);
+  padding-block: var(--sp-2) var(--sp-4);
 }
-/* Matched to the text's INK, not its boxes. The two line boxes come to 60px
-   but the glyphs only fill 52 of it: a line box carries leading above the cap
-   and below the descender, and the mark's box carries none, because its
-   viewBox is the ink exactly. Sizing the mark to the boxes therefore drew it
-   visibly taller than the words beside it. 52px is that measured ink height,
-   and the text's ink is centred in its own box to within a pixel, so centring
-   the row lands the two on the same top and the same bottom. */
-.home-brand-mark {
-  flex: none;
-  height: 52px;
-  width: auto;
-}
-.home-brand-text { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
-.home-brand-name {
-  font-size: 34px; line-height: var(--lh-5); font-weight: 600; letter-spacing: -0.02em;
-}
-.home-brand-line { color: var(--text-secondary); line-height: var(--lh-3); }
+.home-brand-mark { flex: none; height: 72px; width: auto; }
 
 @media (max-width: 560px) {
-  .home-brand { gap: var(--sp-4); }
-  .home-brand-name { font-size: 26px; line-height: var(--lh-4); }
-  /* Same rule as above, against the smaller name. */
-  .home-brand-mark { height: 46px; }
+  .home-brand-mark { height: 56px; }
 }
 
 .player-bar {
