@@ -72,9 +72,10 @@ describe('the bot ladder', () => {
     expect(playing.format.rated).toBe(true);
     expect(playing.rated).toBe(true);
 
-    const before = new Map<string, number>();
+    const before = new Map<string, { matches: number; rd: number }>();
     for (const seat of playing.seats) {
-      before.set(seat.userId, (await getRating(seat.userId, 'heads-up')).matches);
+      const r = await getRating(seat.userId, 'heads-up');
+      before.set(seat.userId, { matches: r.matches, rd: r.rd });
     }
 
     const finished = await waitForFinish(matchId);
@@ -84,9 +85,19 @@ describe('the bot ladder', () => {
     for (const seat of finished.seats) {
       const change = finished.ratings![seat.userId];
       expect(change).toBeDefined();
-      expect(change.after).not.toBe(change.before);
+      const was = before.get(seat.userId)!;
       const after = await getRating(seat.userId, 'heads-up');
-      expect(after.matches).toBe(before.get(seat.userId)! + 1);
+      expect(after.matches).toBe(was.matches + 1);
+      /* The rating record moved. Not "the rating number moved": this format
+         caps at two hands, so a ladder match can genuinely end level, and a
+         Glicko-2 draw between two players on an identical 1500/350 leaves
+         both ratings exactly where they were. That is the state of every bot
+         on a database where none has ever played, so asserting the number
+         moved failed only on the first bot-vs-bot match of a fresh database
+         and passed on every run after it, which is the worst shape a test
+         can have. A rated game always narrows the deviation, drawn or not,
+         so the pair is what proves the match was scored. */
+      expect(change.after !== change.before || after.rd !== was.rd).toBe(true);
     }
   }, 60_000);
 
