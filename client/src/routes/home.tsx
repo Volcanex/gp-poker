@@ -214,9 +214,19 @@ export function Home() {
             </div>
 
             <span className="muted">{choiceBlurb(mode, speed)}</span>
-            {rankedLocked && (
+            {/* While the account is still in flight the answer is unknown, and
+                the line is reserved rather than absent: a new player is
+                ranked-locked, so far more often than not this line is about to
+                appear, and letting it appear grew the panel by a line and
+                pushed everything under it down the page. A returning player
+                with ranked already open loses the slot when their account
+                lands, which is one shrink on a cold load against a shove on
+                almost every first visit. */}
+            {me == null ? (
+              <span className="muted" aria-hidden="true">&nbsp;</span>
+            ) : rankedLocked ? (
               <span className="muted">Play one casual game first. Ranked opens as soon as it finishes.</span>
-            )}
+            ) : null}
             {rankedBanned && <span className="muted">{rankedBanText(banUntil!, banNow)}</span>}
             {queue.error && <span className="badge badge-warn">{queue.error}</span>}
 

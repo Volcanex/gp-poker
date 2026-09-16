@@ -81,6 +81,12 @@
   gap: 2px;
 }
 
+/* A resting fixture stands as tall as a real one, measured: name, when and
+   foot come to 73px in this column. The first real row runs to 100 when its
+   name wraps to two lines, which is one line's difference on one row and not
+   worth reserving for on all three. */
+.tourney-home .tourney-list li.tourney-skel { min-height: 73px; justify-content: space-between; }
+
 .tourney-list-name { color: var(--text-primary); }
 
 /* The time and the countdown on one row where they fit and two where they do

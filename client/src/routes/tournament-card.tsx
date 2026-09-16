@@ -147,7 +147,7 @@ export function TournamentsCard() {
            foot. */
         <ul className="tourney-list" aria-hidden="true">
           {[0, 1, 2].map((i) => (
-            <li key={i}>
+            <li key={i} className="tourney-skel">
               <span className="skeleton skeleton-text" style={{ width: '70%' }} />
               <span className="skeleton skeleton-text" style={{ width: '54%' }} />
               <span className="skeleton skeleton-text" style={{ width: '44%', height: 24 }} />
