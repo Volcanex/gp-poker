@@ -222,12 +222,16 @@ main.page.home-page { max-width: 1180px; }
   color: var(--text-primary);
   padding-block: var(--sp-2) var(--sp-3);
 }
-/* Exactly as tall as the two lines beside it: the name's line box, the gap
-   and the strapline's, which is the block the mark is standing against. Width
-   follows the aspect ratio, so the mark keeps the tight crop it was given. */
+/* Matched to the text's INK, not its boxes. The two line boxes come to 60px
+   but the glyphs only fill 52 of it: a line box carries leading above the cap
+   and below the descender, and the mark's box carries none, because its
+   viewBox is the ink exactly. Sizing the mark to the boxes therefore drew it
+   visibly taller than the words beside it. 52px is that measured ink height,
+   and the text's ink is centred in its own box to within a pixel, so centring
+   the row lands the two on the same top and the same bottom. */
 .home-brand-mark {
   flex: none;
-  height: calc(var(--lh-5) + var(--sp-1) + var(--lh-3));
+  height: 52px;
   width: auto;
 }
 .home-brand-text { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
@@ -240,7 +244,7 @@ main.page.home-page { max-width: 1180px; }
   .home-brand { gap: var(--sp-4); }
   .home-brand-name { font-size: 26px; line-height: var(--lh-4); }
   /* Same rule as above, against the smaller name. */
-  .home-brand-mark { height: calc(var(--lh-4) + var(--sp-1) + var(--lh-3)); }
+  .home-brand-mark { height: 46px; }
 }
 
 .player-bar {
