@@ -26,6 +26,9 @@ import { unwatchTournament, watchTournament } from '../tournaments/index.js';
 // for the same shape of reason: a sat-out player cannot say it by acting,
 // because their decision is folded before they can reach it.
 //
+// `extra` is the same shape again: it lengthens the decision somebody is on
+// without taking it, so it cannot be an `act`.
+//
 // `leave` and `resign` are two different things and the difference matters:
 // `leave` drops a subscription and is sent by a page going away, `resign`
 // ends the player's game and is sent by a button they pressed.
@@ -107,6 +110,18 @@ export function routeClientMessage(userId: string, msg: ClientMsg): void {
         return;
       }
       room.handleBack(userId, msg);
+      return;
+    }
+    // Extra time, from the seat on the clock. The room decides whether it is
+    // theirs to spend and says nothing either way; only a message for a match
+    // that does not exist is worth an error, which is true of every case here.
+    case 'extra': {
+      const room = getRoom(msg.m);
+      if (!room) {
+        hub.send(userId, { t: 'err', c: 'no_match', msg: 'No such match' });
+        return;
+      }
+      room.handleExtra(userId, msg);
       return;
     }
     case 'chat': {

@@ -57,9 +57,15 @@
    v8 is `SeatView.blind`, and it is additive by the rule above: a v7 client
    that has never heard of it draws the seats exactly as it did, with the
    button marker and nothing beside it. The number moves anyway, by the same
-   convention v7 moved on. */
+   convention v7 moved on.
 
-export const PROTOCOL_VERSION = 8;
+   v9 is extra time: `ClientMsg.extra`, `SeatView.extraUsed` and the numbers
+   beside `EXTRA_TIME_MS`. Additive by the rule above, since a client that
+   never sends one never lengthens a decision and reads every seat as still
+   holding its allowance, which is what every seat did before this existed.
+   The number moves anyway, by the same convention v7 moved it. */
+
+export const PROTOCOL_VERSION = 9;
 
 export type Card = string; // 'As', 'Td', '2c' (rank + suit, lowercase suit)
 
@@ -509,6 +515,31 @@ export const PRACTICE_AWAY_MS = 10 * 60_000;
 export function practiceAwayFor(format: MatchFormat): number {
   return format.practiceAwayMs ?? PRACTICE_AWAY_MS;
 }
+
+/* Extra time: the one stretch of the clock a player can give themselves.
+   Spent on the decision they are actually on, it moves that decision's
+   deadline and nothing else; the next one opens on the format's own clock
+   again.
+
+   Two minutes, and one of them for the whole match. A ten second clock is
+   there to keep a table moving and a twenty second one is not much longer, so
+   a hand that genuinely deserves thinking about (a river shove for a stack, a
+   bubble) has nowhere to go without this. Once per match rather than per hand
+   is what stops it becoming a second clock: it is the exception, and an
+   exception you can take every hand is the rule.
+
+   It is not a format field. Every table gets the same allowance whatever its
+   speed, because the reason to want it is the spot and not the clock. It does
+   not move the ceilings either: a fast schedule climbs on elapsed match time,
+   so a decision that took longer has already been charged for it, and a
+   standard one climbs on hands, where six seats spending two minutes each is
+   twelve against a two hour ceiling. `matchCeilingMs` is untouched.
+
+   Both numbers live here, with the other clock numbers, because the server
+   moves the deadline and the client draws the control off the same allowance:
+   two copies of either would drift. */
+export const EXTRA_TIME_MS = 120_000;
+export const EXTRA_TIME_USES = 1;
 
 /* Six handed is the main game. It is the one the home page opens on, the one
    a bare `queue` message means, and the one the site is about: a full ring is
@@ -1110,6 +1141,15 @@ export type ClientMsg =
   // room ignores one from a seat that is not sitting out, so it can neither
   // reset a streak for free nor duck a heads-up forfeit.
   | { t: 'back'; m: string }
+  // Spend this match's extra time on the decision I am on now. No hand or
+  // seq on it, unlike `act`: it does not decide anything, and one that
+  // arrived a moment late would be asking to lengthen a decision that has
+  // already passed. The room answers only the seat whose clock is actually
+  // running, and only the first one it gets from that player (see
+  // EXTRA_TIME_MS). Everything else is dropped without an `err`, the way a
+  // `back` from a seat that is not sitting out is: nothing was lost, and
+  // there is nothing for a player to be told.
+  | { t: 'extra'; m: string }
   // Table chat. Anyone subscribed to the match may send one; where it lands is
   // the server's decision, not the sender's (see ChatFrom).
   | { t: 'chat'; m: string; text: string }
@@ -1312,6 +1352,14 @@ export interface SeatView {
      almost every seat in almost every hand is not sitting out. `back` (or
      any action) clears it. */
   sittingOut?: boolean;
+  /* Their extra time, once it has been spent. Named for the spent state and
+     absent rather than false for the same reason `sittingOut` is: a seat has
+     its two minutes for most of most matches, so the wire says so by not
+     mentioning it, and a client that has never heard of the field reads every
+     seat as still holding theirs, which is what was true before it existed.
+     It is on every seat and not just the viewer's because a table can see who
+     has already used theirs, the way it can see who is sitting out. */
+  extraUsed?: boolean;
   last: { a: ActionKind; v?: number } | null;
   /* Picture version, 0 for none. Frozen when the match was created, like the
      name and the rating beside it: a seat is what the table looked like when

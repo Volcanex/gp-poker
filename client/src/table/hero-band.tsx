@@ -6,8 +6,8 @@ import { PlayingCard } from './playing-card.tsx';
 import { ChipStack } from './chip-stack.tsx';
 import { TurnBar, TurnSeconds } from './turn-clock.tsx';
 import {
-  CUSTOM_KEY, KeyLegend, PRESET_KEYS, PreActionPills, StopWatching, useCountdown, useDockLogic,
-  useTurnKeys, waitingText,
+  CUSTOM_KEY, ExtraTime, KeyLegend, PRESET_KEYS, PreActionPills, StopWatching, useCountdown,
+  useDockLogic, useTurnKeys, waitingText,
 } from './dock.tsx';
 import type { DockState } from './dock.tsx';
 import { isLastHand } from './preactions.ts';
@@ -43,6 +43,10 @@ export interface HeroBandProps {
   /* Your seat is sitting out and this is the way back in. The band draws the
      prompt and the button; the page sends the message. */
   onBack?: () => void;
+  /* Spending this match's extra time on the decision that is open. Drawn on
+     the decision line beside the clock it lengthens, and absent altogether
+     for an embedder with no match to send it to. */
+  onExtra?: () => void;
   /* A practice table's readings, as a section on the right of the band rather
      than a bar of their own above it. `table.tsx` decides whether this band or
      the strip hosts them, because the reading behind them runs a worker and
@@ -72,9 +76,9 @@ type HeldView = TableView & { hold?: 'you' };
 const WIDE = '(min-width: 561px)';
 
 export function HeroBand({
-  view, onAct, sending, best, stack, onNext, onBack, stats,
+  view, onAct, sending, best, stack, onNext, onBack, onExtra, stats,
 }: HeroBandProps) {
-  const { state, pre, setPre, canPre } = useDockLogic(view, onAct, sending);
+  const { state, pre, setPre, canPre, canExtra } = useDockLogic(view, onAct, sending);
   const mine = view.you == null ? null : view.seats.find((s) => s.i === view.you) ?? null;
   const legal = view.legal;
   const wide = useMedia(WIDE);
@@ -106,6 +110,8 @@ export function HeroBand({
         onNext={onNext}
         sittingOut={sittingOut}
         dealElsewhere={dealBelow}
+        canExtra={canExtra && !sittingOut}
+        onExtra={onExtra}
       />
 
       {/* The band's ground runs the width of the page and its content sits on
@@ -142,7 +148,15 @@ export function HeroBand({
           {sittingOut ? (
             <SitOutColumn onBack={onBack} />
           ) : state === 'turn' && legal ? (
-            <TurnColumn view={view} legal={legal} sending={sending} onAct={onAct} wide={wide} />
+            <TurnColumn
+              view={view}
+              legal={legal}
+              sending={sending}
+              onAct={onAct}
+              wide={wide}
+              canExtra={canExtra}
+              onExtra={onExtra}
+            />
           ) : state === 'over' ? (
             <OverColumn view={view} />
           ) : state === 'watch' ? (
@@ -170,7 +184,7 @@ export function HeroBand({
    height, and the bar under it is drawn empty when nobody's clock is running
    so the floor is there in every state. */
 function DecisionLine({
-  view, state, onNext, sittingOut, dealElsewhere,
+  view, state, onNext, sittingOut, dealElsewhere, canExtra, onExtra,
 }: {
   view: TableView;
   state: DockState;
@@ -178,6 +192,8 @@ function DecisionLine({
   sittingOut?: boolean;
   /* The readings column has the way on, so the line only carries the result. */
   dealElsewhere?: boolean;
+  canExtra?: boolean;
+  onExtra?: () => void;
 }) {
   const clock = view.clock;
   const yours = clock != null && clock.seat === view.you;
@@ -214,7 +230,27 @@ function DecisionLine({
       data-held={held && !dealElsewhere ? '' : undefined}
     >
       <span className="hb-line-text">{text}</span>
-      <span className="hb-line-end num">{end}</span>
+      {/* Extra time stands beside the clock it lengthens, out of the flow and
+          hung off the end slot the way `DealNext` is. A slot reserved for it
+          would have come out of the words at every width and in every state,
+          and the words are the line; out of the flow it can arrive, grey
+          itself out once it is spent and go again without moving a pixel. It
+          hangs off the end slot rather than off the line so that it follows
+          the seconds when the band is turned round for a left hand. It is
+          drawn only on your own turn, where the words are a price or a pair
+          of verbs (`decisionText` is never longer than "Check or raise"), so
+          it cannot land on top of them. */}
+      <span className="hb-line-end num">
+        {onExtra && state === 'turn' && view.you != null && !sittingOut && (
+          <ExtraTime
+            can={Boolean(canExtra)}
+            sending={false}
+            onExtra={onExtra}
+            className="hb-line-extra"
+          />
+        )}
+        {end}
+      </span>
       {clock ? (
         <TurnBar deadline={clock.deadline} totalMs={view.format.clockMs} paused={clock.paused} />
       ) : (
@@ -401,13 +437,18 @@ function HeroMeta({ view, stack }: { view: TableView; stack: number }) {
 /* ------------------------------------------------------------------- turn */
 
 function TurnColumn({
-  view, legal, sending, onAct, wide,
+  view, legal, sending, onAct, wide, canExtra, onExtra,
 }: {
   view: TableView;
   legal: LegalActions;
   sending: boolean;
   onAct: (a: ActionKind, v?: number) => void;
   wide: boolean;
+  /* The column owns no extra-time control of its own: the button is on the
+     decision line, where the clock is. What it owns is the key, because the
+     keys are answered wherever the decision is drawn. */
+  canExtra: boolean;
+  onExtra?: () => void;
 }) {
   const { canRaise, isBet, checkOrCall } = raiseShape(legal);
   const { call, min, max } = legal;
@@ -486,7 +527,10 @@ function TurnColumn({
     setCustom(false);
     if (!wide) setSizing(true);
   }, [wide, dups, presets]);
-  useTurnKeys({ legal, presets, sending, onAct, onRaiseKey: openSizer, onPresetKey: takePreset });
+  useTurnKeys({
+    legal, presets, sending, onAct, onRaiseKey: openSizer, onPresetKey: takePreset,
+    extra: canExtra && onExtra != null, onExtra,
+  });
 
   /* Enter sends what the button says, on a band that has a keyboard. It is
      here rather than in the shared key hook because it only means anything

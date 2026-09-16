@@ -153,7 +153,22 @@ off, so there is nothing left to watch as a player and the page goes home.
 
 The mock has no server to resign to, so its `onLeave` is a navigation. That is
 what lets `../../e2e/leave.spec.ts` open the ranked warning with nothing
-running behind it.
+running behind it. Its `onExtra` is the same bargain in a smaller shape: a
+function that does nothing, so the screenshot and footprint suites can see the
+control the live table draws.
+
+## Extra time
+
+`{t: 'extra'}` is the fourth message this page sends about a decision it is not
+taking, beside `act`, `next` and `back`. It asks the server for two more
+minutes on the decision that is open, once a match (`EXTRA_TIME_MS`).
+
+It deliberately does **not** go through `sending`. Nothing is being decided and
+the controls must stay live while the server moves the deadline, so there is no
+pending key to clear and no error to show: a press with nothing left to spend is
+dropped by the room in silence (`server/src/match/CLAUDE.md`), and what comes
+back is an ordinary `state` with a longer deadline and the seat marked
+`extraUsed`.
 
 ## Watching
 

@@ -1884,6 +1884,13 @@
 
 .dock-acts { display: flex; gap: var(--sp-2); align-items: stretch; }
 .dock-acts > .btn { flex: 1; height: 100%; }
+/* Extra time stands at the near end of the row on a width of its own, not as
+   a fourth equal share: it is not one of the answers to the hand, and the
+   three that are keep the proportions they have always had, less a constant.
+   Rendered in the turn state and again as a ghost while the hand settles, so
+   the width is there in both and nothing in the row moves when it greys out
+   or comes back. */
+.dock-acts > .dock-extra { flex: none; width: 132px; }
 /* The three choices held open while the hand settles. They keep the dock's
    height and the eye's place, so they are drawn as outlines rather than dimmed
    copies: a button at 40% opacity is a button nobody can read. g's own button
@@ -2064,13 +2071,19 @@
   .dock-presets .p-v { display: none; }
   .dock-presets .preset { justify-content: center; }
 
+  /* Three across the top row now: extra time, then the two answers that need
+     no number, with the primary taking the whole bottom row under the thumb.
+     A third of 360 is 109 px, which the words fit in a step down in size; the
+     alternative was a row of its own, and the dock has no height to give. */
   .dock-acts {
     display: grid; gap: var(--dock-gap);
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     grid-template-rows: 28px 44px;
   }
   .dock-acts > .btn { grid-row: 1; height: 100%; }
   .dock-acts > .btn[data-primary] { grid-row: 2; grid-column: 1 / -1; }
+  /* The grid gives it its column; the desktop width would overflow one. */
+  .dock-acts > .dock-extra { width: auto; font-size: 12px; padding: 0 var(--sp-1); }
 
 }
 

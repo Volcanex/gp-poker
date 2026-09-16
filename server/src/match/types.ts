@@ -7,12 +7,14 @@ export interface RoomClock {
 }
 
 /* What the room knows about a seat that the hand runner does not: whether
-   its player has a socket open, and whether they are sitting out. One object
-   per seat rather than a boolean array per fact, because there have now been
-   two of them and a third would be a third array to keep in step. */
+   its player has a socket open, whether they are sitting out, and whether
+   they have spent this match's extra time. One object per seat rather than a
+   boolean array per fact, which is exactly what the third one would have
+   been. */
 export interface SeatPresence {
   connected: boolean;
   sittingOut: boolean;
+  extraUsed: boolean;
 }
 
 // Everything finishMatch needs to persist and to report, richer than the
@@ -56,6 +58,9 @@ export interface HandRunner {
   // spectator or a seat that is not the human is ignored rather than erred,
   // the same way a late `act` on a hand that has moved on is.
   next(userId: string, msg: Extract<ClientMsg, { t: 'next' }>): void;
+  // Extra time is not here on purpose: it lengthens the wall clock and never
+  // touches the hand, so the room spends it on its own and the runner only
+  // ever learns about it as a `SeatPresence` field on the way to a view.
   // Seat numbers crossing this interface are always TABLE seats (0..N-1,
   // fixed for the match). The runner maps them onto the engine's live-seat
   // config in both directions.

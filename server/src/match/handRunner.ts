@@ -552,6 +552,9 @@ export class EngineHandRunner implements HandRunner {
         // Absent rather than false: almost every seat in almost every hand
         // is not sitting out, and the wire says so by not mentioning it.
         ...(presence[i]?.sittingOut ? { sittingOut: true as const } : {}),
+        // Absent rather than false for the same reason, and for most of most
+        // matches: a seat still holding its two minutes says nothing.
+        ...(presence[i]?.extraUsed ? { extraUsed: true as const } : {}),
       };
       if (e === null) {
         return {
