@@ -148,7 +148,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
           onClick={() => (open ? close() : setOpen(true))}
         />
         <Link className="wordmark" to="/">
-          <Logo className="wordmark-mark" size="1.15em" />
+          <Logo className="wordmark-mark" solid />
           EveryonePoker
         </Link>
         <span className="spacer" />

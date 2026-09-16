@@ -157,7 +157,7 @@ export function Home() {
           else it rides at text height in the top bar, and a logo repeated
           large on every screen stops being a landmark. */}
       <header className="home-brand">
-        <Logo className="home-brand-mark" size={76} />
+        <Logo className="home-brand-mark" />
         <span className="home-brand-text">
           <span className="home-brand-name">EveryonePoker</span>
           <span className="home-brand-line">Free ranked poker. No money, no rake, no ads.</span>

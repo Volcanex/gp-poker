@@ -222,7 +222,14 @@ main.page.home-page { max-width: 1180px; }
   color: var(--text-primary);
   padding-block: var(--sp-2) var(--sp-3);
 }
-.home-brand-mark { flex: none; }
+/* Exactly as tall as the two lines beside it: the name's line box, the gap
+   and the strapline's, which is the block the mark is standing against. Width
+   follows the aspect ratio, so the mark keeps the tight crop it was given. */
+.home-brand-mark {
+  flex: none;
+  height: calc(var(--lh-5) + var(--sp-1) + var(--lh-3));
+  width: auto;
+}
 .home-brand-text { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
 .home-brand-name {
   font-size: 34px; line-height: var(--lh-5); font-weight: 600; letter-spacing: -0.02em;
@@ -231,8 +238,9 @@ main.page.home-page { max-width: 1180px; }
 
 @media (max-width: 560px) {
   .home-brand { gap: var(--sp-4); }
-  .home-brand-mark { width: 52px; height: 52px; }
-  .home-brand-name { font-size: 26px; }
+  .home-brand-name { font-size: 26px; line-height: var(--lh-4); }
+  /* Same rule as above, against the smaller name. */
+  .home-brand-mark { height: calc(var(--lh-4) + var(--sp-1) + var(--lh-3)); }
 }
 
 .player-bar {

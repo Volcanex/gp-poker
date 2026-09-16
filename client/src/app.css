@@ -240,9 +240,11 @@
   display: inline-flex; align-items: center; gap: var(--sp-2);
 }
 /* The mark takes its colour from the link, so it inverts with the theme along
-   with the name it sits beside. Sized in em so it tracks the wordmark's own
-   font-size rather than needing a second breakpoint. */
-.wordmark-mark { flex: none; }
+   with the name it sits beside. Height only, in em, so it tracks the
+   wordmark's own font-size and the width follows the aspect ratio rather than
+   letterboxing inside a square. The solid spade is drawn here rather than the
+   cut-out one: at 16px the E's strokes are under a pixel and close up. */
+.wordmark-mark { flex: none; height: 1.25em; width: auto; }
 .top .spacer { flex: 1; }
 .whoami { display: flex; align-items: baseline; gap: 6px; font-size: var(--font-size-ui); white-space: nowrap; flex: none; }
 .whoami .r { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
