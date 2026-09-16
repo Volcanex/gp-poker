@@ -212,11 +212,12 @@ test.describe('the columns', () => {
     });
   }
 
-  /* The dealer button and the bot badge share a seat on a practice table, and
-     on a portrait seat both of them are hanging off a corner. Measured against
-     rendered text rather than element boxes: a seat's stack row is full width
-     and mostly empty, so overlapping its box means nothing. */
-  test('never lands the dealer button on anything at 390', async ({ page }) => {
+  /* The dealer button, the blind beside it and the bot badge share a seat on a
+     practice table, and on a portrait seat all of them are hanging off a
+     corner. Measured against rendered text rather than element boxes: a seat's
+     stack row is full width and mostly empty, so overlapping its box means
+     nothing. */
+  test('never lands the dealer button or the blind on anything at 390', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await stubApi(page);
     await page.goto('/m/mock?mode=six-max&step=1');
@@ -231,7 +232,7 @@ test.describe('the columns', () => {
         const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
         for (let n = walk.nextNode(); n; n = walk.nextNode()) {
           if (!n.nodeValue!.trim()) continue;
-          if ((n.parentElement as Element).closest('.btn-marker')) continue;
+          if ((n.parentElement as Element).closest('.btn-marker, .blind-marker')) continue;
           const range = document.createRange();
           range.selectNodeContents(n);
           for (const r of range.getClientRects()) if (r.width && r.height) out.push(r);
@@ -240,21 +241,30 @@ test.describe('the columns', () => {
       };
       const clashes: string[] = [];
       let buttons = 0;
+      let blinds = 0;
       for (const seat of document.querySelectorAll('.seat')) {
-        const mark = seat.querySelector('.btn-marker:not([data-off])');
-        if (!mark) continue;
-        buttons += 1;
-        const box = mark.getBoundingClientRect();
-        if (ink(seat).some((r) => hit(box, r))) {
-          clashes.push(seat.querySelector('.seat-name')!.textContent!);
+        const marks = [...seat.querySelectorAll('.btn-marker:not([data-off]), .blind-marker:not([data-off])')];
+        buttons += seat.querySelectorAll('.btn-marker:not([data-off])').length;
+        blinds += seat.querySelectorAll('.blind-marker:not([data-off])').length;
+        for (const mark of marks) {
+          const box = mark.getBoundingClientRect();
+          /* Each other, as well as everything else: the two stand side by
+             side in the corner and the seat that is both is heads-up. */
+          const others = marks.filter((m) => m !== mark).map((m) => m.getBoundingClientRect());
+          if ([...ink(seat), ...others].some((r) => hit(box, r))) {
+            clashes.push(`${seat.querySelector('.seat-name')!.textContent!} ${mark.className}`);
+          }
         }
       }
-      return { buttons, clashes, bots: document.querySelectorAll('.seat-bot').length };
+      return { buttons, blinds, clashes, bots: document.querySelectorAll('.seat-bot').length };
     });
 
     expect(seen.buttons, 'somebody is on the button').toBe(1);
+    /* Six-max, and your own seat is the band's: one of the two blinds is
+       yours as often as not, so the felt draws one or two of them. */
+    expect(seen.blinds, 'and the blinds are marked').toBeGreaterThan(0);
     expect(seen.bots, 'and the table has bots on it, as a practice table does')
       .toBeGreaterThan(0);
-    expect(seen.clashes, 'seats where the button landed on something').toEqual([]);
+    expect(seen.clashes, 'markers that landed on something').toEqual([]);
   });
 });

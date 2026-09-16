@@ -80,6 +80,7 @@ export function apply(state: HandState, seatIdx: number, action: Action): HandSt
     actions: [...state.actions],
     seq: state.seq,
     result: null,
+    blinds: state.blinds,
   };
   const seat = next.seats[seatIdx];
   let loggedV: number | undefined;

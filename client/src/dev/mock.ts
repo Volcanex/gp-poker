@@ -64,7 +64,26 @@ export interface MockStep {
   end?: MatchResult;
 }
 
-function seatOf(players: Player[], i: number, you: number, hole: Card[], spec: SeatSpec): SeatView {
+/* Who posted, for a step that only says where the button is. The mock stands
+   in for the server here, so it answers the question the same way the engine
+   does and every step gets its blinds for free rather than restating them:
+   heads-up the button is the small blind, otherwise the two seats left of it,
+   counting only the seats a busted one has not left behind. */
+function blindsOfSpecs(specs: SeatSpec[]): ('sb' | 'bb' | undefined)[] {
+  const live = specs.map((s, i) => (s.out ? -1 : i)).filter((i) => i >= 0);
+  const out: ('sb' | 'bb' | undefined)[] = specs.map(() => undefined);
+  const at = live.findIndex((i) => specs[i].button);
+  if (at < 0 || live.length < 2) return out;
+  const n = live.length;
+  out[live[n === 2 ? at : (at + 1) % n]] = 'sb';
+  out[live[n === 2 ? (at + 1) % n : (at + 2) % n]] = 'bb';
+  return out;
+}
+
+function seatOf(
+  players: Player[], i: number, you: number, hole: Card[], spec: SeatSpec,
+  blind: 'sb' | 'bb' | undefined,
+): SeatView {
   const p = players[i];
   return {
     i,
@@ -78,6 +97,7 @@ function seatOf(players: Player[], i: number, you: number, hole: Card[], spec: S
     cards: spec.cards === undefined ? (spec.out ? null : i === you ? hole : HIDDEN) : spec.cards,
     folded: spec.folded ?? false,
     allin: spec.allin ?? false,
+    ...(blind ? { blind } : {}),
     button: spec.button ?? false,
     acting: spec.acting ?? false,
     connected: spec.connected ?? true,
@@ -91,6 +111,7 @@ function seatOf(players: Player[], i: number, you: number, hole: Card[], spec: S
 function viewer(players: Player[], you: number, hole: Card[], format: MatchFormat, blindsOf: (h: number) => { sb: number; bb: number }) {
   return (spec: ViewSpec): TableView => {
     const h = spec.h ?? 1;
+    const blinds = blindsOfSpecs(spec.seats);
     return {
       m: 'mock',
       h,
@@ -99,7 +120,7 @@ function viewer(players: Player[], you: number, hole: Card[], format: MatchForma
       board: spec.board,
       pot: spec.pot,
       pots: [],
-      seats: spec.seats.map((s, i) => seatOf(players, i, you, hole, s)),
+      seats: spec.seats.map((s, i) => seatOf(players, i, you, hole, s, blinds[i])),
       you,
       legal: spec.legal ?? null,
       clock:

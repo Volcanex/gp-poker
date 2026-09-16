@@ -44,6 +44,20 @@ export function blindsRow(format: MatchFormat, blinds: { sb: number; bb: number 
   return { blinds: `${stakes}, level ${level + 1}`, next: `In ${left} ${left === 1 ? 'hand' : 'hands'}` };
 }
 
+/* The blind markers beside a name, in both the places a name is drawn. The
+   short form is the initialism every poker table uses and the long one is
+   what the marker says when it is pointed at; they live here rather than in
+   the two components so the felt and the band cannot end up wording the same
+   fact differently. Which seat wears which is the server's answer
+   (`SeatView.blind`), never this client's. */
+export function blindShort(blind: 'sb' | 'bb' | undefined): string {
+  return blind === 'bb' ? 'BB' : 'SB';
+}
+
+export function blindTitle(blind: 'sb' | 'bb' | undefined): string {
+  return blind === 'bb' ? 'Big blind' : 'Small blind';
+}
+
 export function streetText(s: string): string {
   switch (s) {
     case 'pre': return 'Preflop';

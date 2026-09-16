@@ -18,7 +18,7 @@ import {
 } from './sizing.ts';
 import type { Preset } from './sizing.ts';
 import { playClick } from './sounds.ts';
-import { actionText, shortName } from './labels.ts';
+import { actionText, blindShort, blindTitle, shortName } from './labels.ts';
 import { isTextEntry, useFading, useHandMeta, useMedia } from '../ui/bits.tsx';
 import { FlagSlot } from '../ui/flag.tsx';
 import './hero-band.css';
@@ -370,8 +370,15 @@ function HeroMeta({ view, stack }: { view: TableView; stack: number }) {
         <FlagSlot code={mine?.country} size={16} />
         <span className="hb-name" title={mine?.name}>{shortName(mine?.name ?? '', 16)}</span>
         {/* Always rendered, hidden when the button is elsewhere: a marker
-            that comes and goes moves the name beside it once a hand. */}
+            that comes and goes moves the name beside it once a hand. Your own
+            blind is drawn here for the same reason the felt draws everybody
+            else's: the seat you are reading first is your own. */}
         <span className="btn-marker" title="Button" data-off={mine?.button ? undefined : ''}>D</span>
+        <span
+          className="blind-marker"
+          title={blindTitle(mine?.blind)}
+          data-off={mine?.blind ? undefined : ''}
+        >{blindShort(mine?.blind)}</span>
       </span>
       <span className="hb-nums">
         <span className="hb-stack num">{stack}</span>

@@ -49,6 +49,17 @@ the calendar: the names, the seat caps and the schedule are server-side data
 (`server/src/tournaments/fixtures.ts`) and travel on the payload, so the client
 never holds a second copy of a fixture's name.
 
+**v8 is the blinds on a seat, and it did not have to bump either.**
+`SeatView.blind` is optional and absent rather than a 'none', so a v7 client
+draws the seats exactly as it did, with the button marker and nothing beside
+it. The number moves by the same convention v7 moved on. What matters about it
+is not the shape but where the answer comes from: the server sets it from the
+seats the engine actually charged (`HandState.blinds`), so the client draws who
+posted rather than counting round from `button` on its own. Two copies of that
+rule is two rules, and the one in the client would be the one that drifts:
+heads-up the button is the small blind, a busted or sitting-out seat changes who
+is counted, and none of that is the client's to know.
+
 **Sitting out was additive inside v5.** `SeatView.sittingOut` is optional and
 absent rather than false, so an old client reads a seat it already understands.
 `ClientMsg.back` is the harder half of the pair, because a message an old
