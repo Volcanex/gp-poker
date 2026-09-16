@@ -75,8 +75,11 @@ export function StatsStrip() {
   }, []);
 
   /* The strip keeps its height while it is empty, so the page under it does
-     not jump when the first poll lands. */
-  if (!stats) return <div className="stats-strip" aria-hidden="true" />;
+     not jump when the first poll lands. It also waits at rest rather than
+     sliding in on the page's stagger and then having numbers appear inside it
+     a beat later, which read as the block arriving twice: `data-enter-ready`
+     holds the entrance until there is something to enter with. */
+  if (!stats) return <div className="stats-strip" data-enter-ready="no" aria-hidden="true" />;
 
   /* A count that did not arrive as a number is dropped rather than printed as
      a bare label: an older server missing a field should read as less
@@ -88,10 +91,10 @@ export function StatsStrip() {
     { n: stats.matchesToday, label: stats.matchesToday === 1 ? 'match today' : 'matches today' },
   ].filter((c) => Number.isFinite(c.n));
 
-  if (counts.length === 0) return <div className="stats-strip" aria-hidden="true" />;
+  if (counts.length === 0) return <div className="stats-strip" data-enter-ready="no" aria-hidden="true" />;
 
   return (
-    <div className="stats-strip" role="status">
+    <div className="stats-strip" data-enter-ready="yes" role="status">
       {counts.map((c) => (
         <span key={c.label}>
           <b>{c.n}</b> {c.label}
