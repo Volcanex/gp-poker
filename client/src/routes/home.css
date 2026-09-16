@@ -215,19 +215,7 @@
    beats `.page.wide` whichever order the two sheets land in. */
 main.page.home-page { max-width: 1180px; }
 
-/* The masthead: the mark alone, so it is sized on its own terms rather than
-   against a line of type. The mark's box is its ink exactly, which is why
-   this is a plain height and not a box that needs padding trimmed off it. */
-.home-brand {
-  display: flex;
-  color: var(--text-primary);
-  padding-block: var(--sp-2) var(--sp-4);
-}
-.home-brand-mark { flex: none; height: 72px; width: auto; }
 
-@media (max-width: 560px) {
-  .home-brand-mark { height: 56px; }
-}
 
 .player-bar {
   display: flex;

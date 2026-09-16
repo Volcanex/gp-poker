@@ -21,7 +21,6 @@ import type { ArenaListing, CreatedChallenge, LeaderboardRow, LiveMatch, Me } fr
 import { readPlayChoice, useSession } from '../net/session.tsx';
 import { MODE_CODE, MODE_NAME, modeInline, modeTabLabel, speedChoiceName } from '../ui/mode-tabs.tsx';
 import { Segmented } from '../ui/segmented.tsx';
-import { Logo } from '../ui/logo.tsx';
 import { elapsed, useNow } from '../ui/bits.tsx';
 import { arenaCardLine } from './arena-bits.ts';
 import { int } from '../ui/format.ts';
@@ -153,13 +152,6 @@ export function Home() {
 
   return (
     <main className="page wide stack home-page">
-      {/* The masthead: the mark on its own. Only this page carries it at size,
-          and the name is not set beside it because the top bar is already
-          carrying the name two rows up. */}
-      <header className="home-brand">
-        <Logo className="home-brand-mark" />
-      </header>
-
       <PlayerBar me={me} mode={modesFor(mode)[0]} />
 
       {offline && ready && (
