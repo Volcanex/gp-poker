@@ -60,6 +60,15 @@ rule is two rules, and the one in the client would be the one that drifts:
 heads-up the button is the small blind, a busted or sitting-out seat changes who
 is counted, and none of that is the client's to know.
 
+**v9 is extra time**, and it did not have to bump either. `ClientMsg.extra`,
+`SeatView.extraUsed` and `EXTRA_TIME_MS` with `EXTRA_TIME_USES` are all new: a
+client that never sends the message never lengthens a decision, and one that
+never reads the field sees every seat holding an allowance it cannot spend,
+which is exactly the table it drew before any of this existed. The number moves
+by the same convention v7 moved it. The two numbers live here for the reason
+`HAND_HOLD_MS` does: the server adds one to the deadline and the client's
+control names the other in English, and two copies would drift.
+
 **Sitting out was additive inside v5.** `SeatView.sittingOut` is optional and
 absent rather than false, so an old client reads a seat it already understands.
 `ClientMsg.back` is the harder half of the pair, because a message an old

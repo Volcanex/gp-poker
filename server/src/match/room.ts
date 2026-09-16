@@ -1,6 +1,6 @@
 import { shownAsBot } from '../config.js';
 import type { ChatFrom, ClientMsg, MatchResult, ServerMsg } from '@opentable/protocol';
-import { CHAT_HISTORY } from '@opentable/protocol';
+import { CHAT_HISTORY, EXTRA_TIME_MS, EXTRA_TIME_USES } from '@opentable/protocol';
 import { hub } from '../ws/hub.js';
 import { ChatLimiter, chatRejectionText, cleanChatText } from '../chat.js';
 import {
@@ -74,6 +74,13 @@ export class MatchRoom {
      two seats that busted each other, which would hand the match to the
      person who walked out of it. See `applyLeftPlaces`. */
   private leftPlaces = new Map<string, number>();
+  /* How much of their extra time each player has spent, counted against
+     `EXTRA_TIME_USES` rather than held as a boolean, so the allowance is the
+     protocol's number and not this file's assumption about it. Never cleared
+     for the life of the match: a new hand is not a new two minutes. It goes
+     on the wire per seat as `SeatView.extraUsed`, which is the exhausted
+     state and is what greys the control out. */
+  private extraSpent = new Map<string, number>();
   private clockTimer: ReturnType<typeof setTimeout> | null = null;
   private clock: RoomClock | null = null;
   private lastResult: MatchResult | null = null;
@@ -182,6 +189,7 @@ export class MatchRoom {
     return this.playerIds.map((id) => ({
       connected: !this.disconnected.has(id),
       sittingOut: this.satOut.has(id),
+      extraUsed: this.extraLeft(id) <= 0,
     }));
   }
 
@@ -313,6 +321,52 @@ export class MatchRoom {
     this.timeoutStreak.set(userId, 0);
     if (this.clock && this.playerIds[this.clock.seat] === userId) this.rearmClock();
     this.broadcast();
+  }
+
+  /* Spend this match's extra time, from the seat that is on the clock.
+
+     Every refusal here is silent, the way `back`'s are: nothing was lost and
+     nothing was decided, so there is no error a player could act on, and an
+     `err` would only clear the client's own `sending` flag under a decision
+     they are still in the middle of. The five doors it has to be shut to are
+     the five ways it could be worth more than one turn of the clock:
+
+     - a spectator, or anybody with no seat at this table;
+     - somebody who has already spent theirs, which is the whole allowance;
+     - a seat that is not the one to act, which would bank time against a
+       decision that has not arrived and might never be theirs;
+     - a clock that is not running, either because no one is on it (between
+       hands, at showdown) or because it is paused for a reconnect, where
+       moving the deadline would extend a window the grace timer owns;
+     - a seat that is sitting out or has left, whose decision is check-folded
+       on arrival rather than waited for.
+
+     The deadline it moves is `this.clock`'s, which is the one the timer is
+     armed against and the one `viewFor` reports, so the turn genuinely lasts
+     longer rather than looking as if it does. The next decision opens on the
+     format's own clock again: `rearmClock` reads `format.clockMs` and knows
+     nothing about this. */
+  handleExtra(userId: string, _msg: Extract<ClientMsg, { t: 'extra' }>): void {
+    if (!this.hand || this.match.status !== 'playing') return;
+    if (!this.playerIds.includes(userId)) return;
+    if (this.extraLeft(userId) <= 0) return;
+    if (this.satOut.has(userId) || this.resigned.has(userId)) return;
+    const clock = this.clock;
+    if (!clock || clock.paused) return;
+    if (this.playerIds[clock.seat] !== userId) return;
+
+    this.extraSpent.set(userId, (this.extraSpent.get(userId) ?? 0) + 1);
+    const deadline = clock.deadline + EXTRA_TIME_MS;
+    this.clearClockTimer();
+    this.clock = { ...clock, deadline };
+    this.armTimer(deadline, clock.seat);
+    this.broadcast();
+  }
+
+  // What is left of one player's allowance. Anybody with no entry has all of
+  // it, including a spectator, who is refused a seat away from here.
+  private extraLeft(userId: string): number {
+    return EXTRA_TIME_USES - (this.extraSpent.get(userId) ?? 0);
   }
 
   // Practice only: the human deciding to deal the next hand rather than wait

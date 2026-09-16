@@ -51,6 +51,10 @@ export interface TableProps {
   /* A sat-out seat's way back in. The band draws the prompt and the button;
      this is what they send. */
   onBack?: () => void;
+  /* Spending this match's extra time on the decision that is open. Given only
+     by a page with a live match behind it, the way `onLeave` is: the replay
+     and the mock have no clock to lengthen. */
+  onExtra?: () => void;
   /* Leaving the game. Given only by a page that has a match to leave, so the
      replay and any other embedder of the felt get no control at all. What
      pressing it means, and whether it asks first, is `leave-control.tsx`. */
@@ -107,7 +111,9 @@ const AWARD_OPEN = { '--wipe': '0%' };
    read as writing rather than as a string arriving. */
 const TYPE_MS = 28;
 
-export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', onNext, onBack, onLeave }: TableProps) {
+export function Table({
+  view, onAct, sending, bare, ended, chat, look = 'v1', onNext, onBack, onExtra, onLeave,
+}: TableProps) {
   const reduced = useReducedMotion();
   const headRef = useRef<HTMLSpanElement>(null);
   /* The replay snaps: it is scrubbed, and a beat between two frames a slider
@@ -459,13 +465,14 @@ export function Table({ view, onAct, sending, bare, ended, chat, look = 'v1', on
               stack={heroStack}
               onNext={onNext}
               onBack={onBack}
+              onExtra={onExtra}
               stats={inBand && hole
                 ? <LiveStats hole={hole} board={shown} opponents={opponents} />
                 : null}
             />
           ) : (
             <>
-              <Dock view={view} onAct={onAct} sending={sending} />
+              <Dock view={view} onAct={onAct} sending={sending} onExtra={onExtra} />
               {/* The band carries its own legend, in its middle column, so on
                   v2 the table has one row fewer. v1 keeps the row it has. */}
               <KeyLegend watching={view.you == null} />

@@ -15,7 +15,12 @@
    `r` works while typing, because it is how you get back to the field. Every
    other shortcut, `0` included, is blocked by `isTextEntry` at the call site,
    so typing 137 into the field neither folds the hand nor reopens the sizer
-   under the cursor. */
+   under the cursor.
+
+   `e` is extra time, and it is a pure decision here for the same reason the
+   rest are: whether this player still has theirs is a fact off the view, and
+   a key that spent an allowance that was already gone would be a second
+   press the server drops in silence. */
 
 import type { ActionKind, LegalActions } from '@opentable/protocol';
 import { raiseShape } from './sizing.ts';
@@ -34,11 +39,13 @@ export type TurnKey =
   | { do: 'fold' }
   | { do: 'checkOrCall'; kind: ActionKind }
   | { do: 'custom' }
+  | { do: 'extra' }
   | { do: 'preset'; at: number };
 
 export function turnKeyAction(
   key: string,
-  { legal, presets, typing }: { legal: LegalActions; presets: Preset[]; typing: boolean },
+  { legal, presets, typing, extra = false }:
+  { legal: LegalActions; presets: Preset[]; typing: boolean; extra?: boolean },
 ): TurnKey | null {
   const { canRaise, checkOrCall } = raiseShape(legal);
   const k = key.toLowerCase();
@@ -48,6 +55,11 @@ export function turnKeyAction(
   if (k === CUSTOM_KEY) return canRaise ? { do: 'custom' } : null;
   if (k === 'f') return legal.actions.includes('f') ? { do: 'fold' } : null;
   if (k === 'c') return checkOrCall ? { do: 'checkOrCall', kind: checkOrCall } : null;
+  /* `e` is the one key here that does not decide the hand: it buys two more
+     minutes on the decision it is pressed in. `extra` is the allowance this
+     player has left, so a key that would be spent twice answers nothing, the
+     same way `f` answers nothing at a table where folding is not legal. */
+  if (k === 'e') return extra ? { do: 'extra' } : null;
   const at = PRESET_KEYS.indexOf(k);
   return at >= 0 && presets[at] ? { do: 'preset', at } : null;
 }

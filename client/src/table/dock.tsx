@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import type { ActionKind, LegalActions, TableView } from '@opentable/protocol';
-import { RUNOUT_TICKS, holdFor } from '@opentable/protocol';
+import { EXTRA_TIME_MS, RUNOUT_TICKS, holdFor } from '@opentable/protocol';
 import { isTextEntry, useGInit, useKeyLegend } from '../ui/bits.tsx';
 import { updatePrefs } from '../ui/prefs.ts';
 import { clamp, presetsFor, raiseAction, raiseShape } from './sizing.ts';
@@ -21,6 +21,11 @@ export interface DockProps {
   view: TableView;
   onAct: (a: ActionKind, v?: number) => void;
   sending: boolean;
+  /* Spending this match's extra time on the decision that is open. Given only
+     by a page with a match to send it to, so the replay and the mock's own
+     embedders draw the control disabled rather than offering one that goes
+     nowhere. */
+  onExtra?: () => void;
 }
 
 export type DockState = 'wait' | 'turn' | 'over' | 'watch';
@@ -30,6 +35,12 @@ export interface DockLogic {
   pre: PreAction | null;
   setPre: (p: PreAction | null) => void;
   canPre: boolean;
+  /* Whether this player's extra time is theirs to spend right now: their
+     decision, their clock running, and the allowance still unspent. The
+     control is drawn in the turn state either way and disabled when this is
+     false, because a control that came and went would move the row it stands
+     in. */
+  canExtra: boolean;
 }
 
 /* Which of the four states the hand is in, and the pre-action that is armed
@@ -74,8 +85,19 @@ export function useDockLogic(view: TableView, onAct: DockProps['onAct'], sending
 
   const mine = view.you == null ? null : view.seats.find((s) => s.i === view.you) ?? null;
   const canPre = seated && mine != null && !mine.folded && !mine.out && !mine.allin;
+  /* The server's own five conditions, as far as the client can see them: the
+     seat is yours, the decision is yours, the clock is running and the
+     allowance is unspent. It is asked here rather than twice, because the
+     band and the dock draw the same control and the rule behind it is the
+     server's, not either rendering's. A `paused` clock is a player who is
+     reconnecting, who is not looking at this. */
+  const canExtra = yourTurn
+    && mine != null
+    && !mine.extraUsed
+    && view.clock != null
+    && !view.clock.paused;
 
-  return { state, pre, setPre, canPre };
+  return { state, pre, setPre, canPre, canExtra };
 }
 
 /* The dock is the hand. One region at the bottom of the table, one fixed
@@ -83,16 +105,23 @@ export function useDockLogic(view: TableView, onAct: DockProps['onAct'], sending
    over. Nothing here mounts or unmounts the box itself, which is the whole
    point: the old action bar appeared only on your turn and the felt above it
    re-divided the moment it did. Contents cross-fade; nothing slides. */
-export function Dock({ view, onAct, sending }: DockProps) {
+export function Dock({ view, onAct, sending, onExtra }: DockProps) {
   const legal = view.legal;
-  const { state, pre, setPre, canPre } = useDockLogic(view, onAct, sending);
+  const { state, pre, setPre, canPre, canExtra } = useDockLogic(view, onAct, sending);
 
   return (
     <div className="dock" data-state={state}>
       <AnimatePresence mode="wait" initial={false}>
         <Fade key={state} state={state}>
           {state === 'turn' && legal ? (
-            <TurnControls view={view} legal={legal} sending={sending} onAct={onAct} />
+            <TurnControls
+              view={view}
+              legal={legal}
+              sending={sending}
+              onAct={onAct}
+              canExtra={canExtra}
+              onExtra={onExtra}
+            />
           ) : state === 'over' ? (
             <HandOver view={view} />
           ) : state === 'watch' ? (
@@ -173,6 +202,40 @@ export function PreActionPills({
         </button>
       ))}
     </div>
+  );
+}
+
+/* Extra time, in one component, because the dock and the band offer the same
+   two minutes and two copies of what it says would drift. The words carry the
+   number off the protocol rather than spelling it again: the server adds
+   `EXTRA_TIME_MS` to the deadline and this is the only place that names it in
+   English.
+
+   **Rendered in every turn and disabled once it is spent**, never dropped: a
+   control that vanished the moment it was used would move whatever stands
+   beside it, and the dock's whole rule is that nothing moves. Disabled is
+   also the honest reading, since a spent allowance is a fact about this match
+   and not a thing to be hidden. */
+const EXTRA_MINUTES = Math.round(EXTRA_TIME_MS / 60_000);
+
+export function ExtraTime({
+  can, sending, onExtra, className,
+}: {
+  can: boolean;
+  sending: boolean;
+  onExtra?: () => void;
+  className: string;
+}) {
+  return (
+    <button
+      type="button"
+      className={`btn btn-tertiary ${className}`}
+      disabled={!can || sending || !onExtra}
+      title={can ? "Extra time, once a match. Key E" : "Your extra time is spent"}
+      onClick={() => { playClick(); onExtra?.(); }}
+    >
+      Add {EXTRA_MINUTES} minutes
+    </button>
   );
 }
 
@@ -270,14 +333,16 @@ function HandOver({ view }: { view: TableView }) {
   return (
     <>
       <HandResult view={view} />
-      {/* The three choices stay in the box as inert ghosts: the dock's height
-          is the same in every state, and the eye keeps its place. A spectator
+      {/* The row stays in the box as inert ghosts, extra time included: the
+          dock's height is the same in every state, the eye keeps its place,
+          and every control holds the width it will come back at. A spectator
           has no choices to hold open, so the same row carries the one thing
           that is theirs to press. */}
       {view.you == null ? (
         <StopWatching />
       ) : (
         <div className="dock-acts" aria-hidden="true">
+          <span className="btn btn-tertiary ghost dock-extra">Add {EXTRA_MINUTES} minutes</span>
           <span className="btn btn-tertiary ghost">Fold</span>
           <span className="btn btn-secondary ghost">Check</span>
           <span className="btn btn-primary ghost" data-primary>Raise</span>
@@ -323,39 +388,46 @@ export function useCountdown(key: string, ms: number): number {
 export { CUSTOM_KEY, PRESET_KEYS, turnKeyAction };
 
 export function useTurnKeys({
-  legal, presets, sending, onAct, onRaiseKey, onPresetKey,
+  legal, presets, sending, extra = false, onAct, onRaiseKey, onPresetKey, onExtra,
 }: {
   legal: LegalActions;
   presets: Preset[];
   sending: boolean;
+  /* Whether `e` means anything at this table right now: `canExtra` from
+     `useDockLogic`, and a page that gave no `onExtra` has no way to send it. */
+  extra?: boolean;
   onAct: (a: ActionKind, v?: number) => void;
   onRaiseKey: () => void;
   onPresetKey: (preset: Preset) => void;
+  onExtra?: () => void;
 }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (sending || e.metaKey || e.ctrlKey || e.altKey) return;
-      const hit = turnKeyAction(e.key, { legal, presets, typing: isTextEntry(e.target) });
+      const hit = turnKeyAction(e.key, { legal, presets, typing: isTextEntry(e.target), extra });
       if (!hit) return;
       e.preventDefault();
       if (hit.do === 'fold') onAct('f');
       else if (hit.do === 'checkOrCall') onAct(hit.kind);
       else if (hit.do === 'custom') onRaiseKey();
+      else if (hit.do === 'extra') onExtra?.();
       else onPresetKey(presets[hit.at]);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [legal, presets, sending, onAct, onRaiseKey, onPresetKey]);
+  }, [legal, presets, sending, extra, onAct, onRaiseKey, onPresetKey, onExtra]);
 }
 
 
 function TurnControls({
-  view, legal, sending, onAct,
+  view, legal, sending, onAct, canExtra, onExtra,
 }: {
   view: TableView;
   legal: NonNullable<TableView['legal']>;
   sending: boolean;
   onAct: (a: ActionKind, v?: number) => void;
+  canExtra: boolean;
+  onExtra?: () => void;
 }) {
   const { actions, call, min, max } = legal;
   /* What raising means in this spot, read off `legal` in one place, because
@@ -416,7 +488,10 @@ function TurnControls({
     fieldRef.current?.select();
   }, []);
   const writePreset = useCallback((p: Preset) => setRaw(String(p.value)), []);
-  useTurnKeys({ legal, presets, sending, onAct, onRaiseKey: focusField, onPresetKey: writePreset });
+  useTurnKeys({
+    legal, presets, sending, onAct, onRaiseKey: focusField, onPresetKey: writePreset,
+    extra: canExtra && onExtra != null, onExtra,
+  });
 
   const raiseLabel = value >= max ? `All in ${max}` : isBet ? `Bet ${value || min}` : `Raise to ${value || min}`;
 
@@ -477,7 +552,12 @@ function TurnControls({
         </span>
       </div>
 
+      {/* Extra time leads the row, on the far side of the three answers to
+          the hand: it is the one control here that decides nothing, and it
+          stands where a misfire aimed at it costs a press rather than a
+          stack. */}
       <div className="dock-acts">
+        <ExtraTime can={canExtra} sending={sending} onExtra={onExtra} className="dock-extra" />
         {actions.includes('f') && (
           <button
             type="button"
@@ -540,6 +620,10 @@ export function KeyLegend(
       <span aria-hidden="true"><span className="kbd">F</span> fold</span>
       <span aria-hidden="true"><span className="kbd">C</span> check or call</span>
       <span aria-hidden="true"><span className="kbd">R</span> raise</span>
+      {/* Listed like the rest whether or not it is still there to spend, the
+          way F is listed at a table where folding is not legal: a legend that
+          changed with the hand is a legend that moves the felt. */}
+      <span aria-hidden="true"><span className="kbd">E</span> extra time</span>
       {/* A legend that offers keys a control does not answer is a legend that
           lies: the dock has six sizes and no square for a size of your own,
           and the band has six and the `0` beside them. */}

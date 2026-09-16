@@ -102,6 +102,15 @@ files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
   each hand from there busts somebody. The arithmetic per format is written
   above it in `packages/protocol/src/index.ts` and held to its ceiling by
   `server/test/speed.test.ts`.
+- **Extra time is one exception to the clock, not a second clock.**
+  `EXTRA_TIME_MS` (two minutes) once per player per match, spent on the decision
+  they are actually on and moving that decision's deadline only. Every format
+  gets the same allowance whatever its clock, because the reason to want it is
+  the spot rather than the speed, and it does not move the ceilings: a fast
+  schedule climbs on elapsed match time and a standard one on hands. The seat
+  to act is the only one who may spend it, once, while their clock is running;
+  every other press is dropped in silence (`server/src/match/CLAUDE.md`), and
+  the table can see who has spent theirs (`SeatView.extraUsed`).
 - **Ratings are per mode, not per speed** (`ratings` table). Four pools need
   four populations and this site has one, so speed rides along as a tag.
   Split them when the population supports it. Six-max gives each player one

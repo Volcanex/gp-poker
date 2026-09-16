@@ -367,6 +367,32 @@ remaining-time tracking across a pause is not worth the complexity and is
 indistinguishable to the player. If grace expires first it is treated exactly
 like a clock timeout at that seat.
 
+## Extra time
+
+`handleExtra` is the one thing besides the clock itself that moves a deadline.
+A player spends `EXTRA_TIME_MS` (two minutes, from the protocol) **once a
+match**, on the decision that is open, and it moves `MatchRoom.clock.deadline`
+and rearms the real `setTimeout` against the new one, so the turn genuinely
+lasts longer rather than merely reading as if it does. `rearmClock` knows
+nothing about it: the next decision opens on `format.clockMs` again.
+
+Who has spent theirs is `MatchRoom.extraSpent`, never cleared for the life of
+the match, and it reaches the wire as `SeatView.extraUsed` through
+`SeatPresence` (the third fact the room knows about a seat that the hand runner
+does not). It is on every seat, not just the viewer's, so a table can see who
+has used theirs.
+
+**Every refusal is silent**, the way `back`'s are: nothing was lost and nothing
+was decided, so there is no error a player could act on. The five doors it has
+to be shut to are the five ways the allowance could be worth more than one turn
+of the clock: no seat at this table, already spent, not the seat to act, no
+clock running (between hands, at showdown, or paused for a reconnect, where the
+grace timer owns the window), and a seat that is sitting out or has left, whose
+decision is check-folded on arrival rather than waited for. `test/extra-time.test.ts`
+drives one test per door, plus the one the feature exists for: with a 300 ms
+clock, the seat that spent its extra time is still being waited for a second and
+a half later and its call is accepted against the sequence it was handed.
+
 A room outlives its match by `ROOM_LINGER_MS` (60s) after `finishMatch`. A `join`
 in that window (a client reconnecting late, or a spectator arriving just after
 `end`) gets the final `state` plus a resend of the `end` message, which is why

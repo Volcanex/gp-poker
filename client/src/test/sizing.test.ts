@@ -131,6 +131,23 @@ describe('the turn keys', () => {
     expect(at('7')).toBeNull();
   });
 
+  it('spends extra time on E, and answers nothing once it is gone', () => {
+    // The allowance is the fact off the view, so the key is dead the moment
+    // it has been spent rather than sending a second press for the server to
+    // drop in silence.
+    expect(turnKeyAction('e', { legal, presets, typing: false, extra: true })).toEqual({ do: 'extra' });
+    expect(turnKeyAction('E', { legal, presets, typing: false, extra: true })).toEqual({ do: 'extra' });
+    expect(turnKeyAction('e', { legal, presets, typing: false, extra: false })).toBeNull();
+    // And absent means the same as false: a caller that knows nothing about
+    // extra time cannot spend it by leaving the field off.
+    expect(at('e')).toBeNull();
+  });
+
+  it('blocks E while typing, the way it blocks F', () => {
+    // An `e` in the chat is a letter in a word, not two minutes off the clock.
+    expect(turnKeyAction('e', { legal, presets, typing: true, extra: true })).toBeNull();
+  });
+
   it('folds, checks and calls, and refuses what the table does not offer', () => {
     expect(at('f')).toEqual({ do: 'fold' });
     expect(at('c')).toEqual({ do: 'checkOrCall', kind: 'c' });

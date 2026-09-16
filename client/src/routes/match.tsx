@@ -174,6 +174,14 @@ function LiveMatch({ id }: { id: string }) {
   // table's hold is not tempted to reach into this one's state for it.
   const onNext = useCallback((m: string, h: number) => send({ t: 'next', m, h }), [send]);
 
+  /* Two more minutes on the decision that is open, once a match. It does not
+     go through `sending`: nothing is being decided and the button is not a
+     door the hand goes through, so the controls stay live while the server
+     moves the deadline and answers with an ordinary `state`. A press with
+     nothing to spend is dropped there in silence, which is why there is no
+     error to clear here. */
+  const onExtra = useCallback(() => send({ t: 'extra', m: id }), [send, id]);
+
   /* Coming back from sitting out. Sent whenever this page has a seat and the
      player has just returned to it, rather than only when the last view we
      saw said the seat was sitting out: the way a seat gets sat out in the
@@ -305,6 +313,7 @@ function LiveMatch({ id }: { id: string }) {
         onAct={onAct}
         onNext={() => onNext(id, view.h)}
         onBack={comeBack}
+        onExtra={onExtra}
         sending={sending}
         ended={ended != null}
         chat={chat}
@@ -432,6 +441,11 @@ function MockMatch(
         look={v2 ? 'v2' : 'v1'}
         onNext={hold ? advance : undefined}
         onBack={sitout ? advance : undefined}
+        /* No clock to lengthen either, so pressing it does nothing but draw
+           itself: the mock is what the screenshot and footprint suites
+           measure, and a control they cannot see is a control they cannot
+           hold still. */
+        onExtra={() => undefined}
         /* No server to resign to, so leaving the mock is leaving the page.
            The control and its dialog are the same ones the live table draws,
            which is what lets the e2e suite open the warning without a

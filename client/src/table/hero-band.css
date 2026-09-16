@@ -134,7 +134,7 @@
    of the longest thing it says, because a slot that grew for "Next hand in
    4" moved its own left edge and that was a layout shift the audit caught. */
 .hb-line-end {
-  flex: none; width: 96px;
+  flex: none; width: var(--hb-line-end-w);
   text-align: right;
   font-size: 12px; line-height: 20px; color: var(--text-secondary);
   white-space: nowrap;
@@ -157,6 +157,26 @@
   white-space: nowrap;
 }
 .hb-line[data-held] .hb-line-text { padding-right: 48px; }
+/* **Extra time, beside the clock it lengthens, and out of the flow.** The
+   same bargain the deal button above makes with the other end of this row: a
+   slot reserved for it would have come out of the words at every width and in
+   every state, and it is only ever drawn on your own turn, where the words
+   are a price or a pair of verbs. Hung off the end slot's own left edge,
+   like the deal button is off its right one, it takes no room from anything,
+   which is what lets it arrive, grey itself out once it is spent and go again
+   without moving a pixel. Off the slot rather than off the line, because the
+   slot is what moves when the band is turned round for a left hand.
+
+   18 px, `.hb-line-next`'s height and for its reason: the line's words have
+   20 px above the bar and a taller button overflows them at both ends. */
+.hb-line-extra {
+  position: absolute;
+  right: 100%; margin-right: var(--sp-2);
+  top: 50%; translate: 0 -50%;
+  height: 18px; padding: 0 var(--sp-2);
+  font-size: 11px; font-weight: 500;
+  white-space: nowrap;
+}
 .hb-line > .turn-bar { left: 0; right: 0; top: auto; bottom: 0; }
 /* Their clock is on the line so you can see how long they have, not as a
    call to action: the placeholder grey is the one use of it that is a
@@ -990,6 +1010,10 @@
      pixels came off it when the cards grew, because the sentence is 20 px of
      text and the bar is 2, and the row had four to give. */
   --hb-line-h: 24px;
+  /* The line's right end: the seconds, or the hold's countdown. A reserved
+     width rather than a box that grows, named here now that the slot is
+     something two controls hang off rather than a literal in one rule. */
+  --hb-line-end-w: 96px;
   /* The meta line under the cards: the name, the figures and the gap over
      them. `.hb-meta` draws the same sum, plus a pixel for the row gap in it. */
   --hb-meta-gap: 6px;

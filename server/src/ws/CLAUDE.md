@@ -5,9 +5,14 @@ The websocket layer, split so that nothing here has to know about poker.
 - `hub.ts`: the connection registry and the raw per-socket protocol handling
   (decode, `hi`, ping and pong, the audit log). It knows nothing about
   matchmaking or match rooms; dispatch is injected.
-- `router.ts`: routes `queue`, `dequeue`, `join`, `leave`, `act`, `next`, `chat`
-  and the arena subscription to matchmaking and match rooms. It is the one
-  place that imports both.
+- `router.ts`: routes `queue`, `dequeue`, `join`, `leave`, `act`, `next`, `back`,
+  `extra`, `chat` and the arena and tournament subscriptions to matchmaking and
+  match rooms. It is the one place that imports both. The three messages that
+  are not `act` are the three things a player says about a decision without
+  taking it: `next` un-holds a practice hand, `back` un-sits a seat, and
+  `extra` lengthens the turn that is open (`../match/CLAUDE.md`). Each of them
+  errs only on a match that does not exist and is otherwise the room's to
+  ignore.
 
 The upgrade itself is authenticated in `../app.ts`. `/ws`'s `preValidation` hook
 uses `resolveSessionUser` and **does not mint a guest**: it rejects with 401 if

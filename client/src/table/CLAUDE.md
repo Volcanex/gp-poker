@@ -208,8 +208,8 @@ Nothing slides. A spectator gets a fourth, `watch` (see `../routes/CLAUDE.md`).
 | State | What is in the box |
 | --- | --- |
 | `wait` | pre-action pills, and a status line saying who is being waited for |
-| `turn` | the sizing presets, the amount field and slider, then fold / check or call / raise |
-| `over` | the result line with a countdown, and the three choices as inert outlines that hold the height |
+| `turn` | the sizing presets, the amount field and slider, then extra time / fold / check or call / raise |
+| `over` | the result line with a countdown, and the same four controls as inert outlines that hold the height |
 
 **An armed pre-action is pressed down and lit.** The state was in the markup
 from the start (`aria-pressed`, `data-on`) and nothing was drawn for it but a
@@ -241,6 +241,16 @@ that assumed a price is void once the price moves, so any change to the amount
 to call clears "check or fold" and leaves the other two armed. The price is read
 off the seats by `amountToCall`, because `legal` only exists on your own turn.
 
+**Extra time is the fourth control in the action row**, at a width of its own
+(`.dock-extra`, 132 px) at the near end rather than a fourth equal share: it is
+not one of the three answers to the hand, and those three keep the proportions
+they have always had, less a constant. It is rendered in the turn state and
+again as a ghost while the hand settles, so the width is there in both and the
+row does not re-divide when it greys out or comes back. On a phone the row is
+three across the top with the primary under them, because the dock has no
+height to give it a row of its own. What it spends and what the server does
+with it is `ExtraTime` in `dock.tsx` and `server/src/match/CLAUDE.md`.
+
 The countdown says "next hand in" or "result in" depending on `isLastHand`,
 derived from the view the same way the server derives it. Its length is
 `HAND_HOLD_MS` **from `@opentable/protocol`**: the server sleeps that hold and
@@ -271,6 +281,27 @@ scoped to `.hero-band` and `.match[data-band]` so it cannot.
 | A size of your own | the sweep sizer | a typed field, key `r` |
 | Key legend | none, there is no keyboard | one line under the controls, dismissable |
 | Your own line | under your cards | under your cards, or one line over the controls |
+| Extra time | on the decision line, beside the clock | on the decision line, beside the clock |
+
+### Extra time is on the line, not in the column
+
+The one control on the band that is not in the controls' column, and the column
+is the reason: at both widths it is full to its own floor, with the sizes over
+the actions and no slack row left between them. The wide grid has an empty cell
+beside the sizes and the phone's single column has nothing at all, so a control
+that lived there would have had two homes and one of them would have had to
+take a row off something.
+
+The decision line is where it belongs anyway. Extra time is time, and the line
+is where the table says what the clock is doing. It is hung off `.hb-line-end`'s
+own left edge, absolutely positioned, exactly as `DealNext` is hung off its
+right one: **out of the flow, so it can arrive, grey itself out once it is spent
+and go again without moving a pixel**, where a reserved slot for it would have
+come out of the words at every width and in every state. Off the slot rather
+than off the line, because the slot is what moves when the band is turned round
+for a left hand. It is drawn only on your own turn, where `decisionText` is a
+price or a pair of verbs and never longer than "Check or raise", so it cannot
+land on the words.
 
 ### Where your own line stands
 
@@ -1344,6 +1375,7 @@ thing that happened. See `../sound/CLAUDE.md`.
 | `f` | your turn | fold |
 | `c` | your turn | check, or call |
 | `r` | your turn | focus the amount field, from anywhere (the band: open the typed size) |
+| `e` | your turn | spend this match's extra time on the decision that is open, once a match |
 | `1` to `6` | your turn | v1's dock: write that preset into the field. The band: load that box into the button, or on a phone open the sweep on it |
 | `0` | your turn, wide band | open a size of your own, the same door `r` opens. Blocked while typing, where it is a nought |
 | Enter | your turn, wide band | send the size the button says, or show the clamp |
