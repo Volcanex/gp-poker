@@ -150,7 +150,7 @@ export function Seat({
           <span className="act-w">Out</span>
         ) : clocked ? (
           <>
-            <TurnSeconds deadline={onClock.deadline} totalMs={format.clockMs} paused={onClock.paused} />
+            <TurnSeconds deadline={onClock.deadline} totalMs={format.clockMs} paused={onClock.paused} silent={!you} />
             <TurnBar deadline={onClock.deadline} totalMs={format.clockMs} paused={onClock.paused} />
           </>
         ) : last ? (

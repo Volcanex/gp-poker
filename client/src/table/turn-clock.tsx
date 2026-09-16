@@ -64,8 +64,16 @@ export function TurnBar(props: TurnClockProps) {
   );
 }
 
-export function TurnSeconds(props: TurnClockProps) {
+/* `silent` keeps the box and drops what is in it. Only the clock that is
+   actually running down on the viewer carries a number: somebody else's
+   seconds are a detail about a player who is not being waited on, and the
+   bar along their seat already says they are on the clock. The span still
+   renders, with its width and line box intact, so the seat's action square
+   does not resize the moment the turn passes, and the timer role goes with
+   the text, because an empty live region is noise to a screen reader. */
+export function TurnSeconds({ silent = false, ...props }: TurnClockProps & { silent?: boolean }) {
   const { secs, tone } = useLeft(props);
+  if (silent) return <span className="turn-secs num" aria-hidden="true" />;
   return (
     <span
       className="turn-secs num"
