@@ -338,10 +338,21 @@ export function Home() {
    A mode with no rated match behind it says so rather than printing the 1500
    everybody starts on as though it were earned. */
 function PlayerBar({ me, mode }: { me: Me | null; mode: Mode }) {
-  if (!me) return <div className="player-bar" aria-hidden="true" />;
+  /* An empty bar used to slide in on the page's stagger and then have a name
+     appear inside it with no transition, which read as two separate events for
+     one block. It waits at rest with a skeleton in it instead and enters when
+     the account does, which is what `data-enter-ready` is for. */
+  if (!me) {
+    return (
+      <div className="player-bar" data-enter-ready="no" aria-hidden="true">
+        <span className="skeleton pb-skel-avatar" />
+        <span className="skeleton skeleton-text pb-skel-name" />
+      </div>
+    );
+  }
   const r = modeRating(me, mode);
   return (
-    <div className="player-bar">
+    <div className="player-bar" data-enter-ready="yes">
       <Avatar seed={avatarSeed(me.id, me.name)} name={me.name} size={44} avatarV={avatarVersion(me.avatarV)} />
       <div className="pb-who">
         {/* The page's heading is the player's own name, because that is what

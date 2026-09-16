@@ -137,7 +137,24 @@ export function TournamentsCard() {
         <Trophy size={16} aria-hidden="true" />
         Tournaments
       </span>
-      {upcoming.length === 0 ? (
+      {listing === null && !failed ? (
+        /* Three placeholder fixtures while the listing is in flight. The card
+           is the tallest thing in its column, so letting it open short and
+           then grow by 230px when the answer lands shoved the whole page
+           under it down mid-read. It stands at its own height instead, and
+           g's skeleton holds off 350ms before it shows, so a quick answer
+           never flashes one. The row is the real row's shape: name, when,
+           foot. */
+        <ul className="tourney-list" aria-hidden="true">
+          {[0, 1, 2].map((i) => (
+            <li key={i}>
+              <span className="skeleton skeleton-text" style={{ width: '70%' }} />
+              <span className="skeleton skeleton-text" style={{ width: '54%' }} />
+              <span className="skeleton skeleton-text" style={{ width: '44%', height: 24 }} />
+            </li>
+          ))}
+        </ul>
+      ) : upcoming.length === 0 ? (
         <span className="muted">
           {failed ? 'The next fixtures are being scheduled.' : 'A field that plays down to one, on a fixed calendar.'}
         </span>

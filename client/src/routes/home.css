@@ -233,6 +233,11 @@ main.page.home-page {
   gap: var(--sp-3);
   min-height: 44px;
 }
+/* The resting shape: the avatar's own circle and a name's worth of line, so
+   the bar is the same height and the same rhythm before the account lands as
+   after it. */
+.pb-skel-avatar { width: 44px; height: 44px; border-radius: 50%; flex: none; }
+.pb-skel-name { width: 180px; height: 22px; }
 /* The name, the rating and the mode, one line: three facts about the same
    player read faster together than a name over a caption with a number
    pinned to the far edge of the row. */
