@@ -292,9 +292,10 @@ function LoginDialog({ ref }: { ref: React.RefObject<HTMLDialogElement | null> }
         <div className="dlg-body">
           <span className="dlg-title">Log in</span>
           <span className="dlg-desc">
-            Logging in with a name and a password replaces the guest account this browser is using,
-            and the guest's rating stays with the guest. Continuing with Google claims this guest
-            instead, unless that Google account already has an account here.
+            You are playing as a guest in this browser. Logging in switches to your account. The
+            guest keeps its own rating; it does not come with you. Continuing with Google claims
+            this guest instead, so its rating stays with you, unless that Google account already
+            has an account here.
           </span>
           <div className="field">
             <label className="label" htmlFor={nameId}>Name</label>
