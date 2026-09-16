@@ -9,11 +9,10 @@ import { int } from './format.ts';
 import { Avatar } from './avatar.tsx';
 import { Flag } from './flag.tsx';
 
-/* The second way to claim, beside the name and password: Google's own sign-in
-   page. It is a link and not a button with an onClick because the browser has
-   to end up at Google, which no fetch can do; `/auth/google/start` mints the
-   state, remembers where this person was, and sends them on
-   (`server/src/google.ts`).
+/* The default way to claim, own request: it is a link and not a button with
+   an onClick because the browser has to end up at Google, which no fetch can
+   do; `/auth/google/start` mints the state, remembers where this person was,
+   and sends them on (`server/src/google.ts`).
 
    `next` is the page they are on, so the flow ends where it began rather than
    on the home page. The server accepts only a same-origin path, so nothing
@@ -28,7 +27,7 @@ function GoogleClaimButton() {
   const next = `${location.pathname}${location.search}`;
   return (
     <div className="row-actions">
-      <a className="btn btn-secondary" href={`/auth/google/start?next=${encodeURIComponent(next)}`}>
+      <a className="btn btn-primary" href={`/auth/google/start?next=${encodeURIComponent(next)}`}>
         Continue with Google
       </a>
     </div>
@@ -103,7 +102,7 @@ export function GoogleAuthResult() {
    is a panel on a panel, and a second title is a second heading. The friend
    controls raise it that way (`friend-controls.tsx`). */
 export function ClaimCard({ onClaimed, flat }: { onClaimed?: () => void; flat?: boolean }) {
-  const { setMe, refreshMe } = useSession();
+  const { me, setMe, refreshMe } = useSession();
   const nameId = useId();
   const passId = useId();
   const [name, setName] = useState('');
@@ -137,12 +136,14 @@ export function ClaimCard({ onClaimed, flat }: { onClaimed?: () => void; flat?: 
         <div className="claim-copy">
           <span className="card-title">Claim this account</span>
           <span className="muted">
-            Pick a name and a password, or continue with Google. Your rating, matches and hand
+            Continue with Google, or pick a name and a password. Your rating, matches and hand
             histories stay exactly as they are; claiming only lets you log back in from another
             browser.
           </span>
         </div>
       )}
+      <GoogleClaimButton />
+      {me?.googleAuth && <span className="muted claim-or">Or claim with a name and a password</span>}
       <div className="claim-fields">
         <div className="field">
           <label className="label" htmlFor={nameId}>Name</label>
@@ -166,11 +167,10 @@ export function ClaimCard({ onClaimed, flat }: { onClaimed?: () => void; flat?: 
             onChange={(e) => setPassword(e.target.value)}
           />
         </div>
-        <button className="btn btn-primary" type="submit" disabled={busy || !name.trim() || !password}>
+        <button className="btn btn-secondary" type="submit" disabled={busy || !name.trim() || !password}>
           Claim this account
         </button>
       </div>
-      <GoogleClaimButton />
       {error && <span className="error">{error}</span>}
     </form>
   );
@@ -259,7 +259,7 @@ export function AccountMenu() {
 }
 
 function LoginDialog({ ref }: { ref: React.RefObject<HTMLDialogElement | null> }) {
-  const { setMe, refreshMe } = useSession();
+  const { me, setMe, refreshMe } = useSession();
   const nameId = useId();
   const passId = useId();
   const [name, setName] = useState('');
@@ -297,6 +297,12 @@ function LoginDialog({ ref }: { ref: React.RefObject<HTMLDialogElement | null> }
             this guest instead, so its rating stays with you, unless that Google account already
             has an account here.
           </span>
+          {/* The same one button as the claim card: it signs into the account
+              this Google identity already has, or claims the guest browsing
+              here if it has none. Default, own request: it is offered before
+              the name and password rather than below them. */}
+          <GoogleClaimButton />
+          {me?.googleAuth && <span className="muted claim-or">Or log in with a name and a password</span>}
           <div className="field">
             <label className="label" htmlFor={nameId}>Name</label>
             <input className="input" id={nameId} value={name} autoComplete="username" onChange={(e) => setName(e.target.value)} />
@@ -305,17 +311,13 @@ function LoginDialog({ ref }: { ref: React.RefObject<HTMLDialogElement | null> }
             <label className="label" htmlFor={passId}>Password</label>
             <input className="input" id={passId} type="password" value={password} autoComplete="current-password" onChange={(e) => setPassword(e.target.value)} />
           </div>
-          {/* The same one button as the claim card: it signs into the account
-              this Google identity already has, or claims the guest browsing
-              here if it has none. */}
-          <GoogleClaimButton />
           {error && <span className="error">{error}</span>}
         </div>
         <div className="dlg-foot">
           <button type="button" className="btn btn-tertiary" onClick={() => ref.current?.close()}>
             Cancel
           </button>
-          <button type="submit" className="btn btn-primary" disabled={busy || !name.trim() || !password}>
+          <button type="submit" className="btn btn-secondary" disabled={busy || !name.trim() || !password}>
             Log in
           </button>
         </div>

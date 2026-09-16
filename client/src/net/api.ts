@@ -182,6 +182,7 @@ export const api = {
     }),
   removeAvatar: () => req<{ avatarV: number }>('/api/me/avatar', { method: 'DELETE' }),
   claim: (name: string, password: string) => post<UserSummary>('/api/claim', { name, password }),
+  rename: (name: string) => post<UserSummary>('/api/rename', { name }),
   login: (name: string, password: string) => post<UserSummary>('/api/login', { name, password }),
   logout: () => post<{ ok: true }>('/api/logout'),
 };

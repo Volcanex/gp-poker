@@ -25,6 +25,7 @@ import { Avatar } from '../ui/avatar.tsx';
 import { EditPictureButton } from '../ui/picture-dialog.tsx';
 import { Flag } from '../ui/flag.tsx';
 import { CountryPicker } from '../ui/country-picker.tsx';
+import { RenamePicker } from '../ui/rename-picker.tsx';
 import './profile.css';
 
 export function Profile() {
@@ -33,6 +34,7 @@ export function Profile() {
   const [data, setData] = useState<ProfileData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editingCountry, setEditingCountry] = useState(false);
+  const [renaming, setRenaming] = useState(false);
   useTitle(data ? data.summary.name : name);
 
   const load = useCallback(() => {
@@ -131,6 +133,16 @@ export function Profile() {
             <button
               type="button"
               className="btn btn-tertiary btn-sm"
+              aria-expanded={renaming}
+              onClick={() => setRenaming((v) => !v)}
+            >
+              {renaming ? 'Close' : 'Rename'}
+            </button>
+          )}
+          {isMe && (
+            <button
+              type="button"
+              className="btn btn-tertiary btn-sm"
               aria-expanded={editingCountry}
               onClick={() => setEditingCountry((v) => !v)}
             >
@@ -147,6 +159,7 @@ export function Profile() {
         </div>
         {/* The same control the settings menu offers, mounted here because a
             profile is where somebody looks at their own name. */}
+        {isMe && renaming && <RenamePicker onSaved={() => setRenaming(false)} />}
         {isMe && editingCountry && (
           <CountryPicker label="Country" onSaved={() => setEditingCountry(false)} />
         )}

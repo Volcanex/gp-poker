@@ -2151,6 +2151,7 @@ a.btn { text-decoration: none; }
 
 .claim { display: flex; flex-direction: column; gap: var(--sp-4); }
 .claim-copy { display: flex; flex-direction: column; gap: 4px; }
+.claim-or { font-size: 12px; text-align: center; }
 .claim-fields { display: flex; align-items: flex-end; gap: var(--sp-3); flex-wrap: wrap; }
 .claim-fields .field { flex: 1; min-width: 160px; }
 
@@ -2275,6 +2276,12 @@ a.btn { text-decoration: none; }
 .country-picker { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
 .country-picker .g-combobox { flex: 1; min-width: 0; }
 .country-current { display: inline-flex; align-items: center; }
+
+/* The name, the same shape: the field and its save button on one row,
+   flex-basis 0 next to the fixed-width country picker beside it. */
+.rename-picker { display: flex; align-items: flex-end; gap: var(--sp-2); flex-wrap: wrap; }
+.rename-picker .field { flex: 1; min-width: 160px; }
+.rename-picker .error { flex-basis: 100%; }
 
 /* ------------------------------------------------------------ ready check */
 

@@ -100,4 +100,61 @@ describe('auth flow', () => {
     expect(afterLogout.json().id).not.toBe(guestBody.id);
     createdUserIds.push(afterLogout.json().id);
   });
+
+  it('renames a guest, then refuses a name someone else already has', async () => {
+    const me = await app.inject({ method: 'GET', url: '/api/me' });
+    const token = me.cookies.find((c) => c.name === 'ot_session')!.value;
+    const guestBody = me.json();
+    createdUserIds.push(guestBody.id);
+
+    const other = await app.inject({ method: 'GET', url: '/api/me' });
+    const otherToken = other.cookies.find((c) => c.name === 'ot_session')!.value;
+    const otherBody = other.json();
+    createdUserIds.push(otherBody.id);
+    const otherName = `renametaken${Date.now().toString(36)}`;
+    const claimOther = await app.inject({
+      method: 'POST',
+      url: '/api/claim',
+      cookies: { ot_session: otherToken },
+      payload: { name: otherName, password: 'correcthorse' },
+    });
+    expect(claimOther.statusCode).toBe(200);
+
+    const taken = await app.inject({
+      method: 'POST',
+      url: '/api/rename',
+      cookies: { ot_session: token },
+      payload: { name: otherName.toUpperCase() },
+    });
+    expect(taken.statusCode).toBe(400);
+
+    const bad = await app.inject({
+      method: 'POST',
+      url: '/api/rename',
+      cookies: { ot_session: token },
+      payload: { name: 'a b' },
+    });
+    expect(bad.statusCode).toBe(400);
+
+    const newName = `renamed${Date.now().toString(36)}`;
+    const renamed = await app.inject({
+      method: 'POST',
+      url: '/api/rename',
+      cookies: { ot_session: token },
+      payload: { name: newName },
+    });
+    expect(renamed.statusCode).toBe(200);
+    const renamedBody = renamed.json();
+    expect(renamedBody.id).toBe(guestBody.id);
+    expect(renamedBody.name).toBe(newName);
+    // Still a guest: renaming does not claim the account.
+    expect(renamedBody.guest).toBe(true);
+
+    const lookup = await app.inject({ method: 'GET', url: `/api/users/${newName}` });
+    expect(lookup.statusCode).toBe(200);
+    expect(lookup.json().summary.id).toBe(guestBody.id);
+
+    const stale = await app.inject({ method: 'GET', url: `/api/users/${guestBody.name}` });
+    expect(stale.statusCode).toBe(404);
+  });
 });

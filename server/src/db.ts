@@ -395,6 +395,20 @@ export async function updateUserCountry(id: string, country: string | null): Pro
   return row ?? null;
 }
 
+/* Renaming, for a guest or a claimed account alike: the name belongs to the
+   player, not to the act of claiming. Format and uniqueness are the caller's
+   job (./auth.ts's validateName, ./routes.ts checking name_lower first) —
+   this is the write, and the unique index on name_lower is what actually
+   guarantees it against a race the pre-check missed. */
+export async function updateUserName(id: string, name: string): Promise<UserRow | null> {
+  const [row] = await sql<UserRow[]>`
+    update users set name = ${name}, name_lower = ${name.toLowerCase()}
+    where id = ${id}
+    returning ${USER_COLS}
+  `;
+  return row ?? null;
+}
+
 /* Record a walkout. The count and the moment it was written are set
    together, because the pair is what the decay is computed from: writing a
    count without its timestamp would leave a strike that never expires.

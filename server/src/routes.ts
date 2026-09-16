@@ -45,7 +45,7 @@ import { config, shownAsBot } from './config.js';
 import { hub } from './ws/hub.js';
 import { queueSize, rankedUnlocked } from './matchmaking.js';
 import { getRoom, roomForPlayer } from './match/rooms.js';
-import { claimGuest, login, requireUser, setSessionCookie, clearSessionCookie, createSessionForUser, SESSION_COOKIE } from './auth.js';
+import { claimGuest, login, renameUser, requireUser, setSessionCookie, clearSessionCookie, createSessionForUser, SESSION_COOKIE } from './auth.js';
 import { rosterSummary } from './bots/index.js';
 import { onlineCount as populationOnlineCount } from './bots/population.js';
 import { mainMode, roundRatings, toModeRating, toUserSummary } from './userView.js';
@@ -125,6 +125,21 @@ export function registerRoutes(app: FastifyInstance): void {
     if (!name || !password) return err(reply, 400, 'Name and password are required');
     const user = await requireUser(request, reply);
     const result = await claimGuest(user.id, name, password);
+    if (!result.ok) return err(reply, 400, result.error);
+    return toUserSummary(result.user, await getRatingsFor(result.user.id));
+  });
+
+  /* Changing the name on the account, guest or claimed alike: claiming picks
+     a name once, this is the same field afterwards. `/u/:name` and every
+     seat this player is dealt into from here on reads the new one; a match
+     already finished keeps the name it was played under, in `matches.seats`,
+     because a hand history is a record of what happened and not a live view
+     of who's playing. */
+  app.post<{ Body: { name?: string } }>('/api/rename', async (request, reply) => {
+    const { name } = request.body ?? {};
+    if (!name) return err(reply, 400, 'Name is required');
+    const user = await requireUser(request, reply);
+    const result = await renameUser(user.id, user.name, name);
     if (!result.ok) return err(reply, 400, result.error);
     return toUserSummary(result.user, await getRatingsFor(result.user.id));
   });

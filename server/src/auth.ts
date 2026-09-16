@@ -9,6 +9,7 @@ import {
   insertGuestUser,
   insertSession,
   touchLastSeen,
+  updateUserName,
   type RatingRow,
   type UserRow,
 } from './db.js';
@@ -185,6 +186,28 @@ export async function claimGuest(
   const passwordHash = await hashPassword(password);
   const user = await claimGuestUser(guestId, name, passwordHash);
   if (!user) return { ok: false, error: 'That account is not a guest' };
+  return { ok: true, user };
+}
+
+/* Renaming, the same shape as claimGuest above: the name column is the one
+   thing about an account that guest and claimed players alike can already
+   picture changing, so it is not gated on having claimed at all. `current` is
+   how a no-op rename (same name, different case) is told apart from a name
+   somebody else already has, since name_lower would otherwise flag both the
+   same way. */
+export async function renameUser(
+  id: string,
+  current: string,
+  name: string
+): Promise<{ ok: true; user: UserRow } | { ok: false; error: string }> {
+  const nameError = validateName(name);
+  if (nameError) return { ok: false, error: nameError };
+  if (name.toLowerCase() !== current.toLowerCase()) {
+    const existing = await getUserByNameLower(name.toLowerCase());
+    if (existing) return { ok: false, error: 'That name is already taken. Choose another one.' };
+  }
+  const user = await updateUserName(id, name);
+  if (!user) return { ok: false, error: 'No such user' };
   return { ok: true, user };
 }
 
