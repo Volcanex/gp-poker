@@ -87,7 +87,7 @@ describe('blind schedules', () => {
       expect(f.graceMs).toBeGreaterThan(0);
       expect(f.graceMs).toBeLessThan(f.clockMs);
     }
-    for (const f of [HEADS_UP_STANDARD, SIX_MAX_STANDARD]) expect(f.clockMs).toBe(20_000);
+    for (const f of [HEADS_UP_STANDARD, SIX_MAX_STANDARD]) expect(f.clockMs).toBe(30_000);
   });
 });
 

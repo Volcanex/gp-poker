@@ -1,9 +1,8 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { Logo } from './logo.tsx';
 import {
-  Cards, Eye, GraduationCap, Medal, PuzzlePiece, Ranking, Trophy, Users, Wrench,
+  Cards, Eye, GraduationCap, Medal, PuzzlePiece, Ranking, Spade, Trophy, Users, Wrench,
 } from '@phosphor-icons/react';
 import { AccountMenu } from './auth.tsx';
 import { SettingsMenu } from './settings.tsx';
@@ -148,7 +147,10 @@ export function SiteShell({ children }: { children: ReactNode }) {
           onClick={() => (open ? close() : setOpen(true))}
         />
         <Link className="wordmark" to="/">
-          <Logo className="wordmark-mark" solid />
+          {/* Phosphor's spade, not the drawn mark: a stock suit beside the
+              name while the mark itself is being settled. `ui/logo.tsx` still
+              holds the drawn one and nothing else draws it at the moment. */}
+          <Spade className="wordmark-mark" weight="fill" aria-hidden="true" />
           EveryonePoker
         </Link>
         <span className="spacer" />

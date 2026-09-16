@@ -239,14 +239,13 @@
   white-space: nowrap; flex: none;
   display: inline-flex; align-items: center; gap: var(--sp-2);
 }
-/* The mark takes its colour from the link, so it inverts with the theme along
-   with the name it sits beside. Height only, in em, so it tracks the
-   wordmark's own font-size and the width follows the aspect ratio rather than
-   letterboxing inside a square. 0.97em is Inter's cap height plus its
-   descender, so the mark stands as tall as the word beside it rather than as
-   tall as the word's line box. The solid spade is drawn here rather than the
-   cut-out one: at 16px the E's strokes are under a pixel and close up. */
-.wordmark-mark { flex: none; height: 0.97em; width: auto; }
+/* The suit takes its colour from the link, so it inverts with the theme along
+   with the name it sits beside. Sized in em so it tracks the wordmark's own
+   font-size rather than needing a second rule at the phone breakpoint. A
+   Phosphor glyph is drawn on a square canvas with its own padding, unlike the
+   drawn mark whose box was its ink, so this is a little larger than the cap
+   height it is standing against. */
+.wordmark-mark { flex: none; height: 1.15em; width: 1.15em; }
 .top .spacer { flex: 1; }
 .whoami { display: flex; align-items: baseline; gap: 6px; font-size: var(--font-size-ui); white-space: nowrap; flex: none; }
 .whoami .r { color: var(--text-secondary); font-variant-numeric: tabular-nums; }

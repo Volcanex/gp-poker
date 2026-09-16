@@ -370,7 +370,7 @@ export const HEADS_UP_STANDARD: MatchFormat = {
   ],
   levelHands: 6,
   levelSeconds: 600,
-  clockMs: 20_000,
+  clockMs: 30_000,
   graceMs: 15_000,
 };
 
@@ -425,7 +425,7 @@ export const SIX_MAX_STANDARD: MatchFormat = {
   ],
   levelHands: 8,
   levelSeconds: 600,
-  clockMs: 20_000,
+  clockMs: 30_000,
   graceMs: 15_000,
 };
 

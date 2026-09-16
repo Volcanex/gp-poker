@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { formatFor, type MatchFormat, type Mode, type TableView } from '@opentable/protocol';
+import { SIX_MAX_STANDARD, formatFor, type MatchFormat, type Mode, type TableView } from '@opentable/protocol';
 import { looksRealistic } from '@opentable/identity';
 import {
   acceptReady,
@@ -172,15 +172,28 @@ describe('bot pacing', () => {
   const PRACTICE = testFormat({ clockMs: 20_000, practice: true });
   const LADDER = testFormat({ clockMs: 20_000, ladder: true });
 
-  it('thinks longer on a practice table than on a standard or fast one', () => {
+  /* Standard is the slowest table on the site, not practice. A person on a
+     thirty second clock does not answer a river shove in two seconds, and a
+     standard seat is the one that has to pass for one. Practice stays brisker
+     deliberately: it is a newcomer's first look and waiting on a bot teaches
+     them nothing. Both are still slower than fast, where a pause reads as lag. */
+  it('thinks longest on a standard table, then practice, then fast', () => {
     const [practiceLo, practiceHi] = thinkRange(PRACTICE, false);
     const [standardLo, standardHi] = thinkRange(RATED, false);
     const [fastLo, fastHi] = thinkRange(FAST, false);
 
-    expect(practiceLo).toBeGreaterThan(standardLo);
+    expect(standardLo).toBeGreaterThan(practiceLo);
+    expect(standardHi).toBeGreaterThan(practiceHi);
+    expect(practiceLo).toBeGreaterThan(fastLo);
     expect(practiceHi).toBeGreaterThan(fastHi);
-    expect(standardLo).toBeGreaterThan(fastLo);
-    expect(standardHi).toBeGreaterThan(fastHi);
+  });
+
+  /* The ceiling has to stay under the cap `player.ts` puts on a pause, a
+     quarter of the clock, or every weighted decision lands flattened against
+     the cap and the weighting stops meaning anything. */
+  it('keeps the standard ceiling under a quarter of the standard clock', () => {
+    const [, standardHi] = thinkRange(SIX_MAX_STANDARD, false);
+    expect(standardHi).toBeLessThan(SIX_MAX_STANDARD.clockMs / 4);
   });
 
   it('paces a standard table for somebody watching it, fast for throughput once nobody real is there', () => {

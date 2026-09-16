@@ -23,17 +23,28 @@ const PRACTICE_THINK_MAX_MS = 3200;
 const PRACTICE_QUICK_MIN_MS = 200;
 const PRACTICE_QUICK_MAX_MS = 800;
 
-// A standard table is the slow game: a twenty second clock, blinds that sit
-// still, a match measured in hands rather than in minutes. A bot answering
-// it in under a second is the tell, whoever is at the table and whether they
-// are playing or spectating, so a standard seat is paced like somebody
-// actually looking at the board. The fast tables keep the ranges above:
-// there the point is that it is over quickly, and a considered pause reads
-// as lag rather than as thought.
-const STANDARD_THINK_MIN_MS = 1200;
-const STANDARD_THINK_MAX_MS = 3400;
-const STANDARD_QUICK_MIN_MS = 300;
-const STANDARD_QUICK_MAX_MS = 900;
+/* A standard table is the slow game: a thirty second clock, blinds that sit
+   still, a match measured in hands rather than in minutes. A bot answering it
+   in under a second is the tell, whoever is at the table and whether they are
+   playing or spectating, so a standard seat is paced like somebody actually
+   looking at the board.
+
+   These are the widest ranges on the site, wider than practice: a person on a
+   thirty second clock does not answer a river shove in two seconds, and the
+   old ceiling of 3.4s made every bot at a standard table read as the same
+   instant responder however the spot was weighted. The ceiling is set under
+   `player.ts`'s cap of a quarter of the clock (7.5s at 30s), so the weighting
+   still has room to separate a cheap call from a real decision instead of
+   being flattened against the cap.
+
+   Practice stays brisker on purpose: it is somebody's first look at the site
+   and a newcomer waiting seven seconds on a bot is not learning anything. The
+   fast tables keep the throughput ranges: there the point is that it is over
+   quickly, and a considered pause reads as lag rather than as thought. */
+const STANDARD_THINK_MIN_MS = 2200;
+const STANDARD_THINK_MAX_MS = 7000;
+const STANDARD_QUICK_MIN_MS = 700;
+const STANDARD_QUICK_MAX_MS = 2000;
 
 /* Which range applies. `humanPresent` is asked first and decides everything
    else: nobody is fooled by a bot-only table, whatever its format says, so a
