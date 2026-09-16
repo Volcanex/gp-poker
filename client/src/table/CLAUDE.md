@@ -65,18 +65,20 @@ shift is a regression, and the usual cause is a box sized to a string:
   rather than moving. The seconds in the action square are the exception
   because `turn-clock.tsx` is not this directory's to key: they are
   left-aligned in a `4ch` box instead.
-- A marker that comes and goes moves everything after it. The button `D` is
-  always rendered and hidden with `visibility`, and the flag beside a name is
-  the same bargain in a different shape: `FlagSlot` (`../ui/flag.tsx`) draws
-  either the picture or an empty box of exactly its size, so a seat with a
-  country and a seat without measure the same. The hairline is drawn inside the
+- A marker that comes and goes moves everything after it. The button `D` and
+  the blind pill beside it are always rendered and hidden with `visibility`
+  wherever they are drawn, and the flag beside a name is the same bargain in a
+  different shape: `FlagSlot` (`../ui/flag.tsx`) draws either the picture or
+  an empty box of exactly its size, so a seat with a country and a seat
+  without measure the same. The hairline is drawn inside the
   box for that reason.
 - **A reserved slot has to be paid for somewhere.** Half a phone is 179 px
   and a name is what a seat is read by, so on a phone the line gives
   everything else up: the avatar goes, the empty flag slot goes (a seat's flag
-  cannot change mid-match, so hiding the empty box moves nothing), the bot
-  badge drops to the stack line (drawn twice, CSS keeps one) and the button
-  goes to the seat's corner, out of the flow. `../../e2e/ergonomics.spec.ts`
+  cannot change mid-match, so hiding the empty box moves nothing) and the bot
+  badge drops to the stack line (drawn twice, CSS keeps one). The button and
+  the blind are already out of the flow by then: they stand in the seat's
+  corner at every width (below). `../../e2e/ergonomics.spec.ts`
   is what holds the names whole at 768 and up.
 - **`data-state` lives on `.dock-in`, the element that fades, not on `.dock`
   around it.** The dock's own attribute changes the moment the view does, while
@@ -272,9 +274,10 @@ scoped to `.hero-band` and `.match[data-band]` so it cannot.
 
 ### Where your own line stands
 
-The flag, the name, the button marker, the stack, its rack and the last action
-you took: `HeroMeta`, one component in two homes, and the player picks with
-**Your line** under Settings > Table (`handMeta` in `../ui/prefs.ts`).
+The flag, the name, the button marker, the blind, the stack, its rack and the
+last action you took: `HeroMeta`, one component in two homes, and the player
+picks with **Your line** under Settings > Table (`handMeta` in
+`../ui/prefs.ts`).
 
 - **Under your cards**, the default: two rows on the cards' own left edge, the
   name over the figures, inside `.hb-hero`.
@@ -374,8 +377,8 @@ out, so the edges can fire without the page having to know. `/m/mock?sitout=1`
 marks your own seat sitting out, the way `?hold=1` marks a hand held.
 
 **The band is your seat at every width, not only on a phone.** The felt drew
-your cards, name, button marker, stack, last action, avatar, rating and clock,
-and the band drew most of them again a hundred pixels below; the rule that hid
+your cards, name, button marker, blind marker, stack, last action, avatar,
+rating and clock, and the band drew most of them again a hundred pixels below; the rule that hid
 the felt's copy has left the phone media query for `look-v2.css`. The clock came
 with the rest of the seat and is now the decision line's: `TurnBar` under the
 words and `TurnSeconds` at their end. The avatar and the rating did **not** come
@@ -1144,8 +1147,9 @@ the top of an empty left column with the board over it and two thirds of the
 felt bare green; his words for it were a bad version of the desktop. With
 `data-rows` the felt is read top to bottom the way the table is sat: each
 opponent a full-width strip at the desktop seat's size (picture, cards, name
-at 13 px, the rack beside a 20 px figure, the marker back in the flow; not
-the rating, which cost the name its last three letters), the board, the pot
+at 13 px, the rack beside a 20 px figure, the markers a step up in the corner
+they stand in at every width; not the rating, which cost the name its last
+three letters), the board, the pot
 and one quiet line of readings with no box round it. Heads-up puts the one
 opponent at the top and centres the board group in the room left, the slack
 split by two `1fr` rows; a bigger table (`p1` to `p5`, from your left round
@@ -1235,8 +1239,8 @@ own directly after the box's rule.
 
 One card, one row, one edge. Left to right: the avatar, the two cards (backs,
 or faces at a showdown), the identity block with the name and its badges
-right-aligned (flag slot, name, rating, button marker, bot badge) and the
-stack figure under the name with its small chip stack beside it, then the
+right-aligned (flag slot, name, rating, bot badge) and the stack figure under
+the name with its small chip stack beside it, then the
 **action square** on the seat's right edge.
 
 `seat.rating` sits beside the name, muted, the same figure the profile and
@@ -1273,9 +1277,34 @@ the seat: the band's result line says it.
 `SeatView.out` seats render dimmed to 45% with their place ("4th") where the
 stack would be, and `SeatView.bot` gets a small mark beside the name.
 
-The phone rule that stands the button marker in the seat's corner is scoped
-to `.seat .btn-marker`: the band draws a marker on its own name line too, and
-an unscoped absolute rule stood that one in the top left corner of `.match`.
+**The blinds are the server's answer, drawn and never worked out.**
+`SeatView.blind` says `sb` or `bb` and is absent for everybody else, and the
+felt and the band both simply print it: `SB` and `BB` in the button marker's
+treatment, a pill rather than a disc because two letters do not read in a 16 px
+circle. Counting round from `seat.button` here would be the server's own rule
+written a second time, and the second copy is the one that drifts, because who
+is in the blinds depends on the seats a bust has taken out and on heads-up
+making the button the small blind. Both markers keep their slot when they are
+off, so nothing beside them moves as the button goes round, and the hero's own
+line carries them too: the seat a player reads first is their own.
+
+**A seat's two markers stand in its corner; the band's stand beside your
+name.** The button used to sit on the name's own line and leave it only on a
+phone. It leaves it everywhere now, because the blind is a third badge and the
+line has no room for one at any width: it is 180 px wherever the felt sits two
+seats to a row and 226 px at its widest, and a sixteen-character name with the
+flag, the rating and a bot's badge beside it already fills the wider one to
+within ten pixels. The corner is the few pixels above the picture and the
+cards, empty on every layout including the phone's rows, and moving the pair
+there hands the name the button's old slot back rather than spending the bot
+badge or the rating on a new one. The band keeps them in the flow beside your
+name, where they were asked for and where there is room: its line is the width
+of the felt.
+
+The rule that stands the markers in the seat's corner is scoped to
+`.seat .btn-marker` and `.seat .blind-marker`: the band draws a pair on its own
+name line too, and an unscoped absolute rule stood one of those in the top left
+corner of `.match`.
 
 ### The stats box
 

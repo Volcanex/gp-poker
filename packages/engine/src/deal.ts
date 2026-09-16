@@ -81,6 +81,9 @@ export function createHandWithDeck(config: HandConfig, deck: Card[]): HandState 
   for (const seatIdx of order) first[seatIdx] = deck[cardIdx++];
   for (const seatIdx of order) seats[seatIdx].cards = [first[seatIdx], deck[cardIdx++]];
 
+  const sbSeat = n === 2 ? config.button : (config.button + 1) % n;
+  const bbSeat = n === 2 ? (config.button + 1) % n : (config.button + 2) % n;
+
   const state: HandState = {
     config,
     deck,
@@ -94,10 +97,9 @@ export function createHandWithDeck(config: HandConfig, deck: Card[]): HandState 
     actions: [],
     seq: 0,
     result: null,
+    blinds: { sb: sbSeat, bb: bbSeat },
   };
 
-  const sbSeat = n === 2 ? config.button : (config.button + 1) % n;
-  const bbSeat = n === 2 ? (config.button + 1) % n : (config.button + 2) % n;
   postBlind(state, sbSeat, config.sb);
   postBlind(state, bbSeat, config.bb);
   state.currentBet = Math.max(seats[sbSeat].bet, seats[bbSeat].bet);

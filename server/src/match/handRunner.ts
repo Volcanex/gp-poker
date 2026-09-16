@@ -568,6 +568,14 @@ export class EngineHandRunner implements HandRunner {
       }
       const s = state.seats[e];
       const stack = run ? run.stacks[e] : s.stack;
+      /* Straight off the seats the engine charged (`HandState.blinds`),
+         mapped back into table seats, so the marker can never name somebody
+         other than whoever posted: heads-up that is the button, multiway the
+         two seats left of it, and either way a seat that is out or sitting
+         out is already in or out of `liveSeats` by the time this reads it. */
+      const blind = e === state.blinds.sb ? 'sb' as const
+        : e === state.blinds.bb ? 'bb' as const
+        : null;
       let lastForSeat: { a: ActionKind; v?: number } | null = null;
       for (let j = state.actions.length - 1; j >= 0; j--) {
         if (state.actions[j].s === e) {
@@ -582,6 +590,8 @@ export class EngineHandRunner implements HandRunner {
         cards: cardsPerSeat[e],
         folded: s.folded,
         allin: s.allin,
+        // Absent rather than null, the way `sittingOut` above is absent.
+        ...(blind ? { blind } : {}),
         button: i === this.button,
         acting: state.toAct === e,
         last: lastForSeat,

@@ -46,6 +46,15 @@ on the lowest live seat and moves to the next live seat each hand, skipping
 anyone who has busted. An eliminated player keeps their seat in the view with
 `out: true` and their `place`.
 
+**Who is in the blinds crosses the same boundary.** `HandState.blinds` names
+the two seats the engine charged, in engine seats, and `viewFor` maps them back
+into table seats as `SeatView.blind` (`'sb'`, `'bb'`, absent for everybody
+else). It is read off the state rather than counted round from `this.button`
+here or in the client, so the marker on the felt names whoever actually posted:
+heads-up that is the button itself, and multiway a busted or sitting-out seat is
+already in or out of `live_seats` before this reads it. A seat with `out: true`
+carries no blind, having left the hand rather than been skipped by it.
+
 Preflop `study` and `stats` are heads-up only. `@opentable/preflop`'s charts and
 spot walker model two players, so a six-max hand stores null for both rather than
 a wrong number, and the profile aggregates already skip hands with null stats.

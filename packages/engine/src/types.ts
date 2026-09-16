@@ -44,6 +44,11 @@ export interface HandState {
   actions: LoggedAction[];
   seq: number; // number of actions applied; the wire n field
   result: HandOutcome | null; // set once street === 'done'
+  /* The seats that posted, as seat indexes: heads-up the button is the small
+     blind, otherwise the two seats left of it. Recorded where the blinds are
+     actually posted rather than left to be re-derived from `button`, so
+     nothing downstream can disagree with who paid. */
+  blinds: { sb: number; bb: number };
 }
 
 export interface HandOutcome {

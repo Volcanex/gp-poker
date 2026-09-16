@@ -16,6 +16,15 @@ to each seat in order, then the second card to each seat in the same order),
 not two cards to one seat before moving on. The board is the next five
 cards straight after the hole cards in deck order; there are no burn cards.
 
+## Who posted
+Heads-up the button is the small blind and the other seat is the big blind;
+multiway they are the one and two seats left of the button. `HandState.blinds`
+records those two seat indexes where the chips are actually taken, and `apply`
+carries them through the hand, so nothing downstream has to count round from
+`button` to find out who paid. The server puts them on the wire as
+`SeatView.blind` and the replay reads them straight off the state: one rule, in
+the only place that charges anybody.
+
 ## Betting closure
 Each seat has an `acted` flag meaning "does not need to act again given the
 current aggression." A full bet or raise resets it to `false` for every

@@ -38,6 +38,11 @@ export function stateToView(
       cards: showAll ? (s.cards as Card[] | null) : visible[i],
       folded: s.folded,
       allin: s.allin,
+      /* Straight off the state the engine built, the same fact the live
+         server puts on the wire, so a replayed hand marks the blinds without
+         either side counting round from the button on its own. */
+      ...(i === state.blinds.sb ? { blind: 'sb' as const } : {}),
+      ...(i === state.blinds.bb ? { blind: 'bb' as const } : {}),
       button: i === state.config.button,
       acting: state.toAct === i,
       connected: true,

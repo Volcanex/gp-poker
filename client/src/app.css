@@ -1368,16 +1368,43 @@
    move when the figure gains one. */
 .stack-v { display: inline-block; min-width: 4ch; text-align: right; }
 
-.btn-marker {
+/* The two markers a seat wears: the dealer button, and the blind that seat
+   posted. One treatment, because they say the same kind of thing about the
+   same name; the blind is a pill rather than a disc only because two letters
+   do not fit a 16 px circle and still read. Both keep their slot when they
+   are off, so nothing beside them moves as the button goes round, and
+   heads-up one seat wears both, the button being the small blind there.
+
+   This is the band's size, in the flow beside your own name. A seat on the
+   felt stands them in its corner instead: see `.seat .btn-marker` below. */
+.btn-marker, .blind-marker {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 16px; height: 16px; flex: none;
-  border-radius: 50%;
+  height: 16px; flex: none;
   border: 1px solid var(--border);
   background: var(--surface-2);
   color: var(--text-secondary);
-  font-size: 10px; font-weight: 600; line-height: 1;
+  font-weight: 600; line-height: 1;
 }
-.btn-marker[data-off] { visibility: hidden; }
+.btn-marker { width: 16px; border-radius: 50%; font-size: 10px; }
+.blind-marker { width: 24px; border-radius: var(--radius-full); font-size: 9px; letter-spacing: 0.02em; }
+.btn-marker[data-off], .blind-marker[data-off] { visibility: hidden; }
+
+/* **A seat's markers stand in its corner, at every width.** They used to sit
+   on the name's own line and moved out of it on a phone, where the line is
+   179 px; the line is 180 px on any felt narrow enough to sit two seats to a
+   row, and 226 px at its widest, which a sixteen-character name, the flag,
+   the rating and a bot's badge already fill to within ten. There is no width
+   at which a third badge fits beside a name, so the pair moved out of the
+   flow everywhere rather than the felt paying for them twice: the corner is
+   the six pixels above the cards and the picture, empty on every layout, and
+   the name gets the button's old slot back. The band is the exception and
+   keeps them beside your name, because the band's line is the width of the
+   felt. */
+.seat .btn-marker, .seat .blind-marker {
+  position: absolute; top: 1px; z-index: 1; height: 14px; font-size: 9px;
+}
+.seat .btn-marker { left: 1px; width: 14px; }
+.seat .blind-marker { left: 17px; width: 22px; }
 /* Every badge on the line is shorter than the name's 16 px line, so a seat
    with a badge and a seat without are one height.
 
@@ -1530,9 +1557,13 @@
   .seat-chips { display: none; }
   .seat-bot { font-size: 9px; padding: 0 3px; line-height: 12px; }
   .seat-rating { display: none; }
-  /* The seat's own marker only: the band draws one on its name line too, and
-     an absolute rule that reached it stood it in the corner of `.match`. */
-  .seat .btn-marker { position: absolute; top: 1px; left: 1px; z-index: 1; width: 13px; height: 13px; font-size: 8px; }
+  /* A step smaller in the corner, with the rest of the seat. Scoped to the
+     seat's own markers, as the corner rule above is: the band draws a pair on
+     its name line too, and an unscoped rule stood those in the corner of
+     `.match`. */
+  .seat .btn-marker, .seat .blind-marker { height: 13px; font-size: 8px; }
+  .seat .btn-marker { width: 13px; }
+  .seat .blind-marker { left: 16px; width: 20px; }
   .seat-act { width: 36px; font-size: 9px; line-height: 11px; }
   .seat-act .act-v, .seat-act .turn-secs { font-size: 11px; line-height: 13px; min-height: 13px; }
   /* A step up on a phone too, but the line has to fit the pot's fixed box:
@@ -1641,9 +1672,9 @@
 
   /* The strip gets the desktop reading back: a full width row has the room
      the half-a-phone rules above were paying for. Picture, name at its
-     size, the rack beside the figure, and the marker back in the flow on
-     the rack's line. Not the rating: on 366 px it cost the name its last
-     three letters, and it is on the profile the name links to. */
+     size, the rack beside the figure, and the corner markers a step up. Not
+     the rating: on 366 px it cost the name its last three letters, and it is
+     on the profile the name links to. */
   .felt[data-rows] .seat {
     grid-template-columns: auto auto minmax(0, 1fr) calc(var(--seat-h) - 2px);
     column-gap: 8px; padding-left: var(--sp-3);
@@ -1661,9 +1692,13 @@
     right: calc(4ch + 6px); bottom: 0; font-size: 11px; line-height: 16px;
   }
   .felt[data-rows] .seat-bot { font-size: 10px; padding: 0 4px; line-height: 14px; }
-  .felt[data-rows] .seat .btn-marker {
-    position: static; width: 16px; height: 16px; font-size: 10px;
-  }
+  /* A full width strip has the room the half-a-phone rules were paying for,
+     but not on the name's own line: the markers keep the corner they stand in
+     at every other width, a step up in size with the rest of the strip. */
+  .felt[data-rows] .seat .btn-marker,
+  .felt[data-rows] .seat .blind-marker { height: 16px; font-size: 9px; }
+  .felt[data-rows] .seat .btn-marker { width: 16px; }
+  .felt[data-rows] .seat .blind-marker { left: 19px; width: 24px; }
   .felt[data-rows] .seat-act {
     width: calc(var(--seat-h) - 2px); font-size: 11px; line-height: 14px;
   }

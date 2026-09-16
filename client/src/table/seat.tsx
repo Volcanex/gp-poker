@@ -2,7 +2,7 @@ import type { Card, MatchFormat, SeatView, TableView } from '@opentable/protocol
 import { PlayingCard } from './playing-card.tsx';
 import { ChipStack } from './chip-stack.tsx';
 import { TurnBar, TurnSeconds } from './turn-clock.tsx';
-import { actionWords, ordinal, shortName } from './labels.ts';
+import { actionWords, blindShort, blindTitle, ordinal, shortName } from './labels.ts';
 import { Avatar } from '../ui/avatar.tsx';
 import { avatarVersion } from '../net/adapt.ts';
 import { FlagSlot } from '../ui/flag.tsx';
@@ -105,9 +105,20 @@ export function Seat({
           <span className="seat-name" title={seat.name}>{shortName(seat.name, 16)}</span>
           <span className="seat-rating num">{int(seat.rating)}</span>
           {you && <span className="seat-you">You</span>}
-          {/* Always here, hidden when the button is elsewhere: a marker that
-              comes and goes moves every badge after it once a hand. */}
+          {/* The button and the blind this seat posted. Both always rendered
+              and hidden with `visibility` when they are off, because a marker
+              that comes and goes moves what is beside it once a hand, and the
+              stylesheet stands the pair in the seat's own corner: there is no
+              width at which a third badge fits on this line (`../app.css`).
+              The blind reads what the server said rather than counting round
+              from the button, which would be the server's rule written twice;
+              heads-up the button is the small blind, so one seat wears both. */}
           <span className="btn-marker" title="Button" data-off={seat.button ? undefined : ''}>D</span>
+          <span
+            className="blind-marker"
+            title={blindTitle(seat.blind)}
+            data-off={seat.blind ? undefined : ''}
+          >{blindShort(seat.blind)}</span>
           {seat.bot && <span className="seat-bot">Bot</span>}
           {!seat.connected && <span className="seat-off">Disconnected</span>}
         </span>

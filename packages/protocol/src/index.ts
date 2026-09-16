@@ -52,9 +52,14 @@
    that a change to this package bumps it, which is cheaper than arguing about
    which changes are additive at the moment somebody is making one. Nothing
    reads the number to refuse a client: the server sends it in `hi` and that is
-   all, so a v5 client keeps working. */
+   all, so a v5 client keeps working.
 
-export const PROTOCOL_VERSION = 7;
+   v8 is `SeatView.blind`, and it is additive by the rule above: a v7 client
+   that has never heard of it draws the seats exactly as it did, with the
+   button marker and nothing beside it. The number moves anyway, by the same
+   convention v7 moved on. */
+
+export const PROTOCOL_VERSION = 8;
 
 export type Card = string; // 'As', 'Td', '2c' (rank + suit, lowercase suit)
 
@@ -1293,6 +1298,14 @@ export interface SeatView {
   bot: boolean;
   out: boolean; // eliminated from a multiway match, seat stays visible with its place
   place: number | null; // finishing position once out (1 = winner), null while in
+  /* Which blind this seat posted this hand, absent when it posted neither.
+     Optional and absent rather than a null or a 'none', like `sittingOut`
+     below: most seats at a table post neither. The server sets it from the
+     seats the engine actually charged, so it cannot disagree with who paid;
+     the client must never re-derive it from `button`, which would be the
+     same rule written twice and free to drift. Heads-up the button is the
+     small blind, so one seat carries `button` and `blind: 'sb'` at once. */
+  blind?: 'sb' | 'bb';
   /* Sat out after three consecutive timeouts on a multiway table: still
      dealt in and still posting blinds, but check-folded on arrival while
      their player is away. Additive and absent rather than false, because
