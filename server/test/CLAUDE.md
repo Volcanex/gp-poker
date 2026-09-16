@@ -50,6 +50,7 @@ the real path rather than a parallel one.
 | `tick`, `ladderTick`, `arenaTick` | matchmaking, ladder, arena | run one pass directly instead of waiting on a real timer |
 | `configureArena` | `../src/arena.ts` | wider than the others because an arena has a clock: `now`, `format`, `everyMs`, `durationMs`, `botFillMs` and `lastPairingBeforeEndMs` are all injectable |
 | `configureFriends` | `../src/friends.ts` | the presence debounce, so a test does not wait five real seconds to watch somebody go offline. `resetFriendPresence()` is its cleanup, like `resetReadyChecks()` |
+| `configureGoogle` | `../src/google.ts` | the three Google URLs, the client id and secret, the fetch and the clock, so `google.test.ts` mints id_tokens with its own key pair and drives the real routes against them. `resetGoogle()` is its cleanup, and clearing the JWKS cache is part of both: a file that left its fake keys cached would verify the next file's tokens against them |
 | `configureTournaments` | `../src/tournaments/index.ts` | the same shape again, plus two of its own: `readyMs`, so a walkover is proved by a decline in milliseconds rather than by sitting out twenty seconds, and `fixtures`, so a file runs one fixture on its own stretch of calendar rather than three sharing a clock |
 
 Two more in `helpers.ts` for the two doors a queued table now has to get
@@ -189,7 +190,12 @@ version reaching a seat at the table), `challenge.test.ts`, `chat.test.ts`,
 `explorer.test.ts`, `feed.test.ts`, `friends.test.ts` (the request, accept,
 decline, cancel and unfriend state machine, the guest and bot refusals, both
 caps, presence and the table a friend is at, the pushes to both parties, and an
-invite's link and the speed it deals), `health.test.ts`, `identity.test.ts`,
+invite's link and the speed it deals), `google.test.ts` (the whole sign-in: the challenge that goes out and the
+verifier that follows it, a state that was never issued, already spent, expired
+or carried to another browser, six ways an id_token fails to check out, the
+guest claimed in place, the fresh browser signed into the identity's existing
+account, the already-linked refusal that changes nothing, and the open-redirect
+guard), `health.test.ts`, `identity.test.ts`,
 `insights.test.ts`, `ladder.test.ts`, `leaderboard.test.ts` (the board reads the
 `ratings` table, hides provisional players, and a six-max standing never shows on
 the heads-up board), `matchmaking.test.ts`, `meta.test.ts`, `practice.test.ts`,

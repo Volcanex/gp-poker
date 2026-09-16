@@ -311,6 +311,18 @@ files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
   `@opentable/identity`'s `generateName` (`guest` boolean column, not a name
   prefix). Claiming sets a name and password on the same row so rating
   carries over.
+- **Google sign-in is the second way to claim the same row**
+  (`server/src/google.ts`, `/auth/google/*`), because a password form on a site
+  nobody has heard of is a thing people quite reasonably do not fill in. It
+  claims the guest in place, keeping the generated name and setting no
+  password, so such an account signs in with Google and only with Google. The
+  join key is Google's `sub` on `users.google_sub` and never the email, which
+  is a thing an account can change. A Google identity that already has an
+  account here signs a guest browser into it (the guest row is left alone, not
+  merged) and is **refused** from a claimed one, since the only ways to proceed
+  would be to merge two rating histories or to move a link somebody relies on.
+  Credentials are `GOOGLE_OAUTH_CLIENT_ID`/`_SECRET`; with neither, the button
+  is not offered at all and the password form is the whole of it.
 
 ## Docs
 Every directory with non-obvious behaviour has its own `CLAUDE.md`. This file is

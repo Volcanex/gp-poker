@@ -22,6 +22,7 @@ import { SiteShell } from './ui/shell.tsx';
 import { SiteFooter } from './ui/site-footer.tsx';
 import { PageEnter } from './ui/enter.tsx';
 import { MatchFoundAlert } from './ui/presence.tsx';
+import { GoogleAuthResult } from './ui/auth.tsx';
 import { ReadyCheckDialog } from './ui/ready-check.tsx';
 import { sound } from './sound/index.ts';
 
@@ -66,6 +67,10 @@ export function App() {
           <SiteShell>
             <PageEnter />
             <MatchFoundAlert />
+            {/* Renders nothing: the Google callback lands on whatever page the
+                flow was started from, so what it says has to be mounted on
+                all of them. */}
+            <GoogleAuthResult />
             <ReadyCheckDialog />
             <Routes>
               <Route path="/" element={<Home />} />

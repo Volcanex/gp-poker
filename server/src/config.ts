@@ -99,6 +99,21 @@ export const config = {
      ordering guarantee that a single-match suite cannot violate is ten
      seconds of nothing. */
   explorerLagMs: Number(process.env.EXPLORER_LAG_MS ?? (inTest ? 0 : 10_000)),
+  /* Google sign-in. Both halves come from the environment and neither has a
+     default, so a box without them simply does not offer the button
+     (`googleConfigured()` in ./google.ts) instead of offering one that fails
+     at Google. The redirect URI is a value rather than something derived from
+     the request, because it has to match what is registered in the Google
+     console character for character, and a derived one would quietly become
+     whatever host a proxy in front of this claimed. Override it for local
+     development, where it is a localhost URL that has to be registered too. */
+  googleClientId: process.env.GOOGLE_OAUTH_CLIENT_ID ?? '',
+  googleClientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET ?? '',
+  // `||` and not `??`: .env.example carries this key with an empty value, and
+  // an empty string is a redirect_uri Google refuses rather than a choice
+  // anybody made.
+  googleRedirectUri:
+    process.env.GOOGLE_OAUTH_REDIRECT_URI || 'https://everyonepoker.com/auth/google/callback',
   // g-admin's overrides.css (server/src/gadmin.ts): whether unbaked edits
   // reapply on reload. Off by default per the contract - a project opts in.
   // This project's .env sets it, so admins editing the live site keep seeing

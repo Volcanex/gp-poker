@@ -1,7 +1,7 @@
 # ui
 
 The furniture that is not the table: `shell.tsx` (the site's chrome),
-`auth.tsx` (claim, log in, account menu),
+`auth.tsx` (claim, log in, Google sign-in, account menu),
 `settings.tsx` with its pure half `prefs.ts`, `presence.tsx`,
 `friend-controls.tsx` and `friends-badge.tsx`,
 `ready-check.tsx`, `avatar.tsx`,
@@ -505,6 +505,30 @@ Three things about living with it:
   That is also what `ClaimCard`'s `flat` is for: no card ground and no copy of
   its own, because the dialog around it has already said what it is asking and
   a card inside a dialog is a panel on a panel.
+
+## Google sign-in
+
+Three pieces in `auth.tsx`, all small because the flow itself lives on the
+server (`server/src/google.ts`):
+
+- **`GoogleClaimButton` is a link, not a button.** The browser has to end up on
+  Google's own page, which no `fetch` can do, so it is an `<a class="btn
+  btn-secondary">` pointed at `/auth/google/start` with the current path as
+  `next`. It sits under the name and password row rather than beside the
+  fields, in a `.row-actions`, because it is an alternative to the whole form
+  and not to one of its inputs.
+- **It renders only when `me.googleAuth` says the server has credentials.** A
+  development box with none shows the password form on its own instead of a
+  button that fails at Google. The flag says nothing about whether *this*
+  account uses Google.
+- **`GoogleAuthResult` is mounted once in `app.tsx`, beside `MatchFoundAlert`,
+  and renders nothing.** The callback lands the browser back on whatever page
+  the flow was started from carrying `?ot_auth=<code>`, so what it says has to
+  be mounted on all of them. It toasts, refreshes `/api/me` on success, and
+  replaces the URL without the parameter: left in place, a reload or a shared
+  link would announce a sign-in that is long over. The codes map to copy
+  **here** rather than arriving as text, so nothing the server is handed can
+  put a message on our page.
 
 `friends-badge.tsx` is the count in the top bar: requests waiting on an answer
 plus tables a friend has offered, and nothing else. An outgoing request is not

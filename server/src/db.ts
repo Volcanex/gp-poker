@@ -69,6 +69,10 @@ export interface UserRow {
   walkoutStrikes: number;
   walkoutAt: Date | null;
   rankedBanUntil: Date | null;
+  /* The Google account this one signs in with, as Google's stable subject id,
+     or null for everybody who has never used it. The email is deliberately
+     not kept: see the column comment in ../db/schema.sql. */
+  googleSub: string | null;
 }
 
 /* Every column of `users` except the picture itself, which is the one column
@@ -80,7 +84,7 @@ const USER_COLS = sql`
   id, name, name_lower, password_hash, guest, bot, bot_level, created_at,
   last_seen_at, rating, rd, volatility, rating_at, peak_rating, peak_at,
   matches, wins, losses, draws, admin, avatar_type, avatar_v, country,
-  walkout_strikes, walkout_at, ranked_ban_until
+  walkout_strikes, walkout_at, ranked_ban_until, google_sub
 `;
 
 /* One row per (user, mode). This is where the Glicko-2 state lives now; the
@@ -337,6 +341,44 @@ export async function claimGuestUser(
     update users
     set name = ${name}, name_lower = ${name.toLowerCase()}, password_hash = ${passwordHash}, guest = false
     where id = ${id} and guest = true
+    returning ${USER_COLS}
+  `;
+  return row ?? null;
+}
+
+export async function getUserByGoogleSub(sub: string): Promise<UserRow | null> {
+  const [row] = await sql<UserRow[]>`select ${USER_COLS} from users where google_sub = ${sub}`;
+  return row ?? null;
+}
+
+/* Claiming with Google. The same update `claimGuestUser` makes, minus the two
+   things Google does not give us: the name stays the generated one the guest
+   has been playing under, and there is no password, so this account signs in
+   with Google and only with Google. `guest = true` in the where clause is what
+   keeps a second call from re-claiming an account that is already somebody's,
+   exactly as it does for the password path. */
+export async function claimGuestWithGoogle(id: string, sub: string): Promise<UserRow | null> {
+  const [row] = await sql<UserRow[]>`
+    update users
+    set google_sub = ${sub}, guest = false
+    where id = ${id} and guest = true
+    returning ${USER_COLS}
+  `;
+  return row ?? null;
+}
+
+/* Adding Google to an account that already exists: someone who claimed with a
+   name and a password and now wants the button as well. `google_sub is null`
+   is the guard that makes it additive - an account already linked to some
+   other Google identity is left exactly as it is, and the caller reads the
+   null as a refusal rather than overwriting a link somebody relies on. A sub
+   already spent on another account fails on the unique index instead, which
+   is the case the caller has to tell apart. */
+export async function linkGoogleToUser(id: string, sub: string): Promise<UserRow | null> {
+  const [row] = await sql<UserRow[]>`
+    update users
+    set google_sub = ${sub}
+    where id = ${id} and google_sub is null
     returning ${USER_COLS}
   `;
   return row ?? null;
@@ -617,6 +659,52 @@ export async function getSessionUser(token: string): Promise<UserRow | null> {
 
 export async function deleteSession(token: string): Promise<void> {
   await sql`delete from sessions where token = ${token}`;
+}
+
+// ---- oauth states ----
+
+export interface OauthStateRow {
+  state: string;
+  codeVerifier: string;
+  nonce: string;
+  sessionToken: string;
+  redirectTo: string;
+  createdAt: Date;
+  expiresAt: Date;
+}
+
+export async function insertOauthState(row: {
+  state: string;
+  codeVerifier: string;
+  nonce: string;
+  sessionToken: string;
+  redirectTo: string;
+  expiresAt: Date;
+}): Promise<void> {
+  await sql`
+    insert into oauth_states (state, code_verifier, nonce, session_token, redirect_to, expires_at)
+    values (${row.state}, ${row.codeVerifier}, ${row.nonce}, ${row.sessionToken}, ${row.redirectTo}, ${row.expiresAt})
+  `;
+}
+
+/* Reading a state spends it: the delete and the read are one statement, so two
+   callbacks racing on the same `state` cannot both come back with a row, and a
+   replayed callback finds nothing however quickly it follows the first. The
+   row is returned even when it has expired, because the caller has to tell a
+   state that timed out from one that was never issued only in its own head:
+   both answer the browser the same way. */
+export async function takeOauthState(state: string): Promise<OauthStateRow | null> {
+  const [row] = await sql<OauthStateRow[]>`
+    delete from oauth_states where state = ${state} returning *
+  `;
+  return row ?? null;
+}
+
+// Nothing sweeps these on a timer: a start spends the cost of clearing
+// whatever the last ten minutes left behind, which for a site this size is
+// always none or nearly none.
+export async function deleteExpiredOauthStates(): Promise<void> {
+  await sql`delete from oauth_states where expires_at < now()`;
 }
 
 // ---- matches ----

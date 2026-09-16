@@ -21,6 +21,11 @@ export interface Me extends UserSummary {
      overlay (the stub's own `/api/gadmin/verify` fetch decides that
      independently) and this client's own `/admin/tickets` pages. */
   admin?: boolean;
+  /* Whether this server can offer the Google button: it needs both halves of
+     a credential, and absent means it has none, so a development box shows
+     the name and password form on its own rather than a button that fails at
+     Google. It says nothing about whether this account uses Google. */
+  googleAuth?: boolean;
   /* Whether rated play is open: one finished casual or practice match is what
      opens it. Optional because a client can outlive the server it talks to,
      and absent reads as open, so an older server never locks a control it

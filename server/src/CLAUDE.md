@@ -6,9 +6,10 @@ exactly one of them.
 
 | File | Owns |
 | --- | --- |
-| `config.ts` | env from the repo-root `.env` via `process.loadEnvFile`, no dotenv dependency. `DATABASE_URL` and `SESSION_SECRET` are required; `PORT` and `HOST` default to 8130 and 127.0.0.1. Under vitest it resolves `TEST_DATABASE_URL` instead (`../test/CLAUDE.md`). Also `botCount`, `ladderEnabled`, `ladderPauseMs`, `arenaEnabled`, `explorerLagMs` |
+| `config.ts` | env from the repo-root `.env` via `process.loadEnvFile`, no dotenv dependency. `DATABASE_URL` and `SESSION_SECRET` are required; `PORT` and `HOST` default to 8130 and 127.0.0.1. Under vitest it resolves `TEST_DATABASE_URL` instead (`../test/CLAUDE.md`). Also `botCount`, `ladderEnabled`, `ladderPauseMs`, `arenaEnabled`, `explorerLagMs`, and the three `google*` values, which have no required check because a box without them simply does not offer the button |
 | `db.ts` | the `postgres` client and every typed query the rest of the server uses |
 | `auth.ts` | guest minting, scrypt password hashing, session cookies |
+| `google.ts` | the other way to claim: Google sign-in end to end, and the one function that decides which account a Google identity means |
 | `userView.ts` | `UserRow` to wire `UserSummary` |
 | `routes.ts` | all REST endpoints |
 | `matchmaking.ts` | the in-memory queues, their tick, the ranked gate and match creation |
@@ -62,6 +63,55 @@ Password hashing is `crypto.scrypt`, stored as `salt:hash` hex.
 
 The websocket path uses `resolveSessionUser` instead and does not mint
 (`ws/CLAUDE.md`).
+
+`requireSession` is `requireUser` with the session token handed back beside the
+user. Only `google.ts` wants it, and it exists because a guest minted during a
+request has its token on the **reply**: reading the cookie back off the request
+would find nothing, and the Google flow has to bind the state it issues to a
+token that really is this browser's.
+
+## Google sign-in
+
+`google.ts` is the second claim path and the whole of it: the two browser
+routes (`/auth/google/start`, `/auth/google/callback` - navigations, not `/api`,
+because the browser has to go to Google's own page and come back), the state
+row, the token exchange, the id_token verification and `linkGoogleAccount`.
+Authorization code flow with PKCE. The things that are not obvious from it:
+
+- **The join key is `users.google_sub`, never the email.** An email can be
+  changed or re-pointed at somebody else, and one that still matched would hand
+  a stranger a rating. No email is stored, because nothing reads one. The
+  unique index on the column is what actually guarantees one Google account is
+  one account here; the route's own lookup is the friendly half of the same
+  check, and the unique violation is caught and answered.
+- **Claiming with Google keeps the generated name.** There is no name field in
+  this path at all: the row, the rating, the history and the name the guest has
+  been playing under all carry over, and the password stays null, so such an
+  account signs in with Google and only with Google. The name-and-password form
+  is still there for anybody who wants to choose one.
+- **A guest who signs in as somebody else is left alone, not merged.** If the
+  Google identity already has an account, this browser is simply signed into
+  it, which is exactly what `/api/login` does with a password; the guest row
+  keeps its own rating and history. The same case from a **claimed** account is
+  refused (`?ot_auth=linked`), because merging two rating histories or moving a
+  link off an account that depends on it are both things nobody asked for.
+- **`state` is a row, not a signed value**, deleted by the read that spends it
+  (`takeOauthState`), carrying the PKCE verifier, the nonce and the session
+  token it was issued to. The cookie has to match that token at the callback:
+  without that binding the flow is a CSRF, since both query parameters are
+  things an attacker can put in a link.
+- **The redirect back is a same-origin path, validated before it is stored**
+  (`sameOriginPath`), so nothing here can be turned into an open redirect. What
+  the page says on arrival is a `?ot_auth=` code, never a message: a message
+  carried in a query string is a message somebody else can put on our page.
+- **`configureGoogle` is the test seam** (`../test/google.test.ts`), pointing
+  the three Google URLs and the fetch at a local key pair so the suite drives
+  the real routes. It clears the JWKS cache with the settings, which matters as
+  much as the settings do.
+- The redirect URI is configured, not derived from the request, because Google
+  matches it character for character and a derived one would become whatever
+  host a proxy claimed. **It has to be registered in the Google Cloud console**
+  before any of this works, including the localhost one used in development.
 
 ## The admin gate and g-admin
 
