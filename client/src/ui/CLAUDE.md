@@ -20,8 +20,11 @@ survives the dark ground. `client/public/logo.svg`, the favicon and every icon
 PNG are exports of that same constant: regenerate them, never hand-edit them,
 or the shape drifts from the one the site draws.
 
-`segmented.tsx` is the two option switcher the home page's play panel is built
-from, and `mode-tabs.tsx` is now that component with the modes in it. It is
+`segmented.tsx` is the two option switcher `/play` is built from, and
+`mode-tabs.tsx` is now that component with the modes in it. An option may
+carry a `tip`, which is rendered as `data-tip` and drawn by g-ui's own global
+tooltip wiring: a tab strip can afford one word per option, and "fast" and
+"standard" do not say what they do to the blinds. It is
 **g's shipped tabs**, not a new component: g-system ships no segmented control,
 and building one in a consumer repo is the defect the design contract names.
 The co-ownership rules with g-ui live there in one copy: React renders the

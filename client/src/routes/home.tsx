@@ -1,17 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  BOT_LEVELS, MODE_CHOICES, PRACTICE_PRESETS, SPEED_CHOICES, SPEED_NAME,
+  BOT_LEVELS, PRACTICE_PRESETS, SPEED_NAME,
   ceilingFor, formatFor, modesFor, rankedBanText, speedOf,
 } from '@opentable/protocol';
-import type {
-  MatchFormat, Mode, ModeChoice, PracticePreset, Speed, SpeedChoice,
-} from '@opentable/protocol';
+import type { MatchFormat, Mode, ModeChoice, PracticePreset, Speed } from '@opentable/protocol';
 import { Cpu } from '@phosphor-icons/react/dist/icons/Cpu';
 import { Eye } from '@phosphor-icons/react/dist/icons/Eye';
 import { GraduationCap } from '@phosphor-icons/react/dist/icons/GraduationCap';
 import { PuzzlePiece } from '@phosphor-icons/react/dist/icons/PuzzlePiece';
-import { Lightning } from '@phosphor-icons/react/dist/icons/Lightning';
 import { Trophy } from '@phosphor-icons/react/dist/icons/Trophy';
 import { Link as LinkIcon } from '@phosphor-icons/react/dist/icons/Link';
 import { UsersThree } from '@phosphor-icons/react/dist/icons/UsersThree';
@@ -19,7 +16,7 @@ import { api, ApiError } from '../net/api.ts';
 import { avatarSeed, avatarVersion, mainModeOf, modeRating } from '../net/adapt.ts';
 import type { ArenaListing, CreatedChallenge, LeaderboardRow, LiveMatch, Me } from '../net/types.ts';
 import { readPlayChoice, useSession } from '../net/session.tsx';
-import { MODE_CODE, MODE_NAME, modeInline, modeTabLabel, speedChoiceName } from '../ui/mode-tabs.tsx';
+import { MODE_CODE, modeInline } from '../ui/mode-tabs.tsx';
 import { Segmented } from '../ui/segmented.tsx';
 import { elapsed, useNow } from '../ui/bits.tsx';
 import { arenaCardLine } from './arena-bits.ts';
@@ -34,17 +31,6 @@ import { FriendsCard } from './friends.tsx';
 import { TournamentsCard } from './tournament-card.tsx';
 import { ShareLink } from '../ui/share-link.tsx';
 import { UPDATES } from './updates.ts';
-
-/* The same line for a search that has not named one game. A promise cannot be
-   made from a format when two of them would do, so it says what is being
-   looked for and leaves the shape to the table that turns up: the blurb's
-   whole job is that it never disagrees with the match it starts. */
-function choiceBlurb(mode: ModeChoice, speed: SpeedChoice): string {
-  if (mode !== 'any' && speed !== 'any') return modeBlurb(mode, speed);
-  const size = mode === 'any' ? 'Six handed or heads-up' : MODE_NAME[mode];
-  const pace = speed === 'any' ? ' at either speed' : `, ${SPEED_NAME[speed].toLowerCase()},`;
-  return `${size}${pace}. Whichever table fills first.`;
-}
 
 /* The line under the play button is built from the format the button would
    actually deal, so the promise cannot drift from the match it starts.
@@ -61,8 +47,9 @@ export function modeBlurb(mode: Mode, speed: Speed = 'standard'): string {
 /* How the blinds move, and how long the table can therefore last. Both read
    off the format rather than written down twice: the schedules are designed
    against these ceilings and the arithmetic for each one is in the protocol
-   beside it. */
-function scheduleLine(f: MatchFormat): string {
+   beside it. Exported because the play screen builds a speed option's tooltip
+   out of the same sentence, so the tip and the blurb cannot drift. */
+export function scheduleLine(f: MatchFormat): string {
   const cap = capText(f);
   if (speedOf(f) === 'fast') return `Blinds climb every ${f.levelSeconds} seconds, so it is over ${cap}.`;
   if (f.levels.length > 1 && f.levelHands > 0 && f.mode === 'six-max') {
@@ -76,14 +63,33 @@ function capText(f: MatchFormat): string {
   return minutes >= 60 ? `up to ${minutes / 60} hours` : `inside ${minutes} minutes`;
 }
 
-/* The game this player is pinned to: whatever they last chose, and failing
-   that whatever they have played most, which is the same rule their profile
-   opens on. A player who has played nothing is pinned to six handed, because
-   that is the main game. */
+/* What the front page deals: ranked six handed at the standard pace, named in
+   full under the button and not chosen on the page at all.
+
+   It used to open on three toggles and a remembered choice. The first piece
+   of feedback this site ever had was that a new player cannot tell "fast"
+   from "standard" without clicking one to find out, so the toggles moved to
+   /play, which is where a format gets room to explain itself and where the
+   choice is remembered. The cost is that somebody whose game is heads-up now
+   starts one click further away. */
+const HOME_MODE: Mode = 'six-max';
+const HOME_SPEED: Speed = 'standard';
+
+/* Which game's rating and leaderboard this page *shows*, which is not the
+   same question as what the button deals. The button is the front door and
+   always deals six handed, so a new visitor never has to choose; the rating
+   on the bar and the board at the foot follow the player instead, because
+   somebody forty heads-up matches in and no six handed ones would otherwise
+   land on their own front page with no rating on it at all.
+
+   Whatever they last picked on /play, and failing that whatever they have
+   played most, which is the rule their profile opens on too. Resolved again
+   when the account lands, because the first render happens before /api/me
+   has answered. */
 function pinnedMode(me: Me | null): ModeChoice {
   const last = readPlayChoice();
   if (last) return last.mode;
-  return me ? mainModeOf(me) : 'six-max';
+  return me ? mainModeOf(me) : HOME_MODE;
 }
 
 export function Home() {
@@ -95,40 +101,24 @@ export function Home() {
   useTitle(null);
   const now = useNow(searching, 250);
 
-  /* One pinned format, three toggles, one button. The panel opens on the
-     choice this player last made; a player who has made none is opened on the
-     game they play most, and a player with no matches at all on the default.
-     The pin is resolved again when the account lands, because the first
-     render happens before /api/me has answered. */
-  const [last] = useState(() => readPlayChoice());
-  const [mode, setMode] = useState<ModeChoice>(() => pinnedMode(null));
-  const [rated, setRated] = useState(last?.rated ?? true);
-  /* Any is the default speed. A player who has chosen before keeps what they
-     chose, including a narrow one. */
-  const [speed, setSpeed] = useState<SpeedChoice>(last?.speed ?? 'any');
-  const [pinned, setPinned] = useState(last != null);
-
-  useEffect(() => {
-    if (pinned || !me) return;
-    setMode(mainModeOf(me));
-    setPinned(true);
-  }, [me, pinned]);
-
-  /* Rated play opens after one finished casual or practice match. The server
-     refuses it either way; the control says so rather than letting somebody
-     press a button that answers no. A page that has not heard from the server
-     yet assumes it is open, so the control does not flicker shut on load. */
-  const rankedLocked = me != null && me.rankedUnlocked === false;
-
-  /* And the other reason ranked can be shut: a walkout ban. It runs out on
-     its own, so the line counts down rather than sitting on a number that
-     went stale the moment it was drawn. Absent or past reads as no ban, the
-     same bargain `rankedUnlocked` makes. */
+  /* The one reason this button cannot deal what it says: a walkout ban. It
+     runs out on its own, so the line counts down rather than sitting on a
+     number that went stale the moment it was drawn, and absent or past reads
+     as no ban. While one is running the button deals a casual table and says
+     so on its face, because a front page whose only button is disabled is a
+     front page with nothing on it. */
   const banUntil = me?.rankedBanUntil ?? null;
   const banNow = useNow(banUntil !== null, 1000);
   const rankedBanned = banUntil !== null && banUntil > banNow;
 
-  const willBeRated = rated && !rankedLocked && !rankedBanned;
+  const [shown, setShown] = useState<ModeChoice>(() => pinnedMode(null));
+  const [resolved, setResolved] = useState(() => readPlayChoice() != null);
+  useEffect(() => {
+    if (resolved || !me) return;
+    setShown(mainModeOf(me));
+    setResolved(true);
+  }, [me, resolved]);
+  const shownMode = modesFor(shown)[0];
 
   /* The found state is a one-shot ticket to the table. Clearing it once it
      has been used is what lets somebody come back to this page mid-match
@@ -152,7 +142,7 @@ export function Home() {
 
   return (
     <main className="page wide stack home-page">
-      <PlayerBar me={me} mode={modesFor(mode)[0]} />
+      <PlayerBar me={me} mode={shownMode} />
 
       {offline && ready && (
         <div className="card" role="status">
@@ -172,61 +162,11 @@ export function Home() {
         {!searching ? (
           <div className="card play-panel">
             <span className="t">Play</span>
-            <div className="play-toggles">
-              {/* Speed and table size can both say "any". With this few people
-                  playing, four queues of nearly nobody is a slower game than
-                  one wide search, so the widest of them is the default and a
-                  player narrows it only if they care. Ranked cannot: see
-                  `ModeChoice` in the protocol. */}
-              <Segmented
-                label="Speed"
-                options={SPEED_CHOICES.map((sp) => ({
-                  value: sp,
-                  label:
-                    sp === 'fast' ? (
-                      <>
-                        <Lightning size={14} weight="fill" aria-hidden="true" />
-                        {SPEED_NAME[sp]}
-                      </>
-                    ) : (
-                      speedChoiceName(sp)
-                    ),
-                }))}
-                value={speed}
-                onPick={(v) => setSpeed(v as SpeedChoice)}
-              />
-              <Segmented
-                label="Ranked or casual"
-                options={[
-                  { value: 'ranked', label: 'Ranked' },
-                  { value: 'casual', label: 'Casual' },
-                ]}
-                value={willBeRated ? 'ranked' : 'casual'}
-                onPick={(v) => setRated(v === 'ranked')}
-                disabled={(v) => v === 'ranked' && (rankedLocked || rankedBanned)}
-              />
-              <Segmented
-                label="Table size"
-                options={MODE_CHOICES.map((m) => ({ value: m, label: modeTabLabel(m) }))}
-                value={mode}
-                onPick={(v) => setMode(v as ModeChoice)}
-              />
-            </div>
-
-            <span className="muted">{choiceBlurb(mode, speed)}</span>
-            {/* While the account is still in flight the answer is unknown, and
-                the line is reserved rather than absent: a new player is
-                ranked-locked, so far more often than not this line is about to
-                appear, and letting it appear grew the panel by a line and
-                pushed everything under it down the page. A returning player
-                with ranked already open loses the slot when their account
-                lands, which is one shrink on a cold load against a shove on
-                almost every first visit. */}
-            {me == null ? (
-              <span className="muted" aria-hidden="true">&nbsp;</span>
-            ) : rankedLocked ? (
-              <span className="muted">Play one casual game first. Ranked opens as soon as it finishes.</span>
-            ) : null}
+            {/* The format in full, built from the format the button will
+                actually deal, so the promise cannot drift from the match it
+                starts. Nothing above it to choose: this page deals one game
+                and /play deals the rest. */}
+            <span className="muted">{modeBlurb(HOME_MODE, HOME_SPEED)}</span>
             {rankedBanned && <span className="muted">{rankedBanText(banUntil!, banNow)}</span>}
             {queue.error && <span className="badge badge-warn">{queue.error}</span>}
 
@@ -234,10 +174,16 @@ export function Home() {
               type="button"
               className="btn btn-primary btn-lg play-go"
               disabled={!ready || offline}
-              onClick={() => startQueue(mode, willBeRated, speed)}
+              onClick={() => startQueue(HOME_MODE, !rankedBanned, HOME_SPEED, false)}
             >
-              Play
+              {rankedBanned ? 'Play casual' : 'Play'}
             </button>
+            {/* Where the other formats went. A link rather than a second
+                primary button: there is one thing to do on this page and this
+                is not it. */}
+            <Link className="btn btn-tertiary play-more" to="/play">
+              Choose a different game
+            </Link>
 
             <div className="play-ways">
               {/* Practice deals now, so it has nothing to widen: a table has
@@ -245,7 +191,7 @@ export function Home() {
               <PracticeWay
                 onPlay={startPractice}
                 disabled={!ready || offline}
-                pinnedMode={modesFor(mode)[0]}
+                pinnedMode={shownMode}
               />
               <ArenaWay />
               <LinkWay kind="challenge" disabled={!ready || offline} />
@@ -305,7 +251,7 @@ export function Home() {
 
       <RecentMatches />
 
-      <Leaderboard mode={modesFor(mode)[0]} />
+      <Leaderboard mode={shownMode} />
 
       {/* The three promises this site is built on. They sat above the picker
           when the page led with a headline; the panel leads now, so they sit
@@ -377,8 +323,7 @@ function PlayerBar({ me, mode }: { me: Me | null; mode: Mode }) {
 
             Before the first rated match there is no rating, and the row says
             nothing rather than saying so: "No ranked matches yet" is a fact
-            the player already knows, printed where their rating will go, and
-            the play panel below already explains how ranked opens. */}
+            the player already knows, printed where their rating will go. */}
         {r.matches > 0 && (
           <>
             <span className="pb-rating num">

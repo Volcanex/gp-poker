@@ -106,9 +106,10 @@ fifteen matches" would drift. They are pure functions of counters that already
 exist, so nothing is written when a level or a badge is earned, and neither can
 be out of date.
 
-**Neither unlocks anything.** The one gate on this site is
-`RANKED_GATE_MATCHES`, which is a different thing entirely: one finished casual
-or practice match before rated play opens.
+**Neither unlocks anything**, and neither does anything else: there is no gate
+on this site. `RANKED_GATE_MATCHES` used to hold rated play shut until one
+casual or practice match had finished; it was removed on 2026-09-21, along
+with the `ranked_locked` refusal that carried it.
 
 ## `avatarV`
 

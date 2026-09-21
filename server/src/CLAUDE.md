@@ -12,7 +12,7 @@ exactly one of them.
 | `google.ts` | the other way to claim: Google sign-in end to end, and the one function that decides which account a Google identity means |
 | `userView.ts` | `UserRow` to wire `UserSummary` |
 | `routes.ts` | all REST endpoints |
-| `matchmaking.ts` | the in-memory queues, their tick, the ranked gate and match creation |
+| `matchmaking.ts` | the in-memory queues, their tick and match creation |
 | `ready.ts` | the ready check: pending tables, who has accepted, and no-show cooldowns |
 | `walkouts.ts` | leaving a ranked match: the strike ladder, its decay and the ban every ranked door asks about |
 | `challenges.ts` | play a friend: a link instead of a queue |
@@ -325,15 +325,23 @@ the row and never by recomputing: a row written before the column existed has
 none, and every one of those belongs to a format whose level is a function of
 the hand number, which is exactly what the fallback recomputes.
 
-## The ranked gate
+## There is no ranked gate
 
-Rated play opens after **one finished unrated match**: casual, practice or a
-casual home game, counted by `countUnratedFinished` and asked by
-`rankedUnlocked` in `matchmaking.ts`. Two doors ask it, `enqueue` when the
-search is rated and `joinArena` because an arena is rated heads-up. A refusal
-is an `err` with `c: 'ranked_locked'` carrying the sentence the client prints;
-`/api/me` sends `rankedUnlocked` so the picker can disable the control rather
-than let somebody press a button that answers no.
+Rated play is open on a first visit, and this section exists because there was
+a gate here until 2026-09-21 and its absence is the surprising thing.
+
+It opened rated play after one finished unrated match (`RANKED_GATE_MATCHES`,
+`countUnratedFinished`, `rankedUnlocked`), refusing `enqueue` and `joinArena`
+with an `err` carrying `c: 'ranked_locked'`. All of that is gone, including
+the `rankedUnlocked` field on `/api/me` and the `ranked_locked` code in the
+protocol's `err` union.
+
+It went because it was the first thing a new visitor met and it read as a
+chore, and because the board never rested on it: `getLeaderboard` filters
+`rd <= 110`, so a fresh account is provisional and off the leaderboard
+regardless. The gate cost a farm one casual match per throwaway account and
+nothing more. `rated-open.test.ts` pins the open door in both modes and pins
+`/api/me` not carrying the field.
 
 `/api/me` also sends `playing`: the id of the match this player is seated at
 right now, read off `roomForPlayer` and only while that room is still
@@ -342,10 +350,6 @@ It is the answer for a socket that was down when the match was created (a
 challenge accepted while the creator's phone was off sending the link), and
 the client refetches it on every reconnect. `challenge.test.ts` pins it on
 both seats after an accept.
-
-Challenge links and home games are **not** gated. Those are two people who
-have arranged a game, and the point of the gate is a first hand against a
-stranger.
 
 ## A friend's table outranks a bot's
 
@@ -390,9 +394,9 @@ what leaving will cost has to name the number the ban will be, and two copies
 of the table drift until the warning starts lying. A ban already running is
 never shortened by a fresh walkout.
 
-**Four ranked doors ask about a ban**, and unlike the gate above that includes
-the two arranged games, because the ban is about a match somebody walked out
-of rather than about playing a stranger:
+**Four ranked doors ask about a ban**, and unlike the gate that used to stand
+above they include the two arranged games, because a ban is about a match
+somebody walked out of rather than about playing a stranger:
 
 | Door | Where | Refusal |
 | --- | --- | --- |
@@ -409,9 +413,11 @@ because a table that drops to casual for want of a second human is not a
 ranked door and nobody should be kept out of it.
 
 `/api/me` carries `walkoutStrikes` and `rankedBanUntil` (epoch ms, null when
-none is running) so the play panel can disable ranked and say why, the same
-bargain `rankedUnlocked` makes. The sentence both the refusals and the panel
-use is `rankedBanText`, one function, because two wordings read as two rules.
+none is running) so the play screen can disable ranked and say why, and so the
+front page's one button can deal a casual table instead of a ranked one it
+knows would be refused. Absent reads as no ban, so a client that outlives this
+server never invents one. The sentence both the refusals and the screen use is
+`rankedBanText`, one function, because two wordings read as two rules.
 
 ## The ready check
 

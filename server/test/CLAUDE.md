@@ -53,16 +53,17 @@ the real path rather than a parallel one.
 | `configureGoogle` | `../src/google.ts` | the three Google URLs, the client id and secret, the fetch and the clock, so `google.test.ts` mints id_tokens with its own key pair and drives the real routes against them. `resetGoogle()` is its cleanup, and clearing the JWKS cache is part of both: a file that left its fake keys cached would verify the next file's tokens against them |
 | `configureTournaments` | `../src/tournaments/index.ts` | the same shape again, plus two of its own: `readyMs`, so a walkover is proved by a decline in milliseconds rather than by sitting out twenty seconds, and `fixtures`, so a file runs one fixture on its own stretch of calendar rather than three sharing a clock |
 
-Two more in `helpers.ts` for the two doors a queued table now has to get
+One more in `helpers.ts`, for the one door a queued table still has to get
 through:
 
-- **`unlockRanked(userId)`** writes the one finished unrated match the ranked
-  gate asks for, rather than driving a whole table through the engine to
-  produce it. Anything that queues rated needs it, and the match id comes back
-  for the caller's own cleanup.
 - **`acceptReady(conn)`** waits for the ready prompt and accepts it, which is
-  what every seat at a matchmade table now has to do before `q found` arrives.
+  what every seat at a matchmade table has to do before `q found` arrives.
   Practice, challenges and home games need none of it.
+
+`unlockRanked(userId)` sat beside it until 2026-09-21, writing the one finished
+unrated match the ranked gate asked for. The gate went and so did the helper:
+nothing has to be done to a fresh guest before they can queue rated, which is
+what `rated-open.test.ts` exists to keep true.
 
 Build a format with `testFormat(overrides)` from `helpers.ts` rather than by
 hand, so a new field on `MatchFormat` never has to be added in five files. The

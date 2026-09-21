@@ -447,10 +447,10 @@ quiet rather than a blanket rejection at the room.
 
 - **online, not busy, not already queued** → sends `{ t: 'queue', mode,
   rated, speed }` through `sendBotMessage`, the same `dispatch` a socket
-  message drives. `rated` is `rankedUnlocked(userId) && Math.random() <
-  0.75`: a bot clears the same one-casual-match gate a human does before it
-  can play rated, which is also what makes the ladder's fallback path (below)
-  still exercise something real for a brand new population.
+  message drives. `rated` is `Math.random() < 0.75`: three tables in four are
+  rated. It used to ask `rankedUnlocked` first, so that a bot cleared the same
+  one-casual-match gate a human did; that gate was removed on 2026-09-21 and
+  the roll is now the only thing deciding.
 - **online, already queued or busy** → left alone; a match in progress is
   never interrupted, even if the bot's session has technically ended
   (`isBotBusy` is checked before `isOnlineAt`).

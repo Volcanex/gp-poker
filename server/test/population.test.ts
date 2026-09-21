@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { formatFor, type MatchFormat, type Mode } from '@opentable/protocol';
-import { makeApp, mintGuestSession, deleteUser, listenForWs, connectWs, unlockRanked, testFormat } from './helpers.js';
+import { makeApp, mintGuestSession, deleteUser, listenForWs, connectWs, testFormat } from './helpers.js';
 import { setFormatResolver, tick } from '../src/matchmaking.js';
 import { getMatchById, getRatingsForUsers, sql } from '../src/db.js';
 import { isBotBusy, isBotQueued, loadedPopulation, sendBotMessage } from '../src/bots/index.js';
@@ -76,8 +76,6 @@ describe('population: the queue path', () => {
 
   it('two bots sent to queue exactly the way a socket message would pair into a rated match', async () => {
     const [a, b] = await closestRatedFreeBotPair('heads-up');
-    await unlockRanked(a);
-    await unlockRanked(b);
 
     // The same dispatch a `queue` socket message drives, sent directly:
     // this is the surface `population.ts` uses, and pairing itself is

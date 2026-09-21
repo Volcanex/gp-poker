@@ -9,7 +9,6 @@ import {
   makeApp,
   mintGuestSession,
   testFormat,
-  unlockRanked,
 } from './helpers.js';
 import { __queueForTest, createMatchForPlayers, dequeue, enqueue, tick } from '../src/matchmaking.js';
 import { resetReadyChecks } from '../src/ready.js';
@@ -36,7 +35,6 @@ describe('matchmaking', () => {
   it('round-trips queue and dequeue', async () => {
     const session = await mintGuestSession(app);
     createdUserIds.push(session.id);
-    createdMatchIds.push(await unlockRanked(session.id));
 
     const { ws, messages } = await connectWs(wsUrl, session.token);
     await messages.wait((m) => m.t === 'hi');
@@ -56,7 +54,6 @@ describe('matchmaking', () => {
     const a = await mintGuestSession(app);
     const b = await mintGuestSession(app);
     createdUserIds.push(a.id, b.id);
-    createdMatchIds.push(await unlockRanked(a.id), await unlockRanked(b.id));
 
     const connA = await connectWs(wsUrl, a.token);
     const connB = await connectWs(wsUrl, b.token);
@@ -125,7 +122,6 @@ describe('matchmaking', () => {
     const a = await mintGuestSession(app);
     const b = await mintGuestSession(app);
     createdUserIds.push(a.id, b.id);
-    createdMatchIds.push(await unlockRanked(a.id), await unlockRanked(b.id));
 
     const connA = await connectWs(wsUrl, a.token);
     const connB = await connectWs(wsUrl, b.token);
@@ -174,7 +170,6 @@ describe('matchmaking', () => {
       mintGuestSession(app), mintGuestSession(app), mintGuestSession(app), mintGuestSession(app),
     ]);
     createdUserIds.push(a.id, b.id, ...others.map((o) => o.id));
-    for (const id of [a.id, b.id, ...others.map((o) => o.id)]) createdMatchIds.push(await unlockRanked(id));
 
     // No mode, no rated, no speed: six handed and standard is what that means now,
     // and a full ring needs six people before it deals.

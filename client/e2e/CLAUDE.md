@@ -110,7 +110,7 @@ it.
 
 | Spec | Guards |
 | --- | --- |
-| `formats.spec.ts` | the play panel's shape (three switchers, one button, four one-line ways to play), the pin and the remembered choice, the ranked gate disabling ranked, no middle dot anywhere on the page, the ready check modal end to end **and its countdown out loud**, and the level and badges on a profile |
+| `formats.spec.ts` | the front page panel's shape (one button, one link out, four one-line ways to play), the display pin, `/play`'s three switchers and the tip on each option, the remembered choice, that no gate is mentioned on either page, no middle dot anywhere on the page, the ready check modal end to end **and its countdown out loud**, and the level and badges on a profile |
 | `footprint.spec.ts` | the boxes and zero layout shift, playing and watching, that the dock is one height in all three states, and that the strips tile the grid |
 | `ergonomics.spec.ts` | phone target sizes, the primary action in the bottom quarter, the sizing model and clamping, a pre-action firing, and the ring at 768, 1280 and 1920 |
 | `hero-band.spec.ts` | the v2 band's one footprint through a hand at 390 and 1280, sitting out, the felt giving up your seat, the decision line, the sizes and the keys, and the hand's three layouts and three sizes: ten pictures, the card at the size the setting names, and the cards ending before the controls start |

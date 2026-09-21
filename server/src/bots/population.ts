@@ -1,5 +1,4 @@
 import { config } from '../config.js';
-import { rankedUnlocked } from '../matchmaking.js';
 import { liveRooms } from '../match/rooms.js';
 import { fillableTournaments, registerForTournament } from '../tournaments/index.js';
 import { isTournamentPlayer } from '../db.js';
@@ -161,7 +160,7 @@ export async function populationTick(): Promise<void> {
       if (dispatched >= MAX_DISPATCHES_PER_TICK) continue;
       if (botOnlyTableCount() >= maxTables) continue; // soft cap; existing tables finish on their own
 
-      const rated = (await rankedUnlocked(userId)) && Math.random() < RATED_SHARE;
+      const rated = Math.random() < RATED_SHARE;
       sendBotMessage(userId, { t: 'queue', mode: bot.mode, rated, speed: bot.speed });
       dispatched++;
     }

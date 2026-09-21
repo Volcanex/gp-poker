@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { ME, setTheme, stubApi } from './table.ts';
+import { setTheme, stubApi } from './table.ts';
 
 /* The picker, the gate and the ready check.
 
@@ -121,57 +121,65 @@ const READY = {
 };
 
 test.describe('the play panel', () => {
-  test('is one panel with three switchers and one button', async ({ page }) => {
+  test('is one button and one way out, with nothing to choose', async ({ page }) => {
     await stubApi(page);
     await setTheme(page, 'dark');
     await page.goto('/');
 
     const panel = page.locator('.play-panel');
     await expect(panel).toBeVisible();
-    // Speed, stake and table size, in that order, each a two option switcher.
-    const strips = panel.locator('.play-toggles [role="tablist"]');
-    await expect(strips).toHaveCount(3);
-    await expect(strips.nth(0)).toContainText('Fast');
-    await expect(strips.nth(0)).toContainText('Standard');
-    await expect(strips.nth(1)).toContainText('Ranked');
-    await expect(strips.nth(1)).toContainText('Casual');
-    // Six handed is the main game, so it is the first option offered.
-    await expect(strips.nth(2).locator('.tab').first()).toHaveText('6X');
+    /* The three switchers moved to /play. The first piece of feedback this
+       site ever had was that a new player cannot tell "fast" from "standard"
+       without clicking one to find out, so the front page stopped asking. */
+    await expect(panel.locator('.play-toggles')).toHaveCount(0);
 
-    // One primary button, verb first. The switchers above it already say
-    // what it would deal, so the button names nothing itself.
+    // One primary button, verb first, and the line above it names the format
+    // now that there is no switcher left to say it.
     const go = panel.locator('.play-go');
     await expect(go).toHaveClass(/btn-lg/);
     await expect(go).toHaveText('Play');
+    await expect(panel).toContainText('Last player standing');
+
+    // And one way through to everything else, as a link rather than a rival
+    // primary button.
+    const more = panel.locator('.play-more');
+    await expect(more).toHaveText('Choose a different game');
+    await expect(more).toHaveAttribute('href', '/play');
   });
 
-  test('pins the game this player has played most', async ({ page }) => {
+  test('shows the rating of the game this player actually plays', async ({ page }) => {
     await stubApi(page);
     await setTheme(page, 'dark');
     await page.goto('/');
-    // The stubbed account has forty heads-up matches and no six handed ones,
-    // and has chosen nothing, so the panel opens on heads-up.
-    await expect(page.locator('.play-go')).toHaveText('Play');
-    await expect(page.locator('.player-bar')).toContainText('Heads-up');
-    await expect(page.locator('.play-toggles .tab[data-value="standard"]')).toHaveAttribute(
-      'aria-selected',
-      'true',
-    );
+    /* The stubbed account has forty heads-up matches and no six handed ones.
+       The button deals six handed regardless, because that is the front door,
+       but the bar follows the player: pinning the bar to six handed as well
+       would land somebody forty matches in on their own front page with no
+       rating on it at all. HSP is the superscript a rating carries, which is
+       not the same string as the mode's name. */
+    await expect(page.locator('.player-bar')).toContainText('1518');
+    await expect(page.locator('.player-bar .pb-mode')).toHaveText('HSP');
   });
 
-  test('opens on the last choice rather than on the pin', async ({ page }) => {
+  test('deals its own game without overwriting one chosen on /play', async ({ page }) => {
+    await fakeSocket(page);
     await stubApi(page);
     await setTheme(page, 'dark');
-    await page.addInitScript(() => {
-      localStorage.setItem('ot-play-choice', JSON.stringify({ mode: 'six-max', rated: false, speed: 'fast' }));
-    });
+    const chosen = { mode: 'heads-up', rated: false, speed: 'fast' };
+    await page.addInitScript((c) => {
+      localStorage.setItem('ot-play-choice', JSON.stringify(c));
+    }, chosen);
     await page.goto('/');
 
-    await expect(page.locator('.play-go')).toHaveText('Play');
-    await expect(page.locator('.play-toggles .tab[data-value="fast"]')).toHaveAttribute('aria-selected', 'true');
-    await expect(page.locator('.play-toggles .tab[data-value="casual"]')).toHaveAttribute('aria-selected', 'true');
-    // The line under the switchers follows them: fast promises twenty minutes.
-    await expect(page.locator('.play-panel')).toContainText('20 minutes');
+    await page.locator('.play-go').click();
+    // It queues the front page's game, not the remembered one.
+    const messages = (await sent(page)).map((raw) => JSON.parse(raw));
+    expect(messages).toContainEqual({ t: 'queue', mode: 'six-max', rated: true, speed: 'standard' });
+    /* And it does not write that down. The button is a default rather than a
+       choice, and recording it would undo a format somebody went to /play to
+       set and flip their rating, board and practice preset with it. */
+    const kept = await page.evaluate(() => localStorage.getItem('ot-play-choice'));
+    expect(JSON.parse(kept!)).toEqual(chosen);
   });
 
   test('describes the standard table it would actually deal', async ({ page }) => {
@@ -222,37 +230,83 @@ test.describe('the play panel', () => {
     await expect(cards.nth(2)).toContainText('riverrat and quarrel');
   });
 
-  test('carries no middle dot anywhere on the page', async ({ page }) => {
+  test('carries no middle dot anywhere on either play page', async ({ page }) => {
     await stubApi(page);
     await setTheme(page, 'dark');
-    await page.goto('/');
-    const text = await page.locator('body').innerText();
-    expect(text).not.toContain('\u00b7');
+    // Both, because the formats moved to their own page and the glyph is
+    // banned across the whole design language, not on the front page only.
+    for (const url of ['/', '/play']) {
+      await page.goto(url);
+      const text = await page.locator('body').innerText();
+      expect(text, url).not.toContain('\u00b7');
+    }
   });
 });
 
-test.describe('the ranked gate', () => {
-  test('disables ranked and says what opens it', async ({ page }) => {
+test.describe('the play screen', () => {
+  test('holds the three switchers, each option saying what it does', async ({ page }) => {
     await stubApi(page);
-    await page.route('**/api/me', (route) => route.fulfill({ json: { ...ME, rankedUnlocked: false } }));
     await setTheme(page, 'dark');
-    await page.goto('/');
+    await page.goto('/play');
 
-    const panel = page.locator('.play-panel');
-    await expect(panel.locator('.tab[data-value="ranked"]')).toBeDisabled();
-    await expect(panel.locator('.tab[data-value="casual"]')).toHaveAttribute('aria-selected', 'true');
-    await expect(panel).toContainText('Play one casual game first');
-    // The button is still live: casual is a game somebody can play right now.
-    await expect(panel.locator('.play-go')).toBeEnabled();
+    // Speed, stake and table size, in that order, as they used to sit on the
+    // front page.
+    const strips = page.locator('.play-toggles [role="tablist"]');
+    await expect(strips).toHaveCount(3);
+    await expect(strips.nth(0)).toContainText('Fast');
+    await expect(strips.nth(0)).toContainText('Standard');
+    await expect(strips.nth(1)).toContainText('Ranked');
+    await expect(strips.nth(1)).toContainText('Casual');
+    /* Six handed is the main game, so it is the first option offered. Asserted
+       on the value rather than the label, because the label is a wordmark that
+       reads "6Max" as text and this is a question about order. */
+    await expect(strips.nth(2).locator('.tab').first()).toHaveAttribute('data-value', 'six-max');
+
+    /* Why this screen exists at all: the option carries the sentence, so
+       "fast" says what it does to the blinds before anybody has to pick it
+       to find out. `data-tip` is g-ui's own tooltip wiring. */
+    await expect(page.locator('.tab[data-value="fast"]')).toHaveAttribute('data-tip', /Blinds climb/);
+    await expect(page.locator('.tab[data-value="standard"]')).toHaveAttribute('data-tip', /Blinds/);
+    await expect(page.locator('.tab[data-value="ranked"]')).toHaveAttribute('data-tip', /rating/);
+    await expect(page.locator('.tab[data-value="heads-up"]')).toHaveAttribute('data-tip', /Two seats/);
   });
 
-  test('leaves ranked alone for somebody who has played', async ({ page }) => {
+  test('opens on the last choice made here', async ({ page }) => {
+    await stubApi(page);
+    await setTheme(page, 'dark');
+    await page.addInitScript(() => {
+      localStorage.setItem('ot-play-choice', JSON.stringify({ mode: 'six-max', rated: false, speed: 'fast' }));
+    });
+    await page.goto('/play');
+
+    await expect(page.locator('.play-toggles .tab[data-value="fast"]')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('.play-toggles .tab[data-value="casual"]')).toHaveAttribute('aria-selected', 'true');
+    // The line under the switchers follows them: fast promises twenty minutes.
+    await expect(page.locator('.play-panel')).toContainText('20 minutes');
+  });
+});
+
+test.describe('the rated door', () => {
+  test('no longer asks for a casual game first', async ({ page }) => {
+    await stubApi(page);
+    await setTheme(page, 'dark');
+    await page.goto('/play');
+
+    const panel = page.locator('.play-panel');
+    /* Ranked is live on a first visit. The gate that used to stand here asked
+       for one finished casual match; it went because it was the first thing a
+       visitor met, and the leaderboard's own provisional filter is what keeps
+       a fresh account off the board. */
+    await expect(panel.locator('.tab[data-value="ranked"]')).toBeEnabled();
+    await expect(panel).not.toContainText('casual game first');
+  });
+
+  test('and does not mention one on the front page either', async ({ page }) => {
     await stubApi(page);
     await setTheme(page, 'dark');
     await page.goto('/');
-    const panel = page.locator('.play-panel');
-    await expect(panel.locator('.tab[data-value="ranked"]')).toBeEnabled();
-    await expect(panel).not.toContainText('Play one casual game first');
+    await expect(page.locator('.play-panel')).not.toContainText('casual game first');
+    await expect(page.locator('.play-go')).toHaveText('Play');
   });
 });
 
@@ -262,9 +316,11 @@ test.describe('the practice presets', () => {
     await stubApi(page);
     await setTheme(page, 'dark');
     await page.goto('/');
-    // The stubbed account is pinned to heads-up; the preset asks for no
-    // table size of its own.
-    await expect(page.locator('.player-bar')).toContainText('Heads-up');
+    /* The stubbed account is pinned to heads-up and the preset asks for no
+       table size of its own, so the table it deals is the pinned one. That is
+       what the queue message below is checked for; the bar itself carries no
+       rating here, because the fake socket's `hi` replaces the account with
+       one that has played nothing. */
 
     await page.getByRole('button', { name: 'Practice against bots' }).click();
     await page.getByRole('button', { name: 'Hard' }).click();

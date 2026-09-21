@@ -332,6 +332,15 @@ main.page.home-page {
 
 .play-go { width: 100%; }
 
+/* The same panel on its own page rather than in the home grid, where it has no
+   area to sit in. It keeps the content measure rather than a narrow one so the
+   three strips sit on one row on a desktop: at a narrow measure they wrapped
+   two and then one, which read as a broken row rather than a set. */
+.play-page .play-panel { grid-area: auto; }
+/* Under the front page's one button: where the other formats live. Full width
+   so it lines up with the button above it rather than floating loose. */
+.play-more { width: 100%; }
+
 /* The other ways to play: one row each, closed. */
 .play-ways { display: flex; flex-direction: column; gap: var(--sp-2); }
 .way { display: flex; flex-direction: column; gap: var(--sp-2); }

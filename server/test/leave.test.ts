@@ -10,7 +10,6 @@ import {
   makeApp,
   mintGuestSession,
   testFormat,
-  unlockRanked,
   type Connected,
   type Session,
 } from './helpers.js';
@@ -393,7 +392,6 @@ describe('leaving a match', () => {
   it('refuses a banned player at the ranked queue and lets them play casual', async () => {
     const session = await mintGuestSession(app);
     createdUserIds.push(session.id);
-    createdMatchIds.push(await unlockRanked(session.id));
     // Two walkouts inside a day, which is the first rung with a ban on it.
     await chargeWalkout(session.id);
     await chargeWalkout(session.id);

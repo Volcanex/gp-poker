@@ -5,7 +5,8 @@ are `../tools/` and the puzzles are `../puzzles/`.
 
 | Path | Page |
 | --- | --- |
-| `/` | the picker, how it works, top ten (`home.tsx`) |
+| `/` | one button, the other ways to play, how it works, top ten (`home.tsx`) |
+| `/play` | every format the site deals, three switchers with a tip per option (`play.tsx`) |
 | `/arena` | the arena running now, or the next one, its board, and the last three that finished |
 | `/arena/:id` | one arena, readable for good once it is over |
 | `/tournaments` | the three fixtures coming up, whatever is playing, and a page of results (`tournaments.tsx`) |
@@ -53,26 +54,36 @@ the game the panel is pinned to as the largest number on the page. A mode with
 no ranked match behind it says so rather than printing the 1500 everybody
 starts on as though it were earned.
 
-**The panel is one pinned format, three switchers and one button.** Speed,
-stake and table size, each a `Segmented` (`../ui/segmented.tsx`), which is g's
-shipped tabs and not a new component: g-system ships no segmented control, and
-the rule is to use what exists rather than invent one in a consumer repo.
-`ModeTabs` is the same component with the modes in it, so there is one copy of
-the co-ownership rules with g-ui rather than two.
+**The front page panel is one button and one link.** It deals ranked six
+handed at the standard pace, `HOME_MODE` and `HOME_SPEED`, and nothing on the
+page chooses. The three switchers moved to `/play` on 2026-09-21: the first
+piece of feedback this site ever had was that a new player cannot tell "fast"
+from "standard" without clicking one to find out, so the front page stopped
+asking and the screen that does ask got room to explain. A walkout ban is the
+only thing that changes the button, which then deals casual and says so on its
+face, because a front page whose one button is disabled has nothing on it.
 
-**The pin is the game this player plays most**, `mainModeOf` in
-`../net/adapt.ts`, which is the rule their profile opens on, overridden by
-whatever they last chose (`readPlayChoice`). It is resolved a second time when
-the account lands, because the first render happens before `/api/me` answers.
+**`/play` is the three switchers**, speed, stake and table size, each a
+`Segmented` (`../ui/segmented.tsx`), which is g's shipped tabs and not a new
+component: g-system ships no segmented control, and the rule is to use what
+exists rather than invent one in a consumer repo. `ModeTabs` is the same
+component with the modes in it, so there is one copy of the co-ownership rules
+with g-ui rather than two. Each option carries a `tip`, drawn by g-ui's own
+`data-tip` wiring, which is the whole reason the screen exists. The speed tips
+are `scheduleLine(formatFor(...))` rather than sentences written out again, so
+a tip and the blurb under the button cannot drift. A search started here goes
+back to `/` to wait, because that is where the searching card lives.
+
+**The pin is display only, on the front page.** `pinnedMode` picks whatever was
+last chosen (`readPlayChoice`) and failing that `mainModeOf` in
+`../net/adapt.ts`, resolved a second time when the account lands because the
+first render happens before `/api/me` answers. It drives the rating on the
+player bar, the leaderboard at the foot and the practice preset, and **not**
+the button: pinning the button too would have been a returning player's game,
+but pinning the bar to six handed as well would land somebody forty heads-up
+matches in on their own front page with no rating on it.
 `modeBlurb(mode, speed)` is built from `formatFor`, so the line under the
-switchers cannot promise a table the button will not deal.
-
-**Ranked is disabled until one casual or practice match has finished.** The
-server refuses it either way (`server/src/CLAUDE.md`); the control says so
-rather than letting somebody press a button that answers no. It reads
-`me.rankedUnlocked`, and a page that has not heard from the server yet assumes
-open, so the control does not flicker shut on load. `/api/me` is refetched on
-every `end`, so it flips the moment the first game finishes.
+button cannot promise a table it will not deal.
 
 Under the button, the four other ways to play are **one line each**, with a
 Phosphor icon. A challenge link and a home game open their own controls in

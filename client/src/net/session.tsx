@@ -153,7 +153,7 @@ interface Session {
   readyCheck: ReadyState | null;
   answerReady: (accept: boolean) => void;
   send: (m: ClientMsg) => void;
-  startQueue: (mode?: ModeChoice, rated?: boolean, speed?: SpeedChoice) => void;
+  startQueue: (mode?: ModeChoice, rated?: boolean, speed?: SpeedChoice, remember?: boolean) => void;
   startPractice: (mode: Mode, level: number, speed?: Speed) => void;
   cancelQueue: () => void;
   clearFound: () => void;
@@ -293,13 +293,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           /* The match just moved the rating, and the account row is showing the
              value from before it. */
           void refreshMe();
-        } else if (
-          m.t === 'err' &&
-          (m.c === 'bots_busy' || m.c === 'ranked_locked' || m.c === 'cooldown' || m.c === 'ranked_ban')
-        ) {
-          /* Four refusals that end a search rather than reject an action, so
+        } else if (m.t === 'err' && (m.c === 'bots_busy' || m.c === 'cooldown' || m.c === 'ranked_ban')) {
+          /* Three refusals that end a search rather than reject an action, so
              the searching screen has to come down and say why. Practice never
-             queued in the first place; the other three never got in. */
+             queued in the first place; the other two never got in. */
           setQueue((prev) => ({
             s: 'idle', since: 0, mode: prev.mode, rated: prev.rated, speed: prev.speed, error: m.msg,
           }));
@@ -357,14 +354,25 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   /* Called with a choice from the picker, and without one from "play again",
      which repeats whatever was played last. */
-  const startQueue = useCallback((mode?: ModeChoice, rated?: boolean, speed?: SpeedChoice) => {
+  /* `remember` is what separates a choice from a default. The play screen
+     picks a format on purpose, so it is written down and the front page's
+     rating, board and practice preset follow it afterwards. The front page's
+     own button is not a choice, it is the default six handed table, and
+     recording it would quietly undo a format somebody had gone to /play to
+     set and flip their rating back to a game they do not play. */
+  const startQueue = useCallback((
+    mode?: ModeChoice,
+    rated?: boolean,
+    speed?: SpeedChoice,
+    remember = true,
+  ) => {
     const last = readPlayChoice() ?? DEFAULT_CHOICE;
     const choice: PlayChoice = {
       mode: mode ?? last.mode,
       rated: rated ?? last.rated,
       speed: speed ?? last.speed,
     };
-    writePlayChoice(choice);
+    if (remember) writePlayChoice(choice);
     /* The state describes the search the way the server describes it back:
        by its first preference. A wide search is still looking for something
        in particular first, and the `searching` message that lands a moment

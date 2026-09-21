@@ -4,7 +4,6 @@ import {
   DEFAULT_MODE,
   DEFAULT_SPEED,
   MODES,
-  RANKED_GATE_MATCHES,
   SPEEDS,
   botLevelInfo,
   formatFor,
@@ -20,7 +19,6 @@ import {
 } from '@opentable/protocol';
 import { hub } from './ws/hub.js';
 import {
-  countUnratedFinished,
   getRating,
   getRatingsForUsers,
   getUserById,
@@ -165,15 +163,6 @@ function accepts(entry: QueuedPlayer, mode: Mode, rated: boolean, speed: Speed):
   return entry.rated === rated && entry.modes.includes(mode) && entry.speeds.includes(speed);
 }
 
-/* Rated play opens after one finished casual or practice match. Enforced here
-   rather than only drawn on the home page, because the queue is the door and
-   a disabled radio is a hint. It is deliberately a single match: enough that
-   nobody's first ever hand moves a rating they had not noticed they had, and
-   not so much that it reads as a grind. */
-export async function rankedUnlocked(userId: string): Promise<boolean> {
-  return (await countUnratedFinished(userId, RANKED_GATE_MATCHES)) >= RANKED_GATE_MATCHES;
-}
-
 export async function enqueue(
   userId: string,
   modeChoice: ModeChoice = DEFAULT_MODE,
@@ -190,8 +179,8 @@ export async function enqueue(
   const user = await getUserById(userId);
   if (!user) return;
 
-  // Three refusals before anything is entered, all of them about this player
-  // rather than about this search, and all of them saying what happens next
+  // Two refusals before anything is entered, both of them about this player
+  // rather than about this search, and both of them saying what happens next
   // rather than only that the answer is no.
   const until = cooldownUntil(userId);
   if (until !== null) {
@@ -200,14 +189,6 @@ export async function enqueue(
       t: 'err',
       c: 'cooldown',
       msg: `You left a table waiting. You can search again in ${seconds} ${seconds === 1 ? 'second' : 'seconds'}.`,
-    });
-    return;
-  }
-  if (rated && !(await rankedUnlocked(userId))) {
-    hub.send(userId, {
-      t: 'err',
-      c: 'ranked_locked',
-      msg: 'Play one casual game first. Rated play opens as soon as it finishes.',
     });
     return;
   }

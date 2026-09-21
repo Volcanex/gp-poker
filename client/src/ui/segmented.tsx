@@ -23,6 +23,13 @@ import { useGInit } from './bits.tsx';
 export interface SegmentedOption<T extends string> {
   value: T;
   label: React.ReactNode;
+  /* One line saying what picking this would mean, shown on hover and focus.
+     `data-tip` is g-ui's own tooltip wiring and it listens for the attribute
+     globally, so there is nothing to call here: an option that wants a tip
+     carries one and an option that does not is unchanged. It exists because a
+     tab strip can only afford one word per option, and "fast" and "standard"
+     do not say what they do to the blinds. */
+  tip?: string;
 }
 
 export interface SegmentedProps<T extends string> {
@@ -68,6 +75,7 @@ export function Segmented<T extends string>({ options, value, onPick, label, dis
             role="tab"
             className="tab"
             data-value={o.value}
+            data-tip={o.tip}
             disabled={disabled?.(o.value)}
             aria-selected={o.value === mounted}
             tabIndex={o.value === mounted ? 0 : -1}

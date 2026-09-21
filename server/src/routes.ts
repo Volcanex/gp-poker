@@ -43,7 +43,7 @@ import {
 import { readCountry } from './countries.js';
 import { config, shownAsBot } from './config.js';
 import { hub } from './ws/hub.js';
-import { queueSize, rankedUnlocked } from './matchmaking.js';
+import { queueSize } from './matchmaking.js';
 import { getRoom, roomForPlayer } from './match/rooms.js';
 import { claimGuest, login, renameUser, requireUser, setSessionCookie, clearSessionCookie, createSessionForUser, SESSION_COOKIE } from './auth.js';
 import { rosterSummary } from './bots/index.js';
@@ -102,7 +102,7 @@ export function registerRoutes(app: FastifyInstance): void {
 
   app.get('/api/me', async (request, reply) => {
     const user = await requireUser(request, reply);
-    return meBody(user, await getRatingsFor(user.id), await rankedUnlocked(user.id));
+    return meBody(user, await getRatingsFor(user.id));
   });
 
   /* The one thing a player can change about themselves without claiming an
@@ -117,7 +117,7 @@ export function registerRoutes(app: FastifyInstance): void {
     if (country === undefined) return err(reply, 400, 'Country must be a two-letter country code, or null');
     const updated = await updateUserCountry(user.id, country);
     if (!updated) return err(reply, 404, 'No such user');
-    return meBody(updated, await getRatingsFor(updated.id), await rankedUnlocked(updated.id));
+    return meBody(updated, await getRatingsFor(updated.id));
   });
 
   app.post<{ Body: { name?: string; password?: string } }>('/api/claim', async (request, reply) => {
@@ -836,7 +836,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
    compatibility bargain as the flat rating fields on UserSummary, and every
    one is read straight off the heads-up standing rather than recomputed
    beside it. */
-function meBody(user: UserRow, ratings: Record<Mode, RatingRow>, unlocked: boolean) {
+function meBody(user: UserRow, ratings: Record<Mode, RatingRow>) {
   const summary = toUserSummary(user, ratings);
   const headsUp = summary.ratings['heads-up'];
   const banNow = Date.now();
@@ -854,13 +854,6 @@ function meBody(user: UserRow, ratings: Record<Mode, RatingRow>, unlocked: boole
        so a client with no Google support and a server with no credentials
        agree without either knowing about the other. */
     ...(googleConfigured() ? { googleAuth: true } : {}),
-    /* Whether rated play is open yet: one finished casual or practice match
-       is what opens it. Sent rather than derived on the client, because the
-       counters on `ratings` do not say which matches were rated and the
-       answer is a query over the match rows. The client refreshes /api/me on
-       every `end`, so the control flips the moment the first game finishes
-       without anything having to push it. */
-    rankedUnlocked: unlocked,
     /* The walkout state, read straight off the row rather than queried for:
        the decay is arithmetic on two columns this payload already has.
        `rankedBanUntil` is epoch ms and not an ISO string, like every other

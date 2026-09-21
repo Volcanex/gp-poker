@@ -26,18 +26,12 @@ export interface Me extends UserSummary {
      the name and password form on its own rather than a button that fails at
      Google. It says nothing about whether this account uses Google. */
   googleAuth?: boolean;
-  /* Whether rated play is open: one finished casual or practice match is what
-     opens it. Optional because a client can outlive the server it talks to,
-     and absent reads as open, so an older server never locks a control it
-     knows nothing about. The picker refreshes /api/me on every match end, so
-     this flips without anything pushing it. */
-  rankedUnlocked?: boolean;
   /* Ranked walkouts: how many strikes are standing (decay already applied)
      and when the ban they earned ends, as epoch ms rather than an ISO
      string, because it is a deadline the page counts down and not a record
      of when something happened. Null when no ban is running. Both optional
-     for the same reason `rankedUnlocked` is: a client can outlive the server
-     it talks to, and absent reads as nothing to serve. */
+     because a client can outlive the server it talks to, and absent reads as
+     nothing to serve. */
   walkoutStrikes?: number;
   rankedBanUntil?: number | null;
   /* The match this player is seated at right now, or null. The socket says

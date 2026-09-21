@@ -24,6 +24,11 @@ interface Shot {
 
 const STATES: Shot[] = [
   { name: 'home', url: '/' },
+  /* The play screen, which is where the formats went when the front page was
+     cut back to one button. Worth its own picture because it is three tab
+     strips and a line of prose, and the thing that can break is the strips
+     wrapping at a narrow width. */
+  { name: 'play', url: '/play' },
   { name: 'waiting', url: '/m/mock?step=2' },
   { name: 'turn', url: '/m/mock?step=9' },
   { name: 'hand-over', url: '/m/mock?step=13' },

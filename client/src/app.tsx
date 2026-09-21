@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { SessionProvider } from './net/session.tsx';
 import { FriendsProvider } from './net/friends.tsx';
 import { Home } from './routes/home.tsx';
+import { Play } from './routes/play.tsx';
 import { Match } from './routes/match.tsx';
 import { Leaderboard } from './routes/leaderboard.tsx';
 import { Profile } from './routes/profile.tsx';
@@ -74,6 +75,7 @@ export function App() {
             <ReadyCheckDialog />
             <Routes>
               <Route path="/" element={<Home />} />
+              <Route path="/play" element={<Play />} />
               <Route path="/arena" element={<ArenaPage />} />
               <Route path="/arena/:id" element={<ArenaPage />} />
               <Route path="/tournaments" element={<Tournaments />} />

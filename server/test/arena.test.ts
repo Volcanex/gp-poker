@@ -10,7 +10,6 @@ import {
   makeApp,
   mintGuestSession,
   testFormat,
-  unlockRanked,
   type Connected,
   type Session,
 } from './helpers.js';
@@ -127,7 +126,6 @@ describe('arenas', () => {
   async function guest(): Promise<Session> {
     const session = await mintGuestSession(app);
     createdUserIds.push(session.id);
-    await unlockRanked(session.id);
     return session;
   }
 

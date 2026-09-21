@@ -954,28 +954,6 @@ export async function finishMatch(matchId: string, result: FinishMatchResult): P
 
 // ---- hands ----
 
-/* How many unrated matches this player has finished: casual, practice and a
-   casual home game all count, because all three are somewhere to learn the
-   controls without a rating moving. This is the ranked gate's whole question
-   (`RANKED_GATE_MATCHES` in the protocol), asked at the moment somebody
-   queues rated, which happens once a search rather than once a request.
-
-   Counted off the match rows rather than kept as a column: a counter would
-   be a second copy of something `matches` already knows, and the answer stops
-   mattering the moment it is one. */
-export async function countUnratedFinished(userId: string, limit = 4): Promise<number> {
-  const rows = await sql<{ id: string }[]>`
-    select m.id
-    from match_players mp
-    join matches m on m.id = mp.match_id
-    where mp.user_id = ${userId}
-      and m.status = 'finished'
-      and m.rated = false
-    limit ${limit}
-  `;
-  return rows.length;
-}
-
 export async function insertHand(hand: {
   id: string;
   matchId: string;

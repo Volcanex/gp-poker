@@ -65,7 +65,7 @@
    holding its allowance, which is what every seat did before this existed.
    The number moves anyway, by the same convention v7 moved it. */
 
-export const PROTOCOL_VERSION = 9;
+export const PROTOCOL_VERSION = 10;
 
 export type Card = string; // 'As', 'Td', '2c' (rank + suit, lowercase suit)
 
@@ -855,15 +855,6 @@ export function rankedBanText(until: number, now = Date.now()): string {
   return `You left a ranked match. Ranked opens again in ${banRemainingText(until, now)}.`;
 }
 
-/* ------------------------------------------------------------ the gate
-
-   Rated play opens after one finished casual or practice match. One, not
-   ten: it is there so nobody's first ever hand moves a rating they did not
-   know they had, and so a bot farm has to play a match before it can touch
-   the ladder. Counted over finished unrated matches, which is casual,
-   practice and a casual home game alike. */
-export const RANKED_GATE_MATCHES = 1;
-
 /* ---------------------------------------------------------------- level
 
    Level is how many matches somebody has finished, and nothing else. It is
@@ -1247,11 +1238,10 @@ export type ServerMsg =
   | { t: 'tournament'; board: TournamentBoard }
   | {
       t: 'err';
-      // `ranked_locked` is the one refusal that is not about this request
-      // being wrong: rated play opens after one finished casual match, and
-      // the message says so. `cooldown` is a ready check no-show serving out
-      // the wait they earned, and `ranked_ban` is a walkout serving out
-      // theirs (see WALKOUT_BAN_MS below).
+      // `cooldown` is a ready check no-show serving out the wait they earned,
+      // and `ranked_ban` is a walkout serving out theirs (see WALKOUT_BAN_MS
+      // below). Both are about this player rather than this request being
+      // wrong, so both say when the door opens again.
       c:
         | 'illegal'
         | 'stale'
@@ -1261,7 +1251,6 @@ export type ServerMsg =
         | 'version'
         | 'bots_busy'
         | 'chat'
-        | 'ranked_locked'
         | 'cooldown'
         | 'ranked_ban';
       msg: string;

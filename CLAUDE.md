@@ -121,10 +121,13 @@ files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
   no-show two minutes, doubling for every further one inside the hour. The
   queue and the arena both use it. A link does not: a challenge and a home
   game are opened on purpose, and practice has nobody to wait for.
-- **Rated play opens after one finished casual or practice match**
-  (`RANKED_GATE_MATCHES`). Enforced at the queue and at an arena join, so a
-  first ever hand cannot move a rating nobody knew they had. It is the only
-  gate on this site: level unlocks nothing.
+- **Rated play is open from the first visit.** There is no gate on this site
+  at all: level unlocks nothing, and the one-finished-casual-match gate that
+  used to stand at the rated queue and the arena door was removed on
+  2026-09-21. It was the first thing a visitor met and it read as a chore,
+  and the board never rested on it: `getLeaderboard` drops anybody still
+  provisional (`rd <= 110`), so a fresh account cannot appear on the
+  leaderboard however many rated matches it queues for.
 - **Level is matches finished**, level L at L(L+1)/2 of them, derived from the
   per-mode counters at read time rather than stored. It sits beside the name
   on a profile and in the top bar, and it unlocks nothing at all. Six badges
