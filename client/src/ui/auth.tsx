@@ -18,12 +18,12 @@ import { Flag } from './flag.tsx';
    on the home page. The server accepts only a same-origin path, so nothing
    here has to be trusted to build one.
 
-   Rendered only when the server says it has credentials (`me.googleAuth`): a
-   button that fails at Google is worse than a form. */
+   Rendered only when the server says it has credentials (`googleAuth` on the
+   session): a button that fails at Google is worse than a form. */
 function GoogleClaimButton() {
-  const { me } = useSession();
+  const { googleAuth } = useSession();
   const location = useLocation();
-  if (!me?.googleAuth) return null;
+  if (!googleAuth) return null;
   const next = `${location.pathname}${location.search}`;
   return (
     <div className="row-actions">
@@ -102,7 +102,7 @@ export function GoogleAuthResult() {
    is a panel on a panel, and a second title is a second heading. The friend
    controls raise it that way (`friend-controls.tsx`). */
 export function ClaimCard({ onClaimed, flat }: { onClaimed?: () => void; flat?: boolean }) {
-  const { me, setMe, refreshMe } = useSession();
+  const { me, setMe, refreshMe, googleAuth } = useSession();
   const nameId = useId();
   const passId = useId();
   const [name, setName] = useState('');
@@ -143,7 +143,7 @@ export function ClaimCard({ onClaimed, flat }: { onClaimed?: () => void; flat?: 
         </div>
       )}
       <GoogleClaimButton />
-      {me?.googleAuth && <span className="muted claim-or">Or claim with a name and a password</span>}
+      {googleAuth && <span className="muted claim-or">Or claim with a name and a password</span>}
       <div className="claim-fields">
         <div className="field">
           <label className="label" htmlFor={nameId}>Name</label>
@@ -234,7 +234,7 @@ export function AccountMenu() {
           Leaderboard
         </Link>
         <hr className="separator" />
-        {me?.guest ? (
+        {!me || me.guest ? (
           <button
             type="button"
             className="menu-item"
@@ -259,7 +259,7 @@ export function AccountMenu() {
 }
 
 function LoginDialog({ ref }: { ref: React.RefObject<HTMLDialogElement | null> }) {
-  const { me, setMe, refreshMe } = useSession();
+  const { me, setMe, refreshMe, googleAuth } = useSession();
   const nameId = useId();
   const passId = useId();
   const [name, setName] = useState('');
@@ -291,18 +291,22 @@ function LoginDialog({ ref }: { ref: React.RefObject<HTMLDialogElement | null> }
       <form onSubmit={submit}>
         <div className="dlg-body">
           <span className="dlg-title">Log in</span>
-          <span className="dlg-desc">
-            You are playing as a guest in this browser. Logging in switches to your account. The
-            guest keeps its own rating; it does not come with you. Continuing with Google claims
-            this guest instead, so its rating stays with you, unless that Google account already
-            has an account here.
-          </span>
+          {me ? (
+            <span className="dlg-desc">
+              You are playing as a guest in this browser. Logging in switches to your account. The
+              guest keeps its own rating; it does not come with you. Continuing with Google claims
+              this guest instead, so its rating stays with you, unless that Google account already
+              has an account here.
+            </span>
+          ) : (
+            <span className="dlg-desc">Log in to the account you play under.</span>
+          )}
           {/* The same one button as the claim card: it signs into the account
               this Google identity already has, or claims the guest browsing
               here if it has none. Default, own request: it is offered before
               the name and password rather than below them. */}
           <GoogleClaimButton />
-          {me?.googleAuth && <span className="muted claim-or">Or log in with a name and a password</span>}
+          {googleAuth && <span className="muted claim-or">Or log in with a name and a password</span>}
           <div className="field">
             <label className="label" htmlFor={nameId}>Name</label>
             <input className="input" id={nameId} value={name} autoComplete="username" onChange={(e) => setName(e.target.value)} />

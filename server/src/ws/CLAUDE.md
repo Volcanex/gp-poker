@@ -15,9 +15,13 @@ The websocket layer, split so that nothing here has to know about poker.
   ignore.
 
 The upgrade itself is authenticated in `../app.ts`. `/ws`'s `preValidation` hook
-uses `resolveSessionUser` and **does not mint a guest**: it rejects with 401 if
-there is no valid session, since the client always calls `/api/me` first to get
-one (`../auth.ts`).
+uses `resolveSessionUser` and **does not mint a guest**. With no valid session
+the socket is a **watcher** (`attachWatcher` in `hub.ts`): it gets a throwaway
+`watch:` id, a `hi` with no `u`, and may only `join`, `leave`, `arena` and
+`tournament`; anything else is answered `err` `need_session`. A watcher is kept
+out of the online count, the audit log, presence and the queue (`isWatcherId`),
+and `routeDisconnect` only unwatches it. The client mints with
+`POST /api/session` and reconnects before it sends anything that needs a person.
 
 ## Virtual connections
 

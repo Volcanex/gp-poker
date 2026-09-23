@@ -16,8 +16,28 @@ describe('auth flow', () => {
     await app.close();
   });
 
-  it('mints a guest on first /api/me call', async () => {
+  /* Reading never mints: a crawler runs the page and fetches /api/me, and in
+     September 2026 that left 12.7k guest rows in a day. */
+  it('answers /api/me with null and no cookie for a visitor with no session', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/me' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toBe(null);
+    expect(res.cookies.find((c) => c.name === 'ot_session')).toBeUndefined();
+  });
+
+  it('never mints on the reads a page makes on load', async () => {
+    for (const url of ['/api/arenas', '/api/tournaments']) {
+      const res = await app.inject({ method: 'GET', url });
+      expect(res.statusCode, url).toBe(200);
+      expect(res.cookies.find((c) => c.name === 'ot_session'), url).toBeUndefined();
+    }
+    const friends = await app.inject({ method: 'GET', url: '/api/friends' });
+    expect(friends.statusCode).toBe(401);
+    expect(friends.cookies.find((c) => c.name === 'ot_session')).toBeUndefined();
+  });
+
+  it('mints a guest on POST /api/session, and answers the same one again', async () => {
+    const res = await app.inject({ method: 'POST', url: '/api/session' });
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.guest).toBe(true);
@@ -46,10 +66,16 @@ describe('auth flow', () => {
     expect(body.peakAt).toBe(body.ratings['heads-up'].peakAt);
     expect(body.rating).toBe(body.ratings['heads-up'].rating);
     createdUserIds.push(body.id);
+
+    const token = res.cookies.find((c) => c.name === 'ot_session')!.value;
+    const again = await app.inject({ method: 'POST', url: '/api/session', cookies: { ot_session: token } });
+    expect(again.json().id).toBe(body.id);
+    const read = await app.inject({ method: 'GET', url: '/api/me', cookies: { ot_session: token } });
+    expect(read.json().id).toBe(body.id);
   });
 
   it('claims a guest into a named account, then logs in and out', async () => {
-    const me = await app.inject({ method: 'GET', url: '/api/me' });
+    const me = await app.inject({ method: 'POST', url: '/api/session' });
     const token = me.cookies.find((c) => c.name === 'ot_session')!.value;
     const guestBody = me.json();
     createdUserIds.push(guestBody.id);
@@ -91,23 +117,22 @@ describe('auth flow', () => {
     expect(logout.statusCode).toBe(200);
     expect(logout.json()).toEqual({ ok: true });
 
-    // the session is gone, so the next /api/me mints a fresh guest
+    // the session is gone, so /api/me reads nobody
     const afterLogout = await app.inject({
       method: 'GET',
       url: '/api/me',
       cookies: { ot_session: loginToken },
     });
-    expect(afterLogout.json().id).not.toBe(guestBody.id);
-    createdUserIds.push(afterLogout.json().id);
+    expect(afterLogout.json()).toBe(null);
   });
 
   it('renames a guest, then refuses a name someone else already has', async () => {
-    const me = await app.inject({ method: 'GET', url: '/api/me' });
+    const me = await app.inject({ method: 'POST', url: '/api/session' });
     const token = me.cookies.find((c) => c.name === 'ot_session')!.value;
     const guestBody = me.json();
     createdUserIds.push(guestBody.id);
 
-    const other = await app.inject({ method: 'GET', url: '/api/me' });
+    const other = await app.inject({ method: 'POST', url: '/api/session' });
     const otherToken = other.cookies.find((c) => c.name === 'ot_session')!.value;
     const otherBody = other.json();
     createdUserIds.push(otherBody.id);

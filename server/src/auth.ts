@@ -150,8 +150,20 @@ export async function requireSession(
   return { user: guest, token: session.token };
 }
 
-// Resolves the current user for REST calls, minting a guest and setting the
-// cookie when there is no valid session. /api/me and friends use this.
+/* The current user for a read, or null, and never a mint. Every GET a page
+   makes on load goes through this: a crawler runs the page's JavaScript and
+   fetches whatever it fetches, so a GET that minted gave every crawl a row
+   (12.7k in one day in September 2026). Guests are minted by `requireUser`
+   on an action instead, and by POST /api/session, which the client calls
+   the first time somebody does something that needs to be somebody. */
+export async function optionalUser(request: FastifyRequest): Promise<UserRow | null> {
+  const user = await resolveSessionUser(request);
+  if (user) await touchLastSeen(user.id);
+  return user;
+}
+
+// Resolves the current user for an action, minting a guest and setting the
+// cookie when there is no valid session. Never call it from a GET.
 export async function requireUser(request: FastifyRequest, reply: FastifyReply): Promise<UserRow> {
   return (await requireSession(request, reply)).user;
 }

@@ -48,9 +48,15 @@ helper is the one cast boundary for that mismatch.
 
 ## Auth model
 
-A guest is minted on any request that lacks a valid `ot_session` cookie
-(`requireUser`, used by `/api/me` and anything else that should always have a
-current user). The cookie is httpOnly, `SameSite=Lax`, 90 days, and `secure` when
+**Reads never mint.** A guest is minted only by an action that lacks a valid
+`ot_session` cookie: `requireUser` on a POST/PATCH/PUT/DELETE, and
+`POST /api/session`, which exists only to mint (or answer the session already
+there). Every GET uses `optionalUser` and answers a visitor without making them
+somebody: `/api/me` returns `null`, the arena and tournament listings read with
+no viewer, `/api/friends` is 401, and `/api/config` says whether Google is on.
+The reason is crawlers: they run the page's JavaScript, and when `/api/me`
+minted, one of them (ShapBot, 2026-09-21) left 12.7k guest rows in a day.
+`/auth/google/start` still mints, because it is a button press. The cookie is httpOnly, `SameSite=Lax`, 90 days, and `secure` when
 `X-Forwarded-Proto: https` (nginx terminates TLS) or the request itself is https.
 
 Guest names come from `@opentable/identity`'s `generateName`: a two-word
@@ -61,8 +67,8 @@ that looks like the old convention. Claiming sets `name` and `password_hash` on
 the **same** row (`guard: guest = true`), so rating and history carry over.
 Password hashing is `crypto.scrypt`, stored as `salt:hash` hex.
 
-The websocket path uses `resolveSessionUser` instead and does not mint
-(`ws/CLAUDE.md`).
+The websocket path uses `resolveSessionUser` instead and does not mint; a socket
+with no session watches (`ws/CLAUDE.md`).
 
 `requireSession` is `requireUser` with the session token handed back beside the
 user. Only `google.ts` wants it, and it exists because a guest minted during a

@@ -31,12 +31,36 @@ export class Socket {
      waits for `hi`, which is the one message that proves the other end is
      listening. */
   private ready = false;
+  /* The matches this browser has joined and not left. A new socket is a new
+     subscriber to the server, so every hello replays them: after a dropped
+     connection, and after the reconnect that turns a watcher into a guest
+     (see `reconnect`). The room treats a repeated join as a no-op. */
+  private joined = new Set<string>();
 
   state: ConnState = 'idle';
 
   open() {
     if (this.wanted) return;
     this.wanted = true;
+    this.connect();
+  }
+
+  /* Drop the current socket and open another, keeping whatever is queued and
+     joined. Used when the session behind the cookie changes under an open
+     socket: a watcher that has just been minted a guest has to reconnect for
+     the server to know it as somebody. */
+  reconnect() {
+    if (!this.wanted) return;
+    const old = this.ws;
+    this.ws = null;
+    this.ready = false;
+    clearTimeout(this.retryTimer);
+    clearInterval(this.pingTimer);
+    if (old) {
+      old.onclose = null;
+      old.close();
+    }
+    this.attempt = 0;
     this.connect();
   }
 
@@ -57,6 +81,8 @@ export class Socket {
      the session has finished loading and called open(), and that join has to
      survive until it does. Only an explicit close() drops the queue. */
   send(msg: ClientMsg) {
+    if (msg.t === 'join') this.joined.add(msg.m);
+    else if (msg.t === 'leave') this.joined.delete(msg.m);
     if (this.ready && this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(msg));
     else this.queue.push(msg);
   }
@@ -110,6 +136,8 @@ export class Socket {
         this.setState('open');
         const pending = this.queue;
         this.queue = [];
+        const rejoin = [...this.joined].filter((m) => !pending.some((p) => p.t === 'join' && p.m === m));
+        rejoin.forEach((m) => this.send({ t: 'join', m }));
         pending.forEach((m) => this.send(m));
       }
       this.msgListeners.forEach((fn) => fn(msg));

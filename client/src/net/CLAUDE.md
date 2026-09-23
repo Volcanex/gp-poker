@@ -30,8 +30,17 @@ suppressed on the page the invite points at, which fills in by itself.
 
 ## Socket contract
 
-The session is a cookie the server sets on the first `GET /api/me`, so the
-socket is opened only after that call succeeds. **A server that is not answering
+`GET /api/me` answers `null` for a visitor who has not acted yet: reading mints
+nobody (crawlers run this page). The socket opens after that call either way,
+as a watcher when there is no session (`server/src/ws/CLAUDE.md`). The first
+action mints: `ensureSession` in `session.tsx` calls `POST /api/session` and
+`socket.reconnect()`s, and it runs before every write (`onBeforeWrite` in
+`api.ts`, except login, logout and the mint itself) and before every socket
+message that needs a person (`sendAsSomebody`). A change of who `me` is (log in,
+log out) reconnects too, since the server reads the session only at the
+upgrade. `socket.ts` replays every joined match on each new hello, so a
+spectator survives both a drop and that reconnect. The socket is opened only
+after `/api/me` succeeds. **A server that is not answering
 therefore never produces a reconnect storm and never logs a failed WebSocket
 connect**: the home page shows its offline state instead.
 

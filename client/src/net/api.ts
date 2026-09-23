@@ -16,9 +16,25 @@ export class ApiError extends Error {
 }
 
 /* Every call is same-origin and credentialed: the session is a cookie the
-   server sets on the first /api/me. An error body is {error: string}; the
+   server sets on POST /api/session, the first time the visitor acts. An error body is {error: string}; the
    message is shown to the player, so it is read out rather than swallowed. */
+/* Run before every write, so the first action a visitor takes is the one that
+   makes them somebody: the session provider registers its `ensureSession`
+   here. Reads never mint (see optionalUser on the server), which is what keeps
+   a crawler that runs the page from leaving a guest behind. Logging in and
+   minting itself are the two writes that must not wait on it. */
+let beforeWrite: (() => Promise<void>) | null = null;
+const NO_MINT = new Set(['/api/session', '/api/login', '/api/logout']);
+export function onBeforeWrite(fn: (() => Promise<void>) | null): () => void {
+  beforeWrite = fn;
+  return () => {
+    if (beforeWrite === fn) beforeWrite = null;
+  };
+}
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
+  const method = (init?.method ?? 'GET').toUpperCase();
+  if (method !== 'GET' && beforeWrite && !NO_MINT.has(path)) await beforeWrite();
   const res = await fetch(path, {
     credentials: 'same-origin',
     headers: { accept: 'application/json', ...(init?.body ? { 'content-type': 'application/json' } : {}) },
@@ -41,7 +57,10 @@ const post = <T>(path: string, body?: unknown) =>
   req<T>(path, { method: 'POST', ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
 
 export const api = {
-  me: () => req<Me>('/api/me'),
+  /* Null for a visitor who has not done anything yet: reading mints nobody. */
+  me: () => req<Me | null>('/api/me'),
+  session: () => post<Me>('/api/session'),
+  config: () => req<{ googleAuth?: boolean }>('/api/config'),
   /* The flag beside your name. `null` clears it. The body says the state it
      wants rather than asking for a toggle, and the answer is the whole of
      /api/me again, so the caller replaces what it holds instead of patching

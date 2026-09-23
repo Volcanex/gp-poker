@@ -34,7 +34,7 @@ file deletes the rows it creates in `afterAll`.
 ## Scaffolding and seams
 
 `helpers.ts` holds the shared kit. `makeApp()` builds a `buildApp()` instance
-without listening. `mintGuestSession` mints a guest via `/api/me` and returns its
+without listening. `mintGuestSession` mints a guest via `POST /api/session` and returns its
 session token. `deleteUser` cleans up. `connectSession` combines a `Session` with
 `connectWs` into a `Connected` (`{id, name, token, ws, messages}`) for tests that
 juggle several players. `driveRandomPlay(conn)` plays a seat with uniformly

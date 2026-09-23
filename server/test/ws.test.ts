@@ -18,9 +18,25 @@ describe('websocket connect', () => {
     await app.close();
   });
 
-  it('rejects the upgrade without a session', async () => {
-    const res = await app.inject({ method: 'GET', url: '/ws' });
-    expect(res.statusCode).toBe(401);
+  /* No session is a watcher, not a refusal: it may watch, and anything that
+     needs somebody is answered need_session. Nobody is minted for it. */
+  it('lets a socket with no session watch, and nothing more', async () => {
+    const { ws, messages } = await connectWs(wsUrl, 'nobody');
+    const hi = await messages.wait((m) => m.t === 'hi');
+    expect(hi.v).toBe(PROTOCOL_VERSION);
+    expect(hi.u).toBeUndefined();
+
+    ws.send(JSON.stringify({ t: 'join', m: 'no-such-match' }));
+    const noMatch = await messages.wait((m) => m.t === 'err');
+    expect(noMatch.c).toBe('no_match');
+
+    ws.send(JSON.stringify({ t: 'queue', mode: 'heads-up', rated: false }));
+    const refused = await messages.wait((m) => m.t === 'err');
+    expect(refused.c).toBe('need_session');
+
+    ws.send(JSON.stringify({ t: 'ping' }));
+    await messages.wait((m) => m.t === 'pong');
+    ws.close();
   });
 
   it('sends hi with the protocol version and user summary on connect', async () => {

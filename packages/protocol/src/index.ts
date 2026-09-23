@@ -65,7 +65,12 @@
    holding its allowance, which is what every seat did before this existed.
    The number moves anyway, by the same convention v7 moved it. */
 
-export const PROTOCOL_VERSION = 10;
+/* v11 is the watch-only socket. A visitor with no session may now connect: its
+   `hi` carries no `u`, it may join, leave and watch (arena, tournament), and
+   anything that needs somebody is answered `err` `need_session`. Guests are
+   minted by POST /api/session when the visitor first acts, so a crawler that
+   runs the page no longer leaves an account behind. */
+export const PROTOCOL_VERSION = 11;
 
 export type Card = string; // 'As', 'Td', '2c' (rank + suit, lowercase suit)
 
@@ -1190,7 +1195,7 @@ export type InviteKind = 'challenge' | 'home';
 
 /* Server -> client */
 export type ServerMsg =
-  | { t: 'hi'; v: number; u: UserSummary }
+  | { t: 'hi'; v: number; u?: UserSummary }
   | {
       t: 'q';
       s: 'searching' | 'found' | 'left';
@@ -1252,7 +1257,8 @@ export type ServerMsg =
         | 'bots_busy'
         | 'chat'
         | 'cooldown'
-        | 'ranked_ban';
+        | 'ranked_ban'
+        | 'need_session';
       msg: string;
     }
   | { t: 'pong' };

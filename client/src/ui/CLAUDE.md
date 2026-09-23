@@ -279,8 +279,15 @@ light theme is the normal case rather than a contradiction.
 
 ## The games room
 
-`room` is the fourth theme and the one a visitor gets before choosing: a card
-room in one coordinated set rather than a palette wearing an accent, which is
+**Dark felt (`dark-felt`) is the default a visitor gets before choosing**
+(2026-09-23): the games room's set below with only the twelve greys swapped to
+a neutral charcoal (Radix gray, dark), because the walnut read as busy around a
+green table. It shares every rule in `../room.css` through a selector list, then
+overrides the grey scale in its own block at the foot, and pins the card face
+and ink to the room's cream and walnut so the cards do not turn cold white.
+`isSet()` in `prefs.ts` names both themes that carry their own set.
+
+`room` is the games room: a card room in one coordinated set rather than a palette wearing an accent, which is
 what the owner found uncoordinated about felt plus ember. It is the one
 deliberate exception to the rule that a reskin touches only the accent slot,
 and it is kept disciplined the way a palette is: **every colour is a token in

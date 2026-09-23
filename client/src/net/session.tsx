@@ -7,7 +7,7 @@ import {
 import type {
   ClientMsg, Mode, ModeChoice, ReadyFailure, ServerMsg, Speed, SpeedChoice, UserSummary,
 } from '@opentable/protocol';
-import { api } from './api.ts';
+import { api, onBeforeWrite } from './api.ts';
 import type { Me } from './types.ts';
 import { socket } from './socket.ts';
 import type { ConnState } from './socket.ts';
@@ -136,6 +136,9 @@ export function opponentNames(names: string[]): string | null {
 
 interface Session {
   me: Me | null;
+  /* Whether the Google button can be offered: from /api/me for somebody,
+     from /api/config for a visitor who is not anybody yet. */
+  googleAuth: boolean;
   setMe: (u: UserSummary) => void;
   refreshMe: () => Promise<void>;
   liveMatch: string | null;
@@ -161,6 +164,10 @@ interface Session {
 
 const Ctx = createContext<Session | null>(null);
 
+/* What a watcher's socket may send without being anybody (the server's
+   WATCHER_MSGS in ws/hub.ts says the same). */
+const WATCH_MSGS = new Set<ClientMsg['t']>(['join', 'leave', 'arena', 'tournament', 'ping']);
+
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [me, setMeState] = useState<Me | null>(null);
   const [liveMatch, setLiveMatch] = useState<string | null>(null);
@@ -177,6 +184,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     })(),
   }));
   const [readyCheck, setReadyCheck] = useState<ReadyState | null>(null);
+  const [configGoogle, setConfigGoogle] = useState(false);
+  /* Who the open socket was opened as: undefined before the first /api/me,
+     then an id, or null for a watcher. When `me` moves off it (a mint, a log
+     in, a log out) the socket reconnects, since the server reads the session
+     once, at the upgrade. */
+  const socketFor = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
     let live = true;
@@ -184,9 +197,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       .me()
       .then((u) => {
         if (!live) return;
+        socketFor.current = u?.id ?? null;
         setMeState(u);
         setOffline(false);
         socket.open();
+        if (!u) {
+          api.config().then((c) => live && setConfigGoogle(c.googleAuth === true)).catch(() => {});
+        }
       })
       .catch(() => {
         if (live) setOffline(true);
@@ -206,6 +223,53 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       /* the rating on screen goes stale rather than the page breaking */
     }
   }, []);
+
+  /* Become somebody, once, the first time it is needed: mint a guest with
+     POST /api/session and reconnect the socket so the server knows it as that
+     guest rather than as a watcher. Every write (api.ts) and every socket
+     message that needs a person waits on it; concurrent callers share the one
+     request. A visitor who only looks never gets here. */
+  const meRef = useRef<Me | null>(null);
+  meRef.current = me;
+  const minting = useRef<Promise<void> | null>(null);
+  const ensureSession = useCallback(async () => {
+    if (meRef.current) return;
+    if (!minting.current) {
+      minting.current = (async () => {
+        const u = await api.session();
+        meRef.current = u;
+        socketFor.current = u.id;
+        setMeState(u);
+        socket.reconnect();
+      })().finally(() => {
+        minting.current = null;
+      });
+    }
+    await minting.current;
+  }, []);
+  useEffect(() => onBeforeWrite(ensureSession), [ensureSession]);
+
+  useEffect(() => {
+    if (socketFor.current === undefined) return;
+    const id = me?.id ?? null;
+    if (id === socketFor.current) return;
+    socketFor.current = id;
+    socket.reconnect();
+  }, [me?.id]);
+
+  /* A socket message that needs a person goes out once there is one. Watching
+     (join, leave, arena, tournament) and pings do not. */
+  const sendAsSomebody = useCallback((m: ClientMsg) => {
+    if (meRef.current || WATCH_MSGS.has(m.t)) {
+      socket.send(m);
+      return;
+    }
+    // Nobody has nothing queued to take back.
+    if (m.t === 'dequeue') return;
+    ensureSession().then(() => socket.send(m)).catch(() => {
+      /* the mint failed, so the action does not happen; the page is unchanged */
+    });
+  }, [ensureSession]);
 
   useEffect(() => socket.onState(setConn), []);
 
@@ -350,7 +414,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [refreshMe],
   );
 
-  const send = useCallback((m: ClientMsg) => socket.send(m), []);
+  const send = sendAsSomebody;
 
   /* Called with a choice from the picker, and without one from "play again",
      which repeats whatever was played last. */
@@ -384,16 +448,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       rated: choice.rated,
       speed: speedsFor(choice.speed)[0],
     });
-    socket.send({ t: 'queue', ...choice });
-  }, []);
+    sendAsSomebody({ t: 'queue', ...choice });
+  }, [sendAsSomebody]);
 
   /* Yes or no to the table on screen. The answer is stamped here as well as
      sent, so the button settles on the press rather than on the round trip;
      the server's own `accepted` still drives the counter beside it. */
   const answerReady = useCallback((accept: boolean) => {
     setReadyCheck((prev) => (prev ? { ...prev, answered: true } : prev));
-    socket.send({ t: 'ready', a: accept });
-  }, []);
+    sendAsSomebody({ t: 'ready', a: accept });
+  }, [sendAsSomebody]);
 
   /* Practice skips the queue on the server: the table is built the moment the
      message lands, so this searching state lasts a round trip rather than the
@@ -403,12 +467,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
      pinned to, since the home page's own presets ask for nothing but a level. */
   const startPractice = useCallback((mode: Mode, level: number, speed: Speed = DEFAULT_SPEED) => {
     setQueue({ s: 'searching', since: Date.now(), mode, rated: false, speed, practice: true });
-    socket.send({ t: 'queue', mode, speed, bots: { level } });
-  }, []);
+    sendAsSomebody({ t: 'queue', mode, speed, bots: { level } });
+  }, [sendAsSomebody]);
 
   const cancelQueue = useCallback(() => {
     setQueue((prev) => ({ s: 'idle', since: 0, mode: prev.mode, rated: prev.rated, speed: prev.speed }));
-    socket.send({ t: 'dequeue' });
+    sendAsSomebody({ t: 'dequeue' });
   }, []);
 
   const clearFound = useCallback(
@@ -423,8 +487,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ me, setMe, refreshMe, liveMatch, liveOpponents, ready, offline, conn, queue, readyCheck, answerReady, send, startQueue, startPractice, cancelQueue, clearFound }),
-    [me, setMe, refreshMe, liveMatch, liveOpponents, ready, offline, conn, queue, readyCheck, answerReady, send, startQueue, startPractice, cancelQueue, clearFound],
+    () => ({ me, googleAuth: me?.googleAuth === true || configGoogle, setMe, refreshMe, liveMatch, liveOpponents, ready, offline, conn, queue, readyCheck, answerReady, send, startQueue, startPractice, cancelQueue, clearFound }),
+    [me, configGoogle, setMe, refreshMe, liveMatch, liveOpponents, ready, offline, conn, queue, readyCheck, answerReady, send, startQueue, startPractice, cancelQueue, clearFound],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

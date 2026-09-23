@@ -9,7 +9,7 @@ import { abortStalePlayingMatches, applySchema, getRatingsFor } from './db.js';
 import { registerRoutes } from './routes.js';
 import { loadShell, registerCrawlRoutes, sendShell, shellLoaded } from './meta.js';
 import { resolveSessionUser } from './auth.js';
-import { attachConnection } from './ws/hub.js';
+import { attachConnection, attachWatcher } from './ws/hub.js';
 import { routeClientMessage, routeConnect, routeDisconnect } from './ws/router.js';
 import { ensureBots, setBotDispatch } from './bots/index.js';
 
@@ -83,12 +83,10 @@ export async function buildApp(): Promise<FastifyInstance> {
     '/ws',
     {
       websocket: true,
-      preValidation: async (request, reply) => {
+      // No session is not a refusal: the socket watches (see attachWatcher).
+      preValidation: async (request) => {
         const user = await resolveSessionUser(request);
-        if (!user) {
-          reply.code(401).send({ error: 'No session' });
-          return;
-        }
+        if (!user) return;
         request.sessionUser = user;
         request.sessionRatings = await getRatingsFor(user.id);
       },
@@ -96,7 +94,10 @@ export async function buildApp(): Promise<FastifyInstance> {
     (socket, request) => {
       const user = request.sessionUser;
       const ratings = request.sessionRatings;
-      if (!user || !ratings) return; // unreachable: preValidation already rejected this case
+      if (!user || !ratings) {
+        attachWatcher(socket, routeClientMessage, routeDisconnect);
+        return;
+      }
       attachConnection(socket, request, user, ratings, routeClientMessage, routeDisconnect);
       routeConnect(user.id);
     }

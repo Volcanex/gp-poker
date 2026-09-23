@@ -45,7 +45,7 @@ import { config, shownAsBot } from './config.js';
 import { hub } from './ws/hub.js';
 import { queueSize } from './matchmaking.js';
 import { getRoom, roomForPlayer } from './match/rooms.js';
-import { claimGuest, login, renameUser, requireUser, setSessionCookie, clearSessionCookie, createSessionForUser, SESSION_COOKIE } from './auth.js';
+import { claimGuest, login, optionalUser, renameUser, requireUser, setSessionCookie, clearSessionCookie, createSessionForUser, SESSION_COOKIE } from './auth.js';
 import { rosterSummary } from './bots/index.js';
 import { onlineCount as populationOnlineCount } from './bots/population.js';
 import { mainMode, roundRatings, toModeRating, toUserSummary } from './userView.js';
@@ -100,7 +100,23 @@ export function registerRoutes(app: FastifyInstance): void {
      comes back, which an XHR cannot do. `google.ts` holds all of it. */
   registerGoogleRoutes(app);
 
-  app.get('/api/me', async (request, reply) => {
+  /* Null for a visitor with no session: nobody is minted for looking. The
+     client treats null as "not anybody yet" and asks for POST /api/session
+     the moment the visitor acts. */
+  app.get('/api/me', async (request) => {
+    const user = await optionalUser(request);
+    return user ? meBody(user, await getRatingsFor(user.id)) : null;
+  });
+
+  /* What this box offers before anybody is anybody: the Google button, for a
+     visitor whose /api/me is null and so carries no `googleAuth`. */
+  app.get('/api/config', async () => ({
+    ...(googleConfigured() ? { googleAuth: true } : {}),
+  }));
+
+  /* Become somebody: mint a guest and set the cookie, or answer the session
+     that is already there. The only route whose job is to mint. */
+  app.post('/api/session', async (request, reply) => {
     const user = await requireUser(request, reply);
     return meBody(user, await getRatingsFor(user.id));
   });
@@ -611,7 +627,8 @@ export function registerRoutes(app: FastifyInstance): void {
      nothing but ok: the page asks for the list again, which is the answer it
      opened with, so there is never a second shape of it to keep in step. */
   app.get('/api/friends', async (request, reply) => {
-    const user = await requireUser(request, reply);
+    const user = await optionalUser(request);
+    if (!user) return err(reply, 401, 'No session');
     return friendsView(user.id, originOf(request));
   });
 
@@ -620,7 +637,8 @@ export function registerRoutes(app: FastifyInstance): void {
      because it is a query over every match this player has been in and the
      friends page is the one screen that asks for it. */
   app.get('/api/friends/played', async (request, reply) => {
-    const user = await requireUser(request, reply);
+    const user = await optionalUser(request);
+    if (!user) return err(reply, 401, 'No session');
     return playedWith(user.id);
   });
 
@@ -667,19 +685,19 @@ export function registerRoutes(app: FastifyInstance): void {
     return { kind: result.kind, id: result.id, url: result.url };
   });
 
-  /* Arenas. Every one of these goes through requireUser like a challenge does,
-     so an arena is joinable by somebody who has never been here: they arrive,
-     a guest is minted, and they are on the board. The listing stocks the
+  /* Arenas. Joining goes through requireUser like a challenge does, so an
+     arena is joinable by somebody who has never been here: they press join, a
+     guest is minted, and they are on the board. Reading one never mints. The listing stocks the
      schedule on its way past, so a database with no arenas in it answers the
      first request with one rather than with nothing. */
-  app.get('/api/arenas', async (request, reply) => {
-    const user = await requireUser(request, reply);
-    return arenaListing(user.id);
+  app.get('/api/arenas', async (request) => {
+    const user = await optionalUser(request);
+    return arenaListing(user?.id ?? null);
   });
 
   app.get<{ Params: { id: string } }>('/api/arenas/:id', async (request, reply) => {
-    const user = await requireUser(request, reply);
-    const view = await arenaView(request.params.id, user.id);
+    const user = await optionalUser(request);
+    const view = await arenaView(request.params.id, user?.id ?? null);
     if (!view) return err(reply, 404, 'No such arena');
     return view;
   });
@@ -705,15 +723,15 @@ export function registerRoutes(app: FastifyInstance): void {
      exactly as the arena listing does. `page` walks the results under it.
      Registering and withdrawing both work for a guest, like every other way
      to play here. */
-  app.get<{ Querystring: { page?: string } }>('/api/tournaments', async (request, reply) => {
-    const user = await requireUser(request, reply);
+  app.get<{ Querystring: { page?: string } }>('/api/tournaments', async (request) => {
+    const user = await optionalUser(request);
     const page = Math.max(0, Math.min(200, Number(request.query.page ?? 0) || 0));
-    return tournamentListing(user.id, page);
+    return tournamentListing(user?.id ?? null, page);
   });
 
   app.get<{ Params: { id: string } }>('/api/tournaments/:id', async (request, reply) => {
-    const user = await requireUser(request, reply);
-    const view = await tournamentView(request.params.id, user.id);
+    const user = await optionalUser(request);
+    const view = await tournamentView(request.params.id, user?.id ?? null);
     if (!view) return err(reply, 404, 'No such tournament');
     return view;
   });

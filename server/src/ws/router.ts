@@ -7,7 +7,7 @@ import {
   speedsFor,
   type ClientMsg,
 } from '@opentable/protocol';
-import { hub } from './hub.js';
+import { hub, isWatcherId } from './hub.js';
 import { dequeue, dequeueOnDisconnect, enqueue, enqueuePractice } from '../matchmaking.js';
 import { respondReady } from '../ready.js';
 import { getRoom, roomForPlayer, roomsForSpectator } from '../match/rooms.js';
@@ -156,6 +156,13 @@ export function routeConnect(userId: string): void {
 }
 
 export function routeDisconnect(userId: string): void {
+  // A watcher was only ever watching: nothing queued, befriended or seated.
+  if (isWatcherId(userId)) {
+    unwatchArena(userId);
+    unwatchTournament(userId);
+    for (const room of roomsForSpectator(userId)) room.leave(userId);
+    return;
+  }
   dequeueOnDisconnect(userId);
   unwatchArena(userId);
   // Told after a few seconds rather than now: a reload is a disconnect

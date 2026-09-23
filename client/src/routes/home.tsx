@@ -142,7 +142,9 @@ export function Home() {
 
   return (
     <main className="page wide stack home-page">
-      <PlayerBar me={me} mode={shownMode} />
+      {/* A visitor who has not acted yet is nobody, so there is no name to
+          show; the bar only waits (skeleton) while /api/me is in flight. */}
+      {(me || !ready) && <PlayerBar me={me} mode={shownMode} />}
 
       {offline && ready && (
         <div className="card" role="status">

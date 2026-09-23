@@ -81,4 +81,30 @@ describe('socket', () => {
     expect(first.sent).toEqual([]);
     socket.close();
   });
+
+  /* A new socket is a new subscriber, so a match joined and not left is
+     joined again on every hello: after a drop, and after reconnect() when a
+     watcher has just been minted a guest. A message queued meanwhile follows
+     the rejoin rather than preceding it. */
+  it('rejoins a joined match on a new socket, before anything queued', () => {
+    const socket = new Socket();
+    socket.open();
+    const first = FakeWebSocket.instances[0];
+    first.open();
+    first.hello();
+    socket.send({ t: 'join', m: 'abc' });
+    socket.send({ t: 'join', m: 'gone' });
+    socket.send({ t: 'leave', m: 'gone' });
+    socket.reconnect();
+    socket.send({ t: 'chat', m: 'abc', text: 'hi' } as never);
+    const second = FakeWebSocket.instances[1];
+    expect(second).toBeDefined();
+    second.open();
+    second.hello();
+    expect(second.sent.map((raw) => JSON.parse(raw))).toEqual([
+      { t: 'join', m: 'abc' },
+      { t: 'chat', m: 'abc', text: 'hi' },
+    ]);
+    socket.close();
+  });
 });

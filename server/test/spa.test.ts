@@ -25,8 +25,12 @@ describe('static/SPA fallback', () => {
     expect(res.json()).toEqual({ error: 'Not found' });
   });
 
-  it('does not fall back to index.html for /ws without a session', async () => {
+  /* A plain GET with no upgrade is not a websocket and must not be answered
+     with the app shell either. (No session is no longer a refusal: an upgrade
+     without one is a watcher, see ws/CLAUDE.md.) */
+  it('does not fall back to index.html for /ws', async () => {
     const res = await app.inject({ method: 'GET', url: '/ws' });
-    expect(res.statusCode).toBe(401);
+    expect(res.statusCode).not.toBe(200);
+    expect(String(res.headers['content-type'] ?? '')).not.toContain('text/html');
   });
 });

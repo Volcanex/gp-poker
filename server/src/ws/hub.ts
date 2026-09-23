@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { WebSocket } from 'ws';
 import type { FastifyRequest } from 'fastify';
 import { encode, decodeClient, PROTOCOL_VERSION, type ClientMsg, type ServerMsg } from '@opentable/protocol';
@@ -42,7 +43,9 @@ class Hub {
   // on the home page. Virtual connections are bots and are deliberately not
   // counted: a bot is not somebody who is here.
   countHumans(): number {
-    return this.byUser.size;
+    let n = 0;
+    for (const id of this.byUser.keys()) if (!isWatcherId(id)) n++;
+    return n;
   }
 
   send(userId: string, msg: ServerMsg): void {
@@ -65,6 +68,18 @@ class Hub {
 }
 
 export const hub = new Hub();
+
+/* A socket with no session watches under a throwaway id, so rooms, arena and
+   tournament watchers and the hub can address it exactly as they address a
+   person. The prefix is what keeps it out of everything that means somebody:
+   the online count, the audit log, presence, the queue. */
+export const WATCHER_PREFIX = 'watch:';
+export const isWatcherId = (id: string) => id.startsWith(WATCHER_PREFIX);
+
+/* What a watch-only socket may send. Everything else needs somebody and is
+   answered `need_session`; the client mints with POST /api/session and
+   reconnects before it sends one, so this is a backstop, not a flow. */
+const WATCHER_MSGS = new Set<ClientMsg['t']>(['join', 'leave', 'arena', 'tournament']);
 
 export type ClientMsgHandler = (userId: string, msg: ClientMsg) => void;
 export type DisconnectHandler = (userId: string) => void;
@@ -111,5 +126,39 @@ export function attachConnection(
     hub.remove(user.id, socket);
     insertAuditLog({ kind: 'disconnect', userId: user.id, ip }).catch(() => {});
     if (!hub.isConnected(user.id)) onDisconnect(user.id);
+  });
+}
+
+// The watch-only half: no user row, no audit, a `hi` with no `u`, and only
+// the messages in WATCHER_MSGS reach the router.
+export function attachWatcher(
+  socket: WebSocket,
+  onMessage: ClientMsgHandler,
+  onDisconnect: DisconnectHandler
+): void {
+  const id = `${WATCHER_PREFIX}${randomUUID()}`;
+  hub.add(id, socket);
+  hub.sendTo(socket, { t: 'hi', v: PROTOCOL_VERSION });
+
+  socket.on('message', (raw: Buffer) => {
+    const msg = decodeClient(raw.toString());
+    if (!msg) {
+      hub.sendTo(socket, { t: 'err', c: 'bad_msg', msg: 'Could not parse that message' });
+      return;
+    }
+    if (msg.t === 'ping') {
+      hub.sendTo(socket, { t: 'pong' });
+      return;
+    }
+    if (!WATCHER_MSGS.has(msg.t)) {
+      hub.sendTo(socket, { t: 'err', c: 'need_session', msg: 'Start a session first' });
+      return;
+    }
+    onMessage(id, msg);
+  });
+
+  socket.on('close', () => {
+    hub.remove(id, socket);
+    onDisconnect(id);
   });
 }

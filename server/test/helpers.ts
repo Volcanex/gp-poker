@@ -16,7 +16,7 @@ export interface Session {
 }
 
 export async function mintGuestSession(app: FastifyInstance): Promise<Session> {
-  const res = await app.inject({ method: 'GET', url: '/api/me' });
+  const res = await app.inject({ method: 'POST', url: '/api/session' });
   const token = res.cookies.find((c) => c.name === 'ot_session')?.value;
   if (!token) throw new Error('no session cookie minted');
   const body = res.json();
