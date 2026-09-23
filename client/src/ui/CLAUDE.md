@@ -12,13 +12,13 @@ The furniture that is not the table: `shell.tsx` (the site's chrome),
 
 `logo.tsx` is the brand mark, and it is deliberately a project file rather than
 anything in g-system: a logo belongs to the product, not to the shared
-language. It exports the path as a constant and a `<Logo>` that draws it with
-`fill="currentColor"`, so it inherits the colour of whatever it sits in and
-needs no per-theme rule. The EP is cut out of the spade with `fill-rule
-evenodd` rather than painted on top in white, which is the only reason the mark
-survives the dark ground. `client/public/logo.svg`, the favicon and every icon
-PNG are exports of that same constant: regenerate them, never hand-edit them,
-or the shape drifts from the one the site draws.
+language. Since 2026-09-23 it is a card diamond (the EP-cut spade was dropped as
+tacky). It exports the path as a constant and a `<Logo>` that draws it with
+`fill="currentColor"`, so it inherits the colour of whatever it sits in; the
+top bar's wordmark draws it. `client/public/logo.svg`, the favicon, every icon
+PNG and `og.png` are white-on-black exports of that same constant made by
+`node scripts/icons.mjs` (run from `client/`): regenerate them, never hand-edit
+them, or the shape drifts from the one the site draws.
 
 `segmented.tsx` is the two option switcher `/play` is built from, and
 `mode-tabs.tsx` is now that component with the modes in it. An option may

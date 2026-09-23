@@ -82,6 +82,11 @@ export const STATIC_PAGES: Record<string, PageMeta> = {
       'An arena every hour, half an hour long. Join it and you are paired again the moment your match ends.',
     type: 'website',
   },
+  '/about': {
+    title: 'About',
+    description: 'Free ranked no-limit hold\'em with no money, no ads and no rake, a provably fair deck, and open source code.',
+    type: 'website',
+  },
   '/leaderboard': {
     title: 'Leaderboard',
     description: 'The top 100 by rating in each mode. A player joins the board once their deviation settles.',

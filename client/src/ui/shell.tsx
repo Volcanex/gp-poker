@@ -2,13 +2,14 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import {
-  Cards, Eye, GraduationCap, Medal, PuzzlePiece, Ranking, Spade, Trophy, Users, Wrench,
+  Cards, Eye, GraduationCap, Info, Medal, PuzzlePiece, Ranking, Trophy, Users, Wrench,
 } from '@phosphor-icons/react';
 import { AccountMenu } from './auth.tsx';
 import { SettingsMenu } from './settings.tsx';
 import { PlayingPill } from './presence.tsx';
 import { FriendsBadge } from './friends-badge.tsx';
 import { useGInit } from './bits.tsx';
+import { Logo } from './logo.tsx';
 
 /* The top bar's own middle: a match is the one page with actions that belong
    up here rather than in the sidebar, and it needs a real DOM node to portal
@@ -73,6 +74,7 @@ const SECTIONS = [
   { to: '/watch', end: false, label: 'Watch', Icon: Eye },
   { to: '/friends', end: false, label: 'Friends', Icon: Users },
   { to: '/leaderboard', end: false, label: 'Leaderboard', Icon: Ranking },
+  { to: '/about', end: false, label: 'About', Icon: Info },
 ];
 
 /* Whether the sidebar is a sheet right now, which is the sheet route or a
@@ -147,10 +149,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
           onClick={() => (open ? close() : setOpen(true))}
         />
         <Link className="wordmark" to="/">
-          {/* Phosphor's spade, not the drawn mark: a stock suit beside the
-              name while the mark itself is being settled. `ui/logo.tsx` still
-              holds the drawn one and nothing else draws it at the moment. */}
-          <Spade className="wordmark-mark" weight="fill" aria-hidden="true" />
+          <Logo className="wordmark-mark" />
           EveryonePoker
         </Link>
         <span className="spacer" />

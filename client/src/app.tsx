@@ -6,6 +6,7 @@ import { Home } from './routes/home.tsx';
 import { Play } from './routes/play.tsx';
 import { Match } from './routes/match.tsx';
 import { Leaderboard } from './routes/leaderboard.tsx';
+import { About } from './routes/about.tsx';
 import { Profile } from './routes/profile.tsx';
 import { Watch } from './routes/watch.tsx';
 import { FriendsPage } from './routes/friends.tsx';
@@ -82,6 +83,7 @@ export function App() {
               <Route path="/t/:id" element={<TournamentPage />} />
               <Route path="/bots" element={<BotsPage />} />
               <Route path="/leaderboard" element={<Leaderboard />} />
+              <Route path="/about" element={<About />} />
               <Route path="/watch" element={<Watch />} />
               <Route path="/friends" element={<FriendsPage />} />
               {learnRoutes}
