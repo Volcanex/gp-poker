@@ -234,18 +234,21 @@
   position: sticky; top: 0; z-index: 30;
 }
 .wordmark {
-  font-size: 14px; font-weight: 500; letter-spacing: -0.012em;
+  font-size: 14px; font-weight: 600; letter-spacing: -0.012em;
   color: var(--text-primary); text-decoration: none;
   white-space: nowrap; flex: none;
-  display: inline-flex; align-items: center; gap: var(--sp-2);
+  display: inline-flex; align-items: baseline; gap: var(--sp-2);
 }
-/* The suit takes its colour from the link, so it inverts with the theme along
-   with the name it sits beside. Sized in em so it tracks the wordmark's own
-   font-size rather than needing a second rule at the phone breakpoint. A
-   Phosphor glyph is drawn on a square canvas with its own padding, unlike the
-   drawn mark whose box was its ink, so this is a little larger than the cap
-   height it is standing against. */
-.wordmark-mark { flex: none; height: 1.15em; width: 1.15em; }
+/* The diamond takes its colour from the link, so it inverts with the theme
+   along with the name beside it. It is exactly the cap height of the name and
+   stands on its baseline (an SVG's flex baseline is its bottom edge), so the
+   two are one height at every font-size with no second rule at the phone
+   breakpoint. The logo's viewBox is its ink, so the box is the diamond.
+   0.727em is Inter's cap height, for browsers without the `cap` unit. The
+   0.04em nudge is measured: un-nudged, Chromium draws the box about 0.06em
+   above the letters' ink baseline and WebKit about 0.02em, so this splits
+   them to within a device pixel in both, at 13 and 14px. */
+.wordmark-mark { flex: none; width: auto; height: 0.727em; height: 1cap; transform: translateY(0.04em); }
 .top .spacer { flex: 1; }
 .whoami { display: flex; align-items: baseline; gap: 6px; font-size: var(--font-size-ui); white-space: nowrap; flex: none; }
 .whoami .r { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
