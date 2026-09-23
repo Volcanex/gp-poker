@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { GearSix } from '@phosphor-icons/react';
 import { useGInit, useMedia } from './bits.tsx';
-import { ACCENTS, BOARD_SIZES, CARD_LAYOUTS, CARD_SIZES, HAND_METAS, PALETTES, TABLE_INFO, THEMES, applyPrefs, defaultAccentFor, readPrefs, writePrefs, SEAT_DETAILS } from './prefs.ts';
+import { ACCENTS, BOARD_SIZES, CARD_LAYOUTS, CARD_SIZES, HAND_METAS, PALETTES, TABLE_INFO, THEMES, applyPrefs, defaultAccentFor, isSet, readPrefs, writePrefs, SEAT_DETAILS } from './prefs.ts';
 import type { AccentId, BoardSize, CardLayout, CardSize, HandMeta, PaletteId, Prefs, TableInfo, ThemeChoice, SeatDetail } from './prefs.ts';
 import { Segmented } from './segmented.tsx';
 import { useSoundSettings } from '../sound/react.ts';
@@ -118,9 +118,9 @@ export function SettingsMenu() {
           ))}
         </div>
 
-        {/* The games room carries its own coordinated set, so the palette and
-            accent rows are not offered while it is on. */}
-        {prefs.theme !== 'room' && (<>
+        {/* The games room and dark felt carry their own coordinated set, so
+            the palette and accent rows are not offered while either is on. */}
+        {!isSet(prefs.theme) && (<>
         <hr className="separator" />
 
         <div className="menu-title" id="settings-palette">Palette</div>

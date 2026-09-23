@@ -7,11 +7,12 @@
    pre-paint script in index.html down to three attribute writes, with nothing
    to drift out of step with the stylesheet. */
 
-/* `room` is the games room, in ../room.css: a whole coordinated set rather
-   than a palette plus an accent, and the default for a visitor who has chosen
-   nothing. While it is on, the stored palette and accent are kept but not
-   worn, so they come back when another theme is chosen. */
-export type ThemeChoice = 'room' | 'dark' | 'light' | 'system';
+/* `room` is the games room and `dark-felt` its charcoal twin, both in
+   ../room.css: a whole coordinated set rather than a palette plus an accent.
+   Dark felt is the default for a visitor who has chosen nothing. While either
+   is on, the stored palette and accent are kept but not worn, so they come
+   back when another theme is chosen. */
+export type ThemeChoice = 'dark-felt' | 'room' | 'dark' | 'light' | 'system';
 export type AccentId = 'default' | 'ocean' | 'jade' | 'violet' | 'clay' | 'ember';
 export type PaletteId = 'slate' | 'felt' | 'sky' | 'umber';
 /* Which hand holds the phone. The v2 table's action band puts the controls
@@ -107,12 +108,13 @@ export interface Prefs {
 export const PREFS_KEY = 'ot.prefs';
 
 export const DEFAULT_PREFS: Prefs = {
-  theme: 'room', palette: 'slate', accent: 'default', fourColour: false, hand: 'right',
+  theme: 'dark-felt', palette: 'slate', accent: 'default', fourColour: false, hand: 'right',
   cards: 'stacked', cardSize: 'large', seatCards: 'large', seatDetail: 'normal', tableInfo: 'panel',
   handMeta: 'cards', keyLegend: true, gamePanel: 'open', boardSize: 'medium',
 };
 
 export const THEMES: { id: ThemeChoice; label: string }[] = [
+  { id: 'dark-felt', label: 'Dark felt' },
   { id: 'room', label: 'Games room' },
   { id: 'dark', label: 'Dark' },
   { id: 'light', label: 'Light' },
@@ -146,7 +148,11 @@ export function defaultAccentFor(palette: PaletteId): AccentId {
 }
 
 const isTheme = (v: unknown): v is ThemeChoice =>
-  v === 'room' || v === 'dark' || v === 'light' || v === 'system';
+  v === 'dark-felt' || v === 'room' || v === 'dark' || v === 'light' || v === 'system';
+
+/* The themes that carry their own coordinated set and so wear no palette or
+   accent. */
+export const isSet = (t: ThemeChoice) => t === 'room' || t === 'dark-felt';
 
 const isAccent = (v: unknown): v is AccentId =>
   typeof v === 'string' && ACCENTS.some((a) => a.id === v);
@@ -273,7 +279,7 @@ export function applyPrefs(prefs: Prefs, root: HTMLElement, store: Storage | nul
   /* The room carries its own set, so neither attribute goes on while it is
      the theme; room.css would win over them in the cascade anyway, and the
      settings menu hides both rows. */
-  const room = prefs.theme === 'room';
+  const room = isSet(prefs.theme);
   if (room || prefs.palette === 'slate') root.removeAttribute('data-palette');
   else root.setAttribute('data-palette', prefs.palette);
 

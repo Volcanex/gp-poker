@@ -46,7 +46,7 @@ async function samples(page: import('@playwright/test').Page, palette: string) {
    that way is dark whatever the test is called. */
 async function useTheme(
   page: import('@playwright/test').Page,
-  theme: 'room' | 'dark' | 'light',
+  theme: 'dark-felt' | 'room' | 'dark' | 'light',
   palette = 'slate',
   accent = 'default',
 ) {
@@ -77,25 +77,25 @@ test('a theme survives a reload, and lands before the first paint', async ({ pag
   expect(early).toBe('light');
 });
 
-/* The games room is what a visitor gets before choosing anything, stamped by
+/* Dark felt is what a visitor gets before choosing anything, stamped by
    the inline script before React or g-ui run and agreed by g's own key once
    the app has mounted. While it is on, the palette and accent rows are not
    offered; another theme brings them back. */
-test('a visitor with no preference gets the games room, before the first paint', async ({ page }) => {
+test('a visitor with no preference gets dark felt, before the first paint', async ({ page }) => {
   await stubApi(page);
   await page.goto('/');
   const early = await page.evaluate(() =>
     document.documentElement.getAttribute('data-theme'));
-  expect(early).toBe('room');
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'room');
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('g-theme'))).toBe('room');
+  expect(early).toBe('dark-felt');
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark-felt');
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('g-theme'))).toBe('dark-felt');
 
   await openMenu(page);
-  await expect(page.locator('.choices .choice[aria-checked="true"]')).toHaveText('Games room');
+  await expect(page.locator('.choices .choice[aria-checked="true"]')).toHaveText('Dark felt');
   await expect(page.locator('.pswatches')).toHaveCount(0);
   await expect(page.locator('.swatches')).toHaveCount(0);
 
-  await page.locator('.choices .choice', { hasText: 'Dark' }).click();
+  await page.locator('.choices .choice', { hasText: /^Dark$/ }).click();
   await expect(page.locator('html')).not.toHaveAttribute('data-theme');
   await expect(page.locator('.pswatches')).toBeVisible();
   await expect(page.locator('.swatches')).toBeVisible();
@@ -124,7 +124,7 @@ test('an accent and a deck survive a reload', async ({ page }) => {
   /* Off the games room first: it hides the accent row. Chosen here rather
      than stamped by an init script, which would run again on the reload and
      put the record back. */
-  await page.locator('.choices .choice', { hasText: 'Dark' }).click();
+  await page.locator('.choices .choice', { hasText: /^Dark$/ }).click();
   await page.locator('.swatch[data-accent="jade"]').click();
   await page.locator('.settings-menu .switch').first().check();
 
@@ -249,9 +249,10 @@ for (const theme of ['dark', 'light'] as const) {
    one: text on the walnut, text on the baize and its panel, every status text
    on both, the brass accent under its ink, and the pips on the paper. Text at
    4.5, pips at 5, the same bar look-v2.css sets for the slate deck. */
-test('the games room keeps its text and its pips readable', async ({ page }) => {
+for (const set of ['room', 'dark-felt'] as const) {
+test(`${set} keeps its text and its pips readable`, async ({ page }) => {
   await stubApi(page);
-  await useTheme(page, 'room');
+  await useTheme(page, set);
   await page.goto('/');
 
   const pairs = await page.evaluate(() => {
@@ -298,10 +299,11 @@ test('the games room keeps its text and its pips readable', async ({ page }) => 
 
   for (const { what, pair, floor } of pairs) {
     const ratio = contrastOf(pair[0], pair[1]);
-    expect(ratio, `room: ${what} resolves`).not.toBe(null);
-    expect(ratio!, `room: ${what}`).toBeGreaterThanOrEqual(floor);
+    expect(ratio, `${set}: ${what} resolves`).not.toBe(null);
+    expect(ratio!, `${set}: ${what}`).toBeGreaterThanOrEqual(floor);
   }
 });
+}
 
 /* Home and the heads-up v2 felt. The six-max felt is not here: it overflows at
    the default viewport and axe flags the scrollable region as unfocusable in
@@ -359,7 +361,7 @@ test('choosing a palette brings its accent, and keeps a chosen one', async ({ pa
   await stubApi(page);
   await page.goto('/');
   await openMenu(page);
-  await page.locator('.choices .choice', { hasText: 'Dark' }).click();
+  await page.locator('.choices .choice', { hasText: /^Dark$/ }).click();
 
   await page.locator('.pswatch[title="Felt"]').click();
   await expect(page.locator('html')).toHaveAttribute('data-palette', 'felt');

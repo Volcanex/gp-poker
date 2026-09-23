@@ -22,7 +22,8 @@
    steps derived as the tint that composites to its solid step over step 1.
    `../e2e/settings.spec.ts` measures all of it off the shipped stylesheet. */
 
-[data-theme="room"] {
+[data-theme="room"],
+[data-theme="dark-felt"] {
   --slate-1: #14100c;
   --slate-2: #1d1713;
   --slate-3: #27201a;
@@ -138,7 +139,8 @@
    rule in any table file: the hairlines and fills are alpha tints and
    composite over the green as they do over the walnut, so these are the only
    opaque aliases that have to move. */
-[data-theme="room"] .felt {
+[data-theme="room"] .felt,
+[data-theme="dark-felt"] .felt {
   background: var(--felt);
   --surface-2: var(--felt-panel);
   --text-secondary: var(--felt-text-secondary);
@@ -147,9 +149,47 @@
 /* The table chat is a sheet over the felt, so it is the felt's darker green
    with white on it rather than a walnut panel: the player asked for exactly
    that. Tokens again, mapped on the panel and read by chat.css as it is. */
-[data-theme="room"] .chat-panel {
+[data-theme="room"] .chat-panel,
+[data-theme="dark-felt"] .chat-panel {
   --surface-1: var(--chat-ground);
   --text-primary: var(--chat-text);
   --text-secondary: var(--felt-text-secondary);
   --text-muted: var(--felt-text-secondary);
+}
+
+/* Dark felt: the games room with the walnut taken out. The baize, the brass,
+   the meaning colours and the cards are the room's, shared by the rules
+   above; only the twelve greys change, to a neutral charcoal (Radix gray,
+   dark), because the brown chrome read as busy around a green table. Loaded
+   after the shared block so these win at equal specificity. The card face and
+   its edge are pinned to the room's cream rather than following step 12, which
+   here is a cold white. The default theme. */
+[data-theme="dark-felt"] {
+  --slate-1: #111111;
+  --slate-2: #191919;
+  --slate-3: #222222;
+  --slate-4: #2a2a2a;
+  --slate-5: #313131;
+  --slate-6: #3a3a3a;
+  --slate-7: #484848;
+  --slate-8: #606060;
+  --slate-9: #6e6e6e;
+  --slate-10: #7b7b7b;
+  --slate-11: #b4b4b4;
+  --slate-12: #eeeeee;
+  --slate-a1: #00000000;
+  --slate-a2: #ffffff09;
+  --slate-a3: #ffffff12;
+  --slate-a4: #ffffff1b;
+  --slate-a5: #ffffff22;
+  --slate-a6: #ffffff2c;
+  --slate-a7: #ffffff3b;
+  --slate-a8: #ffffff55;
+  --slate-a9: #ffffff64;
+  --slate-a10: #ffffff72;
+  --slate-a11: #ffffffaf;
+  --slate-a12: #ffffffed;
+
+  --card-face: #f1e9da;
+  --card-ink: #14100c;
 }

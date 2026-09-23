@@ -374,7 +374,7 @@ const EXPLORER = JSON.parse(
    set up through g's own key alone would come back as the room whatever the
    test asked for. Existing prefs are kept, so a test that stamped a palette
    first keeps it. "system" is not a thing a baseline can pin. */
-export async function setTheme(page: Page, theme: 'room' | 'dark' | 'light') {
+export async function setTheme(page: Page, theme: 'dark-felt' | 'room' | 'dark' | 'light') {
   await page.addInitScript((t) => {
     let prefs: Record<string, unknown> = {};
     try {

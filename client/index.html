@@ -4,10 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="description" content="Free ranked no-limit hold'em, heads-up or six handed. No money, no ads, no rake." />
-    <!-- The browser chrome matches the page. The games room is the default a
+    <!-- The browser chrome matches the page. Dark felt is the default a
          visitor gets, so this is its --bg (--slate-1 in src/room.css); it is a
          literal because a meta tag cannot read a custom property. -->
-    <meta name="theme-color" content="#111113" />
+    <meta name="theme-color" content="#111111" />
     <!-- The mark is favicon.svg; the PNGs are rendered from it for the
          browsers and the home screens that will not take an SVG. -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -37,11 +37,11 @@
         try {
           const p = JSON.parse(localStorage.getItem('ot.prefs') || '{}');
           const el = document.documentElement;
-          /* No record, or one this build does not read, is the games room,
+          /* No record, or one this build does not read, is dark felt,
              exactly as readPrefs in src/ui/prefs.ts decides it. */
-          const theme = ['room', 'dark', 'light', 'system'].includes(p.theme) ? p.theme : 'room';
+          const theme = ['dark-felt', 'room', 'dark', 'light', 'system'].includes(p.theme) ? p.theme : 'dark-felt';
           if (theme !== 'dark') el.setAttribute('data-theme', theme);
-          if (theme !== 'room') {
+          if (theme !== 'room' && theme !== 'dark-felt') {
             if (p.palette && p.palette !== 'slate') el.setAttribute('data-palette', p.palette);
             if (p.accent && p.accent !== 'default') el.setAttribute('data-accent', p.accent);
           }

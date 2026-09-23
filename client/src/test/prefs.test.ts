@@ -73,7 +73,7 @@ describe('settings persistence', () => {
       [PREFS_KEY]: '{"accent":"violet","theme":"chartreuse","palette":"tartan"}',
     });
     expect(readPrefs(store)).toEqual({
-      theme: 'room', palette: 'slate', accent: 'violet', fourColour: false, hand: 'right',
+      theme: 'dark-felt', palette: 'slate', accent: 'violet', fourColour: false, hand: 'right',
       cards: 'stacked', cardSize: 'large', seatCards: 'large', seatDetail: 'normal', tableInfo: 'panel',
       handMeta: 'cards', keyLegend: true, gamePanel: 'open', boardSize: 'medium',
     });
@@ -164,11 +164,11 @@ describe('applying settings', () => {
     root = document.createElement('html');
   });
 
-  /* The games room is the default theme and the one attribute a fresh visitor
+  /* Dark felt is the default theme and the one attribute a fresh visitor
      wears; everything else defaults to its absence. */
-  it('stamps only the theme for the defaults, because the room is the default', () => {
+  it('stamps only the theme for the defaults, because dark felt is the default', () => {
     applyPrefs(DEFAULT_PREFS, root, fakeStore());
-    expect(root.getAttribute('data-theme')).toBe('room');
+    expect(root.getAttribute('data-theme')).toBe('dark-felt');
     expect(root.getAttribute('data-palette')).toBe(null);
     expect(root.getAttribute('data-accent')).toBe(null);
     expect(root.getAttribute('data-deck')).toBe(null);
@@ -192,7 +192,7 @@ describe('applying settings', () => {
   /* The room carries its own set: a stored palette and accent stay in the
      record but are not worn, and come back with the next theme. */
   it('keeps a palette and an accent off while the room is on', () => {
-    const chosen = { ...DEFAULT_PREFS, palette: 'sky', accent: 'violet' } as const;
+    const chosen = { ...DEFAULT_PREFS, theme: 'room', palette: 'sky', accent: 'violet' } as const;
     applyPrefs(chosen, root, fakeStore());
     expect(root.getAttribute('data-theme')).toBe('room');
     expect(root.getAttribute('data-palette')).toBe(null);
