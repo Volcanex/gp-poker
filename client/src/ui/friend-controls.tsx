@@ -44,24 +44,29 @@ export function useStanding(userId: string | null): FriendStanding {
    put twenty copies of a form nobody can reach into the page, with a name
    field in each of them. The controls ask `useIsPlayer` before they ask, so
    the missing dialog is never one somebody presses through. */
-export function useClaimPrompt(): { ask: () => void; node: ReactNode } {
+/* The dialog's words default to the friends case, which is where it started;
+   the result panel's nudge after a good game passes its own. */
+export interface ClaimCopy { title: string; desc: string }
+const FRIENDS_CLAIM: ClaimCopy = {
+  title: 'Friends need an account',
+  desc: 'Pick a name and a password. Your rating, matches and hand histories stay exactly as they are, and your friends have a name to look for.',
+};
+
+export function useClaimPrompt(copy: ClaimCopy = FRIENDS_CLAIM): { ask: () => void; node: ReactNode } {
   const ref = useRef<HTMLDialogElement>(null);
   const isPlayer = useIsPlayer();
   return {
     ask: () => ref.current?.showModal(),
-    node: isPlayer ? null : <ClaimPrompt ref={ref} />,
+    node: isPlayer ? null : <ClaimPrompt ref={ref} copy={copy} />,
   };
 }
 
-function ClaimPrompt({ ref }: { ref: React.RefObject<HTMLDialogElement | null> }) {
+function ClaimPrompt({ ref, copy }: { ref: React.RefObject<HTMLDialogElement | null>; copy: ClaimCopy }) {
   return (
     <dialog className="dlg" ref={ref} aria-label="Claim your account">
       <div className="dlg-body">
-        <span className="dlg-title">Friends need an account</span>
-        <span className="dlg-desc">
-          Pick a name and a password. Your rating, matches and hand histories stay exactly as they
-          are, and your friends have a name to look for.
-        </span>
+        <span className="dlg-title">{copy.title}</span>
+        <span className="dlg-desc">{copy.desc}</span>
         <ClaimCard flat onClaimed={() => ref.current?.close()} />
       </div>
       <div className="dlg-foot">

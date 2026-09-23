@@ -63,6 +63,9 @@
   grid-template-columns: auto auto minmax(0, 1fr) auto;
 }
 .friends-card .t { margin-bottom: var(--sp-1); }
+/* A hairline separates rows, not the list from the button under it: the last
+   row on the card is not the card's last child, so `:last-child` misses it. */
+.friends-card .friend-row:not(:has(~ .friend-row)) { border-bottom: 0; }
 
 /* A row with two answers on it (accept and decline) does not fit beside a
    name in a card this narrow, so the answers take a line of their own,

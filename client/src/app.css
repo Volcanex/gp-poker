@@ -1986,6 +1986,11 @@
 .rp-rating { display: inline-flex; align-items: baseline; gap: 6px; }
 .rp-rating .delta { transition: opacity var(--dur-base) var(--ease-out); }
 .rp-rating .delta[data-hidden] { opacity: 0; }
+/* The guest's claim nudge after a good game: copy on the left, the one button
+   on the right, stacking under 560 where the two do not fit side by side. */
+.rp-claim { display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap; }
+.rp-claim-copy { display: flex; flex-direction: column; gap: 2px; flex: 1 1 280px; font-size: var(--font-size-ui); }
+.rp-claim-t { font-weight: 500; color: var(--text-primary); }
 
 .delta { font-variant-numeric: tabular-nums; font-size: 12px; }
 .delta[data-up] { color: var(--ok-text); }

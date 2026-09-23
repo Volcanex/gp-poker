@@ -5,7 +5,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import type { Match } from '../net/types.ts';
 import { Avatar } from '../ui/avatar.tsx';
 import { avatarVersion, seatIsPlayer } from '../net/adapt.ts';
-import { FriendAction } from '../ui/friend-controls.tsx';
+import { FriendAction, useClaimPrompt, useIsPlayer } from '../ui/friend-controls.tsx';
 import { deltaTone } from '../ui/bits.tsx';
 import { int, signed } from '../ui/format.ts';
 import { ordinal, stakeWord } from './labels.ts';
@@ -33,6 +33,9 @@ export function ResultPanel({ match, meId, onAgain, onReview, againLabel }: Resu
   /* The match's own flag, not the format's: a casual match is played on a
      format whose template says rated, and only the row knows it was not. */
   const stake = stakeWord({ rated: match.rated, practice: match.format.practice });
+  const isPlayer = useIsPlayer();
+  const claim = useClaimPrompt(CLAIM_AFTER_GOOD_GAME);
+  const nudge = meId != null && !isPlayer && mine != null && goodGame(mine.place, match.seats.length);
 
   const verdict =
     match.winner == null && !multiway
@@ -102,6 +105,22 @@ export function ResultPanel({ match, meId, onAgain, onReview, againLabel }: Resu
         ))}
       </ol>
 
+      {nudge && (
+        <div className="well rp-claim">
+          <span className="rp-claim-copy">
+            <span className="rp-claim-t">Good game. Keep it?</span>
+            <span className="muted">
+              You are playing as a guest. Claim the account and this result, your rating and every
+              hand stay yours, on any device.
+            </span>
+          </span>
+          <button type="button" className="btn btn-secondary" onClick={claim.ask}>
+            Claim your account
+          </button>
+          {claim.node}
+        </div>
+      )}
+
       <div className="row-actions">
         <button type="button" className="btn btn-primary" onClick={onAgain}>
           {againLabel ?? 'Play again'}
@@ -114,6 +133,17 @@ export function ResultPanel({ match, meId, onAgain, onReview, againLabel }: Resu
     </motion.section>
   );
 }
+
+/* A good game, for the claim nudge: a heads-up win, or the top half of a
+   six-max. That is the moment a guest has something they would mind losing. */
+export function goodGame(place: number, seats: number): boolean {
+  return place <= Math.max(1, Math.floor(seats / 2));
+}
+
+const CLAIM_AFTER_GOOD_GAME = {
+  title: 'Claim your account',
+  desc: 'Your rating, matches and hand histories stay exactly as they are. You can log back in from any device.',
+};
 
 /* Before to after, once, and the delta only once the count has landed: a
    number and its change arriving together is two things to read at once. */
