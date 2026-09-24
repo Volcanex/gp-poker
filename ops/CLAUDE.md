@@ -16,10 +16,13 @@ It does not restart a running service, and neither should you by hand: the
 new unit takes effect when `scripts/deploy.sh` restarts it.
 
 ## The units
-- `opentable.service`: the site. `Restart=on-failure`, not `always`: a clean
-  exit is `server/src/index.ts`'s SIGTERM path finishing, and restarting after that makes
-  `systemctl stop` a service that comes back. No `EnvironmentFile`; the server
-  loads the repo `.env` itself (`server/src/config.ts`), so the secrets live
+- `opentable.service`: the site. `Restart=always`: an external SIGTERM
+  (earlyoom, which runs on h and kills the biggest process under 6% free
+  memory) ends in `server/src/index.ts`'s clean shutdown path, exit 0, and
+  `on-failure` left the site down for eight hours on 2026-09-24 because of it.
+  `systemctl stop` is never restarted whatever `Restart=` says. No
+  `EnvironmentFile`; the server loads the repo `.env` itself
+  (`server/src/config.ts`), so the secrets live
   in one place and the unit never holds a copy.
 - `opentable-backup.service` / `.timer`: `scripts/backup.sh` daily at 04:30
   UTC, `Persistent=true` so a box that was off catches up. Dumps land in
