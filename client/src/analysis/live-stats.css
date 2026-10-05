@@ -28,7 +28,7 @@
   grid-template-columns: 18rem minmax(0, 1fr) 13rem;
   grid-template-areas: "str outs eq";
   gap: var(--sp-4);
-  align-items: start;
+  align-items: center;
   width: 100%;
   max-width: var(--felt-w);
   min-width: 0;
@@ -45,8 +45,7 @@
 .ls-outs { grid-area: outs; }
 .ls-eq { grid-area: eq; }
 
-/* A cell is two lines: the reading, then a note under it. Both lines keep
-   their height whether or not there is anything to say in them. */
+/* Strength and equity keep two lines. Outs also reserve cards and hit odds. */
 .ls-cell {
   display: flex;
   flex-direction: column;
@@ -100,12 +99,19 @@
 .ls-v-wide { flex: 1 1 auto; }
 
 .ls-cards {
-  display: flex;
-  align-items: baseline;
-  gap: var(--sp-2);
+  height: calc(2 * var(--lh-1) + var(--sp-1));
+  flex: none;
   min-width: 0;
-  overflow: hidden;
+  overflow: auto;
+  overscroll-behavior: contain;
 }
+.ls-cards .ctext { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.ls-cards .ctext > span { width: 24px; line-height: var(--lh-1); font-size: 12px; }
+
+.ls-outs { height: var(--outs-reading-h); }
+.ls-outs .ls-line { height: var(--lh-1); flex: none; }
+.ls-hit { height: calc(2 * var(--lh-1)); flex: none; }
+.ls-hit-line { display: block; line-height: var(--lh-1); }
 
 .ls-name {
   overflow: hidden;
@@ -174,52 +180,30 @@
 
 /* ---------------------------------------------------------- narrower */
 
-/* Under a desktop the out cards go: the count is the reading, the cards are
-   the detail, and the hand's name needs the width more. */
-@media (max-width: 1024px) {
-  .ls-cards { display: none; }
-}
-
-/* A phone stacks the meter under the two figures: the outs and the equity
-   share the first line, and the studs run along the second with the hand's
-   name beside them, so the bar is still one fixed height and three cells. */
+/* The outs keep their own full-width row on a phone, including every card
+   and both odds. The strength and equity share the row above it. */
 @media (max-width: 720px) {
   .practice-strip { padding: 0 var(--sp-3); }
   .live-stats {
     grid-template-columns: minmax(0, 1fr) 9.5rem;
-    grid-template-rows: calc(var(--lh-2) + var(--lh-1)) var(--lh-2);
+    grid-template-rows: calc(2 * var(--lh-1)) var(--outs-reading-h);
     grid-template-areas:
-      "outs eq"
-      "str str";
+      "str eq"
+      "outs outs";
     gap: var(--sp-1) var(--sp-3);
   }
-  .ls-str {
-    flex-direction: row;
-    align-items: center;
-    gap: var(--sp-3);
-  }
-  .ls-str .ls-sub {
-    height: var(--lh-2);
-    line-height: var(--lh-2);
-    align-items: center;
-    min-width: 0;
-    flex: 1 1 auto;
-  }
-  .ls-str .ls-sub .ls-note { font-size: var(--font-size-ui); }
+  .ls-cell { gap: 0; }
+  .ls-line { height: var(--lh-1); }
+  .ls-outs { gap: var(--sp-1); }
+  .ls-cards { height: var(--lh-1); }
+  .ls-cards .ctext > span { width: 20px; }
   .ls-eq .ls-v { flex-basis: 3.5rem; }
 }
 
 /* ------------------------------------------------- the band's own section */
 
-/* The same three cells as a column on the right of the band, on a screen wide
-   enough for a third column (`../table/hero-band.css`). The bar's rule holds
-   here for the same reason and more sharply: this sits inside the one box on
-   the screen that may not change size, so every cell is the same two fixed
-   lines and nothing wraps.
-
-   The out cards go: a column 248 px wide cannot hold nine cards and the reading
-   they belong to, and a card list that clipped mid-card would say less than the
-   count already does. The cards are in the replay's analysis panel, whole. */
+/* The same three cells as a column in the band. The outs reserve two card
+   rows and two odds rows even when the street has nothing to count. */
 .hb-stats .live-stats {
   grid-template-columns: minmax(0, 1fr);
   grid-template-areas:
@@ -231,12 +215,10 @@
   margin: 0;
 }
 
-.hb-stats .ls-cards { display: none; }
 /* The precision footnote ("sampled, 20,000 deals") is a technical aside
    nobody reads mid-hand, and next to "vs N random hands" in a single
    nowrap line it had nowhere to go at 248px: the two ran together with no
-   gap between them or clipped outright. Dropped here for the same reason
-   the out cards are: it says less than what is already on screen. */
+   gap between them or clipped outright. */
 .hb-stats .ls-extra { display: none; }
 
 /* The column's own height is the band's content row less the key legend
@@ -249,3 +231,13 @@
 .hb-stats .ls-cell { gap: 2px; }
 .hb-stats .ls-line { height: 16px; }
 .hb-stats .ls-sub { height: 14px; line-height: 14px; }
+.hb-stats .ls-outs { gap: var(--sp-1); }
+
+:root { --outs-reading-h: calc(5 * var(--lh-1) + 3 * var(--sp-1)); }
+.match[data-practice] { --stats-h: calc(var(--outs-reading-h) + 2 * var(--sp-2)); }
+@media (max-width: 720px) {
+  .match[data-practice] {
+    --outs-reading-h: calc(4 * var(--lh-1) + 2 * var(--sp-1));
+    --stats-h: calc(var(--outs-reading-h) + 2 * var(--lh-1) + var(--sp-1) + 2 * var(--sp-2));
+  }
+}

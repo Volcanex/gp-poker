@@ -46,7 +46,7 @@ describe('live stats helpers', () => {
     expect(flush?.label).toBe('1 out');
 
     const none = outsLine({ cards: ['Ah', 'Ad'], count: 2, draws: [], drawCards: [] });
-    expect(none).toEqual({ label: 'No draw, but 2 cards help', cards: [], draws: '', muted: true });
+    expect(none).toEqual({ label: 'No draw, but 2 cards help', cards: ['Ah', 'Ad'], draws: '', muted: true });
 
     expect(outsLine({ cards: ['Ah'], count: 1, draws: [], drawCards: [] })?.label)
       .toBe('No draw, but 1 card helps');
@@ -97,6 +97,9 @@ describe('draw outs', () => {
     expect(combo.draws).toEqual(expect.arrayContaining(['flush draw', 'open-ended straight draw']));
     expect(combo.drawCards.length).toBe(new Set(combo.drawCards).size);
     expect(combo.drawCards.length).toBe(15);
+    const line = outsLine(combo)!;
+    expect(line.cards).toEqual(combo.drawCards);
+    expect(line.cards.every((card) => combo.cards.includes(card))).toBe(true);
   });
 
   test('no draw leaves the draw cards empty, so the row falls back to the count', () => {

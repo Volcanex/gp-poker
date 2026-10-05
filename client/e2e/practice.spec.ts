@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
+import { PROTOCOL_VERSION } from '@opentable/protocol';
 import type { Box } from './table.ts';
 import {
-  boxes, markSettled, shiftSince, stubApi, waitForDock, watchLayoutShift,
+  ME, boxes, markSettled, shiftSince, stubApi, waitForDock, watchLayoutShift,
 } from './table.ts';
 
 /* The analysis strip belongs to practice tables and to nothing else, and it has
@@ -11,6 +12,12 @@ import {
 
 const PRACTICE = '/m/mock?practice=1';
 const STRIP = '.practice-strip';
+
+test.beforeEach(async ({ page }) => {
+  await page.routeWebSocket('**/ws', (socket) => {
+    socket.send(JSON.stringify({ t: 'hi', v: PROTOCOL_VERSION, u: ME }));
+  });
+});
 
 function diff(a: Record<string, Box | null>, b: Record<string, Box | null>): string[] {
   return Object.keys(a).filter((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k]));
@@ -27,6 +34,28 @@ for (const size of [{ name: 'phone', width: 390, height: 844 }, { name: 'desktop
     await page.goto('/m/mock');
     await waitForDock(page, 'turn');
     await expect(page.locator(STRIP)).toHaveCount(0);
+  });
+
+  test(`out cards and hit odds fit at ${size.width}`, async ({ page }) => {
+    await page.setViewportSize({ width: size.width, height: size.height });
+    await stubApi(page);
+    await page.goto(`${PRACTICE}&v2=1&step=5`);
+    const cards = page.locator('.ls-cards');
+    await expect(cards.locator('.ctext > span')).toHaveCount(9);
+    await expect(page.locator('.ls-hit-line').nth(0)).toHaveText('Next card: 19.1% (4.2 to 1)');
+    await expect(page.locator('.ls-hit-line').nth(1)).toHaveText('By river: 35.0% (1.9 to 1)');
+    expect(await cards.evaluate((el) => el.scrollHeight <= el.clientHeight)).toBe(true);
+    expect(await page.locator('.ls-hit').evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+
+    await page.goto(`${PRACTICE}&v2=1&step=9`);
+    await expect(cards.locator('.ctext > span')).toHaveCount(15);
+    await expect(page.locator('.ls-hit-line')).toHaveText('Next card: 32.6% (2.1 to 1)');
+
+    for (const step of [2, 12]) {
+      await page.goto(`${PRACTICE}&v2=1&step=${step}`);
+      await expect(cards.locator('.ctext > span')).toHaveCount(0);
+      await expect(page.locator('.ls-hit-line')).toHaveCount(0);
+    }
   });
 }
 
@@ -85,10 +114,10 @@ test('the readings are a section of the band on a wide v2 table', async ({ page 
   await expect(cells.nth(1)).toContainText('9 outs');
   await expect(cells.nth(2)).toContainText(/\d+\.\d%/);
 
-  /* The count is the glance. The cards that make the outs are the analysis
-     panel's: a 248 px column cannot hold nine cards and the reading they
-     belong to. */
-  await expect(page.locator('.hb-stats .ls-cards')).toBeHidden();
+  await expect(page.locator('.hb-stats .ls-cards')).toBeVisible();
+  await expect(page.locator('.hb-stats .ls-cards .ctext > span')).toHaveCount(9);
+  await expect(page.locator('.hb-stats .ls-hit-line').nth(0)).toHaveText('Next card: 19.1% (4.2 to 1)');
+  await expect(page.locator('.hb-stats .ls-hit-line').nth(1)).toHaveText('By river: 35.0% (1.9 to 1)');
 
   /* The studs are the same studs in the column: one lit for king high and the
      flush stud hollow for the four hearts, and they keep the bar's width. */
