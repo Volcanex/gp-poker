@@ -15,16 +15,15 @@ import type { EquityResult } from '@opentable/equity';
 import type { OutsRead } from './draw-outs.ts';
 import type { DrawName, HandCategory } from '@opentable/equity';
 import { STUDS, drawTargets, preflopWords, studOf } from './strength.ts';
+import { oddsAgainst, outsOdds } from './outs-odds.ts';
 import './live-stats.css';
 
 export interface LiveStatsProps {
   hole: [Card, Card] | null;
   board: Card[];
   opponents: number;
+  inHand: boolean;
 }
-
-/* Nine is a flush draw, the longest list worth printing in full. */
-const MAX_OUTS_SHOWN = 9;
 
 export function villainsFor(opponents: number): Villain[] {
   const n = Math.max(1, Math.min(8, Math.round(opponents)));
@@ -65,7 +64,7 @@ export function outsLine(result: OutsRead | null): OutsLine | null {
   const n = result.count;
   return {
     label: n === 0 ? 'No draw, and nothing helps' : `No draw, but ${n} ${n === 1 ? 'card helps' : 'cards help'}`,
-    cards: [],
+    cards: result.cards,
     draws: result.draws.join(', '),
     muted: true,
   };
@@ -117,14 +116,15 @@ export function studsLabel(category: HandCategory | null, targets: number[]): st
   return `${made}, drawing to ${list}`;
 }
 
-export function LiveStats({ hole, board, opponents }: LiveStatsProps) {
+export function LiveStats({ hole, board, opponents, inHand }: LiveStatsProps) {
   const [naming, setNaming] = useState<HandNaming | null>(null);
-  const [outs, setOuts] = useState<OutsRead | null>(null);
+  const [outsRead, setOuts] = useState<{ key: string; result: OutsRead } | null>(null);
   const [equity, setEquity] = useState<EquityResult | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const key = `${hole?.join('') ?? ''}|${board.join('')}|${opponents}`;
+  const key = `${hole?.join('') ?? ''}|${board.join('')}|${opponents}|${inHand}`;
   const reads = readsFor(board);
+  const outs = outsRead?.key === key ? outsRead.result : null;
 
   useEffect(() => {
     if (!hole) {
@@ -143,8 +143,10 @@ export function LiveStats({ hole, board, opponents }: LiveStatsProps) {
     } else {
       setNaming(null);
     }
-    if (reads.outs) {
-      jobs.push(analyseOuts({ id: ids[1], hero: hole, board }).then(setOuts));
+    if (reads.outs && inHand) {
+      jobs.push(analyseOuts({ id: ids[1], hero: hole, board }).then((result) => {
+        if (live) setOuts({ key, result });
+      }));
     } else {
       setOuts(null);
     }
@@ -165,9 +167,9 @@ export function LiveStats({ hole, board, opponents }: LiveStatsProps) {
     // The street is the whole input: recompute when any card or seat changes.
   }, [key]);
 
-  const line = outsLine(outs);
-  const shown = line?.cards.slice(0, MAX_OUTS_SHOWN) ?? [];
-  const hidden = (line?.cards.length ?? 0) - shown.length;
+  const line = reads.outs && inHand && hole ? outsLine(outs) : null;
+  const odds = line ? outsOdds(line.cards.length, board.length) : null;
+  const headline = line ? `${line.label}${line.draws ? `: ${drawWords(outs?.draws ?? []).toLowerCase()}` : ''}` : '';
 
   /* Before the flop there is no made hand to light a stud for, so the row
      stays dark and the holding is named in words instead. */
@@ -187,22 +189,20 @@ export function LiveStats({ hole, board, opponents }: LiveStatsProps) {
           {/* Every branch is keyed so React never hands one branch's node to
               the next: the observer counts a reused node that lands somewhere
               else as a shift, and a fresh node as content arriving. */}
-          {!reads.outs ? (
-            <span key="none" className="ls-v ls-v-wide ls-note">{board.length >= 5 ? 'No cards to come' : 'From the flop on'}</span>
+          {!reads.outs || !inHand || !hole ? (
+            <span key="none" className="ls-v ls-v-wide ls-note">{!inHand || !hole ? 'Out of the hand' : board.length >= 5 ? 'No cards to come' : 'From the flop on'}</span>
           ) : line ? (
-            <>
-              <span key={line.label} className={`ls-v ${line.muted ? 'ls-note' : 'num'}`}>{line.label}</span>
-              <span key="cards" className="ls-cards">
-                {shown.length > 0 && <BoardText cards={shown} />}
-                {hidden > 0 && <span className="ls-note ls-more">and {hidden} more</span>}
-              </span>
-            </>
+            <span key={headline} className={`ls-v ls-v-wide ${line.muted ? 'ls-note' : 'num'}`} title={headline}>{headline}</span>
           ) : (
             <Waiting key="wait" />
           )}
         </div>
-        <div className="ls-sub">
-          <span key={line?.draws ?? ''} className="ls-note">{drawWords(outs?.draws ?? [])}</span>
+        <div className="ls-cards" role="group" aria-label="Out cards">
+          {line && line.cards.length > 0 && <BoardText key={line.cards.join('')} cards={line.cards} />}
+        </div>
+        <div className="ls-hit ls-note num" title="Chance of hitting one of these cards, not chance of winning the hand">
+          {odds && <span key={`next-${key}`} className="ls-hit-line">Next card: {percentLabel(odds.next)} ({oddsAgainst(odds.next)})</span>}
+          {odds?.river != null && <span key={`river-${key}`} className="ls-hit-line">By river: {percentLabel(odds.river)} ({oddsAgainst(odds.river)})</span>}
         </div>
       </div>
 

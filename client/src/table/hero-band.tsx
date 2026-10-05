@@ -140,7 +140,9 @@ export function HeroBand({
         {stats && (
           <div className="hb-stats">
             {stats}
-            {dealBelow && onNext && <DealNext onNext={onNext} className="hb-stats-next" />}
+            <div className="hb-stats-deal">
+              {dealBelow && onNext && <DealNext onNext={onNext} className="hb-stats-next" />}
+            </div>
           </div>
         )}
 

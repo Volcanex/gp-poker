@@ -47,7 +47,9 @@ on it, and its slot is held open whether or not there is a number in it.
 
 **On a phone it is a round button on the felt** (`ChatFab`, bottom right,
 absolute against `.match` and above the band, so it costs the grid nothing),
-with the count as a small circle on its shoulder. There is no header row on a
+with the count as a small circle on its shoulder. The offset includes a
+practice table's actual `--stats-h`, keeping the button above its out cards
+and hit odds. There is no header row on a
 phone table to hold the word: the match's actions live in the top bar's "Game"
 menu there (`../table/CLAUDE.md`), and a chat toggle in a menu is a toggle
 nobody sees arrive. It is not drawn while the panel is open, because the panel

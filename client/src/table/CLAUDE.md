@@ -505,7 +505,9 @@ fold and call are two words and the six sizes are six numbers. `table.tsx`
 decides the host and renders `LiveStats` once either way, because it drives the
 analysis worker and two of it would cancel each other's requests; below the
 breakpoint, and on v1, the strip is still the strip. See `../analysis/CLAUDE.md`
-for what the column drops.
+for the outs cards and exact hit odds. The practice band's height also pays
+for these readings and a reserved next-deal slot, so neither a draw nor a held
+hand changes the felt's footprint.
 
 **Two groups under a mouse, one stack under a thumb.** Wide, the controls split
 left and right: fold and check or call on the left in `--acts-w`, which is a

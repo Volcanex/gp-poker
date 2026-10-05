@@ -203,6 +203,7 @@ export function Table({
      and is drawn bare, without any of this. */
   const watching = view.you == null && !bare && !ended;
   const hole = holeOf(mySeat);
+  const heroInHand = mySeat != null && !mySeat.folded && !mySeat.out && view.street !== 'done';
   const opponents = view.seats.filter(
     (s) => s.i !== view.you && !s.folded && !s.out && s.cards != null,
   ).length;
@@ -447,7 +448,7 @@ export function Table({
 
       {strip && !inBand && (
         <div className="practice-strip">
-          {hole && <LiveStats hole={hole} board={shown} opponents={opponents} />}
+          {hole && <LiveStats hole={hole} board={shown} opponents={opponents} inHand={heroInHand} />}
         </div>
       )}
 
@@ -467,7 +468,7 @@ export function Table({
               onBack={onBack}
               onExtra={onExtra}
               stats={inBand && hole
-                ? <LiveStats hole={hole} board={shown} opponents={opponents} />
+                ? <LiveStats hole={hole} board={shown} opponents={opponents} inHand={heroInHand} />
                 : null}
             />
           ) : (
