@@ -16,7 +16,15 @@ export type SoundEvent =
   | 'matchWon'
   | 'matchLost'
   | 'chat'
-  | 'click';
+  | 'click'
+  | 'solPickUp'
+  | 'solPlace'
+  | 'solFlip'
+  | 'solDraw'
+  | 'solFoundation'
+  | 'solIllegal'
+  | 'solShuffle'
+  | 'solWon';
 
 export const soundEvents: readonly SoundEvent[] = [
   'deal',
@@ -37,4 +45,12 @@ export const soundEvents: readonly SoundEvent[] = [
   'matchLost',
   'chat',
   'click',
+  'solPickUp',
+  'solPlace',
+  'solFlip',
+  'solDraw',
+  'solFoundation',
+  'solIllegal',
+  'solShuffle',
+  'solWon',
 ];

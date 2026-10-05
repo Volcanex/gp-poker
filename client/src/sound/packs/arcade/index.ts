@@ -38,6 +38,14 @@ export const arcade: {
     matchLost: click8bitSound,
     chat: click8bitSound,
     click: click8bitSound,
+    solPickUp: click8bitSound,
+    solPlace: click8bitSound,
+    solFlip: select002Sound,
+    solDraw: select001Sound,
+    solFoundation: select004Sound,
+    solIllegal: select003Sound,
+    solShuffle: confirmation001Sound,
+    solWon: jinglesNes02Sound,
   },
 };
 

@@ -4,7 +4,7 @@ Small, framework-free sound module: a Web Audio engine, four swappable
 packs, and a `useSoundSettings()` hook for the settings menu. The callers
 live outside this directory: `../table/sounds.ts` plays the table cues,
 `../chat/use-chat.ts` the chat one, `../ui/presence.tsx` the match found
-alert, `../ui/settings.tsx` shows the controls and `../app.tsx` unlocks the
+alert, `../solitaire/solitaire.tsx` the solitaire cards, `../ui/settings.tsx` shows the controls and `../app.tsx` unlocks the
 context on the first gesture. See "Integration points" for the contract.
 
 ## Files
@@ -84,75 +84,78 @@ Warcraft/Blizzard patterns. "Source pack" is the actual Kenney itch.io
 pack the file matched by name in soundcn's assets mirror; five sounds
 (marked `Kenney (unmirrored)`) aren't present in that mirror by filename
 but are independently verified via soundcn's registry metadata (author,
-licence, category all clean). The `web` pack's 18 sounds are not vendored at
+licence, category all clean). The `web` pack's 21 sounds are not vendored at
 all: they are synthesised in this repo and carry `author: "EveryonePoker"`,
 which is why the provenance test checks the author per pack rather than
 expecting Kenney everywhere.
 
 | Sound module | Used for | Pack(s) | Source pack | Licence |
 |---|---|---|---|---|
-| card-slide-1 | deal | felt | Kenney Casino Audio | CC0 |
-| card-place-1 | cardPlace | felt | Kenney Casino Audio | CC0 |
-| card-place-2 | check | felt | Kenney Casino Audio | CC0 |
-| card-shove-1 | fold | felt | Kenney Casino Audio | CC0 |
+| card-slide-1 | deal, solDraw | felt | Kenney Casino Audio | CC0 |
+| card-place-1 | cardPlace, solPlace, solFoundation | felt | Kenney Casino Audio | CC0 |
+| card-place-2 | check, solFlip | felt | Kenney Casino Audio | CC0 |
+| card-shove-1 | fold, solShuffle | felt | Kenney Casino Audio | CC0 |
 | chip-lay-1 | bet | felt | Kenney Casino Audio | CC0 |
 | chip-lay-2 | call | felt | Kenney Casino Audio | CC0 |
 | chips-collide-1 | chipsCollect | felt | Kenney Casino Audio | CC0 |
 | notification-pop | yourTurn, readyCheck | felt | Kenney (unmirrored) | CC0 |
-| tick-001 | clockWarning, tick | felt | Kenney Interface Sounds | CC0 |
+| tick-001 | clockWarning, tick, solIllegal | felt | Kenney Interface Sounds | CC0 |
 | success-chime | handWon, readyAccept | felt | Kenney (unmirrored) | CC0 |
 | drop-001 | handLost | felt | Kenney Interface Sounds | CC0 |
 | drop-004 | matchLost | felt | Kenney Interface Sounds | CC0 |
-| jingles-hit-01 | matchWon | felt | Kenney Music Jingles (Hit) | CC0 |
-| click-soft | chat, click | felt | Kenney (unmirrored) | CC0 |
-| click-8bit | deal, cardPlace, check, tick, handLost, matchLost, chat, click | arcade | Kenney (unmirrored) | CC0 |
-| select-001 | bet | arcade | Kenney Interface Sounds | CC0 |
-| select-002 | call | arcade | Kenney Interface Sounds | CC0 |
-| select-003 | fold | arcade | Kenney Interface Sounds | CC0 |
-| select-004 | chipsCollect | arcade | Kenney Interface Sounds | CC0 |
-| confirmation-001 | yourTurn, readyCheck | arcade | Kenney Interface Sounds | CC0 |
+| jingles-hit-01 | matchWon, solWon | felt | Kenney Music Jingles (Hit) | CC0 |
+| click-soft | chat, click, solPickUp | felt | Kenney (unmirrored) | CC0 |
+| click-8bit | deal, cardPlace, check, tick, handLost, matchLost, chat, click, solPickUp, solPlace | arcade | Kenney (unmirrored) | CC0 |
+| select-001 | bet, solDraw | arcade | Kenney Interface Sounds | CC0 |
+| select-002 | call, solFlip | arcade | Kenney Interface Sounds | CC0 |
+| select-003 | fold, solIllegal | arcade | Kenney Interface Sounds | CC0 |
+| select-004 | chipsCollect, solFoundation | arcade | Kenney Interface Sounds | CC0 |
+| confirmation-001 | yourTurn, readyCheck, solShuffle | arcade | Kenney Interface Sounds | CC0 |
 | jump-8bit | clockWarning | arcade | Kenney (unmirrored) | CC0 |
 | jingles-nes-01 | handWon, readyAccept | arcade | Kenney Music Jingles (8-Bit) | CC0 |
-| jingles-nes-02 | matchWon | arcade | Kenney Music Jingles (8-Bit) | CC0 |
-| glass-001 | deal | glass | Kenney Interface Sounds | CC0 |
+| jingles-nes-02 | matchWon, solWon | arcade | Kenney Music Jingles (8-Bit) | CC0 |
+| glass-001 | deal, solDraw | glass | Kenney Interface Sounds | CC0 |
 | glass-002 | bet | glass | Kenney Interface Sounds | CC0 |
 | glass-003 | call | glass | Kenney Interface Sounds | CC0 |
-| glass-004 | fold | glass | Kenney Interface Sounds | CC0 |
+| glass-004 | fold, solShuffle | glass | Kenney Interface Sounds | CC0 |
 | glass-005 | yourTurn, readyCheck | glass | Kenney Interface Sounds | CC0 |
 | glass-006 | clockWarning | glass | Kenney Interface Sounds | CC0 |
-| impact-glass-light-000 | cardPlace | glass | Kenney Impact Sounds | CC0 |
-| impact-glass-light-001 | check | glass | Kenney Impact Sounds | CC0 |
-| impact-glass-light-002 | chipsCollect | glass | Kenney Impact Sounds | CC0 |
-| impact-glass-light-003 | handLost | glass | Kenney Impact Sounds | CC0 |
-| impact-glass-light-004 | tick, chat, click | glass | Kenney Impact Sounds | CC0 |
+| impact-glass-light-000 | cardPlace, solPlace | glass | Kenney Impact Sounds | CC0 |
+| impact-glass-light-001 | check, solFlip | glass | Kenney Impact Sounds | CC0 |
+| impact-glass-light-002 | chipsCollect, solFoundation | glass | Kenney Impact Sounds | CC0 |
+| impact-glass-light-003 | handLost, solIllegal | glass | Kenney Impact Sounds | CC0 |
+| impact-glass-light-004 | tick, chat, click, solPickUp | glass | Kenney Impact Sounds | CC0 |
 | jingles-pizzi-00 | handWon, readyAccept | glass | Kenney Music Jingles (Pizzicato) | CC0 |
-| impact-bell-heavy-000 | matchWon | glass | Kenney Impact Sounds | CC0 |
+| impact-bell-heavy-000 | matchWon, solWon | glass | Kenney Impact Sounds | CC0 |
 | jingles-steel-05 | matchLost | glass | Kenney Music Jingles (Steel) | CC0 |
-| deal | deal | web | Generated, client/scripts/sound-web.mjs | CC0 |
-| card-place | cardPlace | web | Generated, client/scripts/sound-web.mjs | CC0 |
+| deal | deal, solShuffle | web | Generated, client/scripts/sound-web.mjs | CC0 |
+| card-place | cardPlace, solFoundation | web | Generated, client/scripts/sound-web.mjs | CC0 |
 | bet | bet | web | Generated, client/scripts/sound-web.mjs | CC0 |
 | call | call | web | Generated, client/scripts/sound-web.mjs | CC0 |
-| check | check | web | Generated, client/scripts/sound-web.mjs | CC0 |
+| check | check, solPlace | web | Generated, client/scripts/sound-web.mjs | CC0 |
 | fold | fold | web | Generated, client/scripts/sound-web.mjs | CC0 |
 | chips-collect | chipsCollect | web | Generated, client/scripts/sound-web.mjs | CC0 |
 | your-turn | yourTurn | web | Generated, client/scripts/sound-web.mjs | CC0 |
 | clock-warning | clockWarning | web | Generated, client/scripts/sound-web.mjs | CC0 |
-| tick | tick | web | Generated, client/scripts/sound-web.mjs | CC0 |
+| tick | tick, solIllegal | web | Generated, client/scripts/sound-web.mjs | CC0 |
 | ready-check | readyCheck | web | Generated, client/scripts/sound-web.mjs | CC0 |
 | ready-accept | readyAccept | web | Generated, client/scripts/sound-web.mjs | CC0 |
 | hand-won | handWon | web | Generated, client/scripts/sound-web.mjs | CC0 |
 | hand-lost | handLost | web | Generated, client/scripts/sound-web.mjs | CC0 |
-| match-won | matchWon | web | Generated, client/scripts/sound-web.mjs | CC0 |
+| match-won | matchWon, solWon | web | Generated, client/scripts/sound-web.mjs | CC0 |
 | match-lost | matchLost | web | Generated, client/scripts/sound-web.mjs | CC0 |
 | chat | chat | web | Generated, client/scripts/sound-web.mjs | CC0 |
 | click | click | web | Generated, client/scripts/sound-web.mjs | CC0 |
+| sol-pick-up | solPickUp | web | Generated, client/scripts/sound-web.mjs | CC0 |
+| sol-flip | solFlip | web | Generated, client/scripts/sound-web.mjs | CC0 |
+| sol-draw | solDraw | web | Generated, client/scripts/sound-web.mjs | CC0 |
 
 ### The web pack is synthesised, not sampled
 
 `web` evokes early-2000s desktop and messenger audio, and every sound people
 remember from that era, the nudge, the door, the mail chime, the dial-up
 handshake, is a copyrighted recording. None of them may be copied, sampled or
-rebuilt note for note. So the pack contains no recording at all: eighteen
+rebuilt note for note. So the pack contains no recording at all: twenty-one
 original sounds built from oscillators and filtered noise by
 `client/scripts/sound-web.mjs`, which anyone can rerun to get the same bytes
 back. That makes the whole pack CC0 with the repo as its author, and it makes
@@ -190,15 +193,18 @@ these three the moment a verified CC0 notification sound can be vendored.
 | felt | ~69 KB |
 | arcade | ~36 KB |
 | glass | ~72 KB |
-| web | ~197 KB |
+| web | ~216 KB |
 
 All under the 250 KB per-pack budget; `web` is the big one because uncompressed
 WAV costs about 59 KB of base64 per second of audio, and the script prints the
 running total so a regeneration cannot quietly blow past it. `web` is
 additionally held to a tighter line in `src/test/sound-web.test.ts`, raised
 from 200 KB to 220 KB when the ready check's two sounds landed: eighteen
-sounds do not fit a line drawn for fifteen. Anything that would need it raised
-again should shorten a sound instead, because the next 20 KB is a third of a
+sounds do not fit a line drawn for fifteen. Solitaire's three new sounds
+(pick up, flip, draw from stock) are noise only and about 60 to 70 ms each so
+they fit under the same line; its other five events reuse existing web sounds
+through the script's `ALIASES` map rather than cost a file each. Anything that
+would need it raised again should shorten a sound instead, because the next 20 KB is a third of a
 second of audio and there is nothing on this site that needs one.
 
 ## Integration points
@@ -222,6 +228,17 @@ them itself, which is what keeps the module free of table knowledge:
    `readyCheck` when the prompt arrives, `tick` once a second through the
    last ten with a rising `rate`, and `readyAccept` when the seat is taken.
    Declining and running out are silent.
+
+   **Solitaire has eight of its own** (`../solitaire/solitaire.tsx`):
+   `solPickUp` when a drag lifts a card, `solPlace` when a card lands on a
+   pile, `solFoundation` when it lands on a foundation, `solFlip` when a
+   tableau card turns face up, `solDraw` for the stock, `solShuffle` for a
+   redeal or a new deal, `solIllegal` for a refused tap or drop, and
+   `solWon` for the win. Each is timed to when the card lands rather than
+   when the move is made, with a little `rate` jitter so a run of the same
+   sound does not repeat exactly. felt maps them to real card foley; arcade
+   and glass reuse their own themed sounds, so they click and chime rather
+   than rustle, which keeps each pack consistent with itself.
 
    **`tick` has three callers and one rule: a tick is a number changing.**
    `../table/sounds.ts` plays it off `view.runout`, the count the server

@@ -18,6 +18,9 @@ import { matchWonSound } from './match-won.ts';
 import { matchLostSound } from './match-lost.ts';
 import { chatSound } from './chat.ts';
 import { clickSound } from './click.ts';
+import { solPickUpSound } from './sol-pick-up.ts';
+import { solFlipSound } from './sol-flip.ts';
+import { solDrawSound } from './sol-draw.ts';
 
 export const web: {
   id: string;
@@ -47,6 +50,14 @@ export const web: {
     matchLost: matchLostSound,
     chat: chatSound,
     click: clickSound,
+    solPickUp: solPickUpSound,
+    solFlip: solFlipSound,
+    solDraw: solDrawSound,
+    solPlace: checkSound,
+    solFoundation: cardPlaceSound,
+    solIllegal: tickSound,
+    solShuffle: dealSound,
+    solWon: matchWonSound,
   },
 };
 

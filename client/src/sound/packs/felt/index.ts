@@ -43,6 +43,14 @@ export const felt: {
     matchLost: drop004Sound,
     chat: clickSoftSound,
     click: clickSoftSound,
+    solPickUp: clickSoftSound,
+    solPlace: cardPlace1Sound,
+    solFlip: cardPlace2Sound,
+    solDraw: cardSlide1Sound,
+    solFoundation: cardPlace1Sound,
+    solIllegal: tick001Sound,
+    solShuffle: cardShove1Sound,
+    solWon: jinglesHit01Sound,
   },
 };
 

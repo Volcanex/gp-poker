@@ -43,6 +43,14 @@ export const glass: {
     matchLost: jinglesSteel05Sound,
     chat: impactGlassLight004Sound,
     click: impactGlassLight004Sound,
+    solPickUp: impactGlassLight004Sound,
+    solPlace: impactGlassLight000Sound,
+    solFlip: impactGlassLight001Sound,
+    solDraw: glass001Sound,
+    solFoundation: impactGlassLight002Sound,
+    solIllegal: impactGlassLight003Sound,
+    solShuffle: glass004Sound,
+    solWon: impactBellHeavy000Sound,
   },
 };
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* Generates the "Old web" sound pack: fifteen original blips and chimes that
+/* Generates the "Old web" sound pack: original blips, chimes and card noises that
    evoke early-2000s desktop and messenger audio without copying any of it.
    Every sound is synthesised here, so the whole pack is CC0 and anyone can
    regenerate it byte for byte:
@@ -176,6 +176,23 @@ function addNote(buf, opts) {
   }
 }
 
+/* Noise that swells in before it decays, the shape of a card brushing past
+   rather than of something hitting. */
+function addSwell(buf, opts) {
+  const { start = 0, length, seed, attackMs = 10, tau = 0.015, gain = 1, filter } = opts;
+  const from = samples(start);
+  const count = Math.min(samples(length), buf.length - from);
+  const rnd = mulberry32(seed);
+  const shape = filter();
+  const attack = Math.max(1, samples(attackMs));
+  for (let i = 0; i < count; i++) {
+    const t = i / SR;
+    const rise = Math.min(1, i / attack);
+    const env = i < attack ? rise * rise : decay(t - attack / SR, tau);
+    buf[from + i] += shape(rnd() * 2 - 1) * env * gain;
+  }
+}
+
 function addNoise(buf, opts) {
   const { start = 0, length, seed, tau = 0.01, gain = 1, filter } = opts;
   const from = samples(start);
@@ -239,7 +256,7 @@ function wav(pcm) {
   return bytes;
 }
 
-/* The eighteen sounds. Waveform and length carry the character: ticks are
+/* The sounds. Waveform and length carry the character: ticks are
    filtered noise, actions are square and triangle blips, and the chimes and
    fanfares are sines with a little FM so the pack does not sound like one
    instrument playing everything. */
@@ -474,6 +491,28 @@ const SOUNDS = {
     addNoise(buf, { length: 60, seed: 505, tau: 0.005, gain: 1, filter: () => bandpass(3000, 1.1) });
     return { buf, ms: 60 };
   },
+  /* Solitaire's three card noises, the only ones it does not borrow from
+     above. All three are filtered noise and nothing tonal, so they read as
+     paper rather than as interface: a card lifting off the cloth, a card
+     turning over, and a card sliding off the stock. Each is kept as short as
+     the pack test allows, because the pack's budget is nearly spent. */
+  solPickUp: () => {
+    const buf = buffer(60);
+    addSwell(buf, { length: 60, seed: 611, attackMs: 12, tau: 0.012, gain: 1, filter: () => bandpass(2300, 0.8) });
+    return { buf, ms: 60, dbfs: -5.5 };
+  },
+  solFlip: () => {
+    const buf = buffer(66);
+    addNoise(buf, { length: 30, seed: 622, tau: 0.004, gain: 0.8, filter: () => bandpass(3200, 1.2) });
+    addNoise(buf, { start: 24, length: 42, seed: 623, tau: 0.009, gain: 1, filter: () => bandpass(1500, 1.1) });
+    return { buf, ms: 66 };
+  },
+  solDraw: () => {
+    const buf = buffer(70);
+    addSwell(buf, { length: 70, seed: 633, attackMs: 22, tau: 0.018, gain: 0.8, filter: () => bandpass(1900, 0.9) });
+    addNoise(buf, { start: 40, length: 30, seed: 634, tau: 0.006, gain: 0.7, filter: () => bandpass(1200, 1.4) });
+    return { buf, ms: 70 };
+  },
 };
 
 const FILE_NAMES = {
@@ -495,6 +534,20 @@ const FILE_NAMES = {
   matchLost: 'match-lost',
   chat: 'chat',
   click: 'click',
+  solPickUp: 'sol-pick-up',
+  solFlip: 'sol-flip',
+  solDraw: 'sol-draw',
+};
+
+/* Events that reuse a sound made above rather than costing a file of their
+   own: a card landing on a pile is the table's card landing, and so on. The
+   index maps them; no module is written for them. */
+const ALIASES = {
+  solPlace: 'check',
+  solFoundation: 'cardPlace',
+  solIllegal: 'tick',
+  solShuffle: 'deal',
+  solWon: 'matchWon',
 };
 
 function moduleSource(exportName, name, base64, duration) {
@@ -517,7 +570,10 @@ function packIndexSource(entries) {
   const imports = entries
     .map((e) => `import { ${e.exportName} } from './${e.file}.ts';`)
     .join('\n');
-  const mapping = entries.map((e) => `    ${e.event}: ${e.exportName},`).join('\n');
+  const mapping = [
+    ...entries.map((e) => `    ${e.event}: ${e.exportName},`),
+    ...Object.entries(ALIASES).map(([event, source]) => `    ${event}: ${source}Sound,`),
+  ].join('\n');
   return `import type { SoundEvent } from '../../events.ts';
 import type { SoundModule } from '../../sound-types.ts';
 ${imports}
@@ -586,5 +642,5 @@ for (const e of entries) {
 }
 console.log(
   `\n${entries.length} sounds, ${(totalBase64 / 1024).toFixed(1)} KB of base64 total ` +
-    `(budget 200 KB).`,
+    `(budget 220 KB).`,
 );
