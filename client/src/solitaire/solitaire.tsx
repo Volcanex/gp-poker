@@ -73,17 +73,34 @@ export function Solitaire() {
     catch { /* A full or unavailable store must not interrupt play. */ }
   }, [game]);
   useEffect(() => () => { if (pending.current) clearTimeout(pending.current.timer); }, []);
+  /* Fit the board to the screen: the face-up step shrinks until the tallest
+     pile ends above the bottom of the viewport, never below a rank's corner. */
   useLayoutEffect(() => {
     const board = boardRef.current!;
     const size = () => {
-      const width = board.querySelector('.sol-pile')!.getBoundingClientRect().width;
-      board.style.setProperty('--sol-step', `${Math.max(40, Math.ceil(width * 0.84 / 4) * 4)}px`);
+      /* Widest board whose top row plus a six-hidden, eleven-up pile fits. */
+      const gap = parseFloat(getComputedStyle(board.querySelector('.sol-tableau')!).columnGap);
+      const fit = (window.innerHeight - (board.getBoundingClientRect().top + window.scrollY) - 100) / (1.4 * 5.4);
+      board.parentElement!.style.setProperty('--sol-w', `${Math.max(320, Math.floor(fit * 7 + gap * 6))}px`);
+      const pile = board.querySelector('.sol-pile')!;
+      const card = pile.getBoundingClientRect().width * 7 / 5;
+      const top = pile.getBoundingClientRect().top + window.scrollY;
+      const room = window.innerHeight - top - 16;
+      const hiddenStep = parseFloat(getComputedStyle(board).getPropertyValue('--sol-hidden-step'));
+      let step = card * 0.4;
+      for (const p of game.board.tableau) {
+        const hidden = p.filter((c) => !c.faceUp).length;
+        const up = p.length - hidden - 1;
+        if (up > 0) step = Math.min(step, (room - card - hidden * hiddenStep) / up);
+      }
+      board.style.setProperty('--sol-step', `${Math.round(Math.max(card * 0.33, step))}px`);
     };
     size();
     const observer = new ResizeObserver(size);
     observer.observe(board);
-    return () => observer.disconnect();
-  }, []);
+    window.addEventListener('resize', size);
+    return () => { observer.disconnect(); window.removeEventListener('resize', size); };
+  }, [game.board.tableau]);
 
   function cancelTap() {
     if (pending.current) clearTimeout(pending.current.timer);
@@ -192,12 +209,7 @@ export function Solitaire() {
       <main className="page wide stack solitaire">
         <div className="sol-heading">
           <h1 className="h1">Solitaire</h1>
-          <div className="sol-stats">
-            <span><span className="num" data-moves>{board.moves}</span> moves</span>
-            <span className="num" aria-label={`Time ${elapsed(time)}`} data-timer>{elapsed(time)}</span>
-          </div>
-        </div>
-        <div className="sol-controls">
+          <div className="sol-controls">
           <button type="button" className="btn btn-secondary btn-lg" disabled={!game.history.length} onClick={() => act({ type: 'undo' })}>Undo</button>
           <button type="button" className="btn btn-secondary btn-lg" onClick={() => {
             cancelTap();
@@ -206,13 +218,16 @@ export function Solitaire() {
           }}>New game</button>
           <label className="switch-row sol-draw"><input type="checkbox" className="switch" checked={game.drawCount === 3} onChange={(e) => act({ type: 'drawCount', count: e.target.checked ? 3 : 1 })} />Draw 3</label>
           {canComplete(board) && <button type="button" className="btn btn-primary btn-lg" onClick={() => act({ type: 'complete' })}>Complete game</button>}
+          </div>
+          <div className="sol-stats">
+            <span><span className="num" data-moves>{board.moves}</span> moves</span>
+            <span className="num" aria-label={`Time ${elapsed(time)}`} data-timer>{elapsed(time)}</span>
+          </div>
         </div>
-        <p className="muted sol-help">Tap a card to move it, or drag it to a pile. Double tap for a foundation.</p>
         <div className="sol-board" ref={boardRef} aria-label="Klondike board">
           <DeckSprite />
           <div className="sol-top">
             <div className="sol-cell">
-              <span className="sol-label">Stock</span>
               <button
                 type="button" className="sol-stock sol-slot"
                 aria-label={board.stock.length ? `Draw ${game.drawCount === 3 ? 'three cards' : 'one card'}, ${board.stock.length} in stock` : board.waste.length ? 'Redeal stock' : 'Stock empty'}
@@ -222,7 +237,6 @@ export function Solitaire() {
               </button>
             </div>
             <div className="sol-cell">
-              <span className="sol-label">Waste</span>
               <div className="sol-waste sol-slot">
                 {board.waste.slice(-game.drawCount).map((card, i, visible) => (
                   i === visible.length - 1
@@ -234,7 +248,6 @@ export function Solitaire() {
             <div aria-hidden="true" />
             {board.foundations.map((pile, i) => (
               <div className="sol-cell" key={SUITS[i]}>
-                <span className="sol-label">{SUIT_NAMES[i]}</span>
                 <div className="sol-slot sol-foundation" data-drop={`f${i}`} data-drop-state={dropState({ kind: 'foundation', pile: i })} aria-label={`${SUIT_NAMES[i]} foundation`}>
                   <svg className="sol-pip" aria-hidden="true" viewBox="0 0 100 100"><use href={`#pip-${SUITS[i]}`} /></svg>
                   {!!pile.length && renderCard(pile[pile.length - 1])}
@@ -265,6 +278,7 @@ export function Solitaire() {
         <div className="sol-status" role="status">
           {won ? <div className="card stack"><h2 className="h2">You won</h2><p>All four foundations are complete. {board.moves} moves in {elapsed(time)}.</p></div> : <p className="muted">{message}</p>}
         </div>
+        <p className="muted sol-help">Tap a card to move it, or drag it to a pile. Double tap for a foundation.</p>
         <p className="muted sol-help">Stack cards in descending order, alternating red and black. Only kings go in empty piles. You can redeal as often as you like.</p>
         <dialog className="dlg" ref={newDialog} aria-labelledby="sol-new-title">
           <div className="dlg-body"><h2 className="dlg-title" id="sol-new-title">Start a new game?</h2><p>This replaces your current deal and resets the timer.</p></div>

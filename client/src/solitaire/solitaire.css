@@ -1,15 +1,16 @@
 .sol-heading, .sol-stats, .sol-controls { display: flex; align-items: center; gap: var(--sp-4); }
-.sol-heading { justify-content: space-between; }
+.sol-heading { justify-content: space-between; flex-wrap: wrap; row-gap: var(--sp-3); }
+.sol-heading .sol-controls { flex: 1; }
 .sol-stats { color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .sol-controls { flex-wrap: wrap; gap: var(--sp-2); }
 .sol-controls > .btn, .sol-draw { min-height: var(--h-4); }
 .sol-draw { display: flex; align-items: center; gap: var(--sp-2); padding: 0 var(--sp-2); cursor: pointer; }
 .sol-help { font-size: 13px; line-height: var(--lh-2); }
-.sol-board { --sol-step: 40px; --sol-hidden-step: 12px; width: 100%; }
+.sol-board { --sol-step: 24px; --sol-hidden-step: 10px; width: 100%; max-width: var(--sol-w, 100%); margin-inline: auto; }
+.solitaire > .sol-help, .solitaire > .sol-status { width: 100%; max-width: var(--sol-w, 100%); margin-inline: auto; }
 .sol-top, .sol-tableau { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--sp-2); }
-.sol-top { margin-bottom: var(--sp-6); }
+.sol-top { margin-bottom: var(--sp-4); }
 .sol-cell { min-width: 0; }
-.sol-label { display: block; text-align: center; font-size: 12px; line-height: var(--lh-2); color: var(--text-secondary); margin-bottom: var(--sp-2); }
 .sol-slot { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; aspect-ratio: 5 / 7; border: 1px dashed var(--border); border-radius: var(--radius); color: var(--text-secondary); }
 .sol-stock { padding: 0; background: var(--surface-2); cursor: pointer; font: inherit; font-size: 12px; }
 .sol-stock:disabled { cursor: default; }
@@ -45,9 +46,10 @@
 .solitaire .pc[data-suit="c"] { color: var(--pip-c); }
 
 @media (max-width: 560px) {
-  .sol-board { --sol-hidden-step: 8px; }
+  .sol-board { --sol-hidden-step: 6px; max-width: none; }
+  .solitaire > .sol-heading, .solitaire > .sol-help, .solitaire > .sol-status { max-width: none; }
   .sol-top, .sol-tableau { gap: var(--sp-1); }
   .sol-top { margin-bottom: var(--sp-4); }
-  .sol-label { font-size: 10px; }
+  .sol-heading .sol-controls { order: 3; flex-basis: 100%; }
   .sol-heading, .sol-stats { gap: var(--sp-2); }
 }
