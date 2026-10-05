@@ -19,6 +19,7 @@ import { BotsPage } from './routes/bots.tsx';
 import { learnRoutes } from './routes/learn/index.tsx';
 import { puzzlesRoutes } from './puzzles/index.tsx';
 import { toolsRoutes } from './tools/index.tsx';
+import { Solitaire } from './solitaire/solitaire.tsx';
 import { NotFound } from './routes/not-found.tsx';
 import { SiteShell } from './ui/shell.tsx';
 import { SiteFooter } from './ui/site-footer.tsx';
@@ -86,6 +87,7 @@ export function App() {
               <Route path="/about" element={<About />} />
               <Route path="/watch" element={<Watch />} />
               <Route path="/friends" element={<FriendsPage />} />
+              <Route path="/solitaire" element={<Solitaire />} />
               {learnRoutes}
               {puzzlesRoutes.map((r) => (
                 <Route key={r.path} path={r.path} element={r.element} />

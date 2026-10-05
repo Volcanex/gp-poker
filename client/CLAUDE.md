@@ -29,6 +29,7 @@ declaration for `phe` that the engine's own tsconfig provides.
 | `src/review/` | the match-level review on `/m/:id`: per-seat spider charts, backed counts and the chip track |
 | `src/tools/` | the pages at `/tools` |
 | `src/puzzles/` | the daily puzzles |
+| `src/solitaire/` | client-only Klondike at `/solitaire`, with saved deals and undo |
 | `src/chat/` | table chat |
 | `src/ui/` | the site shell, settings, presence, the account menu and the g-ui seam |
 | `src/admin/` | the g-admin ticket pages (`/admin/tickets`); the bar/annotate/edit overlay itself is vendored, not here - see `src/admin/CLAUDE.md` |

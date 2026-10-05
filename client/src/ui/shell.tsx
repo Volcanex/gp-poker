@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import {
-  Cards, Eye, GraduationCap, Info, Medal, PuzzlePiece, Ranking, Trophy, Users, Wrench,
+  Cards, Club, Eye, GraduationCap, Info, Medal, PuzzlePiece, Ranking, Trophy, Users, Wrench,
 } from '@phosphor-icons/react';
 import { AccountMenu } from './auth.tsx';
 import { SettingsMenu } from './settings.tsx';
@@ -70,6 +70,7 @@ const SECTIONS = [
   { to: '/tournaments', end: false, label: 'Tournaments', Icon: Medal },
   { to: '/learn', end: false, label: 'Learn', Icon: GraduationCap },
   { to: '/puzzles', end: false, label: 'Puzzles', Icon: PuzzlePiece },
+  { to: '/solitaire', end: false, label: 'Solitaire', Icon: Club },
   { to: '/tools', end: false, label: 'Tools', Icon: Wrench },
   { to: '/watch', end: false, label: 'Watch', Icon: Eye },
   { to: '/friends', end: false, label: 'Friends', Icon: Users },
