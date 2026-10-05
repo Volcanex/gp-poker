@@ -63,10 +63,8 @@
 .solitaire .pc-rank { font-family: var(--font-ui); font-size: 46px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; fill: currentColor; }
 .solitaire .pc-rank[data-ten] { font-size: 38px; letter-spacing: 0; }
 .solitaire .pc use { fill: currentColor; }
-.solitaire .pc[data-suit="s"] { color: var(--pip-s); }
-.solitaire .pc[data-suit="h"] { color: var(--pip-h); }
-.solitaire .pc[data-suit="d"] { color: var(--pip-d); }
-.solitaire .pc[data-suit="c"] { color: var(--pip-c); }
+.solitaire .pc[data-suit="s"], .solitaire .pc[data-suit="c"] { color: var(--card-ink); }
+.solitaire .pc[data-suit="h"], .solitaire .pc[data-suit="d"] { color: var(--card-red); }
 
 @media (max-width: 560px) {
   .sol-board { --sol-hidden-step: 6px; max-width: none; }

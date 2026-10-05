@@ -50,7 +50,7 @@ function cardArt(card: Card, w: number, dpr: number, style: CSSStyleDeclaration)
   ctx.strokeStyle = token('--card-edge', '#888');
   ctx.stroke();
   const suit = card[1];
-  ctx.fillStyle = token(`--pip-${suit}`, suit === 'h' || suit === 'd' ? '#c33' : '#222');
+  ctx.fillStyle = token(suit === 'h' || suit === 'd' ? '--card-red' : '--card-ink', suit === 'h' || suit === 'd' ? '#c33' : '#222');
   const ten = card[0] === 'T';
   ctx.font = `600 ${ten ? 38 : 46}px ${token('--font-ui', 'sans-serif')}`;
   ctx.fillText(ten ? '10' : card[0], 9, 47);
