@@ -424,7 +424,7 @@ export interface RawRates {
 /* The same fold computeInsights runs, with MIN_INSIGHT_HANDS never applied
    and every rate printed as a count either side of a divide, not a rounded
    percentage. A single finished match rarely reaches twenty hands for one
-   seat, so computeInsights is right to say nothing there — that gate is
+   seat, so computeInsights is right to say nothing there: that gate is
    about a number being read as a stable tendency, which is not what a match
    review is for. This is for "what actually happened at this table", which a
    count backs at any sample size. The other half of the honesty rule still

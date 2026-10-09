@@ -716,7 +716,7 @@ export interface ProfileTournament {
 
 /* /api/matches/:id/review: how every seat at one finished match actually
    played, mirroring server/src/match-review.ts. `insights` is the same shape
-   as the profile's Insights above, gated below `minHands` exactly as there —
+   as the profile's Insights above, gated below `minHands` exactly as there:
    a six-max match's fifty-odd hands split six ways rarely clear it for any
    one seat. `raw` never gates: every axis is a plain count either side of a
    divide, honest at any sample size, which is what the review's charts are

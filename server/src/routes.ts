@@ -374,7 +374,7 @@ export function registerRoutes(app: FastifyInstance): void {
      match id, bounded the way the insights cache is: a finished match's hands
      never change, so there is no invalidation to key on, only a cap on how
      many reviews a long-running process keeps warm. Refused before the match
-     is finished — a live table's hands are still arriving, and a review of a
+     is finished: a live table's hands are still arriving, and a review of a
      match mid-hand would be a review of a match that has not happened yet. */
   app.get<{ Params: { id: string } }>('/api/matches/:id/review', async (request, reply) => {
     const match = await getMatchById(request.params.id);

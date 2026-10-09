@@ -11,7 +11,7 @@ bargain `profile.tsx`'s insights section makes with its own cache.
 `insights.ts` already draws the honesty line for a career: below
 `MIN_INSIGHT_HANDS` (20) every rate is null, because a rate nobody can trust
 is a claim nobody made. A single match rarely clears that line for any one
-seat — a six-max sit-and-go is commonly under fifty hands split six ways by
+seat: a six-max sit-and-go is commonly under fifty hands split six ways by
 elimination order, so a seat that busts early might see nine. Lowering the
 floor for this page would be the exact failure the owner warned against:
 a confident-looking percentage born from nine hands.
@@ -20,12 +20,12 @@ So the floor is never lowered. `computeMatchReview` calls `computeInsights`
 unmodified and prints its nulls as-is (`PlayerCard`'s career line only
 appears once a seat's own insights actually resolve). Beside it,
 `computeRawRates` (`server/src/insights.ts`) runs the same fold with the gate
-removed and returns a plain count either side of a divide for six axes —
+removed and returns a plain count either side of a divide for six axes:
 "3 of 8 hands", never "38%". A count is honest at any sample size; a rate
 implies a stable tendency that a count does not. `reads.ts` goes one step
 further and only turns a count into a sentence once it is large enough that
 the sentence means something (a hand-picked floor per axis, well under 20,
-documented at each check) — "never three-bet, 3 times this match" is a fact
+documented at each check): "never three-bet, 3 times this match" is a fact
 about this match at three chances; "your three-bet is low" is a claim about
 this player that three chances cannot support.
 
@@ -42,7 +42,7 @@ it.** The first version of this chart used "does a denominator exist" as its
 only honesty check: an axis with `of: 0` got the hollow no-data marker, and
 anything with `of` greater than zero got a filled point at its ring
 position, the same as a career-length sample. That is wrong in a way the
-no-data check does not catch — presence of a denominator is not the same as
+no-data check does not catch: presence of a denominator is not the same as
 sufficiency of one. A seat dealt one hand that played it goes 1 of 1 on
 VPIP, PFR and went-to-showdown: a real, backed rate, plotted at the very
 edge of the ring, drawing the single most confident-looking shape the chart
@@ -56,19 +56,19 @@ interval for a binomial proportion estimated from a small sample (a Wald
 interval centred on the point estimate is a bad approximation exactly where
 this matters: low n, p near 0 or 1). `axisPoints` normalises its lower and
 upper bounds onto the same ring the point is, and `Spider` draws them as an
-inner and an outer polygon with the fill only in the band between them —
+inner and an outer polygon with the fill only in the band between them,
 never from the centre out, which would just be the old always-filled shape
 again with extra steps. At `of: 1` the band swallows most of the axis; by
 `of: 44` it draws tight around the point. There is no threshold anywhere in
-that arithmetic for a sample to cross before it is "trusted" — the
+that arithmetic for a sample to cross before it is "trusted": the
 uncertainty shrinks in continuous proportion to the evidence, which is what
 answers the "3 of 8 versus 300 of 800" question without either of us having
 to pick a cutoff. Because it is geometry rather than a caption, it survives
 someone screenshotting the shape with the legend cropped out, which a
 sentence under the chart cannot.
 
-Aggression factor gets no band. Wilson is defined for a proportion — a share
-of a fixed number of trials — and aggression factor is bets-and-raises per
+Aggression factor gets no band. Wilson is defined for a proportion (a share
+of a fixed number of trials), and aggression factor is bets-and-raises per
 call, a ratio that is not bounded at 1 and is not a share of anything fixed.
 Applying a binomial interval to it anyway would be a second, quieter unbacked
 claim stacked on top of the first one this fix removes, so that axis stays a
@@ -90,8 +90,8 @@ different fact from a seat that had no scoreable decision, and the tile says
 which one applies rather than collapsing both into "no data". The "little i"
 next to it is the sentence the owner asked for almost verbatim: accuracy is
 preflop only, and the most accurate player does not always win. `MatchReview`
-also raises that as its own banner whenever the numbers actually back it —
-two or more graded seats, and the most accurate one did not win — rather
+also raises that as its own banner whenever the numbers actually back it
+(two or more graded seats, and the most accurate one did not win), rather
 than only living in a tooltip.
 
 ## Why the charts are bespoke SVG
@@ -112,7 +112,7 @@ direct labels. `chip-spark.tsx` is the fix: one sparkline per seat, inside
 that seat's own card, drawn in a single colour every time
 (`var(--chart-1)`), so identity comes from the card it sits in rather than
 from a hue nobody can be asked to separate six ways. "You" is heavier
-(`stroke-width`), never a different colour — the same rule the spider's own
+(`stroke-width`), never a different colour, the same rule the spider's own
 `data-you` weight follows. Every card's sparkline shares one y scale
 (`maxChips`, computed once in `match-review.tsx`), not an auto-fit range
 each: a seat that only ever held 200 units has to draw shorter than one that
@@ -135,7 +135,7 @@ polygons.
 `HandsSection` (the fifty-row hand list) lives in
 `client/src/table/match-summary.tsx`, out of this directory's ownership
 during the multi-agent pass that built this feature (see the sibling agent
-briefs — the table is another agent's surface). `#hands` is stable markup on
+briefs: the table is another agent's surface). `#hands` is stable markup on
 the section, the same way a g component is restyled through its own slots
 rather than edited: `review.css`'s phone breakpoint narrows the board text,
 the padding and the "won by" column from outside that file rather than
@@ -148,7 +148,7 @@ not done here.
 - **The info trigger** (`.i-btn` in `review.css`, `AccuracyTile` in
   `accuracy.tsx`): a bare button wired to g-ui's own `data-tip` tooltip
   behaviour, because g ships the tooltip layer but no inline glyph trigger
-  for it. **Promotion: yes**, as a small `g-info` component — any project
+  for it. **Promotion: yes**, as a small `g-info` component, since any project
   vendoring g will eventually want a number with a caveat next to it.
 - **The spider** (`spider.tsx`): six-axis radar with a reference band and a
   legend that never hides. **Promotion: maybe.** The honesty rules baked into

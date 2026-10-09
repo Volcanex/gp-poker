@@ -813,7 +813,7 @@ nobody notices and a hot loop nobody should write.
 `GET /api/matches/:id/review` (`match-review.ts`) is `insights.ts` turned
 sideways: instead of one player's whole history in one mode, it folds every
 seat's hands through `computeInsights` over just the hands of one finished
-match. The 409 on a match still `playing` is deliberate — a review of a match
+match. The 409 on a match still `playing` is deliberate: a review of a match
 that has not happened yet is not a review, it is a guess mid-hand.
 
 **Cached forever, not invalidated.** `insightsCache` above keys on the id of
@@ -825,12 +825,12 @@ not hold every match it has ever been asked about.
 
 **A six-max match rarely clears `MIN_INSIGHT_HANDS` for any one seat**, so
 `computeInsights`'s nulls are expected here far more than they are on a
-profile — and are printed anyway, unmodified: the gate is not lowered for
+profile, and they are printed anyway, unmodified. The gate is not lowered for
 this page. What backs the short sample instead is `computeRawRates`
 (`insights.ts`), the same fold with the floor removed and every rate
 returned as a plain count either side of a divide, never rounded to a
 percentage. The client's spider chart is drawn from those counts, not the
-gated rate, and prints every one of them in its own legend — see
+gated rate, and prints every one of them in its own legend. See
 `client/src/review/CLAUDE.md` for the reasoning and the fuller shape of the
 payload.
 

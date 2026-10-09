@@ -36,7 +36,7 @@ function pointAt(i: number, v: number): [number, number] {
 
    A point alone is not enough: a ring position from 1 of 1 hands and one
    from 44 of 50 look identical if the only thing drawn is where the rate
-   landed, which is the exact inversion the feature exists to avoid — the
+   landed, which is the exact inversion the feature exists to avoid: the
    least evidence drawing the most confident-looking shape. So the chart
    draws each axis's 95% Wilson interval (style.ts) as a band between an
    inner and an outer polygon, filled only in the space between them, with

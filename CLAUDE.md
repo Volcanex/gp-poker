@@ -25,7 +25,7 @@ vhost. Because the redirect swallows `/.well-known/acme-challenge/` and hands
 it to the app on the new domain, an HTTP-01 renewal there validates against
 the wrong host and fails. Both certs therefore renew over DNS-01
 (`authenticator = dns-cloudflare`, credentials at
-`/root/.secrets/cloudflare.ini`) — if you ever rebuild either vhost with
+`/root/.secrets/cloudflare.ini`). If you ever rebuild either vhost with
 `certbot --nginx`, it will silently switch the authenticator back and the
 cert will expire 90 days later. Both domains are DNS-only in Cloudflare
 (grey cloud), pointed straight at h.
@@ -176,13 +176,13 @@ files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
   (`server/src/bots/pacing.ts`), not a fixed pause. A **standard** table (the
   twenty second clock, the slow game) is paced like somebody is actually
   looking at the board; **fast** tables and **any table with no human at it**
-  — the ladder, or two bots the ordinary queue paired with each other because
-  no person wanted the same table — keep the quick, throughput-tuned ranges
+  (the ladder, or two bots the ordinary queue paired with each other because
+  no person wanted the same table) keep the quick, throughput-tuned ranges
   regardless of speed, because pacing a table nobody is watching for a
   spectator who is never coming would slow the rating pool for nothing. A
   free decision (a check, a call or fold that costs nothing) lands anywhere
   in its own short range; a real one on a standard or fast table is weighed
-  by how big the spot reads — the street and the price — with jitter on top
+  by how big the spot reads (the street and the price), with jitter on top
   so six bots at a table do not act in lockstep. Practice keeps a plain
   uniform roll throughout, deliberately: it is a new visitor's likely first
   look at the site, and weighing it the same way would only push its already
@@ -204,7 +204,7 @@ files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
   for testing. A scheduled-online bot joins the ordinary rated or casual
   queue through the exact dispatch path a socket message would, so it pairs
   with a human or another bot through the one pairing algorithm this site
-  has — a human is never crowded out, since bot-fill timers and the ranked
+  has: a human is never crowded out, since bot-fill timers and the ranked
   gate are untouched. `config.populationPublic`/`POPULATION_PUBLIC` (on
   whenever there is a population, off under vitest) is what puts the
   population's own matches, counts and ratings on `/api/live`, `/api/recent`,

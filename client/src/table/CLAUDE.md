@@ -979,7 +979,7 @@ frame`.
 the server would hold it back from the bots too, which decide off the same
 view, and from the clocks that are already running on it. So the table is told
 everything at once, as it always was, and the felt draws it in the order the
-eye needs — exactly the bargain "Hand end" above makes with `result`.
+eye needs, exactly the bargain "Hand end" above makes with `result`.
 
 - **Nothing waits for a street nobody bet on.** A flop checked through moves no
   chips, so the turn deals at once: a beat in which nothing moves is a beat.

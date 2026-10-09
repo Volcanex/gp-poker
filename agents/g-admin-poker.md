@@ -18,15 +18,15 @@ This is the proving ground for the whole tool.
   into this project's static dir; serve `g-admin.js`/`.css` alongside.
 - Server (TypeScript, `server/src/`): implement the contract endpoints
   under `/api/gadmin/*`, backed by the existing Postgres `tickets`
-  table — migrate it: add `scope`, `kind`, `severity`, `edits` (jsonb),
+  table. Migrate it: add `scope`, `kind`, `severity`, `edits` (jsonb),
   `replies` (jsonb), `baked_by`; keep `drawing` and the
   exclude-drawing-from-lists rule. Gate with the existing
   `requireAdmin()` (`server/src/auth.ts:147`). Add the `X-Gadmin-Token`
   path per the contract (`GADMIN_TOKEN` env var).
-- `GET /api/gadmin/tickets/{id}/brief` — markdown brief per the
+- `GET /api/gadmin/tickets/{id}/brief`: markdown brief per the
   contract.
 - `GET /api/gadmin/overrides.css` and link it after the app styles:
-  this project runs with `GADMIN_REAPPLY=1` — unbaked edits re-apply
+  this project runs with `GADMIN_REAPPLY=1`, so unbaked edits re-apply
   on reload here by design.
 - Delete the replaced client code: `client/src/admin/annotate.tsx`,
   `bar.tsx`; keep `tickets.tsx` admin pages but point them at the new
@@ -37,8 +37,8 @@ This is the proving ground for the whole tool.
 ## Constraints
 
 - No behaviour change for players: nothing about the admin layer on
-  the wire for non-admins (the current code already gets this right —
-  keep it true).
+  the wire for non-admins (the current code already gets this right,
+  so keep it true).
 - Do not restart the production service; deploy rules in root
   CLAUDE.md apply.
 - Migration must be reversible (write the down migration).

@@ -44,7 +44,7 @@ export interface AxisPoint {
   // The Wilson interval's two bounds, normalised onto the same ring `value`
   // is. Null for the same reason `value` is null (of: 0), and also null on
   // a ratio axis (aggressionFactor), which is not a proportion of hands and
-  // has no binomial interval to compute — see wilsonInterval's own doc.
+  // has no binomial interval to compute (see wilsonInterval's own doc).
   // Present and equal to `value` is not a thing that happens: even one
   // observation has a wide interval, which is the entire point.
   lower: number | null;
@@ -63,7 +63,7 @@ function fmtRaw(rate: RawRate, unit: '%' | 'x'): string {
    centred on p-hat is a bad approximation exactly where this feature needs
    one most: n under 30, p near 0 or 1). At of:1 the interval spans nearly
    the whole 0..1 axis; it narrows as of grows, with no threshold anywhere
-   in the arithmetic for a sample to cross before it is "trusted" — the
+   in the arithmetic for a sample to cross before it is "trusted": the
    shape is uncertain in continuous proportion to how little happened, not
    suddenly confident past a cutoff. Null when there is nothing to estimate
    from (of: 0), which the caller already draws as the open, no-data marker
@@ -104,7 +104,7 @@ export function axisPoints(raw: MatchRawRates): AxisPoint[] {
    describe themselves, from the two axes with the plainest read (VPIP for
    loose/tight, aggression factor for passive/aggressive) rather than an
    average of all six, which would blur a chart that is trying to separate
-   them. Requires a real chance behind both halves of the label — a seat that
+   them. Requires a real chance behind both halves of the label: a seat that
    never called can't be scored passive or aggressive, and the function says
    so instead of defaulting to "balanced", which would be a guess wearing a
    neutral word. */

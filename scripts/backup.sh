@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Daily dump of the live opentable database, run by opentable-backup.timer.
 # Writes atomically (a .partial that is only renamed once gzip verifies), so
-# the newest file in the directory is never a half written dump — /health
+# the newest file in the directory is never a half written dump: /health
 # reads that file's age and would otherwise call a truncated dump fresh.
 set -euo pipefail
 

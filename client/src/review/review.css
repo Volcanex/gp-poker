@@ -1,4 +1,4 @@
-/* client/src/review/ — the match-level review on /m/:id. Self-contained on
+/* client/src/review/: the match-level review on /m/:id. Self-contained on
    purpose: every rule that draws something in this directory's components
    lives here, never in app.css or in another route's stylesheet, even where
    a shape (a street bar, a stat tile) already exists elsewhere. See
@@ -93,7 +93,7 @@
 .spider-spoke { stroke: var(--border); stroke-width: 1; }
 /* The uncertainty band: filled only between the Wilson interval's lower and
    upper polygons (drawn as one evenodd path, see spider.tsx), never from the
-   centre out. Width is the honesty signal — wide at of:1, tight at of:44 —
+   centre out. Width is the honesty signal (wide at of:1, tight at of:44),
    so it carries on its own without the legend, which is the point of doing
    this in geometry rather than a caption. */
 .spider-ci { fill: var(--chart-1); fill-opacity: 0.16; stroke: none; }
@@ -171,7 +171,7 @@
    component through tokens rather than editing g-system. At 390px the board
    column and the accuracy columns (heads-up only) push scrollWidth past
    clientWidth, which the shell's own rule already contains inside
-   .table-wrap without letting the page itself scroll — this narrows the row
+   .table-wrap without letting the page itself scroll. This narrows the row
    until it mostly fits instead of just containing the overflow. */
 @media (max-width: 480px) {
   #hands .table th,

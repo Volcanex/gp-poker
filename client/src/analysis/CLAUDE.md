@@ -172,8 +172,8 @@ same reason from the other side: `.table td` in g.css carries an element
 selector, which beats `.ra-cell` alone, so the 12px g gives every cell by
 default silently ate more than half of a 3rem phone column before this was
 qualified under `.ra-strip` to actually win. Measure both ends after touching
-this table — `table.ra-strip`'s width against its `.table-wrap`'s
-`clientWidth`, and each cell's `scrollWidth` against its own `clientWidth` —
+this table (`table.ra-strip`'s width against its `.table-wrap`'s
+`clientWidth`, and each cell's `scrollWidth` against its own `clientWidth`),
 because a table that merely doesn't overflow can still be ellipsising every
 value in it.
 

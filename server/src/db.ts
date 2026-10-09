@@ -397,7 +397,7 @@ export async function updateUserCountry(id: string, country: string | null): Pro
 
 /* Renaming, for a guest or a claimed account alike: the name belongs to the
    player, not to the act of claiming. Format and uniqueness are the caller's
-   job (./auth.ts's validateName, ./routes.ts checking name_lower first) —
+   job (./auth.ts's validateName, ./routes.ts checking name_lower first):
    this is the write, and the unique index on name_lower is what actually
    guarantees it against a race the pre-check missed. */
 export async function updateUserName(id: string, name: string): Promise<UserRow | null> {

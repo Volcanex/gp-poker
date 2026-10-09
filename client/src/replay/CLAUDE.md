@@ -64,7 +64,7 @@ no number, so the seat hides it.
 `replay.tsx` passes `<Table ... bare look="v2">`. `look="v2"` is what gives the
 replay the current cards and chips (`playing-card.tsx`'s SVG faces,
 `chip-stack.tsx`'s ticking columns); `bare` keeps the hero band off regardless
-of `look`, since `band = look === 'v2' && !bare && !ended` in `table.tsx` — a
+of `look`, since `band = look === 'v2' && !bare && !ended` in `table.tsx`: a
 replay has no hero seat, so nothing about turning the band on ever applied
 here. Before this the replay drew `v1`'s default look, which is effectively
 unmaintained now that every live table draws v2 (`table/CLAUDE.md`, "The v2
@@ -76,7 +76,7 @@ decorative: `.match { container-type: inline-size }` is what the felt's own
 `@container` queries in `app.css` read, and a replay's felt sits in a
 two-column page (the felt beside a 268px action list) inside `.page.wide`'s
 980px cap, which lands its width somewhere around 600-900px on an ordinary
-window — short of the 1060px a seat needs to stand in its full wing, and past
+window, short of the 1060px a seat needs to stand in its full wing, and past
 the 560px a seat's compact form starts at. A seat's own grid has nowhere to
 put the identity block in that gap, which is what the reported "chip stack and
 figure drawn on top of each other" bug was: not an overlap bug in the seat
@@ -104,8 +104,8 @@ a terminal one with a five-card board: nothing in it is ever tagged `turn` or
 for each street first and, for one it finds no state for, builds the point
 itself from the final state's own board (`final.board.slice(0, 4)` for the
 turn, `.slice(0, 5)` for the river) and the seats `contestingSeats(final, ...)`
-still shows in the hand — real cards and real seats, nothing sampled or
-guessed, marked `runout: true` on the `StreetPoint` so the strip can say so.
+still shows in the hand (real cards and real seats, nothing sampled or
+guessed), marked `runout: true` on the `StreetPoint` so the strip can say so.
 
 This is deliberately **not** a `packages/engine` change: `states` is indexed
 by logged action everywhere outside this module too (`useAnalysis` in
@@ -122,7 +122,7 @@ a run-out street has none) and nothing scores it (`studyFor` is preflop only).
 `StreetStrip`'s header marks a run-out column in the strip's own voice
 ("Turn, dealt without a bet") rather than let it read as a street played
 normally. `StripRow` also shows a "Computing" placeholder rather than a bare
-midline when a row has resolved nothing at all yet — a real fix for a cell
+midline when a row has resolved nothing at all yet, a real fix for a cell
 that reads as broken while the worker is still answering, orthogonal to the
 run-out gap above but easy to mistake for the same bug (both show as an empty
 shape cell).

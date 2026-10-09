@@ -20,7 +20,7 @@ from a user id). No dependencies, no node imports.
   name generator. Deliberately a different shape from `generateName`: a
   first name or a poker-handle word, cased the way a person actually types
   (mostly lowercase or Capitalised, rarely SHOUTING), with a number or an
-  underscore, an initial, or nothing at all — never two dictionary words
+  underscore, an initial, or nothing at all, never two dictionary words
   glued together, which is exactly the CamelCase shape this generator exists
   not to look like. Every name it produces matches `REALISTIC_NAME_RE`
   (letters, digits, underscore, 3-20 characters), the same character set
@@ -29,7 +29,7 @@ from a user id). No dependencies, no node imports.
   `COUNTRY_POOLS` is a weighted table of first-name lists per country
   (US the largest single share, then a descending list down to a long tail of
   smaller pools) and is where the country half of a bot's identity comes
-  from — `generateRealisticIdentity` returns `{ name, country }` together
+  from: `generateRealisticIdentity` returns `{ name, country }` together
   because the name is drawn from that country's own pool. `server/src/bots/`
   layers everything else a population bot needs (timezone, persona, schedule)
   on top of this, since those need `@opentable/protocol` types this package

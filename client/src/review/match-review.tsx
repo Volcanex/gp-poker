@@ -103,7 +103,7 @@ function orderSeats(seats: MatchSeatReview[], meId: string | null): MatchSeatRev
 
 /* The point of the feature, stated the moment the numbers support it: the
    most accurate preflop player at the table and whether they actually won.
-   Silent wherever the comparison cannot be made honestly — under two graded
+   Silent wherever the comparison cannot be made honestly: under two graded
    seats, or a six-max match with no study at all. */
 function AccuracyBanner({ data }: { data: MatchReviewData }) {
   const graded = data.seats.filter((s) => s.accuracy && s.accuracy.hands > 0);

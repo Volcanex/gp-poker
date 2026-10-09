@@ -416,7 +416,7 @@ human still being in the hand. Checked *before* `settleHeadsUp`/
 `settleMultiway` on the hand that might end the match (so a hand that busts
 the human still holds for their `next` before the match is declared over), and
 *after* settling on a hand that does not (so a human busted out of a multiway
-practice table no longer holds up the bot-only hands that outlive them — there
+practice table no longer holds up the bot-only hands that outlive them: there
 is nobody left to press the button, and holding for one anyway would need the
 120s timeout to fire on every remaining hand). `humanSeat` itself is fixed at
 construction, the one seat that is not a bot; a practice table always has
