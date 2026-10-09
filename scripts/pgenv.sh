@@ -2,7 +2,7 @@
 # PG* variables so no password ever reaches a command line: argv is world
 # readable in /proc, the environment of a process is not.
 # shellcheck shell=bash
-_pgenv_repo=${PGENV_REPO:-/home/gabriel/opentable}
+_pgenv_repo=${PGENV_REPO:-/home/gabriel/gp-poker}
 
 set -a
 # shellcheck disable=SC1091

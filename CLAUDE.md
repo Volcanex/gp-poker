@@ -1,4 +1,8 @@
-# opentable
+# gp-poker
+
+Repo `Volcanex/gp-poker` (was `opentable`), checked out at `/home/gabriel/gp-poker`;
+`/home/gabriel/opentable` is a compat symlink. Unit names (`opentable`, `opentable-backup`),
+the database names and the `@opentable/*` package scope keep the old name.
 
 **Owner:** Gabriel Penman
 **What:** EveryonePoker, free ranked no-limit hold'em at

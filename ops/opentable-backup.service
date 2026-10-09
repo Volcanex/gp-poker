@@ -6,6 +6,6 @@ Wants=postgresql.service
 [Service]
 Type=oneshot
 User=root
-WorkingDirectory=/home/gabriel/opentable
-ExecStart=/home/gabriel/opentable/scripts/backup.sh
+WorkingDirectory=/home/gabriel/gp-poker
+ExecStart=/home/gabriel/gp-poker/scripts/backup.sh
 SyslogIdentifier=opentable-backup

@@ -1,5 +1,5 @@
 [project]
-name = "opentable"
+name = "gp-poker"
 version = "0.1.0"
 description = "EveryonePoker: free ranked heads-up no-limit hold'em, Lichess-style (everyonepoker.com)"
 

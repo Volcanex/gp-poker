@@ -15,7 +15,7 @@ export function SiteFooter() {
       </span>
       <Link to="/about">About</Link>
       <Link to="/leaderboard">Leaderboard</Link>
-      <a href="https://github.com/Volcanex/opentable" target="_blank" rel="noreferrer">
+      <a href="https://github.com/Volcanex/gp-poker" target="_blank" rel="noreferrer">
         Source
       </a>
     </footer>

@@ -20,7 +20,7 @@ force=${3:-}
 [ -f "$dump" ] || { echo "no such dump: $dump" >&2; exit 1; }
 [ -z "$force" ] || [ "$force" = "--force" ] || usage
 
-repo=/home/gabriel/opentable
+repo=/home/gabriel/gp-poker
 # shellcheck disable=SC1091
 . "$repo/scripts/pgenv.sh"
 

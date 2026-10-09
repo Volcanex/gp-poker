@@ -3,7 +3,7 @@
 # tree: agents build in the working tree while the site is live, so the
 # service serves a release copy under release/ that only this script writes.
 set -euo pipefail
-repo=/home/gabriel/opentable
+repo=/home/gabriel/gp-poker
 wt=/home/gabriel/opentable-release
 rev=$(git -C "$repo" rev-parse HEAD)
 if [ ! -d "$wt" ]; then git -C "$repo" worktree add "$wt" "$rev" >/dev/null; else git -C "$wt" checkout -q --detach "$rev"; fi

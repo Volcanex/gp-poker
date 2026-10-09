@@ -5,7 +5,7 @@
 # reads that file's age and would otherwise call a truncated dump fresh.
 set -euo pipefail
 
-repo=/home/gabriel/opentable
+repo=/home/gabriel/gp-poker
 dest=/home/gabriel/backups/opentable
 keep=14
 
