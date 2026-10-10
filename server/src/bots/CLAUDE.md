@@ -99,10 +99,10 @@ everyone in it, bots included. `bots/index.ts`'s `matchHasHuman(matchId)` is
 the one place that can answer for real, because `players` there is the
 actual loaded roster rather than a wire field anything can mask: it checks
 the match's `playerIds` against that roster and answers whether any of them
-is not on it. `player.ts` never imports `index.ts` to ask it — that would be
+is not on it. `player.ts` never imports `index.ts` to ask it (that would be
 a bot player module reaching back up to the thing that constructs bot
-players, the same shape of coupling `dispatch` was already injected to avoid
-— so `humanAtMatch` is injected into `BotPlayer`'s constructor exactly the
+players, the same shape of coupling `dispatch` was already injected to avoid),
+so `humanAtMatch` is injected into `BotPlayer`'s constructor exactly the
 way `dispatch` is, and `index.ts` passes `matchHasHuman` there when it builds
 each bot. A test constructing a `BotPlayer` directly and supplying nothing
 gets `() => true`, the paced-for-a-person default, not the fast one.
@@ -110,9 +110,9 @@ gets `() => true`, the paced-for-a-person default, not the fast one.
 **Inside the "real decision" half of a standard or fast table's range, the
 delay is a function of the spot** (`spotWeight`, `spotThinkMs`), not a second
 uniform roll across the same numbers regardless of what is being decided. A
-street weight (preflop lowest, river highest) and a stake weight — a call or
+street weight (preflop lowest, river highest) and a stake weight (a call or
 fold judged against what is left in the seat's own stack, a bet or raise
-judged against where its size sits between the legal minimum and an all-in —
+judged against where its size sits between the legal minimum and an all-in)
 combine into a 0-1 read of how big the spot looks, which picks a point inside
 the range; jitter of up to 30% of the range's own width sits on top of that
 point, so six bots weighing similar spots at the same table do not land on
