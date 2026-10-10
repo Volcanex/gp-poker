@@ -18,6 +18,6 @@ The server applies `server/db/schema.sql` when it starts and serves the client a
 
 ## Licence
 
-The code is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE), so you can read it, run it and change it for any noncommercial purpose. The flag artwork is from flag-icons (MIT) and the fonts are under the SIL Open Font License, and their licence files sit next to them in `client/public`.
+Copyright (C) 2026 Gabriel Penman. The code is open source under the [GNU Affero General Public License v3.0 only](LICENSE). You can read it, run it, change it and share it for any purpose. If you share a changed copy, or run one as a network service, you must offer its source under the same licence. The flag artwork is from flag-icons (MIT) and the fonts are under the SIL Open Font License, and their licence files sit next to them in `client/public`.
 
 Required Notice: Copyright Gabriel Penman (https://gabrielpenman.com)

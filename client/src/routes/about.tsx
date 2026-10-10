@@ -39,7 +39,7 @@ export function About() {
           Built by <a href="https://gabrielpenman.com" target="_blank" rel="noreferrer">Gabriel Penman</a>,
           after wanting a poker site that felt the way lichess feels for chess: free, quick to start
           and honest about how it works. The code is{' '}
-          <a href="https://github.com/Volcanex/gp-poker" target="_blank" rel="noreferrer">source-available</a>,
+          <a href="https://github.com/Volcanex/gp-poker" target="_blank" rel="noreferrer">open source</a> under the AGPL,
           and that is also the place to report a bug or ask for something.
         </p>
       </div>
