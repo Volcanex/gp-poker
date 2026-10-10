@@ -83,8 +83,8 @@ files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
   sessions, matchmaking queue, match orchestration, clocks, persistence,
   serving `client/dist`.
 - `client`: React 19 + Vite + motion + number-flow + `@phosphor-icons/react`
-  (the home page's secondary buttons and nowhere else yet). g-system vendored at
-  `client/public/g/` (never hand-edited; re-vendor from the g-system repo).
+  (the home page's secondary buttons and nowhere else yet). g-design vendored at
+  `client/public/g/` (never hand-edited; re-vendor from the g-design repo).
 
 ## Decisions
 - Modes: **six-max is the main game** (6 seats, last player standing, places
@@ -364,7 +364,7 @@ the entry point; the detail lives down the tree.
 `AGENTS.md` beside any of them is a symlink to it.
 
 ## Gotchas
-- g-system tokens: `--surface-1/-2`, `--bg`, `--text-primary/-secondary`,
+- g-design tokens: `--surface-1/-2`, `--bg`, `--text-primary/-secondary`,
   `--border`. There is no `--surface`. g-system 1.1.0 (vendored 2026-09-08)
   adds pixel line-heights `--lh-1..5`, control/row heights `--h-1..5`, the
   responsive `--gutter` and `--col-*` measures, and `.g-page`. `.page` in
@@ -375,4 +375,10 @@ the entry point; the detail lives down the tree.
   (`g-admin.js`/`.css`, vendored alongside `g.css`/`g-ui.js` in the same
   `node scripts/vendor.mjs` run) - see `server/src/CLAUDE.md`'s g-admin
   section and `client/src/admin/CLAUDE.md`.
+  g-design 1.6.0 (re-vendored 2026-10-10, after the g-system library was
+  renamed g-design) adds the scatter and breakdown charts and nothing this
+  app uses. Its g-admin bar takes the dashboard address from
+  `<meta name="g-command">` in `client/index.html` and leaves the ticket
+  and Command centre links out without it. The font licences are now one
+  `fonts/OFL.txt`, and the g mark comes along in `brand/`.
 - `phe` ranks: lower is better (1 = royal flush, 7462 = worst high card).

@@ -20,8 +20,11 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <!-- The g-admin overlay's stub (inside g-ui.js) reads this to label the
          bar and to know which project it is talking to; the base path stays
-         the contract's default (/api/gadmin), so no g-admin-base tag. -->
+         the contract's default (/api/gadmin), so no g-admin-base tag.
+         g-command is the dashboard the bar's ticket count and Command centre
+         link open; without it the bar leaves both out. -->
     <meta name="g-admin-project" content="poker" />
+    <meta name="g-command" content="https://command.gabrielpenman.com" />
     <title>EveryonePoker</title>
     <link rel="stylesheet" href="/g/g.css" />
     <!-- Six attribute writes before the first paint, so a chosen theme, a

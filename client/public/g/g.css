@@ -1,5 +1,5 @@
-/* g-system@1.2.0, vendored, do not edit. Update: node scripts/vendor.mjs from the g-system repo. */
-/* g-tokens fonts — Inter (UI), Space Grotesk (display, optional), JetBrains Mono. */
+/* g-design@1.6.0, vendored, do not edit. Update: node scripts/vendor.mjs from the g-design repo. */
+/* g-tokens fonts: Inter (UI), Space Grotesk (display, optional), JetBrains Mono. */
 
 @font-face {
   font-family: "InterVariable";
@@ -44,7 +44,7 @@
   --font-features-ui: "calt" 1, "liga" 1, "cv05" 1, "cv11" 1;
 }
 
-/* g-tokens — generated from @radix-ui/colors by scripts/build-tokens.mjs. Do not edit. */
+/* g-tokens: generated from @radix-ui/colors by scripts/build-tokens.mjs. Do not edit. */
 
 /* Dark is the default, unconditionally. data-theme="light" opts a tree out;
    data-theme="system" follows the OS preference. Any element can re-assert
@@ -188,7 +188,7 @@
   color-scheme: dark;
 }
 
-/* Aliases live on every themed element, not just :root — var() substitutes
+/* Aliases live on every themed element, not just :root, because var() substitutes
    where a property is declared, so a theme island only re-maps its aliases
    if they are re-declared on it. */
 :root, [data-theme] {
@@ -294,7 +294,7 @@
   --spring-sheet: linear(0.0000, 0.0712 4.2%, 0.2190 8.3%, 0.3819 12.5%, 0.5311 16.7%, 0.6555 20.8%, 0.7535 25.0%, 0.8275 29.2%, 0.8817 33.3%, 0.9204 37.5%, 0.9474 41.7%, 0.9658 45.8%, 0.9783 50.0%, 0.9865 54.2%, 0.9918 58.3%, 0.9951 62.5%, 0.9972 66.7%, 0.9985 70.8%, 0.9992 75.0%, 0.9997 79.2%, 0.9999 83.3%, 1.0000 87.5%, 1.0001 91.7%, 1.0001 95.8%, 1.0000 100.0%);
   --spring-sheet-dur: 825ms;
 
-  /* ---- g-system compat aliases (older g-design contract) ---- */
+  /* ---- compat aliases: token names from g-design-language, the predecessor ---- */
   --bg: var(--surface-1);
   --bg-panel: var(--surface-2);
   --bg-panel-2: var(--fill-hover);
@@ -840,7 +840,7 @@
   }
 }
 
-/* g-ui — framework-free component layer over g-tokens.
+/* g-ui: framework-free component layer over g-tokens.
    Components reference the aliasing layer only, never slate-* directly.
    Icon masks are Phosphor Regular glyphs from @phosphor-icons/core. */
 
@@ -945,7 +945,7 @@ a:hover { text-decoration-color: currentColor; }
 .btn-danger { --_fill: var(--danger-fill); --_fg: var(--danger-fg); --_edge: var(--danger-edge); }
 .btn-danger:hover:not(:disabled) { background: var(--danger-fill-hover); }
 
-/* Loading: spinner overlays, content fades — width never changes, so no reflow. */
+/* Loading: spinner overlays, content fades. Width never changes, so no reflow. */
 .btn[data-loading] { pointer-events: none; }
 .btn[data-loading] > :not(.spinner) { opacity: 0; }
 .btn[data-loading] > .spinner {
@@ -1327,7 +1327,7 @@ dialog.dlg[open]::backdrop { opacity: 1; }
 .tooltip[data-open] { opacity: 1; translate: 0 0; scale: 1; }
 .tooltip[data-instant] { transition-duration: 1ms; }
 
-/* Toast: stacked by g-ui.js — scale and a 14px offset, newest on top. */
+/* Toast: stacked by g-ui.js with scale and a 14px offset, newest on top. */
 .toaster {
   position: fixed;
   right: 16px; bottom: 16px;
@@ -1899,6 +1899,73 @@ dialog.cmdk {
 
 .g-spark { display: block; height: var(--h-2); }
 
+/* Retained scatter geometry moves together, without an entrance or fades. */
+.g-chart [data-scatter-point], .g-chart [data-scatter-line-label] {
+  transition: translate var(--spring-smooth-dur) var(--spring-smooth);
+}
+.g-chart [data-scatter-pivot] {
+  transition: translate var(--spring-smooth-dur) var(--spring-smooth), rotate var(--spring-smooth-dur) var(--spring-smooth);
+}
+.g-chart [data-scatter-frontier] {
+  transition: d var(--spring-smooth-dur) var(--spring-smooth);
+}
+.g-chart [data-scatter-point][data-hollow] text { fill: var(--text-placeholder); }
+
+/* Breakdown: a score taken apart, one row per candidate on a shared axis.
+   Gains are solid on the upper lane, costs are hatched on the lower one,
+   so the two read apart without a second colour. */
+.g-breakdown-rows { display: flex; flex-direction: column; gap: var(--sp-1); }
+[data-breakdown-row] {
+  display: flex; flex-direction: column; gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  outline: none;
+}
+[data-breakdown-row][data-focus], [data-breakdown-row]:focus-visible { background: var(--fill-hover); }
+[data-breakdown-row]:focus-visible { border-color: var(--focus-ring); }
+[data-breakdown-row][data-active] { border-color: var(--accent-edge); }
+.g-breakdown-head { display: flex; align-items: baseline; gap: var(--sp-2); font-size: var(--font-size-ui); line-height: var(--lh-2); min-height: var(--lh-2); }
+.g-breakdown-label { color: var(--text-secondary); white-space: nowrap; }
+[data-breakdown-row][data-active] .g-breakdown-label { color: var(--text-primary); font-weight: 600; }
+.g-breakdown-badge:empty { display: none; }
+.g-breakdown-total { margin-left: auto; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+[data-breakdown-row][data-hollow] .g-breakdown-total { color: var(--text-placeholder); }
+.g-breakdown-track { position: relative; height: var(--sp-5); }
+.g-breakdown-track > i { position: absolute; display: block; }
+.g-breakdown-seg {
+  top: 2px; height: 8px;
+  background: var(--seg);
+  border-radius: 1px;
+}
+.g-breakdown-seg[data-cost] {
+  top: 10px;
+  background: repeating-linear-gradient(135deg, var(--seg) 0 1.5px, transparent 1.5px 4px);
+  box-shadow: inset 0 0 0 1px var(--seg);
+}
+[data-breakdown-row][data-hollow] .g-breakdown-seg:not([data-cost]) {
+  background: repeating-linear-gradient(135deg, var(--seg) 0 1px, transparent 1px 3px);
+  box-shadow: inset 0 0 0 1px var(--seg);
+}
+.g-breakdown-zero { top: 0; bottom: 0; width: 1px; background: var(--border-subtle); }
+.g-breakdown-guide { top: -4px; bottom: -4px; width: 0; border-left: 1px dashed var(--accent-edge); }
+.g-breakdown-guide[hidden] { display: none; }
+.g-breakdown-gap { top: 21px; height: 3px; background: var(--text-placeholder); border-radius: 2px; }
+.g-breakdown-mark { top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--text-primary); border-radius: 1px; }
+[data-breakdown-row][data-active] .g-breakdown-mark { background: var(--accent-edge); }
+.g-breakdown-note { margin: 0; font-size: 12px; line-height: var(--lh-1); color: var(--text-secondary); min-height: var(--lh-1); }
+.g-breakdown-note:empty { display: none; }
+.g-chart-key[data-cost] i { border-radius: 1px; }
+.g-breakdown-seg, .g-breakdown-gap, .g-breakdown-guide, .g-breakdown-mark, .g-breakdown-zero {
+  transition: left var(--spring-smooth-dur) var(--spring-smooth), width var(--spring-smooth-dur) var(--spring-smooth);
+}
+/* Entrance is a wipe from the left edge, once per row. */
+.g-breakdown-track[data-reveal] { clip-path: inset(-6px 100% -6px 0); transition: clip-path 600ms cubic-bezier(0.2, 0.7, 0.2, 1); }
+.g-breakdown-track[data-reveal][data-on] { clip-path: inset(-6px 0 -6px 0); }
+
+/* Focus from a linked chart rings the point. */
+.g-chart [data-scatter-point][data-focus] > circle:first-child { display: inline; stroke-dasharray: 2 2; }
+
 /* Entrance: lines draw themselves, bars rise off the baseline. Once per
    element, applied by the renderer, never replayed on a re-render unless
    g.chart.replay(host) re-arms it first. */
@@ -1918,6 +1985,10 @@ dialog.cmdk {
 .g-chart [data-fade][data-on] { opacity: 1; }
 
 @media (prefers-reduced-motion: reduce) {
+  .g-chart [data-scatter-point], .g-chart [data-scatter-line-label],
+  .g-chart [data-scatter-pivot], .g-chart [data-scatter-frontier],
+  .g-breakdown-seg, .g-breakdown-gap, .g-breakdown-guide, .g-breakdown-mark, .g-breakdown-zero { transition: none; }
+  .g-breakdown-track[data-reveal] { clip-path: none; }
   .g-chart [data-draw] { stroke-dasharray: none; stroke-dashoffset: 0; }
   .g-chart [data-rise] { transform: none; }
   .g-chart [data-fade] { opacity: 1; }

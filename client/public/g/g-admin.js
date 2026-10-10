@@ -1,4 +1,4 @@
-/* g-system@1.2.0, vendored, do not edit. Update: node scripts/vendor.mjs from the g-system repo. */
+/* g-design@1.6.0, vendored, do not edit. Update: node scripts/vendor.mjs from the g-design repo. */
 /* g-admin overlay: the admin-only half of the g-admin contract
    (agents/g-admin-contract.md). Loaded by the stub in g-ui.js, only for a
    session the server verified, and never part of the public bundle.
@@ -30,7 +30,6 @@
 
   const SELF = document.currentScript?.src || location.href;
   const KEY = "g-admin";
-  const COMMAND = "https://command.gabrielpenman.com";
   const MAX_ELEMENTS = 8;
   const MAX_HTML = 10000;
   const MIN_POINT_GAP = 9; /* squared px between recorded stroke points */
@@ -51,6 +50,9 @@
 
   const meta = (name) => document.querySelector(`meta[name="${name}"]`)?.content || "";
   const base = (meta("g-admin-base") || "/api/gadmin").replace(/\/+$/, "");
+  /* The instance's g-command-web origin. Without it the ticket count is plain
+     text and the "Command centre" link is left out. */
+  const COMMAND = meta("g-command").replace(/\/+$/, "");
 
   /* ------------------------------------------------------------------ api */
 
@@ -210,12 +212,12 @@
     mirrorAccent();
   }
 
-  /* A project that rebranded g-system did it by overriding the accent slot on
+  /* A project that rebranded g-design did it by overriding the accent slot on
      its :root, and nothing else. The overlay carries the same token layer
      re-scoped to :host, where an inline custom property on the host element
      wins, so copying those five across is the whole of wearing the host's
      brand: primary buttons and the switch come out in it, greys and spacing
-     stay g-system. A page that never rebranded resolves none of them and gets
+     stay g-design. A page that never rebranded resolves none of them and gets
      stock g. Read alongside the theme rather than once at boot, because a
      rebrand is allowed to name a different accent per theme. */
   function mirrorAccent() {
@@ -277,9 +279,11 @@
   textLabel.append(textSwitch, el("span", null, "Text"));
 
   const countLink = el("a", "ga-count");
-  countLink.href = COMMAND + "/tickets";
-  countLink.target = "_blank";
-  countLink.rel = "noreferrer";
+  if (COMMAND) {
+    countLink.href = COMMAND + "/tickets";
+    countLink.target = "_blank";
+    countLink.rel = "noreferrer";
+  }
   const countLabel = el("span", null, "Tickets");
   const countBadge = el("span", "badge badge-plain num");
   countBadge.hidden = true;
@@ -288,7 +292,8 @@
   commandLink.href = COMMAND;
   commandLink.target = "_blank";
   commandLink.rel = "noreferrer";
-  bar.append(who, modes, xrayLabel, textLabel, el("span", "ga-spacer"), countLink, commandLink);
+  bar.append(who, modes, xrayLabel, textLabel, el("span", "ga-spacer"), countLink);
+  if (COMMAND) bar.append(commandLink);
 
   const hint = el("div", "ga-hint");
   hint.hidden = true;

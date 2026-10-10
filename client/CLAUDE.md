@@ -40,7 +40,7 @@ declaration for `phe` that the engine's own tsconfig provides.
 `src/app.tsx` mounts the routes, `src/app.css` is page layout plus the
 poker-specific pieces, and `src/test/` holds the unit tests for everything pure.
 
-**The chrome is g-system's `.g-shell`.** A sidebar of sections on the left, the
+**The chrome is g-design's `.g-shell`.** A sidebar of sections on the left, the
 page beside it, and under 720px the same sidebar as g's off-canvas sheet behind
 its scrim. `src/ui/shell.tsx` holds it and `src/ui/CLAUDE.md` says what is g's
 and what is ours. A table has no sidebar beside it at any width: the felt is
@@ -53,17 +53,17 @@ block that fetches carries `data-enter-ready`; nothing under `/m` enters at all.
 The contract is in `src/ui/CLAUDE.md`.
 
 ## The mark
-`public/favicon.svg` is a spade on g-system's dark ground with both colours
+`public/favicon.svg` is a spade on g-design's dark ground with both colours
 written as literals, because an icon cannot read a custom property.
 `public/favicon-32.png`, `public/apple-touch-icon.png` (full bleed, iOS applies
 its own mask) and the 1200x630 `public/og.png` link card are rendered from it in
 a browser, not drawn by hand: change the SVG and re-render rather than editing a
 PNG. The head that a crawler sees is built server side, in `server/src/meta.ts`.
 
-## Design: g-system
+## Design: g-design
 Vendored at `public/g/` (`public/g/g.css`, `public/g/g-ui.js`,
-`public/g/fonts/`). **Never hand-edit
-those**; re-run `node scripts/vendor.mjs` from the g-system repo.
+`public/g/fonts/`, `public/g/brand/`). **Never hand-edit
+those**; re-run `node scripts/vendor.mjs` from the g-design repo.
 
 Everything g ships is used as it ships: `.btn` and its variants, `.input`,
 `.switch`, `.g-slider`, `.table`, `.card`, `.badge`, `.empty`, `.skeleton`,
@@ -85,9 +85,9 @@ purpose and as tokens only; `src/ui/CLAUDE.md` says how it is kept disciplined.
 
 **Two docs-app rules are copied into `src/app.css`**: `.stat` (the stat tile) and
 `.switch-row` ship as markup and as React components, but their CSS lives in the
-g-system docs app rather than in `public/g/g.css`. Both copies are marked in
+g-design docs app rather than in `public/g/g.css`. Both copies are marked in
 `src/app.css`.
-**Delete them when g-system ships those rules.**
+**Delete them when g-design ships those rules.**
 
 How g-ui's behaviour layer and React share the DOM, and which nodes are
 co-owned, is in `src/ui/CLAUDE.md`.
