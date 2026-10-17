@@ -1111,21 +1111,41 @@ export async function getLadderMatchCounts(): Promise<Map<string, number>> {
   return new Map(rows.map((r) => [r.userId, r.n]));
 }
 
+/* How many of the newest finished matches the puzzle draw looks at. The cost of
+   a draw is bounded by this and by PUZZLE_MATCH_SAMPLE, never by the size of
+   the hands table. */
+export const PUZZLE_MATCH_WINDOW = 3000;
+/* How many eligible matches in the window a draw reads hands from. */
+export const PUZZLE_MATCH_SAMPLE = 8;
+
 /* Candidates for the "from a real hand" puzzle: completed hands from finished,
    rated-or-casual heads-up matches, with the seed and the hole cards published.
    Whether a hand actually holds a preflop decision worth grading is a walk of
    its action log rather than a column, so a shallow random window is drawn here
-   and the caller walks it. `order by random()` is a sequential scan and is the
-   right shape at this size; it is the first thing to change if the table grows
-   past what a scan can carry. */
-export async function getPuzzleHandCandidates(limit = 40): Promise<HandRow[]> {
+   and the caller walks it. The draw is bounded: the newest `window` finished
+   matches come off the matches_created index, a random few of the eligible ones
+   are kept, and only their hands are read through hands_match_id_number_key.
+   Older matches are never drawn, which keeps the cost flat as the table grows. */
+export async function getPuzzleHandCandidates(
+  limit = 40,
+  window = PUZZLE_MATCH_WINDOW,
+): Promise<HandRow[]> {
   return sql<HandRow[]>`
-    select h.* from hands h
-    join matches m on m.id = h.match_id
-    where m.status = 'finished'
-      and m.format->>'mode' = 'heads-up'
-      and coalesce((m.format->>'practice')::boolean, false) = false
-      and h.completed_at is not null
+    with recent as (
+      select id, format from matches
+      where status = 'finished'
+      order by created_at desc
+      limit ${window}
+    ), picked as (
+      select id from recent
+      where format->>'mode' = 'heads-up'
+        and coalesce((format->>'practice')::boolean, false) = false
+      order by random()
+      limit ${PUZZLE_MATCH_SAMPLE}
+    )
+    select h.* from picked p
+    join hands h on h.match_id = p.id
+    where h.completed_at is not null
       and h.seed is not null
       and h.holes is not null
     order by random()

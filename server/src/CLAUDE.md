@@ -476,7 +476,10 @@ that the shapes themselves do not say:
   charts have an answer for, with the seat to grade and the index of that action.
   The random pick and the "has a gradeable spot" filter happen in one query
   rather than the client fetching hands until one fits; the client replays the
-  log to that index itself. 404 while no such hand exists.
+  log to that index itself. 404 while no such hand exists. Candidates come from
+  a random few of the newest `PUZZLE_MATCH_WINDOW` finished matches (db.ts), so
+  the draw costs the same however large `hands` grows; older hands are never
+  drawn.
 
 ### Percentiles and the main mode
 
