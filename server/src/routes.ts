@@ -348,6 +348,9 @@ export function registerRoutes(app: FastifyInstance): void {
       winner: match.winner,
       reason: match.reason,
       handsPlayed: match.handsPlayed,
+      // A match that played hands and has none stored had them removed by
+      // hand retention (./retention.ts), which only ever takes bot-only tables.
+      handsExpired: match.status !== 'playing' && match.handsPlayed > 0 && hands.length === 0,
       finalStacks: match.finalStacks,
       places: match.places,
       ratings: match.ratings ? roundRatings(match.ratings) : null,

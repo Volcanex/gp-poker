@@ -99,6 +99,11 @@ export const config = {
      ordering guarantee that a single-match suite cannot violate is ten
      seconds of nothing. */
   explorerLagMs: Number(process.env.EXPLORER_LAG_MS ?? (inTest ? 0 : 10_000)),
+  /* Hand retention (./retention.ts): days a bot-only match keeps its hand rows
+     before the daily sweep removes them. 0, the default, is off: deleting hands
+     is a policy the owner switches on in .env, never something a deploy turns
+     on by itself. Always off under vitest, which calls the purge directly. */
+  handsRetentionDays: inTest ? 0 : Number(process.env.HANDS_RETENTION_DAYS ?? 0),
   /* Google sign-in. Both halves come from the environment and neither has a
      default, so a box without them simply does not offer the button
      (`googleConfigured()` in ./google.ts) instead of offering one that fails

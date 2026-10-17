@@ -1156,7 +1156,11 @@ export async function getSiteStats(): Promise<SiteStats> {
     select
       (select count(*) from matches
         where status = 'finished' and finished_at >= date_trunc('day', now()))::int as matches_today,
-      (select count(*) from hands where completed_at is not null)::int as hands_total,
+      -- Off the match rows, not a count of hands: every completed hand bumps
+      -- hands_played (match/handRunner.ts), so the two agree, and this one
+      -- neither scans a table of millions on every miss of the stats cache
+      -- nor drops when retention (./retention.ts) removes old bot-only hands.
+      (select coalesce(sum(hands_played), 0) from matches)::int as hands_total,
       (select count(*) from users where bot = false and guest = false)::int as players_registered,
       (select count(*) from users where bot = false and guest = true)::int as players_guest
   `;

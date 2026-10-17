@@ -13,6 +13,10 @@ rake, no ads. Chips are table units that reset every match; the scarce
 currency is Glicko-2 rating. Instant play as a guest, claim the account
 later. Every match has a permanent public URL with hand histories, a
 provably fair shuffle and preflop accuracy scoring.
+Hand histories are kept for good wherever a person sat. The hands of an
+ordinary table with nobody but bots at it may be removed after a window by
+hand retention (`server/src/retention.ts`, off unless `HANDS_RETENTION_DAYS`
+is set); the match row, result and ratings stay.
 
 ## Run
 systemd unit `opentable`, port 8130, `node release/server/index.js`. nginx

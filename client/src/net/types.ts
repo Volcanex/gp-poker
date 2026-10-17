@@ -332,6 +332,9 @@ export interface Match {
   winner: string | null;
   reason: MatchResult['reason'] | null;
   handsPlayed: number;
+  // True when a finished bot-only match's hands were removed by retention
+  // (server/src/retention.ts). Optional: older servers do not send it.
+  handsExpired?: boolean;
   finalStacks: Record<string, number> | null;
   places?: Record<string, number> | null; // finishing position per user id, 1 = winner
   ratings: MatchResult['ratings'] | null;

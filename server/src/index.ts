@@ -6,6 +6,7 @@ import { startTournaments, stopTournaments } from './tournaments/index.js';
 import { startLadder, stopLadder } from './ladder.js';
 import { startPopulation, stopPopulation } from './bots/population.js';
 import { startMatchmaking, stopMatchmaking } from './matchmaking.js';
+import { startHandsRetention, stopHandsRetention } from './retention.js';
 
 async function main() {
   const app = await buildApp();
@@ -21,6 +22,7 @@ async function main() {
   else startLadder();
   startArena();
   startTournaments();
+  startHandsRetention(sql, config.handsRetentionDays);
 
   await app.listen({ host: config.host, port: config.port });
 
@@ -30,6 +32,7 @@ async function main() {
     stopLadder();
     stopArena();
     stopTournaments();
+    stopHandsRetention();
     await app.close();
     await sql.end();
     process.exit(0);

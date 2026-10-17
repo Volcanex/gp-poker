@@ -47,6 +47,16 @@ hand when a number needs producing.
   hands. It is enough to say the bot is not being destroyed and that it never
   sends an action Slumbot rejects, and both of those are worth knowing.
 
+- `hands-retention.ts`: the one operations script here, because it shares its
+  rules with the server's sweep (`src/retention.ts`, documented in
+  `src/CLAUDE.md`). Needs `--dry-run` or `--apply`; a dry run's connection is
+  read-only at the server, so it cannot write.
+
+  ```
+  npx tsx server/scripts/hands-retention.ts --dry-run --days 14
+  npx tsx server/scripts/hands-retention.ts --apply --days 14 --max-batches 50
+  ```
+
 ## Gotchas
 `BOT_BENCH_BUDGET_MS` defaults well below the 1500ms a live table gives the
 solver tier, because a run long enough to say anything at 1500ms takes hours. A

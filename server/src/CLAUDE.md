@@ -845,6 +845,34 @@ for the best part of a second.
 It is also **the one route that overrides `app.ts`'s blanket `no-store` on
 `/api`**: it is the same public aggregate for everybody, so it is cacheable.
 
+## Hand retention
+
+`retention.ts` is the one place rows leave `hands`. The bot population writes
+45k to 60k hands a day, over 99 percent of them at tables with no person, and
+the table had reached 2.2 GB with the disk filling twice (2026-10-04,
+2026-10-10). It removes the hand rows, and only the hand rows, of a match that
+is finished or aborted, ended more than N days ago, had every `match_players`
+row on a `users.bot` account, and is not a tournament, arena or home game
+match. Matches, places, ratings and rating history are untouched, so the URL
+still resolves and `/api/matches/:id` answers `handsExpired: true` with an
+empty hand list. "Purged" is derived (finished, `hands_played > 0`, no hand
+rows), never stored.
+
+Two ways in, same predicate. The daily in-process sweep runs only when
+`HANDS_RETENTION_DAYS` is a number of days (off by default and always off
+under vitest), ten minutes after boot and then every 24 hours, in batches of
+200 matches with a pause between. By hand:
+`npx tsx server/scripts/hands-retention.ts --dry-run --days 14` reports what
+would go on a connection opened with `default_transaction_read_only`, and
+`--apply` removes it. The delete re-evaluates the bot-only test inside the
+statement, so a match a person joined after a dry run is still safe.
+
+What it costs: a bot's profile aggregates (VPIP, PFR, accuracy) cover the
+retained window rather than its whole life, and the puzzle draws from what is
+left. `/api/stats` counts hands as `sum(matches.hands_played)` so the front
+page number does not drop. A delete frees pages for Postgres to reuse; it does
+not shrink the file, which needs a VACUUM FULL or pg_repack window.
+
 ## meta.ts
 
 What a pasted link shows. The built shell (`client/index.html` as compiled into
