@@ -32,7 +32,7 @@ export async function vacateFor(userIds: string[], caller: string): Promise<Vaca
   for (const id of userIds) {
     dequeue(id);
     const room = roomForPlayer(id);
-    if (room?.active) room.vacate(id);
+    if (room?.active) await room.vacate(id);
   }
   return { ok: true };
 }

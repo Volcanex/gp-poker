@@ -460,8 +460,12 @@ export class MatchRoom {
      table: their game is not the caller's to end. True when the seat has
      been given up, whether the table ends with it (practice, heads-up) or
      plays on without it (multiway, where the seat is placed last among those
-     still in, exactly as a resign is). */
-  vacate(userId: string): boolean {
+     still in, exactly as a resign is).
+
+     Resolves only once a table that ends with the leave has written its
+     result, so the arranged game is never created beside a match row that
+     still says `playing`. */
+  async vacate(userId: string): Promise<boolean> {
     if (!this.playerIds.includes(userId) || this.otherHumans(userId)) return false;
     if (!this.hand || this.match.status !== 'playing') return true;
     if (this.resigned.has(userId)) return true;
@@ -471,7 +475,7 @@ export class MatchRoom {
     if (!placed && !this.match.format.practice && this.playerIds.length > 2) this.pinLeavingPlace(userId);
     this.resigned.add(userId);
     if (this.practice || this.playerIds.length === 2) {
-      this.finishOnLeave(userId).catch((err) => this.abandon(err));
+      await this.finishOnLeave(userId).catch((err) => this.abandon(err));
       return true;
     }
     this.satOut.add(userId);
