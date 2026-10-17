@@ -176,6 +176,114 @@ describe('google sign-in', () => {
     expect(row.passwordHash).toBeNull();
   });
 
+  /* A crawler follows /auth/google/start as a link (2026-10-17: about 1,500
+     guest rows a day from it), so a start with no session must create no user,
+     no session and no cookie. */
+  async function counts() {
+    const [u] = await sql`select count(*)::int as n from users`;
+    const [s] = await sql`select count(*)::int as n from sessions`;
+    return { users: u.n as number, sessions: s.n as number };
+  }
+
+  it('mints nothing when a visitor with no session starts the flow', async () => {
+    const before = await counts();
+    const res = await app.inject({ method: 'GET', url: '/auth/google/start?next=%2Fm%2Fabc%2Fh%2F1' });
+    expect(res.statusCode).toBe(302);
+    expect(res.cookies.find((c) => c.name === 'ot_session')).toBeUndefined();
+    expect(await counts()).toEqual(before);
+    const state = new URL(res.headers.location as string).searchParams.get('state') as string;
+    const [row] = await sql`select session_token from oauth_states where state = ${state}`;
+    expect(row.sessionToken).toBeNull();
+  });
+
+  /* The sessionless flow: the state is bound to a short-lived cookie instead
+     of a session, and the account is decided at the callback. */
+  async function startBare(next = '/') {
+    const res = await app.inject({ method: 'GET', url: `/auth/google/start?next=${encodeURIComponent(next)}` });
+    expect(res.statusCode).toBe(302);
+    const url = new URL(res.headers.location as string);
+    return {
+      res,
+      state: url.searchParams.get('state') as string,
+      nonce: url.searchParams.get('nonce') as string,
+      binding: res.cookies.find((c) => c.name === 'ot_oauth')?.value as string,
+    };
+  }
+
+  it('mints and claims a guest at the callback for a state with no session', async () => {
+    const opened = await startBare('/leaderboard');
+    expect(opened.binding).toBeTruthy();
+    const sub = `sub-bare-${Date.now()}`;
+    nextIdToken = idToken(goodClaims(sub, opened.nonce));
+    const before = await counts();
+    const res = await app.inject({
+      method: 'GET',
+      url: `/auth/google/callback?state=${opened.state}&code=auth-code`,
+      cookies: { ot_oauth: opened.binding },
+    });
+    expect(res.headers.location).toBe('/leaderboard?ot_auth=ok');
+    const cookie = sessionCookie(res) as string;
+    expect(cookie).toBeTruthy();
+    const after = await counts();
+    expect(after.users).toBe(before.users + 1);
+    expect(after.sessions).toBe(before.sessions + 1);
+    const me = await app.inject({ method: 'GET', url: '/api/me', cookies: { ot_session: cookie } });
+    createdUserIds.push(me.json().id);
+    expect(me.json().guest).toBe(false);
+    const [row] = await sql`select google_sub, password_hash, guest from users where id = ${me.json().id}`;
+    expect(row.googleSub).toBe(sub);
+    expect(row.passwordHash).toBeNull();
+    expect(row.guest).toBe(false);
+  });
+
+  it('signs a sessionless browser into an existing Google account without minting', async () => {
+    const owner = await guest();
+    const sub = `sub-bare-return-${Date.now()}`;
+    await signIn(owner.token, sub);
+    const opened = await startBare();
+    nextIdToken = idToken(goodClaims(sub, opened.nonce));
+    const before = await counts();
+    const res = await app.inject({
+      method: 'GET',
+      url: `/auth/google/callback?state=${opened.state}&code=auth-code`,
+      cookies: { ot_oauth: opened.binding },
+    });
+    expect(res.headers.location).toBe('/?ot_auth=ok');
+    const after = await counts();
+    expect(after.users).toBe(before.users);
+    expect(after.sessions).toBe(before.sessions + 1);
+    const me = await app.inject({ method: 'GET', url: '/api/me', cookies: { ot_session: sessionCookie(res) as string } });
+    expect(me.json().id).toBe(owner.id);
+  });
+
+  it('mints nothing when a sessionless flow fails before the token verifies', async () => {
+    const before = await counts();
+    // Google refuses.
+    let opened = await startBare();
+    let res = await app.inject({
+      method: 'GET',
+      url: `/auth/google/callback?state=${opened.state}&error=access_denied`,
+      cookies: { ot_oauth: opened.binding },
+    });
+    expect(res.headers.location).toBe('/?ot_auth=denied');
+    // A forged token.
+    opened = await startBare();
+    nextIdToken = idToken(goodClaims('sub-forged', opened.nonce), otherPair.privateKey);
+    res = await app.inject({
+      method: 'GET',
+      url: `/auth/google/callback?state=${opened.state}&code=auth-code`,
+      cookies: { ot_oauth: opened.binding },
+    });
+    expect(res.headers.location).toBe('/?ot_auth=google');
+    // A state carried to a browser without the binding cookie.
+    opened = await startBare();
+    nextIdToken = idToken(goodClaims('sub-nobinding', opened.nonce));
+    res = await app.inject({ method: 'GET', url: `/auth/google/callback?state=${opened.state}&code=auth-code` });
+    expect(res.headers.location).toBe('/?ot_auth=state');
+    expect(sessionCookie(res)).toBeUndefined();
+    expect(await counts()).toEqual(before);
+  });
+
   it('sends the verifier whose challenge it opened with', async () => {
     const session = await guest();
     const { state, nonce, url } = await start(session.token);

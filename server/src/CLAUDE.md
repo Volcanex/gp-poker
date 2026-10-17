@@ -56,7 +56,12 @@ somebody: `/api/me` returns `null`, the arena and tournament listings read with
 no viewer, `/api/friends` is 401, and `/api/config` says whether Google is on.
 The reason is crawlers: they run the page's JavaScript, and when `/api/me`
 minted, one of them (ShapBot, 2026-09-21) left 12.7k guest rows in a day.
-`/auth/google/start` still mints, because it is a button press. The cookie is httpOnly, `SameSite=Lax`, 90 days, and `secure` when
+`/auth/google/start` no longer mints either (2026-10-17): crawlers follow it as
+a link from every match page (`?next=/m/<id>/h/<n>`), and it was leaving about
+1,500 guest, session and oauth_states rows a day. A visitor with no session gets
+a state with a null `session_token` and a 10 minute `ot_oauth` cookie holding
+that state; the guest is minted at the callback, after the id_token verifies.
+The session cookie is httpOnly, `SameSite=Lax`, 90 days, and `secure` when
 `X-Forwarded-Proto: https` (nginx terminates TLS) or the request itself is https.
 
 Guest names come from `@opentable/identity`'s `generateName`: a two-word
@@ -71,7 +76,7 @@ The websocket path uses `resolveSessionUser` instead and does not mint; a socket
 with no session watches (`ws/CLAUDE.md`).
 
 `requireSession` is `requireUser` with the session token handed back beside the
-user. Only `google.ts` wants it, and it exists because a guest minted during a
+user. `google.ts` used to want it for a mint-at-start flow, and it exists because a guest minted during a
 request has its token on the **reply**: reading the cookie back off the request
 would find nothing, and the Google flow has to bind the state it issues to a
 token that really is this browser's.
@@ -105,7 +110,13 @@ Authorization code flow with PKCE. The things that are not obvious from it:
   (`takeOauthState`), carrying the PKCE verifier, the nonce and the session
   token it was issued to. The cookie has to match that token at the callback:
   without that binding the flow is a CSRF, since both query parameters are
-  things an attacker can put in a link.
+  things an attacker can put in a link. A state issued to a browser with no
+  session has a null `session_token` (the column is nullable, migration 0002)
+  and is bound to the `ot_oauth` cookie instead, which must equal the state.
+  At the callback, after the exchange and verification succeed, such a browser
+  is signed into the account that owns the `sub` (nothing minted) or gets a
+  fresh guest claimed with Google in the same request (generated name kept,
+  password null). Anything failing earlier mints nothing.
 - **The redirect back is a same-origin path, validated before it is stored**
   (`sameOriginPath`), so nothing here can be turned into an open redirect. What
   the page says on arrival is a `?ot_auth=` code, never a message: a message

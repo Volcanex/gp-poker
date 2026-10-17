@@ -367,6 +367,11 @@ export async function claimGuestWithGoogle(id: string, sub: string): Promise<Use
   return row ?? null;
 }
 
+// Removes a guest row nothing has used yet (the spare mint of a lost race).
+export async function deleteUnusedGuest(id: string): Promise<void> {
+  await sql`delete from users where id = ${id} and guest = true`;
+}
+
 /* Adding Google to an account that already exists: someone who claimed with a
    name and a password and now wants the button as well. `google_sub is null`
    is the guard that makes it additive - an account already linked to some
@@ -681,7 +686,7 @@ export interface OauthStateRow {
   state: string;
   codeVerifier: string;
   nonce: string;
-  sessionToken: string;
+  sessionToken: string | null;
   redirectTo: string;
   createdAt: Date;
   expiresAt: Date;
@@ -691,7 +696,7 @@ export async function insertOauthState(row: {
   state: string;
   codeVerifier: string;
   nonce: string;
-  sessionToken: string;
+  sessionToken: string | null;
   redirectTo: string;
   expiresAt: Date;
 }): Promise<void> {

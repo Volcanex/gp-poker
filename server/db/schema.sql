@@ -550,3 +550,7 @@ create table if not exists oauth_states (
   expires_at timestamptz not null
 );
 create index if not exists oauth_states_expires on oauth_states(expires_at);
+-- A start with no session binds the state to nothing here (the browser holds
+-- a short-lived cookie instead), so a crawler following the link mints no
+-- user and no session. Idempotent; see migrations/0002.
+alter table oauth_states alter column session_token drop not null;
