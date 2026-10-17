@@ -655,6 +655,73 @@ export async function getUserPreflopAccuracy(userId: string): Promise<number | n
   return row?.accuracy ?? null;
 }
 
+export interface UserHandAggregates {
+  stats: UserHandStatsAgg;
+  accuracy: number | null;
+}
+
+/* getUserHandStats and getUserPreflopAccuracy in one pass. They join
+   match_players to every hand the user ever played and read a jsonb column
+   each, so a profile paid for the same rows twice; this reads each hand once
+   and splits the two answers with filters that are the old where clauses.
+   The profile route calls this, behind a memo keyed on the id from
+   getLatestFinishedMatchId. */
+export async function getUserHandAggregates(userId: string): Promise<UserHandAggregates> {
+  const [row] = await sql<
+    {
+      totalHands: number;
+      vpipHands: number;
+      pfrHands: number;
+      faced3betHands: number;
+      foldTo3betHands: number;
+      aggrTotal: number;
+      passiveTotal: number;
+      accuracy: number | null;
+    }[]
+  >`
+    select
+      count(*) filter (where h.stats is not null)::int as total_hands,
+      count(*) filter (where h.stats is not null and (h.stats -> mp.seat::text ->> 'vpip')::boolean)::int as vpip_hands,
+      count(*) filter (where h.stats is not null and (h.stats -> mp.seat::text ->> 'pfr')::boolean)::int as pfr_hands,
+      count(*) filter (where h.stats is not null and (h.stats -> mp.seat::text ->> 'faced3bet')::boolean)::int as faced3bet_hands,
+      count(*) filter (where h.stats is not null and (h.stats -> mp.seat::text ->> 'foldTo3bet')::boolean)::int as fold_to3bet_hands,
+      coalesce(sum((h.stats -> mp.seat::text ->> 'aggr')::int) filter (where h.stats is not null), 0)::int as aggr_total,
+      coalesce(sum((h.stats -> mp.seat::text ->> 'passive')::int) filter (where h.stats is not null), 0)::int as passive_total,
+      avg((h.study -> mp.seat::text -> 'summary' ->> 'accuracy')::numeric)
+        filter (where h.study is not null and (h.study -> mp.seat::text -> 'summary' ->> 'count')::int > 0)::float8 as accuracy
+    from hands h
+    join match_players mp on mp.match_id = h.match_id
+    where mp.user_id = ${userId}
+      and h.completed_at is not null
+      and (h.stats is not null or h.study is not null)
+  `;
+  const { accuracy, ...stats } = row ?? {
+    totalHands: 0,
+    vpipHands: 0,
+    pfrHands: 0,
+    faced3betHands: 0,
+    foldTo3betHands: 0,
+    aggrTotal: 0,
+    passiveTotal: 0,
+    accuracy: null,
+  };
+  return { stats, accuracy: accuracy ?? null };
+}
+
+/* The key the profile's hand aggregates are memoised on: the user's newest
+   finished match, any mode. One indexed lookup; null for a user who has never
+   finished one. */
+export async function getLatestFinishedMatchId(userId: string): Promise<string | null> {
+  const [row] = await sql<{ id: string }[]>`
+    select m.id from matches m
+    join match_players mp on mp.match_id = m.id
+    where mp.user_id = ${userId} and m.status = 'finished'
+    order by m.finished_at desc nulls last, m.id desc
+    limit 1
+  `;
+  return row?.id ?? null;
+}
+
 // ---- sessions ----
 
 export async function insertSession(token: string, userId: string, expiresAt: Date): Promise<void> {

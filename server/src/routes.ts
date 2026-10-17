@@ -11,8 +11,9 @@ import {
   getModeStandings,
   getRatingsFor,
   getUserByNameLower,
-  getUserHandStats,
-  getUserPreflopAccuracy,
+  type UserHandAggregates,
+  getLatestFinishedMatchId,
+  getUserHandAggregates,
   getMatchesForUser,
   getInsightHandsForUser,
   getInsightMatchesForUser,
@@ -208,8 +209,7 @@ export function registerRoutes(app: FastifyInstance): void {
     const ratings = await getRatingsFor(user.id);
     const standings = await getModeStandings(user.id);
     const history = await getRatingHistoryForUser(user.id);
-    const stats = await getUserHandStats(user.id);
-    const accuracy = await getUserPreflopAccuracy(user.id);
+    const { stats, accuracy } = await userHandAggregates(user.id);
     const lastMatches = await getMatchesForUser(user.id, 20);
     // Arenas this player has finished, newest first. On the profile rather
     // than on a page of its own: an arena result is a thing you did, and the
@@ -938,6 +938,29 @@ function rememberInsights(key: string, at: string, body: Insights): void {
     if (oldest === undefined) break;
     insightsCache.delete(oldest);
   }
+}
+
+/* A profile's hand aggregates (VPIP, PFR, accuracy...) scan every hand the
+   user ever played, seconds for a busy bot. Memoised per user on the id of
+   their latest finished match, like the insights above: the cheap lookup makes
+   the key, so a repeat view costs one query and a finished match invalidates
+   it with no timer. Bounded by insertion order. */
+const HAND_AGG_CACHE_MAX = 500;
+const handAggCache = new Map<string, { at: string; value: UserHandAggregates }>();
+
+async function userHandAggregates(userId: string): Promise<UserHandAggregates> {
+  const at = (await getLatestFinishedMatchId(userId)) ?? 'none';
+  const cached = handAggCache.get(userId);
+  if (cached && cached.at === at) return cached.value;
+  const value = await getUserHandAggregates(userId);
+  handAggCache.delete(userId);
+  handAggCache.set(userId, { at, value });
+  while (handAggCache.size > HAND_AGG_CACHE_MAX) {
+    const oldest = handAggCache.keys().next().value;
+    if (oldest === undefined) break;
+    handAggCache.delete(oldest);
+  }
+  return value;
 }
 
 // One entry per finished match, never invalidated: unlike the insights cache

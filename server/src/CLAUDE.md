@@ -808,6 +808,17 @@ everything else under `/api`. `getInsightHandsForUser` is bounded
 path. Three thousand hands replay in about half a second, which is a cache miss
 nobody notices and a hot loop nobody should write.
 
+**The profile's hand aggregates are memoised too.** `GET /api/users/:name`
+used to scan every hand the user ever played twice (`getUserHandStats` and
+`getUserPreflopAccuracy`), which cost seconds for a population bot. It now calls
+`getUserHandAggregates` (`db.ts`), one pass that returns both with the same
+filters, behind `handAggCache` in `routes.ts`: per user, keyed on the id of
+their latest finished match in any mode (`getLatestFinishedMatchId`, one
+indexed lookup), bounded by insertion order (`HAND_AGG_CACHE_MAX`). A repeat
+view runs no hands query, and a human's numbers update the moment a match of
+theirs finishes. Hands of a match still in progress show up only after it
+finishes. The two older functions stay exported for tests and other callers.
+
 ## The match review
 
 `GET /api/matches/:id/review` (`match-review.ts`) is `insights.ts` turned
