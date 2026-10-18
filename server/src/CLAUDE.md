@@ -56,7 +56,7 @@ somebody: `/api/me` returns `null`, the arena and tournament listings read with
 no viewer, `/api/friends` is 401, and `/api/config` says whether Google is on.
 The reason is crawlers: they run the page's JavaScript, and when `/api/me`
 minted, one of them (ShapBot, 2026-09-21) left 12.7k guest rows in a day.
-`/auth/google/start` still mints, because it is a button press. The cookie is httpOnly, `SameSite=Lax`, 90 days, and `secure` when
+`/auth/google/start` does not mint either: it is a plain link, and Reflectionbot following it left ~1.6k guests a day in October 2026. A browser with no session is bound by a short-lived `ot_oauth` cookie and its account is made in the callback, after Google answers. The cookie is httpOnly, `SameSite=Lax`, 90 days, and `secure` when
 `X-Forwarded-Proto: https` (nginx terminates TLS) or the request itself is https.
 
 Guest names come from `@opentable/identity`'s `generateName`: a two-word

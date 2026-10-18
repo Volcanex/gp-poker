@@ -366,4 +366,45 @@ describe('google sign-in', () => {
     const me = await app.inject({ method: 'GET', url: '/api/me', cookies: { ot_session: session.token } });
     expect(me.json().googleAuth).toBe(true);
   });
+  /* The start link is on every page a crawler renders. Following it must not
+     make anybody: the account is made in the callback, after Google answers. */
+  it('mints nothing when a browser with no session opens the flow', async () => {
+    const [{ n: before }] = await sql<{ n: number }[]>`select count(*)::int as n from users`;
+    const res = await app.inject({ method: 'GET', url: '/auth/google/start?next=%2Fm%2Fx' });
+    expect(res.statusCode).toBe(302);
+    expect(res.cookies.find((c) => c.name === 'ot_session')).toBeUndefined();
+    const [{ n: after }] = await sql<{ n: number }[]>`select count(*)::int as n from users`;
+    expect(after).toBe(before);
+  });
+
+  it('makes the account in the callback for a browser that started with no session', async () => {
+    const res = await app.inject({ method: 'GET', url: '/auth/google/start?next=%2Fleaderboard' });
+    const binding = res.cookies.find((c) => c.name === 'ot_oauth')?.value as string;
+    expect(binding).toBeTruthy();
+    const url = new URL(res.headers.location as string);
+    const state = url.searchParams.get('state') as string;
+    const sub = `fresh-${Date.now()}`;
+    nextIdToken = idToken(goodClaims(sub, url.searchParams.get('nonce') as string));
+
+    // Another browser, without the binding cookie, cannot spend it.
+    const stolen = await app.inject({ method: 'GET', url: `/auth/google/callback?state=${state}&code=c` });
+    expect(stolen.headers.location).toContain('state');
+
+    const again = await app.inject({ method: 'GET', url: '/auth/google/start?next=%2Fleaderboard' });
+    const binding2 = again.cookies.find((c) => c.name === 'ot_oauth')?.value as string;
+    const url2 = new URL(again.headers.location as string);
+    nextIdToken = idToken(goodClaims(sub, url2.searchParams.get('nonce') as string));
+    const done = await app.inject({
+      method: 'GET',
+      url: `/auth/google/callback?state=${url2.searchParams.get('state')}&code=c`,
+      cookies: { ot_oauth: binding2 },
+    });
+    const token = sessionCookie(done);
+    expect(token).toBeTruthy();
+    const me = await app.inject({ method: 'GET', url: '/api/me', cookies: { ot_session: token as string } });
+    createdUserIds.push(me.json().id);
+    expect(me.json().guest).toBe(false);
+    const [row] = await sql<{ googleSub: string }[]>`select google_sub from users where id = ${me.json().id}`;
+    expect(row.googleSub).toBe(sub);
+  });
 });

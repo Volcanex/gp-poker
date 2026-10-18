@@ -91,7 +91,7 @@ export async function createSessionForUser(userId: string): Promise<{ token: str
   return { token, expiresAt };
 }
 
-function isHttps(request: FastifyRequest): boolean {
+export function isHttps(request: FastifyRequest): boolean {
   const proto = request.headers['x-forwarded-proto'];
   const first = Array.isArray(proto) ? proto[0] : proto;
   return first === 'https' || request.protocol === 'https';

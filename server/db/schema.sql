@@ -550,3 +550,9 @@ create table if not exists oauth_states (
   expires_at timestamptz not null
 );
 create index if not exists oauth_states_expires on oauth_states(expires_at);
+-- A browser with no session opens the flow without one: the guest is minted
+-- in the callback, after Google has answered, not on the start link, which
+-- every crawler follows (1.6k empty guests a day in October 2026). Such a
+-- state is bound to a short-lived browser cookie instead of a session.
+alter table oauth_states alter column session_token drop not null;
+alter table oauth_states add column if not exists browser_binding text;

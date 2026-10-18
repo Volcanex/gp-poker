@@ -681,7 +681,8 @@ export interface OauthStateRow {
   state: string;
   codeVerifier: string;
   nonce: string;
-  sessionToken: string;
+  sessionToken: string | null;
+  browserBinding: string | null;
   redirectTo: string;
   createdAt: Date;
   expiresAt: Date;
@@ -691,13 +692,14 @@ export async function insertOauthState(row: {
   state: string;
   codeVerifier: string;
   nonce: string;
-  sessionToken: string;
+  sessionToken: string | null;
+  browserBinding?: string | null;
   redirectTo: string;
   expiresAt: Date;
 }): Promise<void> {
   await sql`
-    insert into oauth_states (state, code_verifier, nonce, session_token, redirect_to, expires_at)
-    values (${row.state}, ${row.codeVerifier}, ${row.nonce}, ${row.sessionToken}, ${row.redirectTo}, ${row.expiresAt})
+    insert into oauth_states (state, code_verifier, nonce, session_token, browser_binding, redirect_to, expires_at)
+    values (${row.state}, ${row.codeVerifier}, ${row.nonce}, ${row.sessionToken}, ${row.browserBinding ?? null}, ${row.redirectTo}, ${row.expiresAt})
   `;
 }
 

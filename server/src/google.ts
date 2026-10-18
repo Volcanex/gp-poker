@@ -5,7 +5,8 @@ import { config } from './config.js';
 import {
   SESSION_COOKIE,
   createSessionForUser,
-  requireSession,
+  isHttps,
+  mintGuest,
   setSessionCookie,
 } from './auth.js';
 import {
@@ -288,6 +289,9 @@ async function exchangeCode(code: string, codeVerifier: string): Promise<string>
   return json.id_token;
 }
 
+// Binds a flow opened by a browser with no session to that browser.
+const BINDING_COOKIE = 'ot_oauth';
+
 export function registerGoogleRoutes(app: FastifyInstance): void {
   /* The button is a link to this. It is a navigation and not an /api call
      because the browser has to end up at Google's own page: an XHR cannot,
@@ -296,11 +300,26 @@ export function registerGoogleRoutes(app: FastifyInstance): void {
   app.get<{ Querystring: { next?: string } }>('/auth/google/start', async (request, reply) => {
     const next = sameOriginPath(request.query?.next);
     if (!googleConfigured()) return land(reply, next, 'off');
-    // Minting a guest here when there is none is what makes a first-ever
-    // visit through this button work: the row it creates is the row the
-    // callback claims, so a person who has never seen the site still ends up
-    // with the ordinary account everybody else has.
-    const { token } = await requireSession(request, reply);
+    /* No guest is minted here. This is a plain link on every page a crawler
+       renders, and a GET that minted gave every crawl a guest row (1.6k a
+       day in October 2026, nearly all Reflectionbot). A browser that already
+       has a session binds the state to it. One that has none is bound by a
+       short-lived cookie instead, and its account is made in the callback,
+       once Google has said who it is. */
+    const cookie = request.cookies[SESSION_COOKIE];
+    const current = cookie ? await getSessionUser(cookie) : null;
+    const sessionToken = current && cookie ? cookie : null;
+    let browserBinding: string | null = null;
+    if (!sessionToken) {
+      browserBinding = base64url(randomBytes(32));
+      reply.setCookie(BINDING_COOKIE, browserBinding, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: isHttps(request),
+        path: '/auth/google',
+        maxAge: STATE_TTL_MS / 1000,
+      });
+    }
     await deleteExpiredOauthStates();
     const state = base64url(randomBytes(32));
     const codeVerifier = base64url(randomBytes(32));
@@ -309,7 +328,8 @@ export function registerGoogleRoutes(app: FastifyInstance): void {
       state,
       codeVerifier,
       nonce,
-      sessionToken: token,
+      sessionToken,
+      browserBinding,
       redirectTo: next,
       expiresAt: new Date(settings.now() + STATE_TTL_MS),
     });
@@ -345,11 +365,15 @@ export function registerGoogleRoutes(app: FastifyInstance): void {
       // session. Without this the flow is a CSRF, since the code and the
       // state in the query are both things an attacker can put in a link.
       const cookie = request.cookies[SESSION_COOKIE];
-      if (!cookie || cookie !== row.sessionToken) return land(reply, next, 'state');
+      const binding = request.cookies[BINDING_COOKIE];
+      const bySession = !!row.sessionToken && cookie === row.sessionToken;
+      const byBinding = !row.sessionToken && !!row.browserBinding && binding === row.browserBinding;
+      if (!bySession && !byBinding) return land(reply, next, 'state');
+      if (binding) reply.clearCookie(BINDING_COOKIE, { path: '/auth/google' });
       if (row.expiresAt.getTime() <= settings.now()) return land(reply, next, 'state');
       if (q.error || !q.code) return land(reply, next, 'denied');
-      const user = await getSessionUser(cookie);
-      if (!user) return land(reply, next, 'state');
+      const sessionUser = bySession ? await getSessionUser(cookie as string) : null;
+      if (bySession && !sessionUser) return land(reply, next, 'state');
 
       let identity: GoogleIdentity;
       try {
@@ -359,12 +383,25 @@ export function registerGoogleRoutes(app: FastifyInstance): void {
         return land(reply, next, 'google');
       }
 
+      if (!sessionUser) {
+        // A browser that arrived with no session: sign it into the account
+        // this Google identity already has, or make that account now. This is
+        // the only place the flow mints, and only after Google has answered.
+        const linked = await getUserByGoogleSub(identity.sub);
+        const user = linked ?? (await claimGuestWithGoogle((await mintGuest()).id, identity.sub));
+        if (!user) return land(reply, next, 'state');
+        const session = await createSessionForUser(user.id);
+        setSessionCookie(request, reply, session.token);
+        return land(reply, next, 'ok');
+      }
+      const user = sessionUser;
+
       const outcome = await linkGoogleAccount(user, identity.sub);
       if (!outcome.ok) return land(reply, next, outcome.error);
       if (outcome.user.id !== user.id) {
         // Signing into a different account, so the guest session this browser
         // arrived with is spent rather than left valid alongside the new one.
-        await deleteSession(cookie);
+        await deleteSession(cookie as string);
         const session = await createSessionForUser(outcome.user.id);
         setSessionCookie(request, reply, session.token);
       }
