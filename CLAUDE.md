@@ -52,8 +52,11 @@ what the deploy gate and brain's L5 probe both read. A stale backup fails a
 deploy, deliberately.
 
 Backups: `ops/opentable-backup.timer` runs `scripts/backup.sh` daily at
-04:30 UTC, keeping the last 14 gzipped `pg_dump`s in
-`/home/gabriel/backups/opentable/`. `scripts/restore.sh <dump> <database>`
+04:30 UTC, keeping the last 3 gzipped `pg_dump`s in
+`/home/gabriel/backups/opentable/`. Older dumps move to
+`r2:gabriel/h-archive/home/gabriel/backups/opentable/` once R2 has the same
+md5, leaving a `.ON-R2.txt` note with the restore command (fourteen local dumps
+filled h on 2026-10-31). `scripts/restore.sh <dump> <database>`
 puts one back, and refuses the live database without `--force`. The unit
 files live in `ops/`; see `ops/CLAUDE.md` for how they are installed and
 `scripts/CLAUDE.md` for what each script is careful about.

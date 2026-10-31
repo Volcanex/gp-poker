@@ -26,7 +26,8 @@ new unit takes effect when `scripts/deploy.sh` restarts it.
   in one place and the unit never holds a copy.
 - `opentable-backup.service` / `.timer`: `scripts/backup.sh` daily at 04:30
   UTC, `Persistent=true` so a box that was off catches up. Dumps land in
-  `/home/gabriel/backups/opentable/`, last 14 kept.
+  `/home/gabriel/backups/opentable/`, last 3 kept on disk, older ones moved
+  to R2 (`r2:gabriel/h-archive/...`) with a `.ON-R2.txt` restore note.
 
 ## Why /health cares about the backup
 `scripts/backup.sh` writes to a `.partial` and only renames once `gzip -t`

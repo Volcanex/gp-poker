@@ -7,7 +7,9 @@ set -euo pipefail
 
 repo=/home/gabriel/gp-poker
 dest=/home/gabriel/backups/opentable
-keep=14
+keep=3
+archive=${OPENTABLE_ARCHIVE:-r2:gabriel/h-archive$dest}
+rclone=(rclone --config /home/gabriel/.config/rclone/rclone.conf --s3-no-check-bucket)
 
 # shellcheck disable=SC1091
 . "$repo/scripts/pgenv.sh"
@@ -22,8 +24,17 @@ gzip -t "$tmp"
 mv "$tmp" "$out"
 trap - EXIT
 
-# Newest `keep` kept, everything older dropped. Sorted by name, which is the
-# date, so a clock that jumps does not reorder the history.
-ls -1 "$dest"/opentable-*.sql.gz 2>/dev/null | sort -r | tail -n +$((keep + 1)) | xargs -r rm -f
+# Newest `keep` stay on disk; older dumps move to R2 and leave a restore note.
+# Fourteen local dumps at ~450 MB filled h on 2026-10-31 and failed that
+# day's dump. Sorted by name, which is the date, so a clock that jumps does
+# not reorder the history. A dump only leaves disk once R2 has the same md5.
+for old in $(ls -1 "$dest"/opentable-*.sql.gz 2>/dev/null | sort -r | tail -n +$((keep + 1))); do
+    name=$(basename "$old")
+    "${rclone[@]}" copyto "$old" "$archive/$name"
+    [ "$("${rclone[@]}" md5sum "$archive/$name" | cut -d' ' -f1)" = "$(md5sum "$old" | cut -d' ' -f1)" ]
+    printf 'Archived to %s on %s. Restore: %s copyto %s %s\n' "$archive/$name" "$(date -u +%F)" \
+        "${rclone[*]}" "$archive/$name" "$old" >"$old.ON-R2.txt"
+    rm -f "$old"
+done
 
 echo "wrote $out ($(du -h "$out" | cut -f1))"
